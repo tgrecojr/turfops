@@ -67,12 +67,6 @@ impl EnvironmentalReading {
         }
     }
 
-    pub fn primary_soil_temp(&self) -> Option<f64> {
-        self.soil_temp_10_f
-            .or(self.soil_temp_5_f)
-            .or(self.soil_temp_20_f)
-    }
-
     pub fn primary_soil_moisture(&self) -> Option<f64> {
         self.soil_moisture_10
             .or(self.soil_moisture_5)
@@ -118,15 +112,6 @@ impl Trend {
             Trend::Unknown => "? Unknown",
         }
     }
-
-    pub fn symbol(&self) -> &'static str {
-        match self {
-            Trend::Rising => "↑",
-            Trend::Falling => "↓",
-            Trend::Stable => "→",
-            Trend::Unknown => "?",
-        }
-    }
 }
 
 impl std::fmt::Display for Trend {
@@ -137,10 +122,6 @@ impl std::fmt::Display for Trend {
 
 pub fn celsius_to_fahrenheit(c: f64) -> f64 {
     c * 9.0 / 5.0 + 32.0
-}
-
-pub fn fahrenheit_to_celsius(f: f64) -> f64 {
-    (f - 32.0) * 5.0 / 9.0
 }
 
 #[cfg(test)]
@@ -160,31 +141,6 @@ mod tests {
     }
 
     #[test]
-    fn fahrenheit_to_celsius_known_values() {
-        // Freezing point of water
-        assert!((fahrenheit_to_celsius(32.0) - 0.0).abs() < 0.001);
-        // Boiling point of water
-        assert!((fahrenheit_to_celsius(212.0) - 100.0).abs() < 0.001);
-        // Room temperature
-        assert!((fahrenheit_to_celsius(68.0) - 20.0).abs() < 0.1);
-        // -40 is same in both scales
-        assert!((fahrenheit_to_celsius(-40.0) - (-40.0)).abs() < 0.001);
-    }
-
-    #[test]
-    fn temperature_round_trip() {
-        // Converting C -> F -> C should return original
-        for temp_c in [-40.0, 0.0, 15.0, 20.0, 37.0, 100.0] {
-            let round_trip = fahrenheit_to_celsius(celsius_to_fahrenheit(temp_c));
-            assert!(
-                (round_trip - temp_c).abs() < 0.0001,
-                "Round trip failed for {}°C",
-                temp_c
-            );
-        }
-    }
-
-    #[test]
     fn agronomic_temperatures() {
         // Pre-emergent window: 50-60°F = ~10-15.5°C
         assert!((celsius_to_fahrenheit(10.0) - 50.0).abs() < 0.1);
@@ -196,26 +152,6 @@ mod tests {
 
         // Heat stress threshold: 85°F = ~29.4°C
         assert!((celsius_to_fahrenheit(29.4) - 84.9).abs() < 0.2);
-    }
-
-    #[test]
-    fn environmental_reading_primary_soil_temp() {
-        let mut reading = EnvironmentalReading::new(DataSource::SoilData);
-
-        // No temps set - should return None
-        assert!(reading.primary_soil_temp().is_none());
-
-        // Only 20cm set
-        reading.soil_temp_20_f = Some(55.0);
-        assert_eq!(reading.primary_soil_temp(), Some(55.0));
-
-        // 5cm takes precedence over 20cm
-        reading.soil_temp_5_f = Some(50.0);
-        assert_eq!(reading.primary_soil_temp(), Some(50.0));
-
-        // 10cm takes precedence over 5cm
-        reading.soil_temp_10_f = Some(52.0);
-        assert_eq!(reading.primary_soil_temp(), Some(52.0));
     }
 
     #[test]

@@ -1,8 +1,8 @@
 use crate::db::Database;
 use crate::error::{Result, TurfOpsError};
 use crate::models::{
-    Application, ApplicationType, DataSource, EnvironmentalReading, GrassType, IrrigationType,
-    LawnProfile, SoilType, WeatherSnapshot,
+    Application, ApplicationType, EnvironmentalReading, GrassType, IrrigationType, LawnProfile,
+    SoilType, WeatherSnapshot,
 };
 use chrono::{DateTime, NaiveDate, Utc};
 use rusqlite::{params, Row};
@@ -31,33 +31,6 @@ impl Database {
                 ],
             )?;
             Ok(conn.last_insert_rowid())
-        })
-    }
-
-    pub fn get_lawn_profile(&self, id: i64) -> Result<LawnProfile> {
-        self.with_conn(|conn| {
-            conn.query_row(
-                "SELECT * FROM lawn_profiles WHERE id = ?1",
-                [id],
-                row_to_lawn_profile,
-            )
-            .map_err(|e| match e {
-                rusqlite::Error::QueryReturnedNoRows => {
-                    TurfOpsError::NotFound(format!("Lawn profile {} not found", id))
-                }
-                _ => e.into(),
-            })
-        })
-    }
-
-    pub fn get_all_lawn_profiles(&self) -> Result<Vec<LawnProfile>> {
-        self.with_conn(|conn| {
-            let mut stmt = conn.prepare("SELECT * FROM lawn_profiles ORDER BY name")?;
-            let profiles = stmt
-                .query_map([], row_to_lawn_profile)?
-                .filter_map(|r| r.ok())
-                .collect();
-            Ok(profiles)
         })
     }
 
@@ -97,13 +70,6 @@ impl Database {
                     id,
                 ],
             )?;
-            Ok(())
-        })
-    }
-
-    pub fn delete_lawn_profile(&self, id: i64) -> Result<()> {
-        self.with_conn(|conn| {
-            conn.execute("DELETE FROM lawn_profiles WHERE id = ?1", [id])?;
             Ok(())
         })
     }
@@ -156,52 +122,6 @@ fn row_to_lawn_profile(row: &Row) -> rusqlite::Result<LawnProfile> {
 // Application Queries
 
 impl Database {
-    pub fn create_application(&self, app: &Application) -> Result<i64> {
-        self.with_conn(|conn| {
-            let weather = app.weather_snapshot.as_ref();
-            conn.execute(
-                r#"
-                INSERT INTO applications
-                    (lawn_profile_id, application_type, product_name, application_date,
-                     rate_per_1000sqft, coverage_sqft, notes,
-                     soil_temp_10cm_f, ambient_temp_f, humidity_percent, soil_moisture, created_at)
-                VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
-                "#,
-                params![
-                    app.lawn_profile_id,
-                    format!("{:?}", app.application_type),
-                    app.product_name,
-                    app.application_date.to_string(),
-                    app.rate_per_1000sqft,
-                    app.coverage_sqft,
-                    app.notes,
-                    weather.and_then(|w| w.soil_temp_10cm_f),
-                    weather.and_then(|w| w.ambient_temp_f),
-                    weather.and_then(|w| w.humidity_percent),
-                    weather.and_then(|w| w.soil_moisture),
-                    app.created_at.to_rfc3339(),
-                ],
-            )?;
-            Ok(conn.last_insert_rowid())
-        })
-    }
-
-    pub fn get_application(&self, id: i64) -> Result<Application> {
-        self.with_conn(|conn| {
-            conn.query_row(
-                "SELECT * FROM applications WHERE id = ?1",
-                [id],
-                row_to_application,
-            )
-            .map_err(|e| match e {
-                rusqlite::Error::QueryReturnedNoRows => {
-                    TurfOpsError::NotFound(format!("Application {} not found", id))
-                }
-                _ => e.into(),
-            })
-        })
-    }
-
     pub fn get_applications_for_profile(&self, profile_id: i64) -> Result<Vec<Application>> {
         self.with_conn(|conn| {
             let mut stmt = conn.prepare(
@@ -212,112 +132,6 @@ impl Database {
                 .filter_map(|r| r.ok())
                 .collect();
             Ok(apps)
-        })
-    }
-
-    pub fn get_applications_by_type(
-        &self,
-        profile_id: i64,
-        app_type: ApplicationType,
-    ) -> Result<Vec<Application>> {
-        self.with_conn(|conn| {
-            let mut stmt = conn.prepare(
-                r#"
-                SELECT * FROM applications
-                WHERE lawn_profile_id = ?1 AND application_type = ?2
-                ORDER BY application_date DESC
-                "#,
-            )?;
-            let apps = stmt
-                .query_map(
-                    params![profile_id, format!("{:?}", app_type)],
-                    row_to_application,
-                )?
-                .filter_map(|r| r.ok())
-                .collect();
-            Ok(apps)
-        })
-    }
-
-    pub fn get_applications_in_range(
-        &self,
-        profile_id: i64,
-        start: NaiveDate,
-        end: NaiveDate,
-    ) -> Result<Vec<Application>> {
-        self.with_conn(|conn| {
-            let mut stmt = conn.prepare(
-                r#"
-                SELECT * FROM applications
-                WHERE lawn_profile_id = ?1
-                    AND application_date >= ?2
-                    AND application_date <= ?3
-                ORDER BY application_date DESC
-                "#,
-            )?;
-            let apps = stmt
-                .query_map(
-                    params![profile_id, start.to_string(), end.to_string()],
-                    row_to_application,
-                )?
-                .filter_map(|r| r.ok())
-                .collect();
-            Ok(apps)
-        })
-    }
-
-    pub fn get_recent_applications(
-        &self,
-        profile_id: i64,
-        limit: usize,
-    ) -> Result<Vec<Application>> {
-        self.with_conn(|conn| {
-            let mut stmt = conn.prepare(
-                r#"
-                SELECT * FROM applications
-                WHERE lawn_profile_id = ?1
-                ORDER BY application_date DESC
-                LIMIT ?2
-                "#,
-            )?;
-            let apps = stmt
-                .query_map(params![profile_id, limit as i64], row_to_application)?
-                .filter_map(|r| r.ok())
-                .collect();
-            Ok(apps)
-        })
-    }
-
-    pub fn update_application(&self, app: &Application) -> Result<()> {
-        let id = app
-            .id
-            .ok_or_else(|| TurfOpsError::InvalidData("Application has no ID".into()))?;
-
-        self.with_conn(|conn| {
-            let weather = app.weather_snapshot.as_ref();
-            conn.execute(
-                r#"
-                UPDATE applications SET
-                    application_type = ?1, product_name = ?2, application_date = ?3,
-                    rate_per_1000sqft = ?4, coverage_sqft = ?5, notes = ?6,
-                    soil_temp_10cm_f = ?7, ambient_temp_f = ?8, humidity_percent = ?9, soil_moisture = ?10
-                WHERE id = ?11
-                "#,
-                params![
-                    format!("{:?}", app.application_type),
-                    app.product_name,
-                    app.application_date.to_string(),
-                    app.rate_per_1000sqft,
-                    app.coverage_sqft,
-                    app.notes,
-                    weather.and_then(|w| w.soil_temp_10cm_f),
-                    weather.and_then(|w| w.ambient_temp_f),
-                    weather.and_then(|w| w.humidity_percent),
-                    weather.and_then(|w| w.soil_moisture),
-                    id,
-                ],
-            )?;
-            Ok(())
         })
     }
 
@@ -412,114 +226,6 @@ impl Database {
                     Utc::now().to_rfc3339(),
                 ],
             )?;
-            Ok(())
-        })
-    }
-
-    pub fn get_cached_readings(&self, hours: u32) -> Result<Vec<EnvironmentalReading>> {
-        self.with_conn(|conn| {
-            let mut stmt = conn.prepare(
-                r#"
-                SELECT * FROM environmental_cache
-                WHERE datetime(timestamp) >= datetime('now', ?1)
-                ORDER BY timestamp DESC
-                "#,
-            )?;
-            let offset = format!("-{} hours", hours);
-            let readings = stmt
-                .query_map([offset], row_to_environmental)?
-                .filter_map(|r| r.ok())
-                .collect();
-            Ok(readings)
-        })
-    }
-
-    pub fn get_latest_cached_reading(&self) -> Result<Option<EnvironmentalReading>> {
-        self.with_conn(|conn| {
-            conn.query_row(
-                "SELECT * FROM environmental_cache ORDER BY timestamp DESC LIMIT 1",
-                [],
-                row_to_environmental,
-            )
-            .optional()
-            .map_err(Into::into)
-        })
-    }
-
-    pub fn clear_old_cache(&self, hours: u32) -> Result<usize> {
-        self.with_conn(|conn| {
-            let offset = format!("-{} hours", hours);
-            let deleted = conn.execute(
-                "DELETE FROM environmental_cache WHERE datetime(timestamp) < datetime('now', ?1)",
-                [offset],
-            )?;
-            Ok(deleted)
-        })
-    }
-}
-
-fn row_to_environmental(row: &Row) -> rusqlite::Result<EnvironmentalReading> {
-    let timestamp_str: String = row.get("timestamp")?;
-    let source_str: String = row.get("source")?;
-
-    let source = match source_str.as_str() {
-        "SoilData" => DataSource::SoilData,
-        "HomeAssistant" => DataSource::HomeAssistant,
-        "Manual" => DataSource::Manual,
-        "Cached" => DataSource::Cached,
-        unknown => {
-            warn!(source = %unknown, "Unknown data source in cache, treating as Cached");
-            DataSource::Cached
-        }
-    };
-
-    Ok(EnvironmentalReading {
-        timestamp: DateTime::parse_from_rfc3339(&timestamp_str)
-            .map(|dt| dt.with_timezone(&Utc))
-            .unwrap_or_else(|_| Utc::now()),
-        source,
-        soil_temp_5_f: row.get("soil_temp_5_f")?,
-        soil_temp_10_f: row.get("soil_temp_10_f")?,
-        soil_temp_20_f: row.get("soil_temp_20_f")?,
-        soil_temp_50_f: row.get("soil_temp_50_f")?,
-        soil_temp_100_f: row.get("soil_temp_100_f")?,
-        soil_moisture_5: row.get("soil_moisture_5")?,
-        soil_moisture_10: row.get("soil_moisture_10")?,
-        soil_moisture_20: row.get("soil_moisture_20")?,
-        soil_moisture_50: row.get("soil_moisture_50")?,
-        soil_moisture_100: row.get("soil_moisture_100")?,
-        ambient_temp_f: row.get("ambient_temp_f")?,
-        humidity_percent: row.get("humidity_percent")?,
-        precipitation_mm: row.get("precipitation_mm")?,
-    })
-}
-
-// Settings Queries
-
-impl Database {
-    pub fn get_setting(&self, key: &str) -> Result<Option<String>> {
-        self.with_conn(|conn| {
-            conn.query_row("SELECT value FROM settings WHERE key = ?1", [key], |row| {
-                row.get(0)
-            })
-            .optional()
-            .map_err(Into::into)
-        })
-    }
-
-    pub fn set_setting(&self, key: &str, value: &str) -> Result<()> {
-        self.with_conn(|conn| {
-            conn.execute(
-                "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
-                [key, value],
-            )?;
-            Ok(())
-        })
-    }
-
-    pub fn delete_setting(&self, key: &str) -> Result<()> {
-        self.with_conn(|conn| {
-            conn.execute("DELETE FROM settings WHERE key = ?1", [key])?;
             Ok(())
         })
     }

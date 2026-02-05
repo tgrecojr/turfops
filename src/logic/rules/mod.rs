@@ -18,12 +18,6 @@ use crate::models::{Application, EnvironmentalSummary, LawnProfile, Recommendati
 
 /// Trait for agronomic rules
 pub trait Rule: Send + Sync {
-    /// Unique identifier for this rule
-    fn id(&self) -> &'static str;
-
-    /// Human-readable name
-    fn name(&self) -> &'static str;
-
     /// Evaluate the rule and return a recommendation if conditions are met
     fn evaluate(
         &self,

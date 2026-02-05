@@ -56,24 +56,6 @@ impl ApplicationType {
         }
     }
 
-    pub fn all() -> &'static [ApplicationType] {
-        &[
-            ApplicationType::PreEmergent,
-            ApplicationType::PostEmergent,
-            ApplicationType::Fertilizer,
-            ApplicationType::Fungicide,
-            ApplicationType::Insecticide,
-            ApplicationType::GrubControl,
-            ApplicationType::Overseed,
-            ApplicationType::Aeration,
-            ApplicationType::Dethatching,
-            ApplicationType::Lime,
-            ApplicationType::Sulfur,
-            ApplicationType::Wetting,
-            ApplicationType::Other,
-        ]
-    }
-
     pub fn color(&self) -> ratatui::style::Color {
         use ratatui::style::Color;
         match self {
@@ -122,48 +104,6 @@ pub struct Application {
     pub created_at: chrono::DateTime<Utc>,
 }
 
-impl Application {
-    pub fn new(lawn_profile_id: i64, application_type: ApplicationType, date: NaiveDate) -> Self {
-        Self {
-            id: None,
-            lawn_profile_id,
-            application_type,
-            product_name: None,
-            application_date: date,
-            rate_per_1000sqft: None,
-            coverage_sqft: None,
-            notes: None,
-            weather_snapshot: None,
-            created_at: Utc::now(),
-        }
-    }
-
-    pub fn with_product(mut self, name: &str) -> Self {
-        self.product_name = Some(name.to_string());
-        self
-    }
-
-    pub fn with_rate(mut self, rate: f64) -> Self {
-        self.rate_per_1000sqft = Some(rate);
-        self
-    }
-
-    pub fn with_coverage(mut self, sqft: f64) -> Self {
-        self.coverage_sqft = Some(sqft);
-        self
-    }
-
-    pub fn with_notes(mut self, notes: &str) -> Self {
-        self.notes = Some(notes.to_string());
-        self
-    }
-
-    pub fn with_weather(mut self, snapshot: WeatherSnapshot) -> Self {
-        self.weather_snapshot = Some(snapshot);
-        self
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -201,39 +141,5 @@ mod tests {
         assert_eq!(ApplicationType::from_str("unknown"), None);
         assert_eq!(ApplicationType::from_str(""), None);
         assert_eq!(ApplicationType::from_str("spray"), None);
-    }
-
-    #[test]
-    fn application_type_round_trip() {
-        // Test that Debug format round-trips through from_str
-        for app_type in ApplicationType::all() {
-            let debug_str = format!("{:?}", app_type);
-            assert_eq!(
-                ApplicationType::from_str(&debug_str),
-                Some(*app_type),
-                "Round-trip failed for {:?}",
-                app_type
-            );
-        }
-    }
-
-    #[test]
-    fn application_builder_pattern() {
-        let app = Application::new(
-            1,
-            ApplicationType::Fertilizer,
-            NaiveDate::from_ymd_opt(2024, 4, 15).unwrap(),
-        )
-        .with_product("Milorganite")
-        .with_rate(32.0)
-        .with_coverage(5000.0)
-        .with_notes("Spring application");
-
-        assert_eq!(app.lawn_profile_id, 1);
-        assert_eq!(app.application_type, ApplicationType::Fertilizer);
-        assert_eq!(app.product_name, Some("Milorganite".to_string()));
-        assert_eq!(app.rate_per_1000sqft, Some(32.0));
-        assert_eq!(app.coverage_sqft, Some(5000.0));
-        assert_eq!(app.notes, Some("Spring application".to_string()));
     }
 }

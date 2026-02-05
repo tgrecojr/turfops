@@ -15,14 +15,6 @@ use chrono::{Datelike, Local, NaiveDate};
 pub struct GrubControlRule;
 
 impl Rule for GrubControlRule {
-    fn id(&self) -> &'static str {
-        "grub_control"
-    }
-
-    fn name(&self) -> &'static str {
-        "Grub Control Timing"
-    }
-
     fn evaluate(
         &self,
         env: &EnvironmentalSummary,
@@ -57,7 +49,7 @@ impl Rule for GrubControlRule {
         let soil_temp_avg = env.soil_temp_7day_avg_f?;
         let current_soil_temp = env.current.as_ref()?.soil_temp_10_f?;
 
-        if soil_temp_avg >= 60.0 && soil_temp_avg <= 75.0 {
+        if (60.0..=75.0).contains(&soil_temp_avg) {
             // Calculate days remaining in window
             let days_remaining = (window_end - today).num_days();
 

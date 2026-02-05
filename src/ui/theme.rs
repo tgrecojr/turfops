@@ -4,7 +4,6 @@ pub struct Theme;
 
 impl Theme {
     // Base colors
-    pub const BG: Color = Color::Reset;
     pub const FG: Color = Color::White;
     pub const DIM: Color = Color::DarkGray;
     pub const ACCENT: Color = Color::Green;
@@ -14,7 +13,6 @@ impl Theme {
     pub const SUCCESS: Color = Color::Green;
     pub const WARNING: Color = Color::Yellow;
     pub const ERROR: Color = Color::Red;
-    pub const INFO: Color = Color::LightBlue;
 
     // Environmental colors
     pub const TEMP_COLD: Color = Color::LightBlue;
@@ -63,14 +61,6 @@ impl Theme {
 
     pub fn warning() -> Style {
         Style::default().fg(Self::WARNING)
-    }
-
-    pub fn error() -> Style {
-        Style::default().fg(Self::ERROR)
-    }
-
-    pub fn info() -> Style {
-        Style::default().fg(Self::INFO)
     }
 
     pub fn temp_color(temp_f: f64) -> Color {

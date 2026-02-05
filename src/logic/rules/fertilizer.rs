@@ -15,14 +15,6 @@ use crate::models::{
 pub struct FertilizerRule;
 
 impl Rule for FertilizerRule {
-    fn id(&self) -> &'static str {
-        "fertilizer_block"
-    }
-
-    fn name(&self) -> &'static str {
-        "Fertilizer Stress Avoidance"
-    }
-
     fn evaluate(
         &self,
         env: &EnvironmentalSummary,
@@ -76,7 +68,7 @@ impl Rule for FertilizerRule {
             return None;
         }
 
-        let severity = if ambient_temp > 90.0 || soil_moisture.map_or(false, |m| m < 0.05) {
+        let severity = if ambient_temp > 90.0 || soil_moisture.is_some_and(|m| m < 0.05) {
             Severity::Critical
         } else {
             Severity::Warning

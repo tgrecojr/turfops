@@ -47,23 +47,6 @@ impl RulesEngine {
             .filter_map(|rule| rule.evaluate(env, profile, history))
             .collect()
     }
-
-    pub fn evaluate_rule(
-        &self,
-        rule_id: &str,
-        env: &EnvironmentalSummary,
-        profile: &LawnProfile,
-        history: &[Application],
-    ) -> Option<Recommendation> {
-        self.rules
-            .iter()
-            .find(|r| r.id() == rule_id)
-            .and_then(|rule| rule.evaluate(env, profile, history))
-    }
-
-    pub fn list_rules(&self) -> Vec<(&'static str, &'static str)> {
-        self.rules.iter().map(|r| (r.id(), r.name())).collect()
-    }
 }
 
 impl Default for RulesEngine {

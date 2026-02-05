@@ -38,24 +38,6 @@ impl<'a> CalendarScreen<'a> {
         self
     }
 
-    pub fn prev_month(&mut self) {
-        if self.month == 1 {
-            self.month = 12;
-            self.year -= 1;
-        } else {
-            self.month -= 1;
-        }
-    }
-
-    pub fn next_month(&mut self) {
-        if self.month == 12 {
-            self.month = 1;
-            self.year += 1;
-        } else {
-            self.month += 1;
-        }
-    }
-
     fn apps_for_selected(&self) -> Vec<&Application> {
         match self.selected_date {
             Some(date) => self

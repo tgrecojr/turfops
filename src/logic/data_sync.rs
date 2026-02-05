@@ -151,30 +151,6 @@ impl DataSyncService {
         Ok(summary)
     }
 
-    /// Refresh only the weather forecast
-    pub async fn refresh_forecast(&self) -> Result<Option<WeatherForecast>> {
-        if let Some(ref client) = self.openweathermap_client {
-            let forecast = client.fetch_forecast().await?;
-            let mut current_forecast = self.current_forecast.write().await;
-            *current_forecast = Some(forecast.clone());
-            Ok(Some(forecast))
-        } else {
-            Ok(None)
-        }
-    }
-
-    pub async fn get_current_forecast(&self) -> Option<WeatherForecast> {
-        self.current_forecast.read().await.clone()
-    }
-
-    pub async fn get_current_summary(&self) -> EnvironmentalSummary {
-        self.current_summary.read().await.clone()
-    }
-
-    pub fn get_cached_readings(&self, hours: u32) -> Result<Vec<EnvironmentalReading>> {
-        self.db.get_cached_readings(hours)
-    }
-
     pub async fn check_connections(&self) -> ConnectionStatus {
         let mut status = ConnectionStatus::default();
 
@@ -202,19 +178,4 @@ pub struct ConnectionStatus {
     pub soildata: bool,
     pub homeassistant: bool,
     pub openweathermap: bool,
-}
-
-impl ConnectionStatus {
-    pub fn all_connected(&self) -> bool {
-        self.soildata && self.homeassistant && self.openweathermap
-    }
-
-    pub fn any_connected(&self) -> bool {
-        self.soildata || self.homeassistant || self.openweathermap
-    }
-
-    pub fn core_connected(&self) -> bool {
-        // Core data sources (soil and ambient) are connected
-        self.soildata && self.homeassistant
-    }
 }

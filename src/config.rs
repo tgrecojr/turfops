@@ -9,8 +9,6 @@ pub struct Config {
     pub soildata: SoilDataConfig,
     pub homeassistant: HomeAssistantConfig,
     pub openweathermap: Option<OpenWeatherMapConfig>,
-    pub refresh: RefreshConfig,
-    pub display: DisplayConfig,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -26,7 +24,6 @@ pub struct LawnConfig {
 #[derive(Debug, Clone, Deserialize)]
 pub struct NoaaConfig {
     pub station_wbanno: i32,
-    pub station_name: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -114,18 +111,6 @@ impl std::fmt::Debug for OpenWeatherMapConfig {
             .field("enabled", &self.enabled)
             .finish()
     }
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct RefreshConfig {
-    pub environmental_interval_minutes: u32,
-    pub cache_duration_hours: u32,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct DisplayConfig {
-    pub temperature_unit: String,
-    pub date_format: String,
 }
 
 impl Config {
@@ -220,7 +205,6 @@ impl Default for Config {
             },
             noaa: NoaaConfig {
                 station_wbanno: 3761,
-                station_name: "PA Avondale".into(),
             },
             soildata: SoilDataConfig {
                 host: "localhost".into(),
@@ -237,14 +221,6 @@ impl Default for Config {
                 temperature_unit: TemperatureUnit::Fahrenheit,
             },
             openweathermap: None,
-            refresh: RefreshConfig {
-                environmental_interval_minutes: 15,
-                cache_duration_hours: 24,
-            },
-            display: DisplayConfig {
-                temperature_unit: "fahrenheit".into(),
-                date_format: "%Y-%m-%d".into(),
-            },
         }
     }
 }

@@ -18,14 +18,6 @@ use crate::models::{
 pub struct HeatStressRule;
 
 impl Rule for HeatStressRule {
-    fn id(&self) -> &'static str {
-        "heat_stress_forecast"
-    }
-
-    fn name(&self) -> &'static str {
-        "Heat Stress Warning"
-    }
-
     fn evaluate(
         &self,
         env: &EnvironmentalSummary,

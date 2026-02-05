@@ -17,14 +17,6 @@ use crate::models::{
 pub struct IrrigationForecastRule;
 
 impl Rule for IrrigationForecastRule {
-    fn id(&self) -> &'static str {
-        "irrigation_forecast"
-    }
-
-    fn name(&self) -> &'static str {
-        "Irrigation Forecast"
-    }
-
     fn evaluate(
         &self,
         env: &EnvironmentalSummary,

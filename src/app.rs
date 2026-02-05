@@ -3,8 +3,7 @@ use crate::db::Database;
 use crate::error::Result;
 use crate::logic::RulesEngine;
 use crate::models::{
-    Application, ApplicationType, EnvironmentalReading, EnvironmentalSummary, LawnProfile,
-    Recommendation,
+    Application, ApplicationType, EnvironmentalSummary, LawnProfile, Recommendation,
 };
 use crate::ui::screens::SettingsField;
 use chrono::{Datelike, Local, NaiveDate};
@@ -30,16 +29,6 @@ impl Screen {
             's' | 'S' => Some(Screen::Settings),
             _ => None,
         }
-    }
-}
-
-pub struct DashboardState {
-    // Dashboard is mostly read-only
-}
-
-impl DashboardState {
-    pub fn new() -> Self {
-        Self {}
     }
 }
 
@@ -191,11 +180,9 @@ pub struct App {
     pub lawn_profile: Option<LawnProfile>,
     pub applications: Vec<Application>,
     pub env_summary: EnvironmentalSummary,
-    pub env_history: Vec<EnvironmentalReading>,
     pub recommendations: Vec<Recommendation>,
 
     // Screen states
-    pub dashboard_state: DashboardState,
     pub calendar_state: CalendarState,
     pub applications_state: ApplicationsState,
     pub recommendations_state: RecommendationsState,
@@ -221,9 +208,6 @@ impl App {
             None => Vec::new(),
         };
 
-        // Load cached environmental data
-        let env_history = db.get_cached_readings(168)?; // 7 days
-
         Ok(Self {
             screen: Screen::Dashboard,
             should_quit: false,
@@ -232,9 +216,7 @@ impl App {
             lawn_profile,
             applications,
             env_summary: EnvironmentalSummary::default(),
-            env_history,
             recommendations: Vec::new(),
-            dashboard_state: DashboardState::new(),
             calendar_state: CalendarState::new(),
             applications_state: ApplicationsState::new(),
             recommendations_state: RecommendationsState::new(),
@@ -256,10 +238,6 @@ impl App {
 
     pub fn set_status(&mut self, message: &str) {
         self.status_message = Some(message.to_string());
-    }
-
-    pub fn clear_status(&mut self) {
-        self.status_message = None;
     }
 
     pub fn request_refresh(&mut self) {
@@ -285,13 +263,6 @@ impl App {
             self.applications = self.db.get_applications_for_profile(profile.id.unwrap())?;
         }
         Ok(())
-    }
-
-    pub fn add_application(&mut self, app: Application) -> Result<i64> {
-        let id = self.db.create_application(&app)?;
-        self.reload_applications()?;
-        self.evaluate_rules();
-        Ok(id)
     }
 
     pub fn delete_application(&mut self, id: i64) -> Result<()> {
