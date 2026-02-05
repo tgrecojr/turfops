@@ -1,0 +1,41 @@
+# TurfOps Configuration
+
+# Default lawn profile (created on first run if not exists)
+lawn:
+  name: "Main Lawn"
+  grass_type: "TallFescue"
+  usda_zone: "7a"
+  soil_type: "Loam"
+  lawn_size_sqft: 5000.0
+  irrigation_type: "InGround"
+
+# NOAA station for soil data
+noaa:
+  station_wbanno: 3761  # PA Avondale
+  station_name: "PA Avondale"
+
+# SoilData PostgreSQL connection
+soildata:
+  host: "${SOILDATA_DB_HOST}"
+  port: "${SOILDATA_DB_PORT}"
+  database: "${SOILDATA_DB_NAME}"
+  user: "${SOILDATA_DB_USER}"
+  password: "${SOILDATA_DB_PASSWORD}"
+
+# Home Assistant API connection
+homeassistant:
+  url: "${HOME_ASSISTANT_URL}"
+  token: "${HOME_ASSISTANT_TOKEN}"
+  temperature_entity: "sensor.temp_humidity_sensor_temperature"
+  humidity_entity: "sensor.temp_humidity_sensor_humidity"
+  temperature_unit: "fahrenheit"  # fahrenheit or celsius (sensor reading unit)
+
+# Data refresh settings
+refresh:
+  environmental_interval_minutes: 15
+  cache_duration_hours: 24
+
+# Display preferences
+display:
+  temperature_unit: "fahrenheit"  # fahrenheit or celsius
+  date_format: "%Y-%m-%d"
