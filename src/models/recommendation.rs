@@ -12,6 +12,8 @@ pub enum RecommendationCategory {
     Mowing,
     FrostWarning,
     HeatStress,
+    ApplicationTiming, // Rain delay, optimal application windows
+    DiseasePressure,   // Forecast-based disease risk
     General,
 }
 
@@ -27,6 +29,8 @@ impl RecommendationCategory {
             RecommendationCategory::Mowing => "Mowing",
             RecommendationCategory::FrostWarning => "Frost Warning",
             RecommendationCategory::HeatStress => "Heat Stress",
+            RecommendationCategory::ApplicationTiming => "Application Timing",
+            RecommendationCategory::DiseasePressure => "Disease Pressure",
             RecommendationCategory::General => "General",
         }
     }
@@ -43,6 +47,8 @@ impl RecommendationCategory {
             RecommendationCategory::Mowing => Color::LightGreen,
             RecommendationCategory::FrostWarning => Color::LightBlue,
             RecommendationCategory::HeatStress => Color::Red,
+            RecommendationCategory::ApplicationTiming => Color::LightYellow,
+            RecommendationCategory::DiseasePressure => Color::LightMagenta,
             RecommendationCategory::General => Color::Gray,
         }
     }

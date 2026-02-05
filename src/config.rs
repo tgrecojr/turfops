@@ -8,6 +8,7 @@ pub struct Config {
     pub noaa: NoaaConfig,
     pub soildata: SoilDataConfig,
     pub homeassistant: HomeAssistantConfig,
+    pub openweathermap: Option<OpenWeatherMapConfig>,
     pub refresh: RefreshConfig,
     pub display: DisplayConfig,
 }
@@ -89,6 +90,30 @@ pub enum TemperatureUnit {
     #[default]
     Fahrenheit,
     Celsius,
+}
+
+#[derive(Clone, Deserialize)]
+pub struct OpenWeatherMapConfig {
+    pub api_key: String,
+    pub latitude: f64,
+    pub longitude: f64,
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
+}
+
+fn default_enabled() -> bool {
+    true
+}
+
+impl std::fmt::Debug for OpenWeatherMapConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("OpenWeatherMapConfig")
+            .field("api_key", &"[REDACTED]")
+            .field("latitude", &self.latitude)
+            .field("longitude", &self.longitude)
+            .field("enabled", &self.enabled)
+            .finish()
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -211,6 +236,7 @@ impl Default for Config {
                 humidity_entity: "sensor.temp_humidity_sensor_humidity".into(),
                 temperature_unit: TemperatureUnit::Fahrenheit,
             },
+            openweathermap: None,
             refresh: RefreshConfig {
                 environmental_interval_minutes: 15,
                 cache_duration_hours: 24,

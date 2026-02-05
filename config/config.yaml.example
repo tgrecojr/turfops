@@ -30,6 +30,14 @@ homeassistant:
   humidity_entity: "sensor.temp_humidity_sensor_humidity"
   temperature_unit: "fahrenheit"  # fahrenheit or celsius (sensor reading unit)
 
+# OpenWeatherMap API (for 5-day forecast - enables forecast-based rules)
+# Get a free API key at: https://openweathermap.org/api
+openweathermap:
+  api_key: "${OPENWEATHERMAP_API_KEY}"
+  latitude: ${LAWN_LATITUDE}
+  longitude: ${LAWN_LONGITUDE}
+  enabled: true
+
 # Data refresh settings
 refresh:
   environmental_interval_minutes: 15
