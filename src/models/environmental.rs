@@ -1,3 +1,4 @@
+use super::forecast::WeatherForecast;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -94,6 +95,9 @@ pub struct EnvironmentalSummary {
     pub precipitation_7day_total_mm: Option<f64>,
     pub soil_temp_trend: Trend,
     pub last_updated: Option<DateTime<Utc>>,
+    /// Weather forecast data (5-day/3-hour) from OpenWeatherMap
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub forecast: Option<WeatherForecast>,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]

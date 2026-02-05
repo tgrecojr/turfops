@@ -1,8 +1,8 @@
 use crate::config::Config;
-use crate::datasources::{HomeAssistantClient, SoilDataClient};
+use crate::datasources::{HomeAssistantClient, OpenWeatherMapClient, SoilDataClient};
 use crate::db::Database;
 use crate::error::Result;
-use crate::models::{DataSource, EnvironmentalReading, EnvironmentalSummary};
+use crate::models::{DataSource, EnvironmentalReading, EnvironmentalSummary, WeatherForecast};
 use chrono::Utc;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -12,7 +12,9 @@ pub struct DataSyncService {
     db: Database,
     soildata_client: Option<SoilDataClient>,
     homeassistant_client: Option<HomeAssistantClient>,
+    openweathermap_client: Option<OpenWeatherMapClient>,
     current_summary: Arc<RwLock<EnvironmentalSummary>>,
+    current_forecast: Arc<RwLock<Option<WeatherForecast>>>,
 }
 
 impl DataSyncService {
@@ -27,12 +29,30 @@ impl DataSyncService {
             None
         };
 
+        // Create OpenWeatherMap client if configured and enabled
+        let openweathermap_client = config
+            .openweathermap
+            .as_ref()
+            .filter(|c| c.enabled && !c.api_key.is_empty())
+            .map(|c| {
+                tracing::info!("OpenWeatherMap client configured for forecast data");
+                OpenWeatherMapClient::new(c.clone())
+            });
+
+        if openweathermap_client.is_none() {
+            tracing::info!(
+                "OpenWeatherMap not configured - forecast-based recommendations will be limited"
+            );
+        }
+
         Self {
             config,
             db,
             soildata_client: None,
             homeassistant_client,
+            openweathermap_client,
             current_summary: Arc::new(RwLock::new(EnvironmentalSummary::default())),
+            current_forecast: Arc::new(RwLock::new(None)),
         }
     }
 
@@ -106,6 +126,21 @@ impl DataSyncService {
         summary.current = Some(combined_reading.clone());
         summary.last_updated = Some(Utc::now());
 
+        // Fetch weather forecast
+        if let Some(ref client) = self.openweathermap_client {
+            match client.fetch_forecast().await {
+                Ok(forecast) => {
+                    summary.forecast = Some(forecast.clone());
+                    let mut current_forecast = self.current_forecast.write().await;
+                    *current_forecast = Some(forecast);
+                    tracing::debug!("Weather forecast updated");
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to fetch weather forecast: {}", e);
+                }
+            }
+        }
+
         // Cache the reading
         self.db.cache_environmental_reading(&combined_reading)?;
 
@@ -114,6 +149,22 @@ impl DataSyncService {
         *current = summary.clone();
 
         Ok(summary)
+    }
+
+    /// Refresh only the weather forecast
+    pub async fn refresh_forecast(&self) -> Result<Option<WeatherForecast>> {
+        if let Some(ref client) = self.openweathermap_client {
+            let forecast = client.fetch_forecast().await?;
+            let mut current_forecast = self.current_forecast.write().await;
+            *current_forecast = Some(forecast.clone());
+            Ok(Some(forecast))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub async fn get_current_forecast(&self) -> Option<WeatherForecast> {
+        self.current_forecast.read().await.clone()
     }
 
     pub async fn get_current_summary(&self) -> EnvironmentalSummary {
@@ -137,6 +188,11 @@ impl DataSyncService {
             status.homeassistant = client.test_connection().await.unwrap_or(false);
         }
 
+        // Check OpenWeatherMap
+        if let Some(ref client) = self.openweathermap_client {
+            status.openweathermap = client.test_connection().await.unwrap_or(false);
+        }
+
         status
     }
 }
@@ -145,14 +201,20 @@ impl DataSyncService {
 pub struct ConnectionStatus {
     pub soildata: bool,
     pub homeassistant: bool,
+    pub openweathermap: bool,
 }
 
 impl ConnectionStatus {
     pub fn all_connected(&self) -> bool {
-        self.soildata && self.homeassistant
+        self.soildata && self.homeassistant && self.openweathermap
     }
 
     pub fn any_connected(&self) -> bool {
-        self.soildata || self.homeassistant
+        self.soildata || self.homeassistant || self.openweathermap
+    }
+
+    pub fn core_connected(&self) -> bool {
+        // Core data sources (soil and ambient) are connected
+        self.soildata && self.homeassistant
     }
 }
