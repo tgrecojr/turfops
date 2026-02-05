@@ -17,14 +17,6 @@ use chrono::{Datelike, NaiveDate};
 pub struct ApplicationWindowRule;
 
 impl Rule for ApplicationWindowRule {
-    fn id(&self) -> &'static str {
-        "application_window"
-    }
-
-    fn name(&self) -> &'static str {
-        "Optimal Application Window"
-    }
-
     fn evaluate(
         &self,
         env: &EnvironmentalSummary,

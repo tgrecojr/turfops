@@ -25,9 +25,6 @@ pub enum TurfOpsError {
 
     #[error("Invalid data: {0}")]
     InvalidData(String),
-
-    #[error("Not found: {0}")]
-    NotFound(String),
 }
 
 pub type Result<T> = std::result::Result<T, TurfOpsError>;

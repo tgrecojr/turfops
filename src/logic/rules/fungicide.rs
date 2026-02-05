@@ -16,14 +16,6 @@ use crate::models::{
 pub struct FungicideRule;
 
 impl Rule for FungicideRule {
-    fn id(&self) -> &'static str {
-        "fungicide_risk"
-    }
-
-    fn name(&self) -> &'static str {
-        "Fungicide Disease Risk"
-    }
-
     fn evaluate(
         &self,
         env: &EnvironmentalSummary,

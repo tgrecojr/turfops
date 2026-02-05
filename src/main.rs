@@ -154,7 +154,7 @@ async fn run_app<B: ratatui::backend::Backend>(
                     f.render_widget(screen, area);
                 }
                 Screen::Environmental => {
-                    let screen = EnvironmentalScreen::new(&app.env_summary, &app.env_history);
+                    let screen = EnvironmentalScreen::new(&app.env_summary);
                     f.render_widget(screen, area);
                 }
                 Screen::Recommendations => {
@@ -282,11 +282,8 @@ fn handle_applications_input(app: &mut App, code: KeyCode) {
 }
 
 fn handle_environmental_input(app: &mut App, code: KeyCode) {
-    match code {
-        KeyCode::Char('r') => {
-            app.request_refresh();
-        }
-        _ => {}
+    if let KeyCode::Char('r') = code {
+        app.request_refresh();
     }
 }
 

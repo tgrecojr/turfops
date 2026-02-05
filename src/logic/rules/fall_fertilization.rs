@@ -20,14 +20,6 @@ use chrono::{Datelike, Local, NaiveDate};
 pub struct FallFertilizationRule;
 
 impl Rule for FallFertilizationRule {
-    fn id(&self) -> &'static str {
-        "fall_fertilization"
-    }
-
-    fn name(&self) -> &'static str {
-        "Fall Fertilization Program"
-    }
-
     fn evaluate(
         &self,
         env: &EnvironmentalSummary,
@@ -74,7 +66,7 @@ impl Rule for FallFertilizationRule {
         let phase = determine_fall_phase(today, current_year);
 
         // Check if soil temp is appropriate
-        let soil_temp_ok = soil_temp_avg >= 45.0 && soil_temp_avg <= 65.0;
+        let soil_temp_ok = (45.0..=65.0).contains(&soil_temp_avg);
 
         // Generate recommendation based on phase and history
         match phase {

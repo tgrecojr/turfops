@@ -1,4 +1,4 @@
-use crate::models::{EnvironmentalReading, EnvironmentalSummary, Trend};
+use crate::models::{EnvironmentalSummary, Trend};
 use crate::ui::components::{humidity_gauge, moisture_gauge, temperature_gauge};
 use crate::ui::Theme;
 use ratatui::{
@@ -10,12 +10,11 @@ use ratatui::{
 
 pub struct EnvironmentalScreen<'a> {
     pub summary: &'a EnvironmentalSummary,
-    pub history: &'a [EnvironmentalReading],
 }
 
 impl<'a> EnvironmentalScreen<'a> {
-    pub fn new(summary: &'a EnvironmentalSummary, history: &'a [EnvironmentalReading]) -> Self {
-        Self { summary, history }
+    pub fn new(summary: &'a EnvironmentalSummary) -> Self {
+        Self { summary }
     }
 }
 
@@ -134,14 +133,12 @@ impl EnvironmentalScreen<'_> {
                 let temp_str = temp
                     .map(|t| format!("{:.1}°F", t))
                     .unwrap_or_else(|| "-".to_string());
-                let temp_color = temp.map(|t| Theme::temp_color(t)).unwrap_or(Theme::DIM);
+                let temp_color = temp.map(Theme::temp_color).unwrap_or(Theme::DIM);
 
                 let moisture_str = moisture
                     .map(|m| format!("{:.3}", m))
                     .unwrap_or_else(|| "-".to_string());
-                let moisture_color = moisture
-                    .map(|m| Theme::moisture_color(m))
-                    .unwrap_or(Theme::DIM);
+                let moisture_color = moisture.map(Theme::moisture_color).unwrap_or(Theme::DIM);
 
                 Row::new(vec![
                     Cell::from(*depth),

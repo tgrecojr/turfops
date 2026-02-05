@@ -15,14 +15,6 @@ use chrono::{Datelike, Local};
 pub struct PreEmergentRule;
 
 impl Rule for PreEmergentRule {
-    fn id(&self) -> &'static str {
-        "pre_emergent"
-    }
-
-    fn name(&self) -> &'static str {
-        "Pre-Emergent Timing"
-    }
-
     fn evaluate(
         &self,
         env: &EnvironmentalSummary,
@@ -57,7 +49,7 @@ impl Rule for PreEmergentRule {
         // Current soil temp for display
         let current_soil_temp = env.current.as_ref()?.soil_temp_10_f?;
 
-        if soil_temp_avg >= 50.0 && soil_temp_avg <= 60.0 {
+        if (50.0..=60.0).contains(&soil_temp_avg) {
             // Optimal window
             let severity = if soil_temp_avg >= 55.0 {
                 Severity::Warning

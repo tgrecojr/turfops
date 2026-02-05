@@ -121,6 +121,7 @@ impl RecommendationsScreen<'_> {
         list.render(inner, buf);
     }
 
+    #[allow(clippy::vec_init_then_push)]
     fn render_details(&self, area: Rect, buf: &mut Buffer) {
         let active = self.active_recommendations();
 

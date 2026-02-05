@@ -17,14 +17,6 @@ use chrono::{Datelike, Local, NaiveDate};
 pub struct FallOverseedingRule;
 
 impl Rule for FallOverseedingRule {
-    fn id(&self) -> &'static str {
-        "fall_overseeding"
-    }
-
-    fn name(&self) -> &'static str {
-        "Fall Overseeding"
-    }
-
     fn evaluate(
         &self,
         env: &EnvironmentalSummary,
@@ -82,9 +74,9 @@ impl Rule for FallOverseedingRule {
         let days_remaining = (window_end - today).num_days();
 
         // Determine recommendation based on soil temp
-        if soil_temp_avg >= 50.0 && soil_temp_avg <= 65.0 {
+        if (50.0..=65.0).contains(&soil_temp_avg) {
             // Optimal window
-            let severity = if soil_temp_avg >= 55.0 && soil_temp_avg <= 62.0 {
+            let severity = if (55.0..=62.0).contains(&soil_temp_avg) {
                 // Peak germination range
                 if days_remaining < 21 {
                     Severity::Warning // Optimal but running low on time

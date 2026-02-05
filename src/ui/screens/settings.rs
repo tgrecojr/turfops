@@ -1,4 +1,4 @@
-use crate::models::{GrassType, IrrigationType, LawnProfile, SoilType};
+use crate::models::LawnProfile;
 use crate::ui::Theme;
 use ratatui::{
     buffer::Buffer,
@@ -236,30 +236,3 @@ impl SettingsScreen<'_> {
         para.render(inner, buf);
     }
 }
-
-// Helper types for grass type selection
-pub const GRASS_TYPE_OPTIONS: &[GrassType] = &[
-    GrassType::KentuckyBluegrass,
-    GrassType::TallFescue,
-    GrassType::PerennialRyegrass,
-    GrassType::FineFescue,
-    GrassType::Bermuda,
-    GrassType::Zoysia,
-    GrassType::StAugustine,
-    GrassType::Mixed,
-];
-
-pub const SOIL_TYPE_OPTIONS: &[SoilType] = &[
-    SoilType::Clay,
-    SoilType::Loam,
-    SoilType::Sandy,
-    SoilType::SiltLoam,
-    SoilType::ClayLoam,
-    SoilType::SandyLoam,
-];
-
-pub const IRRIGATION_OPTIONS: &[IrrigationType] = &[
-    IrrigationType::InGround,
-    IrrigationType::Hose,
-    IrrigationType::None,
-];

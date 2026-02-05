@@ -24,14 +24,6 @@ use crate::models::{
 pub struct DiseasePressureRule;
 
 impl Rule for DiseasePressureRule {
-    fn id(&self) -> &'static str {
-        "disease_pressure_forecast"
-    }
-
-    fn name(&self) -> &'static str {
-        "Disease Pressure Forecast"
-    }
-
     fn evaluate(
         &self,
         env: &EnvironmentalSummary,
@@ -97,7 +89,7 @@ impl DiseasePressureRule {
 
             // Warm temps with humidity
             if let Some(temp) = current.ambient_temp_f {
-                if temp >= 75.0 && temp <= 90.0 {
+                if (75.0..=90.0).contains(&temp) {
                     risk += 1;
                 }
             }

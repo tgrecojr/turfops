@@ -19,14 +19,6 @@ use chrono::{Datelike, Local, NaiveDate};
 pub struct SpringNitrogenRule;
 
 impl Rule for SpringNitrogenRule {
-    fn id(&self) -> &'static str {
-        "spring_nitrogen"
-    }
-
-    fn name(&self) -> &'static str {
-        "Spring Nitrogen Timing"
-    }
-
     fn evaluate(
         &self,
         env: &EnvironmentalSummary,
@@ -73,14 +65,14 @@ impl Rule for SpringNitrogenRule {
                 // Good - they're waiting. Reinforce patience.
                 Some(build_patience_advisory(soil_temp_avg))
             }
-        } else if soil_temp_avg >= 50.0 && soil_temp_avg < 55.0 {
+        } else if (50.0..55.0).contains(&soil_temp_avg) {
             // Getting close - still advise waiting
             if !has_spring_fert {
                 Some(build_almost_ready(soil_temp_avg))
             } else {
                 None // They already applied, no point warning now
             }
-        } else if soil_temp_avg >= 55.0 && soil_temp_avg <= 65.0 {
+        } else if (55.0..=65.0).contains(&soil_temp_avg) {
             // Good range - if they haven't fertilized, now is okay
             if !has_spring_fert {
                 Some(build_ready_to_fertilize(soil_temp_avg, profile))

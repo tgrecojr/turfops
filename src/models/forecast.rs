@@ -35,17 +35,11 @@ impl WeatherForecast {
         let points = self.next_hours(hours);
         let mut total_precip = 0.0;
         let mut max_prob = 0.0;
-        let mut first_rain_time: Option<DateTime<Utc>> = None;
 
         for point in points {
             total_precip += point.precipitation_mm;
             if point.precipitation_prob > max_prob {
                 max_prob = point.precipitation_prob;
-            }
-            if first_rain_time.is_none()
-                && (point.precipitation_mm > 0.1 || point.precipitation_prob > 0.5)
-            {
-                first_rain_time = Some(point.timestamp);
             }
         }
 
@@ -53,7 +47,6 @@ impl WeatherForecast {
             Some(RainForecast {
                 expected_mm: total_precip,
                 max_probability: max_prob,
-                first_expected: first_rain_time,
             })
         } else {
             None
@@ -86,7 +79,6 @@ impl WeatherForecast {
 pub struct RainForecast {
     pub expected_mm: f64,
     pub max_probability: f64,
-    pub first_expected: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -169,31 +161,6 @@ impl WeatherCondition {
             WeatherCondition::Other => "Other",
         }
     }
-
-    pub fn symbol(&self) -> &'static str {
-        match self {
-            WeatherCondition::Clear => "☀",
-            WeatherCondition::Clouds => "☁",
-            WeatherCondition::Rain => "🌧",
-            WeatherCondition::Drizzle => "🌦",
-            WeatherCondition::Thunderstorm => "⛈",
-            WeatherCondition::Snow => "❄",
-            WeatherCondition::Mist => "🌫",
-            WeatherCondition::Fog => "🌫",
-            WeatherCondition::Other => "?",
-        }
-    }
-
-    /// Whether this condition involves precipitation
-    pub fn has_precipitation(&self) -> bool {
-        matches!(
-            self,
-            WeatherCondition::Rain
-                | WeatherCondition::Drizzle
-                | WeatherCondition::Thunderstorm
-                | WeatherCondition::Snow
-        )
-    }
 }
 
 impl std::fmt::Display for WeatherCondition {
@@ -216,13 +183,5 @@ mod tests {
         assert_eq!(WeatherCondition::from_owm_id(800), WeatherCondition::Clear);
         assert_eq!(WeatherCondition::from_owm_id(801), WeatherCondition::Clouds);
         assert_eq!(WeatherCondition::from_owm_id(600), WeatherCondition::Snow);
-    }
-
-    #[test]
-    fn weather_condition_has_precipitation() {
-        assert!(WeatherCondition::Rain.has_precipitation());
-        assert!(WeatherCondition::Thunderstorm.has_precipitation());
-        assert!(!WeatherCondition::Clear.has_precipitation());
-        assert!(!WeatherCondition::Clouds.has_precipitation());
     }
 }

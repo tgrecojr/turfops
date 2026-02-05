@@ -16,14 +16,6 @@ use crate::models::{
 pub struct RainDelayRule;
 
 impl Rule for RainDelayRule {
-    fn id(&self) -> &'static str {
-        "rain_delay"
-    }
-
-    fn name(&self) -> &'static str {
-        "Rain Delay"
-    }
-
     fn evaluate(
         &self,
         env: &EnvironmentalSummary,
