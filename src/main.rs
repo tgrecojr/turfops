@@ -1,4 +1,5 @@
 mod app;
+mod cli;
 mod config;
 mod datasources;
 mod db;
@@ -8,6 +9,8 @@ mod models;
 mod ui;
 
 use app::{App, Screen};
+use clap::Parser;
+use cli::{Cli, Commands};
 use config::Config;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyModifiers},
@@ -28,28 +31,52 @@ use ui::screens::{
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Load .env file if present
+    let cli = Cli::parse();
+
+    // Load .env file if present (backward compat, non-blocking)
     let _ = dotenvy::dotenv();
 
-    // Initialize logging
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("warn")),
-        )
-        .init();
+    // Initialize logging with verbosity from CLI
+    let filter = match cli.verbose {
+        0 => EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("warn")),
+        1 => EnvFilter::new("info"),
+        2 => EnvFilter::new("debug"),
+        _ => EnvFilter::new("trace"),
+    };
+    tracing_subscriber::fmt().with_env_filter(filter).init();
 
-    // Load configuration
-    let config = match Config::load() {
-        Ok(c) => c,
-        Err(e) => {
-            eprintln!("Configuration error: {}", e);
-            eprintln!("Please copy config/config.yaml.example to config/config.yaml");
-            std::process::exit(1);
+    // Route based on subcommand
+    match cli.command {
+        Some(Commands::Init) => {
+            let (_config, path) = Config::setup_interactive()?;
+            println!("Setup complete. Config written to {}", path.display());
+            return Ok(());
         }
+        Some(Commands::Check) => {
+            return run_check(cli.config, cli.data_dir.as_ref()).await;
+        }
+        None => {}
+    }
+
+    // Default path: load config or run interactive setup
+    let config = if Config::exists(cli.config.as_ref()) {
+        match Config::load(cli.config) {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("Configuration error: {}", e);
+                eprintln!("Run `turfops init` to set up, or use --config to specify a path.");
+                std::process::exit(1);
+            }
+        }
+    } else {
+        // No config found anywhere — run interactive setup
+        let (config, _path) = Config::setup_interactive()?;
+        println!("Launching TurfOps...");
+        config
     };
 
     // Initialize database
-    let db = Database::open()?;
+    let db = Database::open(cli.data_dir.as_ref())?;
 
     // Create app
     let mut app = App::new(config.clone(), db)?;
@@ -113,6 +140,44 @@ async fn main() -> Result<()> {
         eprintln!("Error: {}", e);
         std::process::exit(1);
     }
+
+    Ok(())
+}
+
+async fn run_check(
+    config_path: Option<std::path::PathBuf>,
+    data_dir: Option<&std::path::PathBuf>,
+) -> Result<()> {
+    let config = Config::load(config_path)?;
+    println!("Config loaded successfully.");
+    println!();
+
+    let db = Database::open(data_dir)?;
+    let mut data_sync = DataSyncService::new(config, db);
+
+    if let Err(e) = data_sync.initialize().await {
+        tracing::warn!("Initialization issue: {}", e);
+    }
+
+    let status = data_sync.check_connections().await;
+
+    println!("Connection Status:");
+    println!(
+        "  SoilData PostgreSQL: {}",
+        if status.soildata { "OK" } else { "FAILED" }
+    );
+    println!(
+        "  Home Assistant:      {}",
+        if status.homeassistant { "OK" } else { "FAILED" }
+    );
+    println!(
+        "  OpenWeatherMap:      {}",
+        if status.openweathermap {
+            "OK"
+        } else {
+            "FAILED"
+        }
+    );
 
     Ok(())
 }

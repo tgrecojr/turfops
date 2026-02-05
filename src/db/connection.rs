@@ -11,8 +11,8 @@ pub struct Database {
 }
 
 impl Database {
-    pub fn open() -> Result<Self> {
-        let path = Config::db_path()?;
+    pub fn open(data_dir_override: Option<&PathBuf>) -> Result<Self> {
+        let path = Config::db_path(data_dir_override)?;
         let conn = Connection::open(&path)?;
 
         // Enable foreign keys

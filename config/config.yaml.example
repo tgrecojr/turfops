@@ -1,4 +1,9 @@
 # TurfOps Configuration
+#
+# You can place secrets directly in this file, or use ${VAR} syntax
+# to substitute environment variables (loaded from .env if present).
+#
+# To generate this file interactively, run: turfops init
 
 # Default lawn profile (created on first run if not exists)
 lawn:
@@ -12,20 +17,19 @@ lawn:
 # NOAA station for soil data
 noaa:
   station_wbanno: 3761  # PA Avondale
-  station_name: "PA Avondale"
 
 # SoilData PostgreSQL connection
 soildata:
-  host: "${SOILDATA_DB_HOST}"
-  port: "${SOILDATA_DB_PORT}"
-  database: "${SOILDATA_DB_NAME}"
-  user: "${SOILDATA_DB_USER}"
-  password: "${SOILDATA_DB_PASSWORD}"
+  host: "localhost"
+  port: 5432
+  database: "uscrn"
+  user: "postgres"
+  password: "your_password_here"
 
 # Home Assistant API connection
 homeassistant:
-  url: "${HOME_ASSISTANT_URL}"
-  token: "${HOME_ASSISTANT_TOKEN}"
+  url: "http://192.168.1.100:8123"
+  token: "your_long_lived_access_token_here"
   temperature_entity: "sensor.temp_humidity_sensor_temperature"
   humidity_entity: "sensor.temp_humidity_sensor_humidity"
   temperature_unit: "fahrenheit"  # fahrenheit or celsius (sensor reading unit)
@@ -33,17 +37,7 @@ homeassistant:
 # OpenWeatherMap API (for 5-day forecast - enables forecast-based rules)
 # Get a free API key at: https://openweathermap.org/api
 openweathermap:
-  api_key: "${OPENWEATHERMAP_API_KEY}"
-  latitude: ${LAWN_LATITUDE}
-  longitude: ${LAWN_LONGITUDE}
+  api_key: "your_api_key_here"
+  latitude: 39.83
+  longitude: -75.87
   enabled: true
-
-# Data refresh settings
-refresh:
-  environmental_interval_minutes: 15
-  cache_duration_hours: 24
-
-# Display preferences
-display:
-  temperature_unit: "fahrenheit"  # fahrenheit or celsius
-  date_format: "%Y-%m-%d"
