@@ -107,7 +107,10 @@ impl Rule for FallOverseedingRule {
                      thicken your lawn and fill bare spots. Fall is THE best time because: \
                      (1) soil is warm for germination, (2) air is cool reducing seedling stress, \
                      (3) weed competition is minimal, (4) fall rains provide moisture. \
-                     Seeds need 10-14 days of consistent moisture to germinate.",
+                     Seeds need 10-14 days of consistent moisture to germinate. \
+                     NOTE: New seedlings are extremely susceptible to gray leaf spot the \
+                     following summer — monitor closely (NC State Extension). \
+                     Remove thatch when >0.5 inch thick before overseeding (Missouri Extension g6705).",
                 )
                 .with_data_point(
                     "7-Day Avg Soil Temp",

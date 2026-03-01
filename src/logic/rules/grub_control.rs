@@ -73,7 +73,9 @@ impl Rule for GrubControlRule {
             .with_explanation(
                 "Japanese beetle larvae (grubs) are most vulnerable to preventative treatments \
                  when adults are laying eggs and larvae are feeding near the surface. \
-                 Chlorantraniliprole (GrubEx) provides season-long control when applied now.",
+                 Chlorantraniliprole (GrubEx) provides season-long control when applied now. \
+                 Treatment is justified when you find 5-10+ grubs per square foot by lifting \
+                 a 1-sqft section of turf (Missouri Extension g6705).",
             )
             .with_data_point(
                 "7-Day Avg Soil Temp",

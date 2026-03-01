@@ -80,17 +80,21 @@ impl HeatStressRule {
 
         let action = match severity {
             Severity::Critical => {
-                "Avoid ALL fertilizer applications. Raise mowing height to 4+ inches. \
-                 Water early morning (before 8 AM) only. Do not mow during peak heat. \
+                "Avoid ALL fertilizer applications. Raise mowing height to 4 inches (TTTF max summer height). \
+                 Never cut more than 1/3 of the blade at once — if raising height, do so gradually \
+                 over 1-2 mowings (Missouri Extension g6705). \
+                 Water early morning (before 7 AM) only. Do not mow during peak heat. \
                  Accept some dormancy as natural protection."
             }
             Severity::Warning => {
                 "Avoid fertilizer applications, especially high-nitrogen. Raise mowing \
-                 height to 3.5-4 inches. Water deeply in early morning. \
-                 Consider skipping mowing to reduce stress."
+                 height to 3.5-4 inches. Never remove more than 1/3 of the blade at once — \
+                 if raising height, do so gradually over 1-2 mowings. \
+                 Water deeply in early morning. Consider skipping mowing to reduce stress."
             }
             _ => {
-                "Consider raising mowing height. Water early morning if needed. \
+                "Consider raising mowing height toward 3.5-4 inches. Never cut more than \
+                 1/3 of the blade at once. Water early morning if needed. \
                  Avoid fertilizer applications until temps moderate."
             }
         };
