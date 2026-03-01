@@ -186,7 +186,10 @@ async fn run_app<B: ratatui::backend::Backend>(
     terminal: &mut Terminal<B>,
     app: &mut App,
     data_sync: &mut DataSyncService,
-) -> Result<()> {
+) -> Result<()>
+where
+    error::TurfOpsError: From<B::Error>,
+{
     loop {
         // Draw UI
         terminal.draw(|f| {

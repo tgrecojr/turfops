@@ -161,7 +161,7 @@ impl ApplicationsScreen<'_> {
                     .borders(Borders::ALL)
                     .border_style(Theme::border()),
             )
-            .highlight_style(Theme::selected());
+            .row_highlight_style(Theme::selected());
 
         // Create TableState for highlighting
         let mut state = TableState::default();
