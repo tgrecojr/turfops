@@ -55,6 +55,14 @@ impl Rule for SpringNitrogenRule {
 
         let has_spring_fert = !spring_fert_apps.is_empty();
 
+        // A4: May 1 hard cutoff (Missouri g6705)
+        if month == 5 {
+            if !has_spring_fert {
+                return Some(build_may_cutoff_warning(soil_temp_avg));
+            }
+            return None;
+        }
+
         // Determine appropriate recommendation
         if soil_temp_avg < 50.0 {
             // Too cold - definitely don't fertilize
@@ -173,6 +181,35 @@ fn build_almost_ready(soil_temp: f64) -> Recommendation {
         "Continue monitoring soil temperature. Start mowing when grass needs it. \
          After your second or third mowing AND soil is 55°F+, apply light spring nitrogen. \
          Don't rush - a week or two of patience makes a stronger summer lawn.",
+    )
+}
+
+fn build_may_cutoff_warning(soil_temp: f64) -> Recommendation {
+    Recommendation::new(
+        "spring_n_may_cutoff",
+        RecommendationCategory::Fertilizer,
+        Severity::Info,
+        "Spring Nitrogen — Last Chance (May Cutoff)",
+        format!(
+            "Soil temperature ({:.1}°F). This is the absolute last chance for spring nitrogen. \
+             Many extension programs recommend skipping spring N entirely.",
+            soil_temp
+        ),
+    )
+    .with_explanation(
+        "Missouri Extension g6705 states: 'Do not apply nitrogen, particularly quickly \
+         available soluble forms, past May 1.' Nitrogen applied this late pushes top growth \
+         heading into summer heat stress, weakening the plant. Many extension programs now \
+         recommend skipping spring N entirely and focusing all feeding in fall (September-November). \
+         If you must apply, use slow-release only at ≤0.5 lb N/1000sqft.",
+    )
+    .with_data_point("Soil Temp", format!("{:.1}°F", soil_temp), "NOAA USCRN")
+    .with_data_point("Deadline", "May 1 (Missouri Extension)", "Agronomic")
+    .with_action(
+        "If you haven't fertilized yet this spring, consider SKIPPING spring nitrogen \
+         entirely. Save your feeding budget for September (the most important fertilization). \
+         If you insist on applying, use only slow-release nitrogen at 0.5 lb N/1000sqft MAX. \
+         Do not apply soluble/quick-release nitrogen past May 1.",
     )
 }
 

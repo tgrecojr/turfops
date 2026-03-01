@@ -14,6 +14,8 @@ pub enum RecommendationCategory {
     HeatStress,
     ApplicationTiming, // Rain delay, optimal application windows
     DiseasePressure,   // Forecast-based disease risk
+    Herbicide,         // Broadleaf weed control
+    Aeration,          // Core aeration timing
     General,
 }
 
@@ -31,6 +33,8 @@ impl RecommendationCategory {
             RecommendationCategory::HeatStress => "Heat Stress",
             RecommendationCategory::ApplicationTiming => "Application Timing",
             RecommendationCategory::DiseasePressure => "Disease Pressure",
+            RecommendationCategory::Herbicide => "Herbicide",
+            RecommendationCategory::Aeration => "Aeration",
             RecommendationCategory::General => "General",
         }
     }
@@ -49,6 +53,8 @@ impl RecommendationCategory {
             RecommendationCategory::HeatStress => Color::Red,
             RecommendationCategory::ApplicationTiming => Color::LightYellow,
             RecommendationCategory::DiseasePressure => Color::LightMagenta,
+            RecommendationCategory::Herbicide => Color::LightYellow,
+            RecommendationCategory::Aeration => Color::LightCyan,
             RecommendationCategory::General => Color::Gray,
         }
     }

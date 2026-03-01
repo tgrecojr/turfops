@@ -96,11 +96,11 @@ impl IrrigationForecastRule {
         let action = match severity {
             Severity::Critical => {
                 "Water immediately. Apply 1-1.5 inches over the next 2-3 days to prevent \
-                 drought stress. Water early morning (5-9 AM) to minimize evaporation and disease."
+                 drought stress. Water early morning (4-7 AM) to minimize evaporation and disease."
             }
             Severity::Warning => {
-                "Plan to irrigate within the next 1-2 days. Apply 0.5-1 inch of water. \
-                 Deep, infrequent watering is better than shallow daily watering."
+                "Plan to irrigate within the next 1-2 days. Apply 1 inch of water per session. \
+                 Deep, infrequent watering encourages deeper root growth — better than shallow daily watering."
             }
             _ => {
                 "Monitor soil moisture and plan irrigation if conditions don't change. \

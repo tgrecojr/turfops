@@ -129,34 +129,39 @@ fn build_early_fall_rec(
     env: &EnvironmentalSummary,
 ) -> Recommendation {
     let lawn_size = profile.lawn_size_sqft.unwrap_or(5000.0);
-    let n_needed = lawn_size / 1000.0 * 0.5; // 0.5 lb N per 1000 sqft
+    let n_needed = lawn_size / 1000.0 * 1.0; // 1.0 lb N per 1000 sqft (K-State, Missouri)
 
     let mut rec = Recommendation::new(
         "fall_fert_early",
         RecommendationCategory::Fertilizer,
-        Severity::Advisory,
-        "Early Fall Fertilization",
+        Severity::Warning, // Elevated — September IS the most important feeding
+        "September Fertilization — Most Important Feeding",
         format!(
             "Soil temperature ({:.1}°F) is ideal for fall fertilization. \
-             Time to begin fall nitrogen program.",
+             September is THE best time to fertilize cool-season grass.",
             soil_temp
         ),
     )
     .with_explanation(
-        "Early fall feeding helps TTTF recover from summer stress. Apply light nitrogen \
-         (0.5 lb N per 1000 sqft) to support recovery without pushing excessive top growth. \
-         This sets up the lawn for the critical mid-fall and winterizer applications.",
+        "September is the single most important fertilization of the year for TTTF \
+         (K-State Extension, Missouri Extension g6705). Apply 1.0 lb N per 1000 sqft \
+         using quick-release or balanced nitrogen. The grass is recovering from summer \
+         stress, roots are actively growing, and this feeding drives fall tillering and \
+         carbohydrate storage. Recommended NPK ratios: 30-0-0, 29-5-4, 27-3-3, or \
+         any 3:1:1 / 4:1:2 ratio.",
     )
     .with_data_point("Soil Temp", format!("{:.1}°F", soil_temp), "NOAA USCRN")
-    .with_data_point("Phase", "Early Fall (Recovery)", "Calendar");
+    .with_data_point("Phase", "September (Primary Feeding)", "Calendar")
+    .with_data_point("Rate", "1.0 lb N/1000sqft", "K-State / Missouri Extension");
 
     if let Some(trend) = Some(&env.soil_temp_trend) {
         rec = rec.with_data_point("Trend", trend.as_str(), "Calculated");
     }
 
     rec = rec.with_action(format!(
-        "Apply ~{:.1} lbs of nitrogen for your {:.0} sqft lawn (0.5 lb N/1000 sqft). \
-         Use a balanced fertilizer or slow-release nitrogen. \
+        "Apply ~{:.1} lbs of nitrogen for your {:.0} sqft lawn (1.0 lb N/1000 sqft). \
+         Use quick-release or balanced nitrogen (K-State recommends quick-release for fall). \
+         Good NPK choices: 30-0-0, 29-5-4, 27-3-3, or any 3:1:1 / 4:1:2 ratio. \
          Water in lightly if no rain expected.",
         n_needed, lawn_size
     ));

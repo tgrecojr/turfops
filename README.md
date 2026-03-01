@@ -146,16 +146,63 @@ Cool-season grasses experience stress during extreme heat and will burn if ferti
 #### Fungicide Disease Risk
 **Purpose**: Alert when conditions favor brown patch and other fungal diseases
 
-Brown patch (Rhizoctonia solani) thrives in hot, humid conditions with night temperatures above 65°F.
+Brown patch (Rhizoctonia solani) thrives in hot, humid conditions with night temperatures above 65°F. Recommendations are FRAC-aware — the engine analyzes your fungicide application history to recommend the correct FRAC class to rotate to next (see [FRAC Rotation System](#frac-rotation-system) below).
 
 | Condition | Severity | Action |
 |-----------|----------|--------|
-| Humidity >80% + temp >70°F | Advisory | Monitor for symptoms |
-| Sustained humidity >75% (7-day avg) | Warning | Consider preventative fungicide |
-| Humidity >90% + temp >80°F + sustained | Critical | Apply fungicide immediately |
+| Humidity >80% + temp >70°F, night >60°F | Advisory | Monitor for symptoms |
+| Night temp >65°F or humidity >90% + sustained | Warning | Consider preventative fungicide |
+| Night >70°F + day >90°F + sustained humidity | Critical | Apply fungicide immediately |
 
 **Symptoms**: Circular patches of tan/brown turf with dark "smoke ring" border visible in morning dew.
-**Products**: Azoxystrobin, propiconazole, or thiophanate-methyl. Avoid evening irrigation.
+**Products**: FRAC-aware rotation — see [FRAC Rotation System](#frac-rotation-system).
+
+---
+
+#### Broadleaf Herbicide Timing
+**Purpose**: Target broadleaf weeds during optimal control windows
+
+Post-emergent herbicide is most effective when weeds are actively growing and translocating nutrients. Fall is the best window for perennial weeds because herbicide follows the nutrient path down to roots.
+
+| Condition | Severity | Action |
+|-----------|----------|--------|
+| March, soil 45-55°F rising | Advisory | Spring window — target winter annuals |
+| Late Sept - Oct, soil 50-65°F | Warning | Fall window — best for perennial weeds |
+
+**Active**: March (spring) and September 20 - October 31 (fall)
+**Blocked**: If overseeded within 60 days (herbicide kills seedlings)
+**Products**: 2,4-D + dicamba or triclopyr. Apply at 50-80°F air temp, no rain for 24 hours, wind <10 mph.
+
+---
+
+#### Mowing Height
+**Purpose**: Seasonal mowing guidance for TTTF
+
+Mowing height should follow seasonal temperatures. Taller grass in summer shades the crown and soil, reducing heat stress and water loss.
+
+| 7-Day Avg Temp | Height | Season | Severity |
+|-----------------|--------|--------|----------|
+| 50-75°F | 2.5-3.5" | Spring/Fall | Info |
+| 75-85°F | 3-4" | Summer | Advisory |
+| >85°F | 3.5-4" | Summer (heat stress) | Warning |
+
+**Key Rule**: Never remove more than 1/3 of the blade at once. Adjust height gradually over 1-2 mowings.
+
+---
+
+#### Core Aeration
+**Purpose**: Relieve soil compaction during peak recovery season
+
+Core aeration improves water/nutrient penetration and promotes root growth. Fall is the best time because cool-season grass recovers quickly during its peak growth period.
+
+| Condition | Severity | Action |
+|-----------|----------|--------|
+| Aug 15 - Oct 15, soil 50-65°F, not aerated in 12+ months | Advisory | Aerate this fall |
+| Clay/Clay Loam soil, not aerated in 12+ months | Warning | Annual aeration important for heavy soil |
+
+**Active**: August 15 through October 15
+**Pairing**: Best combined with fall overseeding — aeration creates ideal seed-to-soil contact.
+**Method**: Pull 2-3 inch plugs, 2-3 passes. Leave plugs on surface. Water lightly after.
 
 ---
 
@@ -297,6 +344,96 @@ Uses forecast data to predict when conditions will favor brown patch, dollar spo
 
 **Target Diseases**: Brown patch (warm nights + humidity), Dollar spot (warm days + humidity + dew), Pythium blight (hot + wet).
 **Prevention**: Water only in early morning, reduce nitrogen, consider preventative fungicide before conditions deteriorate.
+
+---
+
+#### Gray Leaf Spot
+**Purpose**: Alert when conditions favor this destructive TTTF disease, especially on new seedlings
+
+Gray leaf spot (Pyricularia grisea) is one of the most destructive diseases of tall fescue. Newly overseeded turf is extremely vulnerable — the disease can destroy seedlings within days.
+
+| Condition | Severity | Action |
+|-----------|----------|--------|
+| July-Sept, 70-95°F, humidity >85%, 1-2 favorable days | Advisory | Monitor conditions |
+| 3+ favorable days or recent overseed | Warning | Apply preventive fungicide |
+| Sustained conditions + recent overseed | Critical | Treat immediately — seedlings at risk |
+
+**Active**: July 1 through September 30
+**FRAC-Aware**: Default recommendation is FRAC 11 (azoxystrobin/pyraclostrobin), but if history shows recent FRAC 11 usage, automatically recommends rotation to the next class.
+**Risk Amplifier**: Recent overseeding (within 60 days) dramatically increases risk.
+
+---
+
+#### Pythium Blight
+**Purpose**: Alert when conditions favor this fast-moving, destructive disease
+
+Pythium blight can destroy turf in 2-3 days. It requires warm nights AND hot days with prolonged moisture, often triggered by summer thunderstorms.
+
+| Condition | Severity | Action |
+|-----------|----------|--------|
+| 1 day: night >65°F + day >85°F + wet | Advisory | Monitor conditions |
+| 2+ consecutive days | Warning | Apply preventive fungicide |
+| 2+ days + thunderstorm or heavy recent rain | Critical | ACT IMMEDIATELY |
+
+**Active**: June 1 through September 30
+**Products**: Mefenoxam (FRAC 4) or fosetyl-Al (FRAC P07) — Pythium-specific chemistry. General fungicide rotation status is also reported if other fungicides are in the application history.
+
+---
+
+#### Red Thread
+**Purpose**: Identify nitrogen deficiency through red thread symptoms
+
+Red thread (Laetisaria fuciformis) is primarily a sign of nitrogen deficiency, NOT a disease requiring fungicide. It occurs at 40-80°F with high humidity.
+
+| Condition | Severity | Action |
+|-----------|----------|--------|
+| Favorable conditions, recently fertilized | Info | Conditions present but risk is low |
+| Favorable conditions, no N in 45+ days | Advisory | Apply nitrogen |
+| Extended favorable conditions, no N in 60+ days | Warning | Nitrogen deficiency confirmed |
+
+**Active**: March-May and September-November
+**Key Insight**: Red thread is managed by FERTILIZING, not by fungicide (NC State Extension). Apply 0.5-1.0 lb N/1000sqft.
+
+---
+
+### FRAC Rotation System
+
+TurfOps includes a FRAC (Fungicide Resistance Action Committee) class tracking system that analyzes your fungicide application history and provides rotation-aware recommendations to prevent resistance development.
+
+#### How It Works
+
+1. When you log a fungicide application with a product name, TurfOps resolves it to a FRAC class using a built-in product database
+2. The rules engine analyzes your season's fungicide history for consecutive same-class usage
+3. Recommendations include the specific FRAC class to rotate to next, with product examples
+
+#### Supported FRAC Classes
+
+| FRAC Class | Type | Common Products |
+|------------|------|-----------------|
+| FRAC 1 | Thiophanates | thiophanate-methyl, Cleary's 3336 |
+| FRAC 3 | DMIs/Triazoles | propiconazole, Banner MAXX, myclobutanil, Eagle |
+| FRAC 7 | SDHI | fluxapyroxad, Xzemplar, penthiopyrad, Velista |
+| FRAC 11 | Strobilurins | azoxystrobin, Heritage, pyraclostrobin, Insignia |
+| FRAC 12 | Phenylpyrroles | fludioxonil, Medallion |
+| FRAC 14 | Aromatics | PCNB, Turfcide |
+| FRAC M3 | Multi-site (Chlorothalonil) | chlorothalonil, Daconil |
+| FRAC M5 | Multi-site (Mancozeb) | mancozeb |
+
+#### Rotation Logic
+
+- **Multi-site fungicides** (M3, M5) have low/no resistance risk and are excluded from rotation calculations
+- **Consecutive same-class detection**: Warnings begin at 2+ consecutive applications of the same single-site FRAC class
+- **General season tracking**: At 3+ total fungicide applications, a heads-up is provided even without consecutive same-class usage
+- **Rotation order**: The engine recommends the next class in the residential turf priority order: FRAC 11 → FRAC 3 → FRAC 1 → FRAC 7
+
+#### FRAC-Aware Rules
+
+| Rule | FRAC Integration |
+|------|------------------|
+| Fungicide Disease Risk | Recommends specific next FRAC class with product examples |
+| Disease Pressure Forecast | Rotation-aware action text and data points |
+| Gray Leaf Spot | Rotates away from FRAC 11 if recently used |
+| Pythium Blight | Reports general rotation status alongside Pythium-specific chemistry |
 
 ## Lawn Profile
 

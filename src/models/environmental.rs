@@ -112,6 +112,10 @@ impl Trend {
             Trend::Unknown => "? Unknown",
         }
     }
+
+    pub fn is_rising(&self) -> bool {
+        matches!(self, Trend::Rising)
+    }
 }
 
 impl std::fmt::Display for Trend {
