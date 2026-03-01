@@ -35,7 +35,7 @@ dialoguer = "0.12"
 
 # Error handling
 anyhow = "1.0"
-thiserror = "1.0"
+thiserror = "2.0"
 
 # Utility
 dirs = "6.0"
