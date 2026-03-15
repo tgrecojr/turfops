@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getSeasonalPlan } from '../api/client';
 import type {
   SeasonalPlan as SeasonalPlanType,
@@ -48,19 +48,18 @@ function ActivityCard({ activity }: { activity: PlannedActivity }) {
   const daysUntil = daysFromNow(activity.date_window.predicted_start);
   const daysUntilEnd = daysFromNow(activity.date_window.predicted_end);
 
-  let timing = '';
-  if (activity.status === 'Upcoming') {
-    timing = daysUntil === 1 ? 'Starts tomorrow' : `Starts in ${daysUntil} days`;
-  } else if (activity.status === 'Active') {
-    timing =
-      daysUntilEnd <= 0
-        ? 'Window closing today'
-        : `${daysUntilEnd} days remaining`;
-  } else if (activity.status === 'Missed') {
-    timing = 'Window has passed';
-  } else {
-    timing = 'Done';
-  }
+  const timing =
+    activity.status === 'Upcoming'
+      ? daysUntil === 1
+        ? 'Starts tomorrow'
+        : `Starts in ${daysUntil} days`
+      : activity.status === 'Active'
+        ? daysUntilEnd <= 0
+          ? 'Window closing today'
+          : `${daysUntilEnd} days remaining`
+        : activity.status === 'Missed'
+          ? 'Window has passed'
+          : 'Done';
 
   return (
     <div style={styles.card}>
@@ -159,15 +158,32 @@ export default function SeasonalPlan() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [year, setYear] = useState(new Date().getFullYear());
+  const abortRef = useRef<AbortController | null>(null);
+
+  const fetchPlan = useCallback(async (y: number) => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    try {
+      const result = await getSeasonalPlan(y);
+      if (!controller.signal.aborted) {
+        setPlan(result);
+        setError(null);
+      }
+    } catch (e) {
+      if (!controller.signal.aborted) {
+        setError(e instanceof Error ? e.message : 'Failed to load');
+      }
+    } finally {
+      if (!controller.signal.aborted) {
+        setLoading(false);
+      }
+    }
+  }, []);
 
   useEffect(() => {
-    setLoading(true);
-    setError(null);
-    getSeasonalPlan(year)
-      .then(setPlan)
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [year]);
+    fetchPlan(year);
+  }, [year, fetchPlan]);
 
   const currentYear = new Date().getFullYear();
   const yearOptions = [currentYear - 1, currentYear, currentYear + 1];
