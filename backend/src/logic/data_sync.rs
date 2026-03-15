@@ -2,7 +2,7 @@ use crate::config::Config;
 use crate::datasources::{HomeAssistantClient, OpenWeatherMapClient, SoilDataClient};
 use crate::db::queries;
 use crate::models::{DataSource, EnvironmentalReading, EnvironmentalSummary, WeatherForecast};
-use chrono::Utc;
+use chrono::{Datelike, Utc};
 use sqlx::PgPool;
 use tokio::time::Instant;
 
@@ -197,6 +197,17 @@ impl DataSyncService {
                 queries::cache_environmental_reading(&self.pool, &combined_reading).await
             {
                 tracing::error!("Failed to cache environmental reading: {}", e);
+            }
+
+            // Populate GDD YTD from gdd_daily table
+            let current_year = Utc::now().year();
+            match queries::get_latest_gdd_ytd(&self.pool, current_year).await {
+                Ok(gdd) => {
+                    summary.gdd_base50_ytd = gdd;
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to fetch GDD YTD: {}", e);
+                }
             }
 
             // Clean up old cache entries (retain 90 days)

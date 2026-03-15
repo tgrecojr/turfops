@@ -408,6 +408,18 @@ pub async fn get_gdd_daily_range(
         .collect())
 }
 
+pub async fn get_latest_gdd_ytd(pool: &PgPool, year: i32) -> Result<Option<f64>> {
+    let start_of_year = NaiveDate::from_ymd_opt(year, 1, 1)
+        .ok_or_else(|| TurfOpsError::InvalidData(format!("Invalid year: {}", year)))?;
+    let row = sqlx::query_scalar::<_, f64>(
+        "SELECT cumulative_gdd_base50 FROM gdd_daily WHERE date >= $1 ORDER BY date DESC LIMIT 1",
+    )
+    .bind(start_of_year)
+    .fetch_optional(pool)
+    .await?;
+    Ok(row)
+}
+
 pub async fn get_latest_gdd_date(pool: &PgPool) -> Result<Option<NaiveDate>> {
     let row =
         sqlx::query_scalar::<_, NaiveDate>("SELECT date FROM gdd_daily ORDER BY date DESC LIMIT 1")
