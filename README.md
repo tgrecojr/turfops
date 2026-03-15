@@ -44,6 +44,16 @@ A containerized web application for tracking lawn care activities and providing 
 - **Database**: PostgreSQL 16 (app data)
 - **Deployment**: Docker Compose
 
+## Docker Image
+
+Pre-built Docker images are published to GitHub Container Registry on every push to `main`.
+
+```bash
+docker pull ghcr.io/tgrecojr/turfops:latest
+```
+
+Tagged releases are also available by version (e.g., `ghcr.io/tgrecojr/turfops:1.0.0`).
+
 ## Quick Start
 
 ### Prerequisites
@@ -53,16 +63,30 @@ A containerized web application for tracking lawn care activities and providing 
 - (Optional) Home Assistant instance with temperature/humidity sensors
 - (Optional) OpenWeatherMap API key for forecast-based rules
 
-### 1. Clone and Configure
+### 1. Configure
+
+You can either use the pre-built image from GHCR or build from source.
+
+**Option A: Use the pre-built image (recommended)**
+
+```bash
+# Download docker-compose.yml and .env.example
+curl -O https://raw.githubusercontent.com/tgrecojr/turfops/main/docker-compose.yml
+curl -O https://raw.githubusercontent.com/tgrecojr/turfops/main/.env.example
+cp .env.example .env
+```
+
+Update `docker-compose.yml` to use the pre-built image instead of building locally — replace the `build:` block under the `app` service with:
+
+```yaml
+image: ghcr.io/tgrecojr/turfops:latest
+```
+
+**Option B: Build from source**
 
 ```bash
 git clone git@github.com:tgrecojr/turfops.git
 cd turfops
-```
-
-Create a `.env` file in the project root. This file is loaded by Docker Compose and passes configuration to the application container.
-
-```bash
 cp .env.example .env
 ```
 
