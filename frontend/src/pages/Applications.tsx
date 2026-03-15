@@ -21,6 +21,7 @@ const APP_TYPES: ApplicationType[] = [
   'Lime',
   'Sulfur',
   'Wetting',
+  'Mowing',
   'Other',
 ];
 

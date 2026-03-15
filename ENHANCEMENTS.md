@@ -10,7 +10,7 @@
 | 4 | Notifications / Push Alerts | 1 | Not Started | Email/webhook for Warning/Critical severity |
 | 5 | Historical Trends & Year-over-Year Analytics | 1 | Done | 6 trend charts on Environmental page (7d/30d/90d), threshold reference lines |
 | 6 | Product Database & Rate Calculator | 2 | Not Started | Common products with N-P-K, rate math |
-| 7 | Mowing Log & 1/3 Rule Enforcement | 2 | Not Started | Track mowing date/height, enforce 1/3 rule |
+| 7 | Mowing Log & 1/3 Rule Enforcement | 2 | Partial | Mowing log via ApplicationType; 1/3 rule enforcement deferred |
 | 8 | Frost Date Integration & Season Boundaries | 2 | Not Started | First/last frost, deadline anchoring |
 | 9 | Proactive Seasonal Plan / Program Builder | 2 | Done | Historical NOAA analysis, threshold crossings, 10 activities, timeline UI |
 | 10 | Multi-Zone Support | 2 | Not Started | Multiple lawn profiles with independent recs |

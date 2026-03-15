@@ -61,6 +61,7 @@ export type ApplicationType =
   | 'Lime'
   | 'Sulfur'
   | 'Wetting'
+  | 'Mowing'
   | 'Other';
 
 export interface WeatherSnapshot {
@@ -345,6 +346,7 @@ export const APPLICATION_TYPE_LABELS: Record<ApplicationType, string> = {
   Lime: 'Lime',
   Sulfur: 'Sulfur',
   Wetting: 'Wetting Agent',
+  Mowing: 'Mowing',
   Other: 'Other',
 };
 
@@ -361,6 +363,7 @@ export const APPLICATION_TYPE_COLORS: Record<ApplicationType, string> = {
   Lime: '#f5f5f5',
   Sulfur: '#facc15',
   Wetting: '#67e8f9',
+  Mowing: '#16a34a',
   Other: '#9ca3af',
 };
 

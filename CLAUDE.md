@@ -95,6 +95,8 @@ turfops/
 - All temperatures stored in Fahrenheit (convert from Celsius at ingestion)
 - Axum serves React SPA static files with fallback to index.html for client-side routing
 - Seasonal plan uses historical NOAA soil temp data (up to 10 years) to predict activity windows via threshold crossing analysis; crossings cached in DB for fast subsequent loads
+- Calendar view overlays seasonal plan activity windows (status-colored bars) alongside application dots; detail panel shows both when a date is selected
+- Mowing is tracked as an ApplicationType (no cut height field); shows on calendar and applications list like any other type
 
 ## Environment Variables
 
