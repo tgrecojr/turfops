@@ -1,3 +1,6 @@
+use super::disease_common::{
+    add_frac_data_points, append_rotation_warning, build_rotation_guidance,
+};
 use super::thresholds::*;
 use super::Rule;
 use crate::models::{
@@ -95,18 +98,7 @@ impl Rule for FungicideRule {
         // Analyze FRAC rotation history
         let advice = analyze_fungicide_rotation(history);
 
-        let rotation_guidance = if let Some(next) = &advice.recommended_next {
-            let products = next.common_products();
-            let example = products.first().copied().unwrap_or("(see label)");
-            format!(
-                "Recommended next application: {} (e.g., {}).",
-                next, example
-            )
-        } else {
-            "Rotate between FRAC classes: Strobilurins (FRAC 11), DMIs (FRAC 3), \
-             Thiophanates (FRAC 1)."
-                .to_string()
-        };
+        let rotation_guidance = build_rotation_guidance(&advice);
 
         let mut action = match severity {
             Severity::Critical => {
@@ -132,11 +124,9 @@ impl Rule for FungicideRule {
                 .to_string(),
         };
 
-        if let Some(warning) = &advice.rotation_warning {
-            action = format!("{} ROTATION WARNING: {}", action, warning);
-        }
+        action = append_rotation_warning(&action, &advice);
 
-        let mut rec = Recommendation::new(
+        let rec = Recommendation::new(
             "fungicide_risk",
             RecommendationCategory::Fungicide,
             severity,
@@ -177,21 +167,6 @@ impl Rule for FungicideRule {
         )
         .with_action(action);
 
-        if let Some(last) = &advice.last_class {
-            rec = rec.with_data_point(
-                "Last FRAC Class",
-                last.to_string(),
-                DataSource::History.as_str(),
-            );
-        }
-        if let Some(next) = &advice.recommended_next {
-            rec = rec.with_data_point(
-                "Recommended Next",
-                next.to_string(),
-                DataSource::Rotation.as_str(),
-            );
-        }
-
-        Some(rec)
+        Some(add_frac_data_points(rec, &advice))
     }
 }

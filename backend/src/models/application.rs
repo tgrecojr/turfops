@@ -1,5 +1,6 @@
 use chrono::{NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ApplicationType {
@@ -36,23 +37,27 @@ impl ApplicationType {
             ApplicationType::Other => "Other",
         }
     }
+}
 
-    pub fn from_str(s: &str) -> Option<Self> {
+impl FromStr for ApplicationType {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().replace(['-', ' '], "").as_str() {
-            "preemergent" => Some(ApplicationType::PreEmergent),
-            "postemergent" => Some(ApplicationType::PostEmergent),
-            "fertilizer" => Some(ApplicationType::Fertilizer),
-            "fungicide" => Some(ApplicationType::Fungicide),
-            "insecticide" => Some(ApplicationType::Insecticide),
-            "grubcontrol" => Some(ApplicationType::GrubControl),
-            "overseed" => Some(ApplicationType::Overseed),
-            "aeration" => Some(ApplicationType::Aeration),
-            "dethatching" => Some(ApplicationType::Dethatching),
-            "lime" => Some(ApplicationType::Lime),
-            "sulfur" => Some(ApplicationType::Sulfur),
-            "wetting" | "wettingagent" => Some(ApplicationType::Wetting),
-            "other" => Some(ApplicationType::Other),
-            _ => None,
+            "preemergent" => Ok(ApplicationType::PreEmergent),
+            "postemergent" => Ok(ApplicationType::PostEmergent),
+            "fertilizer" => Ok(ApplicationType::Fertilizer),
+            "fungicide" => Ok(ApplicationType::Fungicide),
+            "insecticide" => Ok(ApplicationType::Insecticide),
+            "grubcontrol" => Ok(ApplicationType::GrubControl),
+            "overseed" => Ok(ApplicationType::Overseed),
+            "aeration" => Ok(ApplicationType::Aeration),
+            "dethatching" => Ok(ApplicationType::Dethatching),
+            "lime" => Ok(ApplicationType::Lime),
+            "sulfur" => Ok(ApplicationType::Sulfur),
+            "wetting" | "wettingagent" => Ok(ApplicationType::Wetting),
+            "other" => Ok(ApplicationType::Other),
+            _ => Err(format!("Unknown application type: {}", s)),
         }
     }
 }
@@ -93,34 +98,34 @@ mod tests {
     fn application_type_from_str_valid() {
         assert_eq!(
             ApplicationType::from_str("PreEmergent"),
-            Some(ApplicationType::PreEmergent)
+            Ok(ApplicationType::PreEmergent)
         );
         assert_eq!(
             ApplicationType::from_str("pre-emergent"),
-            Some(ApplicationType::PreEmergent)
+            Ok(ApplicationType::PreEmergent)
         );
         assert_eq!(
             ApplicationType::from_str("pre emergent"),
-            Some(ApplicationType::PreEmergent)
+            Ok(ApplicationType::PreEmergent)
         );
         assert_eq!(
             ApplicationType::from_str("Fertilizer"),
-            Some(ApplicationType::Fertilizer)
+            Ok(ApplicationType::Fertilizer)
         );
         assert_eq!(
             ApplicationType::from_str("grubcontrol"),
-            Some(ApplicationType::GrubControl)
+            Ok(ApplicationType::GrubControl)
         );
         assert_eq!(
             ApplicationType::from_str("grub control"),
-            Some(ApplicationType::GrubControl)
+            Ok(ApplicationType::GrubControl)
         );
     }
 
     #[test]
     fn application_type_from_str_invalid() {
-        assert_eq!(ApplicationType::from_str("unknown"), None);
-        assert_eq!(ApplicationType::from_str(""), None);
-        assert_eq!(ApplicationType::from_str("spray"), None);
+        assert!(ApplicationType::from_str("unknown").is_err());
+        assert!(ApplicationType::from_str("").is_err());
+        assert!(ApplicationType::from_str("spray").is_err());
     }
 }

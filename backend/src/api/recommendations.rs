@@ -31,12 +31,12 @@ pub async fn list_recommendations(
     // Evaluate rules
     let mut recommendations = state.rules_engine.evaluate(&summary, &profile, &apps);
 
-    // Apply dismissed/addressed state from in-memory tracking
-    let rec_states = state.recommendation_states.read().await;
+    // Apply dismissed/addressed state from database
+    let rec_states = queries::get_recommendation_states(&state.pool).await?;
     for rec in &mut recommendations {
-        if let Some(action) = rec_states.get(&rec.id) {
-            rec.dismissed = action.dismissed;
-            rec.addressed = action.addressed;
+        if let Some((dismissed, addressed)) = rec_states.get(&rec.id) {
+            rec.dismissed = *dismissed;
+            rec.addressed = *addressed;
         }
     }
 
@@ -53,37 +53,28 @@ pub struct PatchRecommendationRequest {
 }
 
 /// PATCH /api/v1/recommendations/:id
-/// Mark a recommendation as dismissed or addressed.
+/// Mark a recommendation as dismissed or addressed. Persisted to database.
 pub async fn patch_recommendation(
     State(state): State<AppState>,
     Path(id): Path<String>,
     Json(req): Json<PatchRecommendationRequest>,
 ) -> Result<Json<serde_json::Value>, TurfOpsError> {
-    let mut rec_states = state.recommendation_states.write().await;
-    let entry = rec_states.entry(id.clone()).or_insert(RecommendationState {
-        dismissed: false,
-        addressed: false,
-    });
+    // Get existing state from DB
+    let rec_states = queries::get_recommendation_states(&state.pool).await?;
+    let (mut dismissed, mut addressed) = rec_states.get(&id).copied().unwrap_or((false, false));
 
-    if let Some(dismissed) = req.dismissed {
-        entry.dismissed = dismissed;
+    if let Some(d) = req.dismissed {
+        dismissed = d;
     }
-    if let Some(addressed) = req.addressed {
-        entry.addressed = addressed;
+    if let Some(a) = req.addressed {
+        addressed = a;
     }
+
+    queries::upsert_recommendation_state(&state.pool, &id, dismissed, addressed).await?;
 
     Ok(Json(serde_json::json!({
         "id": id,
-        "dismissed": entry.dismissed,
-        "addressed": entry.addressed,
+        "dismissed": dismissed,
+        "addressed": addressed,
     })))
-}
-
-/// In-memory tracking of recommendation dismissed/addressed state.
-/// Re-evaluated recommendations are ephemeral; this persists user actions across
-/// re-evaluations within the same server lifetime (matches TUI behavior).
-#[derive(Debug, Clone, Default)]
-pub struct RecommendationState {
-    pub dismissed: bool,
-    pub addressed: bool,
 }

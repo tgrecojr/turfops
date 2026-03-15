@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GrassType {
@@ -35,22 +36,22 @@ impl GrassType {
                 | GrassType::FineFescue
         )
     }
+}
 
-    pub fn from_str(s: &str) -> Option<Self> {
+impl FromStr for GrassType {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "kentuckybluegrass" | "kentucky bluegrass" | "kbg" => {
-                Some(GrassType::KentuckyBluegrass)
-            }
-            "tallfescue" | "tall fescue" | "tttf" => Some(GrassType::TallFescue),
-            "perennialryegrass" | "perennial ryegrass" | "prg" => {
-                Some(GrassType::PerennialRyegrass)
-            }
-            "finefescue" | "fine fescue" => Some(GrassType::FineFescue),
-            "bermuda" => Some(GrassType::Bermuda),
-            "zoysia" => Some(GrassType::Zoysia),
-            "staugustine" | "st. augustine" | "st augustine" => Some(GrassType::StAugustine),
-            "mixed" => Some(GrassType::Mixed),
-            _ => None,
+            "kentuckybluegrass" | "kentucky bluegrass" | "kbg" => Ok(GrassType::KentuckyBluegrass),
+            "tallfescue" | "tall fescue" | "tttf" => Ok(GrassType::TallFescue),
+            "perennialryegrass" | "perennial ryegrass" | "prg" => Ok(GrassType::PerennialRyegrass),
+            "finefescue" | "fine fescue" => Ok(GrassType::FineFescue),
+            "bermuda" => Ok(GrassType::Bermuda),
+            "zoysia" => Ok(GrassType::Zoysia),
+            "staugustine" | "st. augustine" | "st augustine" => Ok(GrassType::StAugustine),
+            "mixed" => Ok(GrassType::Mixed),
+            _ => Err(format!("Unknown grass type: {}", s)),
         }
     }
 }
@@ -82,16 +83,20 @@ impl SoilType {
             SoilType::SandyLoam => "Sandy Loam",
         }
     }
+}
 
-    pub fn from_str(s: &str) -> Option<Self> {
+impl FromStr for SoilType {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "clay" => Some(SoilType::Clay),
-            "loam" => Some(SoilType::Loam),
-            "sandy" => Some(SoilType::Sandy),
-            "siltloam" | "silt loam" => Some(SoilType::SiltLoam),
-            "clayloam" | "clay loam" => Some(SoilType::ClayLoam),
-            "sandyloam" | "sandy loam" => Some(SoilType::SandyLoam),
-            _ => None,
+            "clay" => Ok(SoilType::Clay),
+            "loam" => Ok(SoilType::Loam),
+            "sandy" => Ok(SoilType::Sandy),
+            "siltloam" | "silt loam" => Ok(SoilType::SiltLoam),
+            "clayloam" | "clay loam" => Ok(SoilType::ClayLoam),
+            "sandyloam" | "sandy loam" => Ok(SoilType::SandyLoam),
+            _ => Err(format!("Unknown soil type: {}", s)),
         }
     }
 }
@@ -117,13 +122,17 @@ impl IrrigationType {
             IrrigationType::None => "None",
         }
     }
+}
 
-    pub fn from_str(s: &str) -> Option<Self> {
+impl FromStr for IrrigationType {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "inground" | "in-ground" | "in ground" => Some(IrrigationType::InGround),
-            "hose" | "sprinkler" | "hose/sprinkler" => Some(IrrigationType::Hose),
-            "none" => Some(IrrigationType::None),
-            _ => None,
+            "inground" | "in-ground" | "in ground" => Ok(IrrigationType::InGround),
+            "hose" | "sprinkler" | "hose/sprinkler" => Ok(IrrigationType::Hose),
+            "none" => Ok(IrrigationType::None),
+            _ => Err(format!("Unknown irrigation type: {}", s)),
         }
     }
 }
@@ -180,32 +189,26 @@ mod tests {
 
     #[test]
     fn grass_type_from_str_valid() {
-        assert_eq!(
-            GrassType::from_str("TallFescue"),
-            Some(GrassType::TallFescue)
-        );
+        assert_eq!(GrassType::from_str("TallFescue"), Ok(GrassType::TallFescue));
         assert_eq!(
             GrassType::from_str("tall fescue"),
-            Some(GrassType::TallFescue)
+            Ok(GrassType::TallFescue)
         );
-        assert_eq!(GrassType::from_str("TTTF"), Some(GrassType::TallFescue));
+        assert_eq!(GrassType::from_str("TTTF"), Ok(GrassType::TallFescue));
         assert_eq!(
             GrassType::from_str("KentuckyBluegrass"),
-            Some(GrassType::KentuckyBluegrass)
+            Ok(GrassType::KentuckyBluegrass)
         );
-        assert_eq!(
-            GrassType::from_str("kbg"),
-            Some(GrassType::KentuckyBluegrass)
-        );
-        assert_eq!(GrassType::from_str("bermuda"), Some(GrassType::Bermuda));
-        assert_eq!(GrassType::from_str("zoysia"), Some(GrassType::Zoysia));
+        assert_eq!(GrassType::from_str("kbg"), Ok(GrassType::KentuckyBluegrass));
+        assert_eq!(GrassType::from_str("bermuda"), Ok(GrassType::Bermuda));
+        assert_eq!(GrassType::from_str("zoysia"), Ok(GrassType::Zoysia));
     }
 
     #[test]
     fn grass_type_from_str_invalid() {
-        assert_eq!(GrassType::from_str("unknown"), None);
-        assert_eq!(GrassType::from_str(""), None);
-        assert_eq!(GrassType::from_str("fescue"), None);
+        assert!(GrassType::from_str("unknown").is_err());
+        assert!(GrassType::from_str("").is_err());
+        assert!(GrassType::from_str("fescue").is_err());
     }
 
     #[test]
@@ -223,7 +226,7 @@ mod tests {
             let debug_str = format!("{:?}", grass_type);
             assert_eq!(
                 GrassType::from_str(&debug_str),
-                Some(grass_type),
+                Ok(grass_type),
                 "Round-trip failed for {:?}",
                 grass_type
             );
@@ -242,37 +245,43 @@ mod tests {
     }
 
     #[test]
+    fn grass_type_parse() {
+        assert_eq!("TallFescue".parse::<GrassType>(), Ok(GrassType::TallFescue));
+        assert!("unknown".parse::<GrassType>().is_err());
+    }
+
+    #[test]
     fn soil_type_from_str_valid() {
-        assert_eq!(SoilType::from_str("clay"), Some(SoilType::Clay));
-        assert_eq!(SoilType::from_str("Loam"), Some(SoilType::Loam));
-        assert_eq!(SoilType::from_str("SANDY"), Some(SoilType::Sandy));
-        assert_eq!(SoilType::from_str("silt loam"), Some(SoilType::SiltLoam));
-        assert_eq!(SoilType::from_str("SiltLoam"), Some(SoilType::SiltLoam));
+        assert_eq!(SoilType::from_str("clay"), Ok(SoilType::Clay));
+        assert_eq!(SoilType::from_str("Loam"), Ok(SoilType::Loam));
+        assert_eq!(SoilType::from_str("SANDY"), Ok(SoilType::Sandy));
+        assert_eq!(SoilType::from_str("silt loam"), Ok(SoilType::SiltLoam));
+        assert_eq!(SoilType::from_str("SiltLoam"), Ok(SoilType::SiltLoam));
     }
 
     #[test]
     fn soil_type_from_str_invalid() {
-        assert_eq!(SoilType::from_str("dirt"), None);
-        assert_eq!(SoilType::from_str(""), None);
+        assert!(SoilType::from_str("dirt").is_err());
+        assert!(SoilType::from_str("").is_err());
     }
 
     #[test]
     fn irrigation_type_from_str_valid() {
         assert_eq!(
             IrrigationType::from_str("InGround"),
-            Some(IrrigationType::InGround)
+            Ok(IrrigationType::InGround)
         );
         assert_eq!(
             IrrigationType::from_str("in-ground"),
-            Some(IrrigationType::InGround)
+            Ok(IrrigationType::InGround)
         );
-        assert_eq!(IrrigationType::from_str("hose"), Some(IrrigationType::Hose));
-        assert_eq!(IrrigationType::from_str("none"), Some(IrrigationType::None));
+        assert_eq!(IrrigationType::from_str("hose"), Ok(IrrigationType::Hose));
+        assert_eq!(IrrigationType::from_str("none"), Ok(IrrigationType::None));
     }
 
     #[test]
     fn irrigation_type_from_str_invalid() {
-        assert_eq!(IrrigationType::from_str("drip"), None);
-        assert_eq!(IrrigationType::from_str(""), None);
+        assert!(IrrigationType::from_str("drip").is_err());
+        assert!(IrrigationType::from_str("").is_err());
     }
 }

@@ -5,6 +5,7 @@ use crate::state::AppState;
 use axum::extract::State;
 use axum::Json;
 use serde::Deserialize;
+use std::str::FromStr;
 
 pub async fn get_profile(State(state): State<AppState>) -> Result<Json<LawnProfile>, TurfOpsError> {
     let profile = queries::get_default_lawn_profile(&state.pool)
@@ -37,7 +38,7 @@ pub async fn update_profile(
     }
     if let Some(gt) = req.grass_type {
         profile.grass_type = GrassType::from_str(&gt)
-            .ok_or_else(|| TurfOpsError::InvalidData(format!("Unknown grass type: {}", gt)))?;
+            .map_err(|_| TurfOpsError::InvalidData(format!("Unknown grass type: {}", gt)))?;
     }
     if let Some(zone) = req.usda_zone {
         profile.usda_zone = zone;
@@ -45,16 +46,17 @@ pub async fn update_profile(
     if let Some(st) = req.soil_type {
         profile.soil_type = Some(
             SoilType::from_str(&st)
-                .ok_or_else(|| TurfOpsError::InvalidData(format!("Unknown soil type: {}", st)))?,
+                .map_err(|_| TurfOpsError::InvalidData(format!("Unknown soil type: {}", st)))?,
         );
     }
     if let Some(sqft) = req.lawn_size_sqft {
         profile.lawn_size_sqft = Some(sqft);
     }
     if let Some(it) = req.irrigation_type {
-        profile.irrigation_type = Some(IrrigationType::from_str(&it).ok_or_else(|| {
-            TurfOpsError::InvalidData(format!("Unknown irrigation type: {}", it))
-        })?);
+        profile.irrigation_type =
+            Some(IrrigationType::from_str(&it).map_err(|_| {
+                TurfOpsError::InvalidData(format!("Unknown irrigation type: {}", it))
+            })?);
     }
 
     queries::update_lawn_profile(&state.pool, &profile).await?;

@@ -27,7 +27,10 @@ async function fetchJson<T>(
     });
     if (!res.ok) {
       const body = await res.text();
-      throw new Error(`${res.status}: ${body}`);
+      // Sanitize: strip potential stack traces/internal paths, limit length
+      const sanitized = body.length > 200 ? body.slice(0, 200) + '...' : body;
+      const safeMessage = sanitized.replace(/\/[^\s:]+\.(rs|js|ts):\d+/g, '[internal]');
+      throw new Error(`${res.status}: ${safeMessage}`);
     }
     // 204 No Content
     if (res.status === 204) return undefined as unknown as T;

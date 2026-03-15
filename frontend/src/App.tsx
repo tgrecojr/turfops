@@ -1,12 +1,13 @@
-import { Component, type ReactNode } from 'react';
+import { Component, lazy, Suspense, type ReactNode } from 'react';
 import { BrowserRouter, Link, Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout';
-import Applications from './pages/Applications';
-import Calendar from './pages/Calendar';
-import Dashboard from './pages/Dashboard';
-import Environmental from './pages/Environmental';
-import Recommendations from './pages/Recommendations';
-import Settings from './pages/Settings';
+
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Applications = lazy(() => import('./pages/Applications'));
+const Calendar = lazy(() => import('./pages/Calendar'));
+const Environmental = lazy(() => import('./pages/Environmental'));
+const Recommendations = lazy(() => import('./pages/Recommendations'));
+const Settings = lazy(() => import('./pages/Settings'));
 
 class ErrorBoundary extends Component<
   { children: ReactNode },
@@ -68,21 +69,27 @@ function NotFound() {
   );
 }
 
+const routeFallback = (
+  <div style={{ padding: '2rem', color: '#718096' }}>Loading...</div>
+);
+
 export default function App() {
   return (
     <ErrorBoundary>
       <BrowserRouter>
-        <Routes>
-          <Route element={<Layout />}>
-            <Route index element={<Dashboard />} />
-            <Route path="applications" element={<Applications />} />
-            <Route path="calendar" element={<Calendar />} />
-            <Route path="environmental" element={<Environmental />} />
-            <Route path="recommendations" element={<Recommendations />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="*" element={<NotFound />} />
-          </Route>
-        </Routes>
+        <Suspense fallback={routeFallback}>
+          <Routes>
+            <Route element={<Layout />}>
+              <Route index element={<Dashboard />} />
+              <Route path="applications" element={<Applications />} />
+              <Route path="calendar" element={<Calendar />} />
+              <Route path="environmental" element={<Environmental />} />
+              <Route path="recommendations" element={<Recommendations />} />
+              <Route path="settings" element={<Settings />} />
+              <Route path="*" element={<NotFound />} />
+            </Route>
+          </Routes>
+        </Suspense>
       </BrowserRouter>
     </ErrorBoundary>
   );

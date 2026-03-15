@@ -16,6 +16,7 @@ use axum::routing::{delete, get, patch, post};
 use axum::Router;
 use std::net::SocketAddr;
 use std::path::PathBuf;
+use std::str::FromStr;
 use tower_http::cors::CorsLayer;
 use tower_http::limit::RequestBodyLimitLayer;
 use tower_http::services::{ServeDir, ServeFile};
@@ -165,7 +166,7 @@ async fn ensure_default_profile(pool: &sqlx::PgPool, config: &Config) -> anyhow:
 
     tracing::info!("No lawn profile found, creating default from config");
 
-    let grass_type = GrassType::from_str(&config.lawn.grass_type).unwrap_or_else(|| {
+    let grass_type = GrassType::from_str(&config.lawn.grass_type).unwrap_or_else(|_| {
         tracing::warn!(
             grass_type = %config.lawn.grass_type,
             "Unknown LAWN_GRASS_TYPE, defaulting to TallFescue"
@@ -176,12 +177,12 @@ async fn ensure_default_profile(pool: &sqlx::PgPool, config: &Config) -> anyhow:
         .lawn
         .soil_type
         .as_ref()
-        .and_then(|s| SoilType::from_str(s));
+        .and_then(|s| SoilType::from_str(s).ok());
     let irrigation_type = config
         .lawn
         .irrigation_type
         .as_ref()
-        .and_then(|i| IrrigationType::from_str(i));
+        .and_then(|i| IrrigationType::from_str(i).ok());
 
     let mut profile = LawnProfile::new(
         config.lawn.name.clone(),
