@@ -1,9 +1,16 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   getEnvironmental,
   refreshEnvironmental,
 } from '../api/client';
 import Gauge from '../components/Gauge';
+import {
+  SOIL_TEMP_GAUGE,
+  AMBIENT_TEMP_GAUGE,
+  HUMIDITY_GAUGE,
+  SOIL_MOISTURE_GAUGE,
+} from '../components/gaugeConfigs';
+import { sharedStyles } from '../styles/shared';
 import type { EnvironmentalSummary } from '../types';
 
 const POLL_INTERVAL = 30_000;
@@ -13,23 +20,65 @@ export default function Environmental() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
 
   const fetchData = useCallback(async () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     try {
       const d = await getEnvironmental();
-      setData(d);
-      setError(null);
+      if (!controller.signal.aborted) {
+        setData(d);
+        setError(null);
+      }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load');
+      if (!controller.signal.aborted) {
+        setError(e instanceof Error ? e.message : 'Failed to load');
+      }
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) {
+        setLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
     fetchData();
-    const id = setInterval(fetchData, POLL_INTERVAL);
-    return () => clearInterval(id);
+
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const startPolling = () => {
+      stopPolling();
+      if (!document.hidden) {
+        intervalId = setInterval(fetchData, POLL_INTERVAL);
+      }
+    };
+
+    const stopPolling = () => {
+      if (intervalId !== null) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        fetchData();
+        startPolling();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    startPolling();
+
+    return () => {
+      stopPolling();
+      abortRef.current?.abort();
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [fetchData]);
 
   const handleRefresh = async () => {
@@ -45,7 +94,7 @@ export default function Environmental() {
     }
   };
 
-  if (loading) return <div style={{ color: '#718096', padding: '2rem' }}>Loading...</div>;
+  if (loading) return <div style={sharedStyles.loading}>Loading...</div>;
 
   const current = data?.current;
 
@@ -60,8 +109,8 @@ export default function Environmental() {
 
   return (
     <div>
-      <div style={styles.headerRow}>
-        <h1 style={styles.title}>Environmental Data</h1>
+      <div style={sharedStyles.headerRow}>
+        <h1 style={sharedStyles.pageTitle}>Environmental Data</h1>
         <button
           style={styles.refreshBtn}
           onClick={handleRefresh}
@@ -71,7 +120,7 @@ export default function Environmental() {
         </button>
       </div>
 
-      {error && <div style={styles.error}>{error}</div>}
+      {error && <div style={sharedStyles.error}>{error}</div>}
 
       {data?.last_updated && (
         <p style={styles.updated}>
@@ -81,47 +130,31 @@ export default function Environmental() {
       )}
 
       {/* Gauges */}
-      <div style={styles.gaugeGrid}>
-        <div style={styles.card}>
+      <div style={sharedStyles.gaugeGrid}>
+        <div style={sharedStyles.card}>
           <Gauge
-            label="Soil Temp (10cm)"
+            {...SOIL_TEMP_GAUGE}
             value={current?.soil_temp_10_f ?? null}
-            unit="°F"
-            min={30}
-            max={100}
-            thresholds={{ warn: 75, critical: 85 }}
           />
         </div>
-        <div style={styles.card}>
+        <div style={sharedStyles.card}>
           <Gauge
-            label="Ambient Temp"
+            {...AMBIENT_TEMP_GAUGE}
             value={current?.ambient_temp_f ?? null}
-            unit="°F"
-            min={0}
-            max={110}
-            thresholds={{ warn: 85, critical: 95 }}
           />
         </div>
-        <div style={styles.card}>
+        <div style={sharedStyles.card}>
           <Gauge
-            label="Humidity"
+            {...HUMIDITY_GAUGE}
             value={current?.humidity_percent ?? null}
-            unit="%"
-            min={0}
-            max={100}
-            thresholds={{ warn: 80, critical: 90 }}
           />
         </div>
-        <div style={styles.card}>
+        <div style={sharedStyles.card}>
           <Gauge
-            label="Soil Moisture (10cm)"
+            {...SOIL_MOISTURE_GAUGE}
             value={
               current?.soil_moisture_10 != null ? current.soil_moisture_10 * 100 : null
             }
-            unit="%"
-            min={0}
-            max={50}
-            thresholds={{ warn: 40, critical: 45 }}
           />
         </div>
       </div>
@@ -131,12 +164,12 @@ export default function Environmental() {
         <SummaryCard
           label="7-Day Soil Temp Avg"
           value={data?.soil_temp_7day_avg_f}
-          unit="°F"
+          unit={'\u00B0F'}
         />
         <SummaryCard
           label="7-Day Ambient Avg"
           value={data?.ambient_temp_7day_avg_f}
-          unit="°F"
+          unit={'\u00B0F'}
         />
         <SummaryCard
           label="7-Day Humidity Avg"
@@ -151,23 +184,23 @@ export default function Environmental() {
       </div>
 
       {/* Soil depth table */}
-      <h2 style={styles.sectionTitle}>Soil Profile by Depth</h2>
-      <table style={styles.table}>
+      <h2 style={sharedStyles.sectionTitle}>Soil Profile by Depth</h2>
+      <table style={{ ...sharedStyles.table, marginBottom: '1.5rem' }}>
         <thead>
           <tr>
-            <th style={styles.th}>Depth</th>
-            <th style={styles.th}>Temperature</th>
-            <th style={styles.th}>Moisture</th>
+            <th style={sharedStyles.th}>Depth</th>
+            <th style={sharedStyles.th}>Temperature</th>
+            <th style={sharedStyles.th}>Moisture</th>
           </tr>
         </thead>
         <tbody>
           {depthRows.map((row) => (
             <tr key={row.depth}>
-              <td style={styles.td}>{row.depth}</td>
-              <td style={styles.td}>
-                {row.temp != null ? `${row.temp.toFixed(1)} °F` : '--'}
+              <td style={sharedStyles.td}>{row.depth}</td>
+              <td style={sharedStyles.td}>
+                {row.temp != null ? `${row.temp.toFixed(1)} \u00B0F` : '--'}
               </td>
-              <td style={styles.td}>
+              <td style={sharedStyles.td}>
                 {row.moisture != null
                   ? `${(row.moisture * 100).toFixed(1)}%`
                   : '--'}
@@ -180,7 +213,7 @@ export default function Environmental() {
       {/* Forecast */}
       {data?.forecast && data.forecast.daily_summary.length > 0 && (
         <>
-          <h2 style={styles.sectionTitle}>5-Day Forecast</h2>
+          <h2 style={sharedStyles.sectionTitle}>5-Day Forecast</h2>
           <div style={styles.forecastGrid}>
             {data.forecast.daily_summary.map((day) => (
               <div key={day.date} style={styles.forecastCard}>
@@ -189,7 +222,7 @@ export default function Environmental() {
                   {day.dominant_condition}
                 </div>
                 <div style={styles.forecastTemp}>
-                  {day.high_temp_f.toFixed(0)}° / {day.low_temp_f.toFixed(0)}°
+                  {day.high_temp_f.toFixed(0)}{'\u00B0'} / {day.low_temp_f.toFixed(0)}{'\u00B0'}
                 </div>
                 <div style={styles.forecastDetail}>
                   Humidity: {day.avg_humidity.toFixed(0)}%
@@ -227,13 +260,6 @@ function SummaryCard({
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  headerRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '0.5rem',
-  },
-  title: { margin: 0, fontSize: '1.5rem', color: '#1a202c' },
   refreshBtn: {
     padding: '0.5rem 1rem',
     backgroundColor: '#3182ce',
@@ -244,27 +270,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     fontSize: '0.85rem',
   },
-  error: {
-    padding: '0.5rem 1rem',
-    backgroundColor: '#fed7d7',
-    color: '#c53030',
-    borderRadius: 6,
-    marginBottom: '1rem',
-    fontSize: '0.85rem',
-  },
   updated: { color: '#718096', fontSize: '0.8rem', marginBottom: '1rem' },
-  gaugeGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-    gap: '1rem',
-    marginBottom: '1.5rem',
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: '1rem',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-  },
   summaryGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
@@ -280,36 +286,6 @@ const styles: Record<string, React.CSSProperties> = {
   },
   summaryLabel: { fontSize: '0.75rem', color: '#718096', marginBottom: 4 },
   summaryValue: { fontSize: '1.2rem', fontWeight: 600, color: '#2d3748' },
-  sectionTitle: {
-    fontSize: '1rem',
-    fontWeight: 600,
-    color: '#2d3748',
-    margin: '0 0 0.75rem',
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse' as const,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    overflow: 'hidden',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-    marginBottom: '1.5rem',
-  },
-  th: {
-    textAlign: 'left' as const,
-    padding: '0.6rem 0.75rem',
-    fontSize: '0.75rem',
-    color: '#718096',
-    fontWeight: 600,
-    borderBottom: '2px solid #e2e8f0',
-    textTransform: 'uppercase' as const,
-  },
-  td: {
-    padding: '0.5rem 0.75rem',
-    fontSize: '0.85rem',
-    borderBottom: '1px solid #edf2f7',
-    color: '#2d3748',
-  },
   forecastGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',

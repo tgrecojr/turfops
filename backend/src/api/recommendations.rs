@@ -26,7 +26,7 @@ pub async fn list_recommendations(
     let profile_id = profile
         .id
         .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
-    let apps = queries::get_applications_for_profile(&state.pool, profile_id).await?;
+    let apps = queries::get_applications_for_profile(&state.pool, profile_id, 1000, 0).await?;
 
     // Evaluate rules
     let mut recommendations = state.rules_engine.evaluate(&summary, &profile, &apps);

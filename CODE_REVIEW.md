@@ -22,19 +22,19 @@
 | H8 | `null` keys on React list items | Done | |
 | H2 | No authentication/authorization | Future | |
 | H7 | Accessibility regressions in frontend | Future | |
-| M1 | `environmental_cache` grows unbounded | Future | |
-| M2 | Calendar fetches all applications | Future | |
-| M3 | No pagination on application listing | Future | |
-| M4 | Migration index bug | Future | |
-| M5 | Polling continues in background tabs | Future | |
-| M6 | No request cancellation on unmount | Future | |
-| M7 | Delete/action buttons have no loading guard | Future | |
-| M8 | Duplicated gauge configuration | Future | |
-| M9 | Duplicated style objects across pages | Future | |
-| M10 | DB credentials in connection string without encoding | Future | |
-| M11 | Secrets as plain env vars in Docker | Future | |
-| M12 | `SOILDATA_DB_PASSWORD` defaults to empty string | Future | |
-| M13 | `--legacy-peer-deps` suppresses dependency conflicts | Future | |
+| M1 | `environmental_cache` grows unbounded | Done | |
+| M2 | Calendar fetches all applications | Done | |
+| M3 | No pagination on application listing | Done | |
+| M4 | Migration index bug | Done | |
+| M5 | Polling continues in background tabs | Done | |
+| M6 | No request cancellation on unmount | Done | |
+| M7 | Delete/action buttons have no loading guard | Done | |
+| M8 | Duplicated gauge configuration | Done | |
+| M9 | Duplicated style objects across pages | Done | |
+| M10 | DB credentials in connection string without encoding | Done | |
+| M11 | Secrets as plain env vars in Docker | Won't Fix | |
+| M12 | `SOILDATA_DB_PASSWORD` defaults to empty string | Done | |
+| M13 | `--legacy-peer-deps` suppresses dependency conflicts | Done | |
 | L1–L14 | Low priority items | Future | |
 
 ---

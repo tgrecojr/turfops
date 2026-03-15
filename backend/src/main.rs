@@ -36,7 +36,7 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("Configuration loaded");
 
     // Connect to app database and run migrations
-    let pool = create_pool(&config.database.connection_string()).await?;
+    let pool = create_pool(config.database.connect_options()).await?;
 
     // Create default profile if DB is empty
     ensure_default_profile(&pool, &config).await?;

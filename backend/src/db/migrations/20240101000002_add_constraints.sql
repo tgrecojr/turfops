@@ -29,4 +29,6 @@ CREATE INDEX IF NOT EXISTS idx_applications_profile_date ON applications(lawn_pr
 -- Replace UNIQUE on environmental_cache timestamp with a non-unique index.
 -- The UNIQUE constraint fails if two readings share the same timestamp.
 ALTER TABLE environmental_cache DROP CONSTRAINT IF EXISTS environmental_cache_timestamp_key;
-CREATE INDEX IF NOT EXISTS idx_environmental_cache_timestamp ON environmental_cache(timestamp DESC);
+-- Drop the old ASC index from migration 1 so we can create the DESC version.
+DROP INDEX IF EXISTS idx_environmental_cache_timestamp;
+CREATE INDEX idx_environmental_cache_timestamp ON environmental_cache(timestamp DESC);

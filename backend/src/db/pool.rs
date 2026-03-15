@@ -1,8 +1,8 @@
 use crate::error::Result;
-use sqlx::postgres::PgPoolOptions;
+use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use sqlx::PgPool;
 
-pub async fn create_pool(database_url: &str) -> Result<PgPool> {
+pub async fn create_pool(options: PgConnectOptions) -> Result<PgPool> {
     let max_conn: u32 = std::env::var("DB_MAX_CONNECTIONS")
         .ok()
         .and_then(|s| s.parse().ok())
@@ -10,7 +10,7 @@ pub async fn create_pool(database_url: &str) -> Result<PgPool> {
 
     let pool = PgPoolOptions::new()
         .max_connections(max_conn)
-        .connect(database_url)
+        .connect_with(options)
         .await?;
 
     // Run migrations

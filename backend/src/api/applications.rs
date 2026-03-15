@@ -8,10 +8,15 @@ use axum::Json;
 use chrono::{NaiveDate, Utc};
 use serde::Deserialize;
 
+const DEFAULT_PAGE_LIMIT: i64 = 50;
+const MAX_PAGE_LIMIT: i64 = 200;
+
 #[derive(Debug, Deserialize)]
 pub struct ListApplicationsQuery {
     #[serde(rename = "type")]
     pub app_type: Option<String>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
 }
 
 pub async fn list_applications(
@@ -25,7 +30,15 @@ pub async fn list_applications(
     let profile_id = profile
         .id
         .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
-    let mut apps = queries::get_applications_for_profile(&state.pool, profile_id).await?;
+
+    let limit = params
+        .limit
+        .unwrap_or(DEFAULT_PAGE_LIMIT)
+        .clamp(1, MAX_PAGE_LIMIT);
+    let offset = params.offset.unwrap_or(0).max(0);
+
+    let mut apps =
+        queries::get_applications_for_profile(&state.pool, profile_id, limit, offset).await?;
 
     // Optional filter by application type
     if let Some(type_filter) = params.app_type {

@@ -36,9 +36,7 @@ pub async fn get_calendar(
     let profile_id = profile
         .id
         .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
-    let apps = queries::get_applications_for_profile(&state.pool, profile_id).await?;
 
-    // Filter to the requested month and group by date
     let month_start = NaiveDate::from_ymd_opt(year, month, 1).ok_or_else(|| {
         TurfOpsError::InvalidData(format!("Invalid year/month: {}/{}", year, month))
     })?;
@@ -49,13 +47,19 @@ pub async fn get_calendar(
     }
     .unwrap_or(month_start);
 
+    let apps = queries::get_applications_for_profile_in_range(
+        &state.pool,
+        profile_id,
+        month_start,
+        month_end,
+    )
+    .await?;
+
     let mut days: BTreeMap<String, Vec<Application>> = BTreeMap::new();
 
     for app in apps {
-        if app.application_date >= month_start && app.application_date < month_end {
-            let date_key = app.application_date.format("%Y-%m-%d").to_string();
-            days.entry(date_key).or_default().push(app);
-        }
+        let date_key = app.application_date.format("%Y-%m-%d").to_string();
+        days.entry(date_key).or_default().push(app);
     }
 
     Ok(Json(CalendarResponse { year, month, days }))

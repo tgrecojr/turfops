@@ -92,14 +92,42 @@ pub async fn update_lawn_profile(pool: &PgPool, profile: &LawnProfile) -> Result
 pub async fn get_applications_for_profile(
     pool: &PgPool,
     profile_id: i64,
+    limit: i64,
+    offset: i64,
 ) -> Result<Vec<Application>> {
     let rows = sqlx::query_as::<_, ApplicationRow>(
         r#"SELECT id, lawn_profile_id, application_type, product_name, application_date,
            rate_per_1000sqft, coverage_sqft, notes, soil_temp_10cm_f, ambient_temp_f,
            humidity_percent, soil_moisture, created_at
-           FROM applications WHERE lawn_profile_id = $1 ORDER BY application_date DESC"#,
+           FROM applications WHERE lawn_profile_id = $1 ORDER BY application_date DESC
+           LIMIT $2 OFFSET $3"#,
     )
     .bind(profile_id)
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows.into_iter().map(|r| r.into_application()).collect())
+}
+
+pub async fn get_applications_for_profile_in_range(
+    pool: &PgPool,
+    profile_id: i64,
+    start_date: NaiveDate,
+    end_date: NaiveDate,
+) -> Result<Vec<Application>> {
+    let rows = sqlx::query_as::<_, ApplicationRow>(
+        r#"SELECT id, lawn_profile_id, application_type, product_name, application_date,
+           rate_per_1000sqft, coverage_sqft, notes, soil_temp_10cm_f, ambient_temp_f,
+           humidity_percent, soil_moisture, created_at
+           FROM applications
+           WHERE lawn_profile_id = $1 AND application_date >= $2 AND application_date < $3
+           ORDER BY application_date DESC"#,
+    )
+    .bind(profile_id)
+    .bind(start_date)
+    .bind(end_date)
     .fetch_all(pool)
     .await?;
 
@@ -179,6 +207,17 @@ pub async fn cache_environmental_reading(
     .await?;
 
     Ok(())
+}
+
+pub async fn cleanup_old_environmental_cache(pool: &PgPool, retention_days: i64) -> Result<u64> {
+    let result = sqlx::query(
+        "DELETE FROM environmental_cache WHERE fetched_at < NOW() - make_interval(days => $1)",
+    )
+    .bind(retention_days as i32)
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected())
 }
 
 // Row types for sqlx mapping

@@ -210,6 +210,17 @@ impl DataSyncService {
             {
                 tracing::error!("Failed to cache environmental reading: {}", e);
             }
+
+            // Clean up old cache entries (retain 90 days)
+            match queries::cleanup_old_environmental_cache(&self.pool, 90).await {
+                Ok(deleted) if deleted > 0 => {
+                    tracing::info!("Cleaned up {} old environmental cache rows", deleted);
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to clean up environmental cache: {}", e);
+                }
+                _ => {}
+            }
         } else {
             // Keep existing sensor data
             summary = self.current_summary.clone();

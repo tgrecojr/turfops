@@ -3,6 +3,7 @@ import {
   getRecommendations,
   patchRecommendation,
 } from '../api/client';
+import { sharedStyles } from '../styles/shared';
 import type { Recommendation } from '../types';
 import { SEVERITY_COLORS, SEVERITY_SYMBOLS } from '../types';
 
@@ -11,6 +12,7 @@ export default function Recommendations() {
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [actionInFlight, setActionInFlight] = useState<string | null>(null);
 
   const fetchRecs = useCallback(async () => {
     try {
@@ -32,27 +34,30 @@ export default function Recommendations() {
     id: string,
     action: 'addressed' | 'dismissed'
   ) => {
+    setActionInFlight(id);
     try {
       await patchRecommendation(id, { [action]: true });
       setRecs((prev) => prev.filter((r) => r.id !== id));
       if (selected === id) setSelected(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to update');
+    } finally {
+      setActionInFlight(null);
     }
   };
 
   const selectedRec = recs.find((r) => r.id === selected);
 
-  if (loading) return <div style={{ color: '#718096', padding: '2rem' }}>Loading...</div>;
+  if (loading) return <div style={sharedStyles.loading}>Loading...</div>;
 
   return (
     <div>
-      <h1 style={styles.title}>Recommendations</h1>
+      <h1 style={sharedStyles.pageTitle}>Recommendations</h1>
 
-      {error && <div style={styles.error}>{error}</div>}
+      {error && <div style={sharedStyles.error}>{error}</div>}
 
       {recs.length === 0 ? (
-        <div style={styles.empty}>
+        <div style={styles.emptyGreen}>
           No active recommendations. Your lawn is looking good!
         </div>
       ) : (
@@ -63,6 +68,7 @@ export default function Recommendations() {
               const color = SEVERITY_COLORS[rec.severity];
               const symbol = SEVERITY_SYMBOLS[rec.severity];
               const isSelected = rec.id === selected;
+              const isActioning = actionInFlight === rec.id;
 
               return (
                 <div
@@ -75,7 +81,7 @@ export default function Recommendations() {
                   onClick={() => setSelected(rec.id)}
                 >
                   <div style={styles.listHeader}>
-                    <span style={{ ...styles.badge, backgroundColor: color }}>
+                    <span style={{ ...sharedStyles.badge, backgroundColor: color, color: '#fff', border: 'none' }}>
                       {symbol} {rec.severity}
                     </span>
                     <span style={styles.category}>{rec.category}</span>
@@ -85,15 +91,17 @@ export default function Recommendations() {
                   <div style={styles.actions}>
                     <button
                       style={styles.addressBtn}
+                      disabled={isActioning}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleAction(rec.id, 'addressed');
                       }}
                     >
-                      Mark Addressed
+                      {isActioning ? 'Updating...' : 'Mark Addressed'}
                     </button>
                     <button
                       style={styles.dismissBtn}
+                      disabled={isActioning}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleAction(rec.id, 'dismissed');
@@ -113,8 +121,10 @@ export default function Recommendations() {
               <h2 style={styles.detailTitle}>{selectedRec.title}</h2>
               <span
                 style={{
-                  ...styles.badge,
+                  ...sharedStyles.badge,
                   backgroundColor: SEVERITY_COLORS[selectedRec.severity],
+                  color: '#fff',
+                  border: 'none',
                   marginBottom: 8,
                   display: 'inline-block',
                 }}
@@ -129,14 +139,14 @@ export default function Recommendations() {
 
               {selectedRec.explanation && (
                 <div style={styles.section}>
-                  <h3 style={styles.sectionTitle}>Explanation</h3>
+                  <h3 style={sharedStyles.sectionTitle}>Explanation</h3>
                   <p style={styles.sectionText}>{selectedRec.explanation}</p>
                 </div>
               )}
 
               {selectedRec.data_points.length > 0 && (
                 <div style={styles.section}>
-                  <h3 style={styles.sectionTitle}>Data Points</h3>
+                  <h3 style={sharedStyles.sectionTitle}>Data Points</h3>
                   <table style={styles.dataTable}>
                     <tbody>
                       {selectedRec.data_points.map((dp, i) => (
@@ -153,7 +163,7 @@ export default function Recommendations() {
 
               {selectedRec.suggested_action && (
                 <div style={styles.section}>
-                  <h3 style={styles.sectionTitle}>Suggested Action</h3>
+                  <h3 style={sharedStyles.sectionTitle}>Suggested Action</h3>
                   <p style={styles.sectionText}>
                     {selectedRec.suggested_action}
                   </p>
@@ -168,16 +178,7 @@ export default function Recommendations() {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  title: { margin: '0 0 1rem', fontSize: '1.5rem', color: '#1a202c' },
-  error: {
-    padding: '0.5rem 1rem',
-    backgroundColor: '#fed7d7',
-    color: '#c53030',
-    borderRadius: 6,
-    marginBottom: '1rem',
-    fontSize: '0.85rem',
-  },
-  empty: {
+  emptyGreen: {
     color: '#48bb78',
     fontSize: '1rem',
     padding: '2rem',
@@ -202,13 +203,6 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: 8,
     marginBottom: 4,
-  },
-  badge: {
-    color: '#fff',
-    fontSize: '0.7rem',
-    fontWeight: 600,
-    padding: '2px 8px',
-    borderRadius: 10,
   },
   category: { fontSize: '0.75rem', color: '#718096' },
   listTitle: {
@@ -250,12 +244,6 @@ const styles: Record<string, React.CSSProperties> = {
   detailTitle: { margin: '0 0 8px', fontSize: '1.1rem', color: '#1a202c' },
   detailDesc: { color: '#4a5568', fontSize: '0.9rem', lineHeight: 1.5 },
   section: { marginTop: '1rem' },
-  sectionTitle: {
-    fontSize: '0.85rem',
-    fontWeight: 600,
-    color: '#2d3748',
-    margin: '0 0 4px',
-  },
   sectionText: { color: '#4a5568', fontSize: '0.85rem', lineHeight: 1.5, margin: 0 },
   dataTable: { width: '100%', fontSize: '0.82rem' },
   dpLabel: { padding: '4px 8px 4px 0', color: '#718096', fontWeight: 500 },

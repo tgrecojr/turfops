@@ -4,6 +4,7 @@ import {
   deleteApplication,
   getApplications,
 } from '../api/client';
+import { sharedStyles } from '../styles/shared';
 import type { Application, ApplicationType } from '../types';
 import { APPLICATION_TYPE_COLORS, APPLICATION_TYPE_LABELS } from '../types';
 
@@ -29,6 +30,7 @@ export default function Applications() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const fetchApps = useCallback(async () => {
     try {
@@ -48,11 +50,14 @@ export default function Applications() {
 
   const handleDelete = async (id: number) => {
     if (!confirm('Delete this application?')) return;
+    setDeletingId(id);
     try {
       await deleteApplication(id);
       setApps((prev) => prev.filter((a) => a.id !== id));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to delete');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -63,8 +68,8 @@ export default function Applications() {
 
   return (
     <div>
-      <div style={styles.headerRow}>
-        <h1 style={styles.title}>Applications</h1>
+      <div style={sharedStyles.headerRow}>
+        <h1 style={sharedStyles.pageTitle}>Applications</h1>
         <button style={styles.addBtn} onClick={() => setShowForm(!showForm)}>
           {showForm ? 'Cancel' : '+ Add Application'}
         </button>
@@ -72,7 +77,7 @@ export default function Applications() {
 
       {showForm && <AddForm onCreated={handleCreated} onError={setError} />}
 
-      {error && <div style={styles.error}>{error}</div>}
+      {error && <div style={sharedStyles.error}>{error}</div>}
 
       {/* Filter */}
       <div style={styles.filterRow}>
@@ -92,30 +97,30 @@ export default function Applications() {
       </div>
 
       {loading ? (
-        <p style={{ color: '#718096' }}>Loading...</p>
+        <p style={sharedStyles.loading}>Loading...</p>
       ) : apps.length === 0 ? (
-        <p style={{ color: '#a0aec0' }}>No applications found.</p>
+        <p style={sharedStyles.empty}>No applications found.</p>
       ) : (
-        <table style={styles.table}>
+        <table style={sharedStyles.table}>
           <thead>
             <tr>
-              <th style={styles.th}>Date</th>
-              <th style={styles.th}>Type</th>
-              <th style={styles.th}>Product</th>
-              <th style={styles.th}>Rate/1k sqft</th>
-              <th style={styles.th}>Coverage</th>
-              <th style={styles.th}>Notes</th>
-              <th style={styles.th}></th>
+              <th style={sharedStyles.th}>Date</th>
+              <th style={sharedStyles.th}>Type</th>
+              <th style={sharedStyles.th}>Product</th>
+              <th style={sharedStyles.th}>Rate/1k sqft</th>
+              <th style={sharedStyles.th}>Coverage</th>
+              <th style={sharedStyles.th}>Notes</th>
+              <th style={sharedStyles.th}></th>
             </tr>
           </thead>
           <tbody>
             {apps.map((app, index) => (
               <tr key={app.id ?? `app-${index}`}>
-                <td style={styles.td}>{app.application_date}</td>
-                <td style={styles.td}>
+                <td style={sharedStyles.td}>{app.application_date}</td>
+                <td style={sharedStyles.td}>
                   <span
                     style={{
-                      ...styles.badge,
+                      ...sharedStyles.badge,
                       backgroundColor:
                         APPLICATION_TYPE_COLORS[app.application_type] + '22',
                       color: APPLICATION_TYPE_COLORS[app.application_type],
@@ -126,24 +131,25 @@ export default function Applications() {
                     {APPLICATION_TYPE_LABELS[app.application_type]}
                   </span>
                 </td>
-                <td style={styles.td}>{app.product_name || '-'}</td>
-                <td style={styles.td}>
+                <td style={sharedStyles.td}>{app.product_name || '-'}</td>
+                <td style={sharedStyles.td}>
                   {app.rate_per_1000sqft != null
                     ? app.rate_per_1000sqft.toFixed(2)
                     : '-'}
                 </td>
-                <td style={styles.td}>
+                <td style={sharedStyles.td}>
                   {app.coverage_sqft != null
                     ? `${app.coverage_sqft.toLocaleString()} sqft`
                     : '-'}
                 </td>
-                <td style={styles.td}>{app.notes || '-'}</td>
-                <td style={styles.td}>
+                <td style={sharedStyles.td}>{app.notes || '-'}</td>
+                <td style={sharedStyles.td}>
                   <button
                     style={styles.deleteBtn}
                     onClick={() => app.id != null && handleDelete(app.id)}
+                    disabled={deletingId === app.id}
                   >
-                    Delete
+                    {deletingId === app.id ? 'Deleting...' : 'Delete'}
                   </button>
                 </td>
               </tr>
@@ -263,13 +269,6 @@ function AddForm({
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  headerRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '1rem',
-  },
-  title: { margin: 0, fontSize: '1.5rem', color: '#1a202c' },
   addBtn: {
     padding: '0.5rem 1rem',
     backgroundColor: '#48bb78',
@@ -278,14 +277,6 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 6,
     cursor: 'pointer',
     fontWeight: 600,
-    fontSize: '0.85rem',
-  },
-  error: {
-    padding: '0.5rem 1rem',
-    backgroundColor: '#fed7d7',
-    color: '#c53030',
-    borderRadius: 6,
-    marginBottom: '1rem',
     fontSize: '0.85rem',
   },
   filterRow: {
@@ -300,37 +291,6 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 6,
     border: '1px solid #e2e8f0',
     fontSize: '0.85rem',
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse' as const,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    overflow: 'hidden',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-  },
-  th: {
-    textAlign: 'left' as const,
-    padding: '0.6rem 0.75rem',
-    fontSize: '0.75rem',
-    color: '#718096',
-    fontWeight: 600,
-    borderBottom: '2px solid #e2e8f0',
-    textTransform: 'uppercase' as const,
-  },
-  td: {
-    padding: '0.5rem 0.75rem',
-    fontSize: '0.85rem',
-    borderBottom: '1px solid #edf2f7',
-    color: '#2d3748',
-  },
-  badge: {
-    display: 'inline-block',
-    padding: '2px 8px',
-    borderRadius: 10,
-    fontSize: '0.75rem',
-    fontWeight: 600,
-    border: '1px solid',
   },
   deleteBtn: {
     padding: '4px 10px',
