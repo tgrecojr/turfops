@@ -16,6 +16,7 @@ pub enum ApplicationType {
     Lime,
     Sulfur,
     Wetting,
+    Mowing,
     Other,
 }
 
@@ -34,6 +35,7 @@ impl ApplicationType {
             ApplicationType::Lime => "Lime",
             ApplicationType::Sulfur => "Sulfur",
             ApplicationType::Wetting => "Wetting Agent",
+            ApplicationType::Mowing => "Mowing",
             ApplicationType::Other => "Other",
         }
     }
@@ -56,6 +58,7 @@ impl FromStr for ApplicationType {
             "lime" => Ok(ApplicationType::Lime),
             "sulfur" => Ok(ApplicationType::Sulfur),
             "wetting" | "wettingagent" => Ok(ApplicationType::Wetting),
+            "mowing" | "mow" => Ok(ApplicationType::Mowing),
             "other" => Ok(ApplicationType::Other),
             _ => Err(format!("Unknown application type: {}", s)),
         }

@@ -4,10 +4,11 @@ A containerized web application for tracking lawn care activities and providing 
 
 ## Features
 
-- **Application Tracking**: Log fertilizer, pre-emergent, fungicide, and other lawn treatments
+- **Application Tracking**: Log fertilizer, pre-emergent, fungicide, mowing, and other lawn treatments
 - **Environmental Data**: Real-time soil temperature, moisture, and ambient conditions from multiple sources
 - **Smart Recommendations**: 18 agronomic rules provide data-driven alerts for optimal treatment timing
-- **Calendar View**: Visualize application history with colored type indicators
+- **Calendar View**: Visualize application history and seasonal plan activity windows with colored indicators
+- **Seasonal Plan Integration**: Calendar overlays predicted activity windows from the seasonal plan alongside actual applications
 - **FRAC Rotation**: Fungicide resistance management with automatic class rotation recommendations
 - **Demand-Driven Refresh**: Sensor data refreshes only when viewed (5-min staleness for sensors, 30-min for forecasts)
 
@@ -285,8 +286,8 @@ RUST_LOG=info
 | Page | Description |
 |------|-------------|
 | **Dashboard** | Gauges for soil temp, ambient temp, humidity, and soil moisture. Active alerts and recent applications. Auto-refreshes every 30 seconds. |
-| **Applications** | Filterable table of all lawn treatments. Add new applications with type, product, rate, and notes. |
-| **Calendar** | Month grid view with colored indicators for each application type. |
+| **Applications** | Filterable table of all lawn treatments including mowing. Add new applications with type, product, rate, and notes. |
+| **Calendar** | Month grid view with colored dots for applications and status-colored bars for seasonal plan activity windows. Click any date to see details for both. |
 | **Environmental** | Detailed sensor data, soil depth readings, 7-day trends and averages. |
 | **Recommendations** | Active recommendations from the rules engine. Mark as addressed or dismiss. |
 | **Settings** | Edit lawn profile (grass type, zone, soil type, size, irrigation). |
