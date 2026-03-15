@@ -1,7 +1,8 @@
+use super::thresholds::*;
 use super::Rule;
 use crate::models::{
-    Application, EnvironmentalSummary, LawnProfile, Recommendation, RecommendationCategory,
-    Severity,
+    Application, DataSource, EnvironmentalSummary, LawnProfile, Recommendation,
+    RecommendationCategory, Severity,
 };
 
 /// Rain delay rule - blocks fertilizer/herbicide applications when rain is imminent
@@ -25,11 +26,15 @@ impl Rule for RainDelayRule {
         let forecast = env.forecast.as_ref()?;
 
         // Check for rain in next 12 hours (critical)
-        if let Some(rain_12h) = forecast.rain_expected_within(12, 0.1) {
-            if rain_12h.max_probability >= 0.7 || rain_12h.expected_mm >= 2.5 {
+        if let Some(rain_12h) =
+            forecast.rain_expected_within(RAIN_DELAY_CRITICAL_HOURS, PRECIP_FORECAST_MIN_INCHES)
+        {
+            if rain_12h.max_probability >= RAIN_DELAY_CRITICAL_PROB
+                || rain_12h.expected_mm >= PRECIP_TRACE_MM
+            {
                 return Some(self.build_recommendation(
                     Severity::Critical,
-                    12,
+                    RAIN_DELAY_CRITICAL_HOURS,
                     rain_12h.expected_mm,
                     rain_12h.max_probability,
                 ));
@@ -37,11 +42,15 @@ impl Rule for RainDelayRule {
         }
 
         // Check for rain in next 24 hours (warning)
-        if let Some(rain_24h) = forecast.rain_expected_within(24, 0.1) {
-            if rain_24h.max_probability >= 0.5 || rain_24h.expected_mm >= 2.5 {
+        if let Some(rain_24h) =
+            forecast.rain_expected_within(RAIN_DELAY_WARNING_HOURS, PRECIP_FORECAST_MIN_INCHES)
+        {
+            if rain_24h.max_probability >= PRECIP_PROB_LIKELY
+                || rain_24h.expected_mm >= PRECIP_TRACE_MM
+            {
                 return Some(self.build_recommendation(
                     Severity::Warning,
-                    24,
+                    RAIN_DELAY_WARNING_HOURS,
                     rain_24h.expected_mm,
                     rain_24h.max_probability,
                 ));
@@ -49,11 +58,15 @@ impl Rule for RainDelayRule {
         }
 
         // Check for rain in next 48 hours (advisory)
-        if let Some(rain_48h) = forecast.rain_expected_within(48, 0.1) {
-            if rain_48h.max_probability >= 0.3 || rain_48h.expected_mm >= 5.0 {
+        if let Some(rain_48h) =
+            forecast.rain_expected_within(RAIN_DELAY_ADVISORY_HOURS, PRECIP_FORECAST_MIN_INCHES)
+        {
+            if rain_48h.max_probability >= RAIN_DELAY_ADVISORY_PROB
+                || rain_48h.expected_mm >= RAIN_DELAY_ADVISORY_MM
+            {
                 return Some(self.build_recommendation(
                     Severity::Advisory,
-                    48,
+                    RAIN_DELAY_ADVISORY_HOURS,
                     rain_48h.expected_mm,
                     rain_48h.max_probability,
                 ));
@@ -117,14 +130,18 @@ impl RainDelayRule {
         .with_data_point(
             "Expected Rain",
             format!("{:.2}\"", expected_inches),
-            "OpenWeatherMap",
+            DataSource::OpenWeatherMap.as_str(),
         )
         .with_data_point(
             "Rain Probability",
             format!("{:.0}%", prob_percent),
-            "OpenWeatherMap",
+            DataSource::OpenWeatherMap.as_str(),
         )
-        .with_data_point("Forecast Window", format!("{}h", hours), "OpenWeatherMap")
+        .with_data_point(
+            "Forecast Window",
+            format!("{}h", hours),
+            DataSource::OpenWeatherMap.as_str(),
+        )
         .with_action(action)
     }
 }

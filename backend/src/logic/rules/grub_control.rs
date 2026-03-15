@@ -1,6 +1,7 @@
+use super::thresholds::*;
 use super::Rule;
 use crate::models::{
-    Application, ApplicationType, EnvironmentalSummary, LawnProfile, Recommendation,
+    Application, ApplicationType, DataSource, EnvironmentalSummary, LawnProfile, Recommendation,
     RecommendationCategory, Severity,
 };
 use chrono::{Datelike, Local, NaiveDate};
@@ -49,11 +50,11 @@ impl Rule for GrubControlRule {
         let soil_temp_avg = env.soil_temp_7day_avg_f?;
         let current_soil_temp = env.current.as_ref()?.soil_temp_10_f?;
 
-        if (60.0..=75.0).contains(&soil_temp_avg) {
+        if (GRUB_CONTROL_SOIL_LOW_F..=GRUB_CONTROL_SOIL_HIGH_F).contains(&soil_temp_avg) {
             // Calculate days remaining in window
             let days_remaining = (window_end - today).num_days();
 
-            let severity = if days_remaining <= 14 {
+            let severity = if days_remaining <= GRUB_URGENCY_DAYS {
                 Severity::Warning
             } else {
                 Severity::Advisory
@@ -80,17 +81,17 @@ impl Rule for GrubControlRule {
             .with_data_point(
                 "7-Day Avg Soil Temp",
                 format!("{:.1}°F", soil_temp_avg),
-                "NOAA USCRN",
+                DataSource::SoilData.as_str(),
             )
             .with_data_point(
                 "Current Soil Temp (10cm)",
                 format!("{:.1}°F", current_soil_temp),
-                "NOAA USCRN",
+                DataSource::SoilData.as_str(),
             )
             .with_data_point(
                 "Window Closes",
                 window_end.format("%B %d").to_string(),
-                "Agronomic",
+                DataSource::Agronomic.as_str(),
             )
             .with_action(
                 "Apply chlorantraniliprole (GrubEx) or imidacloprid at label rate. \
@@ -98,7 +99,7 @@ impl Rule for GrubControlRule {
             );
 
             Some(rec)
-        } else if soil_temp_avg > 75.0 {
+        } else if soil_temp_avg > GRUB_CONTROL_SOIL_HIGH_F {
             // Soil may be too warm - grubs may be deeper
             let rec = Recommendation::new(
                 format!("grub_control_late_{}", current_year),
@@ -107,7 +108,11 @@ impl Rule for GrubControlRule {
                 "Grub Control - Soil Warm",
                 "Soil temperature is elevated. Grub control may still be effective but optimal window is passing.",
             )
-            .with_data_point("7-Day Avg Soil Temp", format!("{:.1}°F", soil_temp_avg), "NOAA USCRN")
+            .with_data_point(
+                "7-Day Avg Soil Temp",
+                format!("{:.1}°F", soil_temp_avg),
+                DataSource::SoilData.as_str(),
+            )
             .with_action(
                 "If grub control hasn't been applied, do so soon. \
                  Effectiveness decreases as larvae move deeper into soil.",

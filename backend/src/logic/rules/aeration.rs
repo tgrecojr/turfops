@@ -1,6 +1,7 @@
+use super::thresholds::*;
 use super::Rule;
 use crate::models::{
-    Application, ApplicationType, EnvironmentalSummary, LawnProfile, Recommendation,
+    Application, ApplicationType, DataSource, EnvironmentalSummary, LawnProfile, Recommendation,
     RecommendationCategory, Severity, SoilType,
 };
 use chrono::{Datelike, Local, NaiveDate};
@@ -50,7 +51,7 @@ impl Rule for AerationRule {
 
         // Check soil temperature
         let soil_temp_avg = env.soil_temp_7day_avg_f?;
-        if !(50.0..=65.0).contains(&soil_temp_avg) {
+        if !(AERATION_SOIL_LOW_F..=AERATION_SOIL_HIGH_F).contains(&soil_temp_avg) {
             return None;
         }
 
@@ -115,7 +116,11 @@ impl Rule for AerationRule {
              recover quickly during its peak growth period. Aerate at least annually where \
              compaction exists. Clay and clay loam soils benefit the most.",
         )
-        .with_data_point("Soil Temp", format!("{:.1}°F", soil_temp_avg), "NOAA USCRN")
+        .with_data_point(
+            "Soil Temp",
+            format!("{:.1}°F", soil_temp_avg),
+            DataSource::SoilData.as_str(),
+        )
         .with_data_point(
             "Last Aeration",
             if aerated_recently {
@@ -123,7 +128,7 @@ impl Rule for AerationRule {
             } else {
                 "Over 12 months ago (or never)"
             },
-            "History",
+            DataSource::History.as_str(),
         )
         .with_action(format!(
             "Core aerate when soil is moist (not wet or dry). Make 2-3 passes with a core \

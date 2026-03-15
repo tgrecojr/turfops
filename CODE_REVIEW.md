@@ -35,7 +35,9 @@
 | M11 | Secrets as plain env vars in Docker | Won't Fix | |
 | M12 | `SOILDATA_DB_PASSWORD` defaults to empty string | Done | |
 | M13 | `--legacy-peer-deps` suppresses dependency conflicts | Done | |
-| L1–L14 | Low priority items | Future | |
+| L1 | Magic numbers throughout rules and frontend | Done | |
+| L7 | Hardcoded data source labels in rules | Done | |
+| L2–L6,L8–L14 | Remaining low priority items | Future | |
 
 ---
 

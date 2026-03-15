@@ -6,8 +6,15 @@ use serde::{Deserialize, Serialize};
 pub enum DataSource {
     SoilData,
     HomeAssistant,
+    OpenWeatherMap,
     Cached,
     Manual,
+    Calculated,
+    History,
+    Calendar,
+    Agronomic,
+    MissouriExtension,
+    Rotation,
 }
 
 impl DataSource {
@@ -15,8 +22,15 @@ impl DataSource {
         match self {
             DataSource::SoilData => "NOAA USCRN",
             DataSource::HomeAssistant => "Patio Sensor",
+            DataSource::OpenWeatherMap => "OpenWeatherMap",
             DataSource::Cached => "Cached",
             DataSource::Manual => "Manual",
+            DataSource::Calculated => "Calculated",
+            DataSource::History => "History",
+            DataSource::Calendar => "Calendar",
+            DataSource::Agronomic => "Agronomic",
+            DataSource::MissouriExtension => "Missouri Extension",
+            DataSource::Rotation => "Rotation",
         }
     }
 }
@@ -178,8 +192,15 @@ mod tests {
     fn data_source_display() {
         assert_eq!(DataSource::SoilData.as_str(), "NOAA USCRN");
         assert_eq!(DataSource::HomeAssistant.as_str(), "Patio Sensor");
+        assert_eq!(DataSource::OpenWeatherMap.as_str(), "OpenWeatherMap");
         assert_eq!(DataSource::Cached.as_str(), "Cached");
         assert_eq!(DataSource::Manual.as_str(), "Manual");
+        assert_eq!(DataSource::Calculated.as_str(), "Calculated");
+        assert_eq!(DataSource::History.as_str(), "History");
+        assert_eq!(DataSource::Calendar.as_str(), "Calendar");
+        assert_eq!(DataSource::Agronomic.as_str(), "Agronomic");
+        assert_eq!(DataSource::MissouriExtension.as_str(), "Missouri Extension");
+        assert_eq!(DataSource::Rotation.as_str(), "Rotation");
     }
 
     #[test]

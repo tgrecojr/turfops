@@ -1,7 +1,8 @@
+use super::thresholds::*;
 use super::Rule;
 use crate::models::{
-    analyze_fungicide_rotation, Application, EnvironmentalSummary, LawnProfile, Recommendation,
-    RecommendationCategory, Severity,
+    analyze_fungicide_rotation, Application, DataSource, EnvironmentalSummary, LawnProfile,
+    Recommendation, RecommendationCategory, Severity,
 };
 
 /// Fungicide risk assessment rule
@@ -41,9 +42,9 @@ impl Rule for FungicideRule {
         let humidity_avg = env.humidity_7day_avg?;
 
         // Check for disease-favorable conditions
-        let high_humidity = humidity > 80.0;
-        let warm_temps = ambient_temp > 70.0;
-        let sustained_humidity = humidity_avg > 75.0;
+        let high_humidity = humidity > HUMIDITY_DISEASE_RISK;
+        let warm_temps = ambient_temp > GRAY_LEAF_SPOT_TEMP_LOW_F;
+        let sustained_humidity = humidity_avg > HUMIDITY_RED_THREAD;
 
         if !high_humidity || !warm_temps {
             return None;
@@ -57,7 +58,7 @@ impl Rule for FungicideRule {
             .unwrap_or(ambient_temp - 15.0); // rough estimate if no forecast
 
         // NC State: onset begins at night temps >60°F
-        if night_temp < 60.0 {
+        if night_temp < BROWN_PATCH_NIGHT_ONSET_F {
             return None;
         }
 
@@ -68,11 +69,16 @@ impl Rule for FungicideRule {
             .and_then(|f| f.next_days(1).first().map(|d| d.high_temp_f))
             .unwrap_or(ambient_temp);
 
-        let severity = if night_temp >= 70.0 && day_temp >= 90.0 && sustained_humidity {
+        let severity = if night_temp >= BROWN_PATCH_NIGHT_SEVERE_F
+            && day_temp >= BROWN_PATCH_DAY_SEVERE_F
+            && sustained_humidity
+        {
             // NC State: severe conditions at >70°F night + >90°F day
             Severity::Critical
-        } else if night_temp >= 65.0
-            || (humidity > 90.0 && ambient_temp > 80.0 && sustained_humidity)
+        } else if night_temp >= BROWN_PATCH_NIGHT_ELEVATED_F
+            || (humidity > HUMIDITY_SEVERE_DISEASE
+                && ambient_temp > RED_THREAD_TEMP_HIGH_F
+                && sustained_humidity)
         {
             Severity::Warning
         } else {
@@ -152,30 +158,38 @@ impl Rule for FungicideRule {
         .with_data_point(
             "Current Humidity",
             format!("{:.0}%", humidity),
-            "Patio Sensor",
+            DataSource::HomeAssistant.as_str(),
         )
         .with_data_point(
             "Ambient Temp",
             format!("{:.1}°F", ambient_temp),
-            "Patio Sensor",
+            DataSource::HomeAssistant.as_str(),
         )
         .with_data_point(
             "Est. Night Temp",
             format!("{:.0}°F", night_temp),
-            "OpenWeatherMap",
+            DataSource::OpenWeatherMap.as_str(),
         )
         .with_data_point(
             "7-Day Avg Humidity",
             format!("{:.0}%", humidity_avg),
-            "Calculated",
+            DataSource::Calculated.as_str(),
         )
         .with_action(action);
 
         if let Some(last) = &advice.last_class {
-            rec = rec.with_data_point("Last FRAC Class", last.to_string(), "History");
+            rec = rec.with_data_point(
+                "Last FRAC Class",
+                last.to_string(),
+                DataSource::History.as_str(),
+            );
         }
         if let Some(next) = &advice.recommended_next {
-            rec = rec.with_data_point("Recommended Next", next.to_string(), "Rotation");
+            rec = rec.with_data_point(
+                "Recommended Next",
+                next.to_string(),
+                DataSource::Rotation.as_str(),
+            );
         }
 
         Some(rec)

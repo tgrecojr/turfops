@@ -1,6 +1,7 @@
+use super::thresholds::*;
 use super::Rule;
 use crate::models::{
-    Application, ApplicationType, EnvironmentalSummary, LawnProfile, Recommendation,
+    Application, ApplicationType, DataSource, EnvironmentalSummary, LawnProfile, Recommendation,
     RecommendationCategory, Severity,
 };
 use chrono::{Datelike, Local};
@@ -49,9 +50,9 @@ impl Rule for PreEmergentRule {
         // Current soil temp for display
         let current_soil_temp = env.current.as_ref()?.soil_temp_10_f?;
 
-        if (50.0..=60.0).contains(&soil_temp_avg) {
+        if (PRE_EMERGENT_SOIL_LOW_F..=PRE_EMERGENT_SOIL_HIGH_F).contains(&soil_temp_avg) {
             // Optimal window
-            let severity = if soil_temp_avg >= 55.0 {
+            let severity = if soil_temp_avg >= PRE_EMERGENT_URGENCY_SOIL_F {
                 Severity::Warning
             } else {
                 Severity::Advisory
@@ -78,21 +79,27 @@ impl Rule for PreEmergentRule {
                 .with_data_point(
                     "7-Day Avg Soil Temp",
                     format!("{:.1}°F", soil_temp_avg),
-                    "NOAA USCRN",
+                    DataSource::SoilData.as_str(),
                 )
                 .with_data_point(
                     "Current Soil Temp (10cm)",
                     format!("{:.1}°F", current_soil_temp),
-                    "NOAA USCRN",
+                    DataSource::SoilData.as_str(),
                 )
-                .with_data_point("Trend", env.soil_temp_trend.as_str(), "Calculated")
+                .with_data_point(
+                    "Trend",
+                    env.soil_temp_trend.as_str(),
+                    DataSource::Calculated.as_str(),
+                )
                 .with_action(
                     "Apply pre-emergent herbicide (prodiamine, dithiopyr, or pendimethalin) \
                      at label rate. Water in within 24 hours if no rain.",
                 );
 
             Some(rec)
-        } else if soil_temp_avg > 60.0 && soil_temp_avg <= 70.0 {
+        } else if soil_temp_avg > PRE_EMERGENT_SOIL_HIGH_F
+            && soil_temp_avg <= PRE_EMERGENT_LATE_SOIL_F
+        {
             // Late window - urgent
             let rec = Recommendation::new(
                 format!("pre_emergent_late_{}", current_year),
@@ -105,12 +112,17 @@ impl Rule for PreEmergentRule {
                     soil_temp_avg
                 ),
             )
-            .with_explanation(
+            .with_explanation(format!(
                 "If pre-emergent hasn't been applied, do so immediately. Consider a split \
-                 application or use a product with post-emergent properties. After 70°F soil \
+                 application or use a product with post-emergent properties. After {:.0}°F soil \
                  temp, pre-emergent efficacy drops significantly.",
+                PRE_EMERGENT_LATE_SOIL_F
+            ))
+            .with_data_point(
+                "7-Day Avg Soil Temp",
+                format!("{:.1}°F", soil_temp_avg),
+                DataSource::SoilData.as_str(),
             )
-            .with_data_point("7-Day Avg Soil Temp", format!("{:.1}°F", soil_temp_avg), "NOAA USCRN")
             .with_action(
                 "Apply pre-emergent immediately if not yet done. Consider products with \
                  post-emergent activity like quinclorac combinations.",

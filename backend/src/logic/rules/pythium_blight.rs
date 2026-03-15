@@ -1,7 +1,8 @@
+use super::thresholds::*;
 use super::Rule;
 use crate::models::{
-    analyze_fungicide_rotation, Application, EnvironmentalSummary, LawnProfile, Recommendation,
-    RecommendationCategory, Severity,
+    analyze_fungicide_rotation, Application, DataSource, EnvironmentalSummary, LawnProfile,
+    Recommendation, RecommendationCategory, Severity,
 };
 use chrono::{Datelike, Local, NaiveDate};
 
@@ -50,11 +51,11 @@ impl Rule for PythiumBlightRule {
         let mut has_thunderstorm = false;
 
         for day in forecast.next_days(5) {
-            let warm_nights = day.low_temp_f >= 65.0;
-            let hot_days = day.high_temp_f >= 85.0;
-            let wet = day.avg_humidity >= 80.0
-                || day.total_precipitation_mm >= 2.5
-                || day.max_precipitation_prob >= 0.6;
+            let warm_nights = day.low_temp_f >= PYTHIUM_NIGHT_MIN_F;
+            let hot_days = day.high_temp_f >= PYTHIUM_DAY_MIN_F;
+            let wet = day.avg_humidity >= HUMIDITY_DISEASE_RISK
+                || day.total_precipitation_mm >= PRECIP_TRACE_MM
+                || day.max_precipitation_prob >= PRECIP_PROB_THUNDERSTORM;
 
             if warm_nights && hot_days && wet {
                 consecutive_favorable += 1;
@@ -63,7 +64,9 @@ impl Rule for PythiumBlightRule {
             }
 
             // Check for thunderstorm conditions (high precip prob + warm)
-            if day.max_precipitation_prob >= 0.6 && day.high_temp_f >= 85.0 {
+            if day.max_precipitation_prob >= PRECIP_PROB_THUNDERSTORM
+                && day.high_temp_f >= PYTHIUM_DAY_MIN_F
+            {
                 has_thunderstorm = true;
             }
         }
@@ -75,7 +78,7 @@ impl Rule for PythiumBlightRule {
         // Check recent precipitation
         let recent_heavy_rain = env
             .precipitation_7day_total_mm
-            .map(|p| p > 25.0) // >1 inch
+            .map(|p| p > PRECIP_HEAVY_7DAY_MM) // >1 inch
             .unwrap_or(false);
 
         let severity = if consecutive_favorable >= 2 && (has_thunderstorm || recent_heavy_rain) {
@@ -117,12 +120,12 @@ impl Rule for PythiumBlightRule {
         .with_data_point(
             "Consecutive Favorable Days",
             format!("{}", consecutive_favorable),
-            "OpenWeatherMap",
+            DataSource::OpenWeatherMap.as_str(),
         )
         .with_data_point(
             "Thunderstorm Risk",
             if has_thunderstorm { "Yes" } else { "No" },
-            "OpenWeatherMap",
+            DataSource::OpenWeatherMap.as_str(),
         )
         .with_action({
             // Pythium-specific chemistry: mefenoxam (FRAC 4) and fosetyl-Al (FRAC P07)

@@ -1,7 +1,8 @@
+use super::thresholds::*;
 use super::Rule;
 use crate::models::{
-    Application, EnvironmentalSummary, LawnProfile, Recommendation, RecommendationCategory,
-    Severity,
+    Application, DataSource, EnvironmentalSummary, LawnProfile, Recommendation,
+    RecommendationCategory, Severity,
 };
 use chrono::{Datelike, NaiveDate};
 
@@ -91,7 +92,7 @@ impl WindowQuality {
             score += 15;
         }
         // Bonus for ideal temp range
-        if self.temp >= 55.0 && self.temp <= 75.0 {
+        if self.temp >= APP_WINDOW_IDEAL_LOW_F && self.temp <= APP_WINDOW_IDEAL_HIGH_F {
             score += 5;
         }
         score
@@ -100,19 +101,19 @@ impl WindowQuality {
     fn describe(&self) -> String {
         let mut conditions = Vec::new();
 
-        if self.temp >= 55.0 && self.temp <= 75.0 {
+        if self.temp >= APP_WINDOW_IDEAL_LOW_F && self.temp <= APP_WINDOW_IDEAL_HIGH_F {
             conditions.push("ideal temps");
         } else if self.temp_ok {
             conditions.push("acceptable temps");
         }
 
-        if self.wind_ok && self.wind < 5.0 {
+        if self.wind_ok && self.wind < WIND_CALM_MPH {
             conditions.push("calm winds");
         } else if self.wind_ok {
             conditions.push("light winds");
         }
 
-        if self.humidity_ok && self.humidity < 70.0 {
+        if self.humidity_ok && self.humidity < HUMIDITY_APP_WINDOW_LOW {
             conditions.push("low humidity");
         } else if self.humidity_ok {
             conditions.push("moderate humidity");
@@ -135,13 +136,13 @@ impl ApplicationWindowRule {
     ) -> WindowQuality {
         // Check temp range (50-80°F)
         let avg_temp = (day.high_temp_f + day.low_temp_f) / 2.0;
-        let temp_ok = avg_temp >= 50.0 && day.high_temp_f <= 85.0;
+        let temp_ok = avg_temp >= APP_WINDOW_MIN_AVG_F && day.high_temp_f <= APP_WINDOW_MAX_HIGH_F;
 
         // Check wind (<10mph)
-        let wind_ok = day.avg_wind_speed_mph < 10.0;
+        let wind_ok = day.avg_wind_speed_mph < WIND_APP_WINDOW_MAX_MPH;
 
         // Check humidity (<85%)
-        let humidity_ok = day.avg_humidity < 85.0;
+        let humidity_ok = day.avg_humidity < HUMIDITY_APP_WINDOW_MAX;
 
         // Check for rain (need dry 24h before and 48h after)
         let day_idx = forecast
@@ -152,19 +153,23 @@ impl ApplicationWindowRule {
 
         // Check day before
         let no_rain_before = if day_idx > 0 {
-            forecast.daily_summary[day_idx - 1].total_precipitation_mm < 2.5
-                && forecast.daily_summary[day_idx - 1].max_precipitation_prob < 0.5
+            forecast.daily_summary[day_idx - 1].total_precipitation_mm < PRECIP_TRACE_MM
+                && forecast.daily_summary[day_idx - 1].max_precipitation_prob < PRECIP_PROB_LIKELY
         } else {
             // Check recent precipitation from environmental data
-            env.precipitation_7day_total_mm.unwrap_or(0.0) < 25.0
+            env.precipitation_7day_total_mm.unwrap_or(0.0) < PRECIP_HEAVY_7DAY_MM
         };
 
         // Check current day and next day
-        let current_dry = day.total_precipitation_mm < 2.5 && day.max_precipitation_prob < 0.5;
+        let current_dry = day.total_precipitation_mm < PRECIP_TRACE_MM
+            && day.max_precipitation_prob < PRECIP_PROB_LIKELY;
         let next_day_dry = forecast
             .daily_summary
             .get(day_idx + 1)
-            .map(|d| d.total_precipitation_mm < 2.5 && d.max_precipitation_prob < 0.5)
+            .map(|d| {
+                d.total_precipitation_mm < PRECIP_TRACE_MM
+                    && d.max_precipitation_prob < PRECIP_PROB_LIKELY
+            })
             .unwrap_or(true);
 
         let no_rain_after = current_dry && next_day_dry;
@@ -224,17 +229,17 @@ impl ApplicationWindowRule {
         .with_data_point(
             "Expected Temp",
             format!("{:.0}°F", quality.temp),
-            "OpenWeatherMap",
+            DataSource::OpenWeatherMap.as_str(),
         )
         .with_data_point(
             "Wind Speed",
             format!("{:.1}mph", quality.wind),
-            "OpenWeatherMap",
+            DataSource::OpenWeatherMap.as_str(),
         )
         .with_data_point(
             "Humidity",
             format!("{:.0}%", quality.humidity),
-            "OpenWeatherMap",
+            DataSource::OpenWeatherMap.as_str(),
         )
         .with_action(format!(
             "Plan applications for {} if weather holds. \

@@ -17,6 +17,7 @@ pub mod pythium_blight;
 pub mod rain_delay;
 pub mod red_thread;
 pub mod spring_nitrogen;
+pub mod thresholds;
 
 pub use engine::RulesEngine;
 

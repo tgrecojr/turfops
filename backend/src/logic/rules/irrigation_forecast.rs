@@ -1,7 +1,8 @@
+use super::thresholds::*;
 use super::Rule;
 use crate::models::{
-    Application, EnvironmentalSummary, LawnProfile, Recommendation, RecommendationCategory,
-    Severity,
+    Application, DataSource, EnvironmentalSummary, LawnProfile, Recommendation,
+    RecommendationCategory, Severity,
 };
 
 /// Irrigation forecast rule - recommends irrigation based on forecast drought
@@ -28,12 +29,13 @@ impl Rule for IrrigationForecastRule {
         let soil_moisture = current.primary_soil_moisture()?;
 
         // Skip if soil moisture is adequate
-        if soil_moisture >= 0.20 {
+        if soil_moisture >= SOIL_MOISTURE_ADEQUATE {
             return None;
         }
 
         // Check for rain in next 5 days (120 hours)
-        let rain_5day = forecast.rain_expected_within(120, 0.1);
+        let rain_5day =
+            forecast.rain_expected_within(IRRIGATION_FORECAST_HOURS, PRECIP_FORECAST_MIN_INCHES);
 
         // If rain is expected, no irrigation recommendation
         if rain_5day.is_some() {
@@ -48,14 +50,14 @@ impl Rule for IrrigationForecastRule {
             .sum();
 
         // If meaningful rain expected (>2.5mm / 0.1"), no recommendation
-        if total_precip > 2.5 {
+        if total_precip > PRECIP_TRACE_MM {
             return None;
         }
 
         // Determine severity based on soil moisture
-        let severity = if soil_moisture < 0.10 {
+        let severity = if soil_moisture < SOIL_MOISTURE_DROUGHT {
             Severity::Critical
-        } else if soil_moisture < 0.15 {
+        } else if soil_moisture < SOIL_MOISTURE_IRRIGATION_WARNING {
             Severity::Warning
         } else {
             Severity::Advisory
@@ -65,7 +67,10 @@ impl Rule for IrrigationForecastRule {
         let dry_days = forecast
             .daily_summary
             .iter()
-            .take_while(|d| d.total_precipitation_mm < 2.5 && d.max_precipitation_prob < 0.5)
+            .take_while(|d| {
+                d.total_precipitation_mm < PRECIP_TRACE_MM
+                    && d.max_precipitation_prob < PRECIP_PROB_LIKELY
+            })
             .count();
 
         Some(self.build_recommendation(severity, soil_moisture, dry_days, profile))
@@ -124,12 +129,12 @@ impl IrrigationForecastRule {
         .with_data_point(
             "Soil Moisture",
             format!("{:.0}%", soil_moisture * 100.0),
-            "NOAA USCRN",
+            DataSource::SoilData.as_str(),
         )
         .with_data_point(
             "Dry Days Forecast",
             format!("{} days", dry_days),
-            "OpenWeatherMap",
+            DataSource::OpenWeatherMap.as_str(),
         )
         .with_action(action)
     }
