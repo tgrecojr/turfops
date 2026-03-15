@@ -1,7 +1,8 @@
+use super::thresholds::*;
 use super::Rule;
 use crate::models::{
-    analyze_fungicide_rotation, Application, ApplicationType, EnvironmentalSummary, LawnProfile,
-    Recommendation, RecommendationCategory, Severity,
+    analyze_fungicide_rotation, Application, ApplicationType, DataSource, EnvironmentalSummary,
+    LawnProfile, Recommendation, RecommendationCategory, Severity,
 };
 use chrono::Local;
 
@@ -42,7 +43,7 @@ impl Rule for DiseasePressureRule {
         let current_risk = self.assess_current_risk(env);
 
         // Count consecutive high-risk days in forecast
-        let high_humidity_days = forecast.consecutive_high_humidity_days(80.0);
+        let high_humidity_days = forecast.consecutive_high_humidity_days(HUMIDITY_DISEASE_RISK);
 
         // Assess forecast disease risk
         let forecast_risk = self.assess_forecast_risk(env);
@@ -82,16 +83,16 @@ impl DiseasePressureRule {
         if let Some(current) = &env.current {
             // High current humidity
             if let Some(humidity) = current.humidity_percent {
-                if humidity >= 90.0 {
+                if humidity >= HUMIDITY_SEVERE_DISEASE {
                     risk += 2;
-                } else if humidity >= 80.0 {
+                } else if humidity >= HUMIDITY_DISEASE_RISK {
                     risk += 1;
                 }
             }
 
             // Warm temps with humidity
             if let Some(temp) = current.ambient_temp_f {
-                if (75.0..=90.0).contains(&temp) {
+                if (DISEASE_WARM_DAY_LOW_F..=DISEASE_WARM_DAY_HIGH_F).contains(&temp) {
                     risk += 1;
                 }
             }
@@ -99,7 +100,7 @@ impl DiseasePressureRule {
 
         // Recent precipitation + current humidity
         if let Some(precip) = env.precipitation_7day_total_mm {
-            if precip > 25.0 {
+            if precip > PRECIP_HEAVY_7DAY_MM {
                 // >1 inch in 7 days
                 risk += 1;
             }
@@ -107,7 +108,7 @@ impl DiseasePressureRule {
 
         // Sustained high humidity
         if let Some(avg_humidity) = env.humidity_7day_avg {
-            if avg_humidity >= 80.0 {
+            if avg_humidity >= HUMIDITY_DISEASE_RISK {
                 risk += 1;
             }
         }
@@ -125,13 +126,15 @@ impl DiseasePressureRule {
 
         // Check each day for disease-favorable conditions
         for day in forecast.next_days(5) {
-            let high_humidity = day.avg_humidity >= 80.0;
+            let high_humidity = day.avg_humidity >= HUMIDITY_DISEASE_RISK;
             // A2: Dollar spot triggers at night temps >=50°F (NC State)
-            let dollar_spot_nights = day.low_temp_f >= 50.0;
+            let dollar_spot_nights = day.low_temp_f >= DOLLAR_SPOT_NIGHT_ONSET_F;
             // A1: Brown patch triggers at night temps >=60°F (NC State)
-            let brown_patch_nights = day.low_temp_f >= 60.0;
-            let warm_days = day.high_temp_f >= 75.0 && day.high_temp_f <= 90.0;
-            let has_rain = day.total_precipitation_mm >= 2.5 || day.max_precipitation_prob >= 0.5;
+            let brown_patch_nights = day.low_temp_f >= BROWN_PATCH_NIGHT_ONSET_F;
+            let warm_days = day.high_temp_f >= DISEASE_WARM_DAY_LOW_F
+                && day.high_temp_f <= DISEASE_WARM_DAY_HIGH_F;
+            let has_rain = day.total_precipitation_mm >= PRECIP_TRACE_MM
+                || day.max_precipitation_prob >= PRECIP_PROB_LIKELY;
 
             // Brown patch conditions: night >60°F + high humidity
             if brown_patch_nights && high_humidity {
@@ -168,24 +171,33 @@ impl DiseasePressureRule {
         let forecast = env.forecast.as_ref();
 
         let warm_nights = forecast
-            .map(|f| f.next_days(3).iter().any(|d| d.low_temp_f >= 68.0))
+            .map(|f| {
+                f.next_days(3)
+                    .iter()
+                    .any(|d| d.low_temp_f >= DOLLAR_SPOT_NIGHT_UPPER_F)
+            })
             .unwrap_or(false);
 
         let very_warm_days = forecast
-            .map(|f| f.next_days(3).iter().any(|d| d.high_temp_f >= 85.0))
+            .map(|f| {
+                f.next_days(3)
+                    .iter()
+                    .any(|d| d.high_temp_f >= HEAT_STRESS_TEMP_F)
+            })
             .unwrap_or(false);
 
         let current_humid = current
             .and_then(|c| c.humidity_percent)
-            .map(|h| h >= 85.0)
+            .map(|h| h >= HUMIDITY_HIGH_DISEASE)
             .unwrap_or(false);
 
         // A2: Check for dollar spot conditions — night >50°F but <68°F
         let cool_nights = forecast
             .map(|f| {
-                f.next_days(3)
-                    .iter()
-                    .any(|d| d.low_temp_f >= 50.0 && d.low_temp_f < 68.0)
+                f.next_days(3).iter().any(|d| {
+                    d.low_temp_f >= DOLLAR_SPOT_NIGHT_ONSET_F
+                        && d.low_temp_f < DOLLAR_SPOT_NIGHT_UPPER_F
+                })
             })
             .unwrap_or(false);
 
@@ -291,7 +303,7 @@ impl DiseasePressureRule {
                  visible in early morning dew. Preventative fungicide is more effective than curative."
                 .to_string(),
             "Dollar Spot" => {
-                let deficiency_note = if is_nitrogen_deficient(history, 45) {
+                let deficiency_note = if is_nitrogen_deficient(history, N_DEFICIENCY_DAYS_45) {
                     " Your lawn has not received nitrogen in 45+ days — this nitrogen deficiency \
                      is a key predisposing factor for dollar spot."
                 } else {
@@ -328,39 +340,47 @@ impl DiseasePressureRule {
             rec = rec.with_data_point(
                 "Current Humidity",
                 format!("{:.0}%", humidity),
-                "Patio Sensor",
+                DataSource::HomeAssistant.as_str(),
             );
         }
 
         rec = rec.with_data_point(
             "High-Risk Days",
             format!("{}", humid_days),
-            "OpenWeatherMap",
+            DataSource::OpenWeatherMap.as_str(),
         );
 
         if let Some(avg_humidity) = env.humidity_7day_avg {
             rec = rec.with_data_point(
                 "7-Day Avg Humidity",
                 format!("{:.0}%", avg_humidity),
-                "Calculated",
+                DataSource::Calculated.as_str(),
             );
         }
 
         // Add dollar spot N-deficiency data point
-        if disease_type == "Dollar Spot" && is_nitrogen_deficient(history, 45) {
+        if disease_type == "Dollar Spot" && is_nitrogen_deficient(history, N_DEFICIENCY_DAYS_45) {
             rec = rec.with_data_point(
                 "N Status",
                 "No fertilizer in 45+ days (risk factor)",
-                "History",
+                DataSource::History.as_str(),
             );
         }
 
         // Add FRAC rotation data points
         if let Some(last) = &advice.last_class {
-            rec = rec.with_data_point("Last FRAC Class", last.to_string(), "History");
+            rec = rec.with_data_point(
+                "Last FRAC Class",
+                last.to_string(),
+                DataSource::History.as_str(),
+            );
         }
         if let Some(next) = &advice.recommended_next {
-            rec = rec.with_data_point("Recommended Next", next.to_string(), "Rotation");
+            rec = rec.with_data_point(
+                "Recommended Next",
+                next.to_string(),
+                DataSource::Rotation.as_str(),
+            );
         }
 
         rec

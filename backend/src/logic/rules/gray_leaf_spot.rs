@@ -1,7 +1,8 @@
+use super::thresholds::*;
 use super::Rule;
 use crate::models::{
-    analyze_fungicide_rotation, Application, ApplicationType, EnvironmentalSummary, FracClass,
-    LawnProfile, Recommendation, RecommendationCategory, Severity,
+    analyze_fungicide_rotation, Application, ApplicationType, DataSource, EnvironmentalSummary,
+    FracClass, LawnProfile, Recommendation, RecommendationCategory, Severity,
 };
 use chrono::{Datelike, Local, NaiveDate};
 
@@ -51,12 +52,12 @@ impl Rule for GrayLeafSpotRule {
         let humidity = current.humidity_percent?;
 
         // Check temperature range (70-95°F)
-        if !(70.0..=95.0).contains(&ambient_temp) {
+        if !(GRAY_LEAF_SPOT_TEMP_LOW_F..=GRAY_LEAF_SPOT_TEMP_HIGH_F).contains(&ambient_temp) {
             return None;
         }
 
         // Check humidity threshold (>85%)
-        if humidity <= 85.0 {
+        if humidity <= HUMIDITY_HIGH_DISEASE {
             return None;
         }
 
@@ -64,7 +65,11 @@ impl Rule for GrayLeafSpotRule {
         let favorable_days: usize = forecast
             .next_days(5)
             .iter()
-            .filter(|d| d.high_temp_f >= 70.0 && d.high_temp_f <= 95.0 && d.avg_humidity >= 85.0)
+            .filter(|d| {
+                d.high_temp_f >= GRAY_LEAF_SPOT_TEMP_LOW_F
+                    && d.high_temp_f <= GRAY_LEAF_SPOT_TEMP_HIGH_F
+                    && d.avg_humidity >= HUMIDITY_HIGH_DISEASE
+            })
             .count();
 
         if favorable_days == 0 {
@@ -74,7 +79,7 @@ impl Rule for GrayLeafSpotRule {
         // Check for recent overseeding (within 60 days) — major risk amplifier
         let recent_overseed = history.iter().any(|app| {
             app.application_type == ApplicationType::Overseed
-                && (today - app.application_date).num_days() <= 60
+                && (today - app.application_date).num_days() <= N_DEFICIENCY_DAYS_60
         });
 
         let severity = if favorable_days >= 3 && recent_overseed {
@@ -117,17 +122,17 @@ impl Rule for GrayLeafSpotRule {
         .with_data_point(
             "Ambient Temp",
             format!("{:.0}°F", ambient_temp),
-            "Patio Sensor",
+            DataSource::HomeAssistant.as_str(),
         )
         .with_data_point(
             "Current Humidity",
             format!("{:.0}%", humidity),
-            "Patio Sensor",
+            DataSource::HomeAssistant.as_str(),
         )
         .with_data_point(
             "Favorable Days",
             format!("{}", favorable_days),
-            "OpenWeatherMap",
+            DataSource::OpenWeatherMap.as_str(),
         );
 
         // FRAC-aware product recommendation for gray leaf spot
@@ -160,7 +165,11 @@ impl Rule for GrayLeafSpotRule {
 
         // Add FRAC data point if applicable
         let rec = if let Some(last) = &advice.last_class {
-            rec.with_data_point("Last FRAC Class", last.to_string(), "History")
+            rec.with_data_point(
+                "Last FRAC Class",
+                last.to_string(),
+                DataSource::History.as_str(),
+            )
         } else {
             rec
         };

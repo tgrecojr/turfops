@@ -1,7 +1,8 @@
+use super::thresholds::*;
 use super::Rule;
 use crate::models::{
-    Application, EnvironmentalSummary, LawnProfile, Recommendation, RecommendationCategory,
-    Severity,
+    Application, DataSource, EnvironmentalSummary, LawnProfile, Recommendation,
+    RecommendationCategory, Severity,
 };
 
 /// Heat stress warning rule - warns about upcoming heat stress conditions
@@ -35,7 +36,7 @@ impl Rule for HeatStressRule {
         let max_temp = forecast.max_temp_next_days(3)?;
 
         // No warning if temps are mild
-        if max_temp < 85.0 {
+        if max_temp < HEAT_STRESS_TEMP_F {
             return None;
         }
 
@@ -43,12 +44,12 @@ impl Rule for HeatStressRule {
         let hot_days: usize = forecast
             .next_days(5)
             .iter()
-            .take_while(|d| d.high_temp_f >= 85.0)
+            .take_while(|d| d.high_temp_f >= HEAT_STRESS_TEMP_F)
             .count();
 
-        let severity = if max_temp >= 95.0 {
+        let severity = if max_temp >= HEAT_STRESS_CRITICAL_TEMP_F {
             Severity::Critical
-        } else if max_temp >= 90.0 {
+        } else if max_temp >= HEAT_STRESS_WARNING_TEMP_F {
             Severity::Warning
         } else {
             Severity::Advisory
@@ -73,9 +74,10 @@ impl HeatStressRule {
 
         let description = format!(
             "Temperatures up to {:.0}°F expected over the next {} days. \
-             Cool-season grasses experience stress above 85°F.",
+             Cool-season grasses experience stress above {:.0}°F.",
             max_temp,
-            hot_days.max(1)
+            hot_days.max(1),
+            HEAT_STRESS_TEMP_F
         );
 
         let action = match severity {
@@ -106,19 +108,27 @@ impl HeatStressRule {
             title,
             description,
         )
-        .with_explanation(
+        .with_explanation(format!(
             "Tall Fescue and other cool-season grasses evolved for temperatures between \
-             60-75°F. Above 85°F, photosynthesis slows and root growth stops. Above 90°F, \
+             {:.0}-{:.0}°F. Above {:.0}°F, photosynthesis slows and root growth stops. Above {:.0}°F, \
              the grass may enter summer dormancy. Fertilizing during heat stress forces \
              top growth at the expense of roots, weakening the plant. Taller grass shades \
              the crown and soil, reducing heat stress.",
-        )
+            COOL_SEASON_IDEAL_LOW_F,
+            COOL_SEASON_IDEAL_HIGH_F,
+            HEAT_STRESS_TEMP_F,
+            HEAT_STRESS_WARNING_TEMP_F
+        ))
         .with_data_point(
             "Max Forecast Temp",
             format!("{:.0}°F", max_temp),
-            "OpenWeatherMap",
+            DataSource::OpenWeatherMap.as_str(),
         )
-        .with_data_point("Hot Days", format!("{}", hot_days), "OpenWeatherMap")
+        .with_data_point(
+            "Hot Days",
+            format!("{}", hot_days),
+            DataSource::OpenWeatherMap.as_str(),
+        )
         .with_action(action)
     }
 }

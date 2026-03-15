@@ -1,6 +1,7 @@
+use super::thresholds::*;
 use super::Rule;
 use crate::models::{
-    Application, ApplicationType, EnvironmentalSummary, LawnProfile, Recommendation,
+    Application, ApplicationType, DataSource, EnvironmentalSummary, LawnProfile, Recommendation,
     RecommendationCategory, Severity,
 };
 use chrono::{Datelike, Local, NaiveDate};
@@ -64,7 +65,7 @@ impl Rule for SpringNitrogenRule {
         }
 
         // Determine appropriate recommendation
-        if soil_temp_avg < 50.0 {
+        if soil_temp_avg < SPRING_N_APPROACHING_SOIL_F {
             // Too cold - definitely don't fertilize
             if has_spring_fert {
                 // Already fertilized when too cold - warn about the mistake
@@ -73,14 +74,14 @@ impl Rule for SpringNitrogenRule {
                 // Good - they're waiting. Reinforce patience.
                 Some(build_patience_advisory(soil_temp_avg))
             }
-        } else if (50.0..55.0).contains(&soil_temp_avg) {
+        } else if (SPRING_N_APPROACHING_SOIL_F..SPRING_N_MIN_SOIL_F).contains(&soil_temp_avg) {
             // Getting close - still advise waiting
             if !has_spring_fert {
                 Some(build_almost_ready(soil_temp_avg))
             } else {
                 None // They already applied, no point warning now
             }
-        } else if (55.0..=65.0).contains(&soil_temp_avg) {
+        } else if (SPRING_N_MIN_SOIL_F..=SPRING_N_READY_HIGH_F).contains(&soil_temp_avg) {
             // Good range - if they haven't fertilized, now is okay
             if !has_spring_fert {
                 Some(build_ready_to_fertilize(soil_temp_avg, profile))
@@ -101,9 +102,9 @@ fn build_too_early_warning(soil_temp: f64) -> Recommendation {
         Severity::Warning,
         "Spring Fertilizer Applied Too Early",
         format!(
-            "Fertilizer was applied while soil temp ({:.1}°F) is still below 55°F. \
+            "Fertilizer was applied while soil temp ({:.1}°F) is still below {:.0}°F. \
              This can weaken the lawn heading into summer.",
-            soil_temp
+            soil_temp, SPRING_N_MIN_SOIL_F
         ),
     )
     .with_explanation(
@@ -112,13 +113,22 @@ fn build_too_early_warning(soil_temp: f64) -> Recommendation {
          a shallow root system. The result: a lawn that looks good briefly in spring \
          but struggles in summer heat. The grass needs to wake up naturally first.",
     )
-    .with_data_point("Soil Temp", format!("{:.1}°F", soil_temp), "NOAA USCRN")
-    .with_data_point("Target Temp", "55°F minimum", "Agronomic")
-    .with_action(
-        "Avoid additional nitrogen applications until soil consistently reaches 55°F. \
+    .with_data_point(
+        "Soil Temp",
+        format!("{:.1}°F", soil_temp),
+        DataSource::SoilData.as_str(),
+    )
+    .with_data_point(
+        "Target Temp",
+        format!("{:.0}°F minimum", SPRING_N_MIN_SOIL_F),
+        DataSource::Agronomic.as_str(),
+    )
+    .with_action(format!(
+        "Avoid additional nitrogen applications until soil consistently reaches {:.0}°F. \
          Focus on other spring tasks: clean up debris, sharpen mower blades, \
          check irrigation system. The pre-emergent window comes before fertilization.",
-    )
+        SPRING_N_MIN_SOIL_F
+    ))
 }
 
 fn build_patience_advisory(soil_temp: f64) -> Recommendation {
@@ -133,19 +143,24 @@ fn build_patience_advisory(soil_temp: f64) -> Recommendation {
             soil_temp
         ),
     )
-    .with_explanation(
+    .with_explanation(format!(
         "It's tempting to fertilize as soon as you see green, but cool-season grass \
          breaks dormancy from stored carbohydrates - not from soil nutrients. \
-         Wait until soil reaches 55°F and you've mowed 2-3 times. This ensures \
+         Wait until soil reaches {:.0}°F and you've mowed 2-3 times. This ensures \
          roots are active and ready to absorb nutrients. Early nitrogen forces \
          weak top growth at the expense of root development.",
-    )
+        SPRING_N_MIN_SOIL_F
+    ))
     .with_data_point(
         "Current Soil Temp",
         format!("{:.1}°F", soil_temp),
-        "NOAA USCRN",
+        DataSource::SoilData.as_str(),
     )
-    .with_data_point("Target Soil Temp", "55°F", "Agronomic")
+    .with_data_point(
+        "Target Soil Temp",
+        format!("{:.0}°F", SPRING_N_MIN_SOIL_F),
+        DataSource::Agronomic.as_str(),
+    )
     .with_action(
         "Focus on spring prep: rake leaves/debris, check for disease damage, \
          plan pre-emergent timing (that window comes first!). \
@@ -160,23 +175,28 @@ fn build_almost_ready(soil_temp: f64) -> Recommendation {
         Severity::Info,
         "Spring Fertilizer - Almost Time",
         format!(
-            "Soil temperature ({:.1}°F) is approaching the 55°F threshold. \
+            "Soil temperature ({:.1}°F) is approaching the {:.0}°F threshold. \
              Spring fertilization window opening soon.",
-            soil_temp
+            soil_temp, SPRING_N_MIN_SOIL_F
         ),
     )
-    .with_explanation(
+    .with_explanation(format!(
         "You're close to the right conditions for spring nitrogen. Wait for soil \
-         to consistently reach 55°F and ensure you've completed 2-3 mowing cycles. \
+         to consistently reach {:.0}°F and ensure you've completed 2-3 mowing cycles. \
          This confirms the grass is actively growing and roots are ready for nutrients. \
-         Remember: pre-emergent timing (50-55°F soil) comes before fertilization.",
-    )
+         Remember: pre-emergent timing ({:.0}-{:.0}°F soil) comes before fertilization.",
+        SPRING_N_MIN_SOIL_F, PRE_EMERGENT_SOIL_LOW_F, PRE_EMERGENT_URGENCY_SOIL_F
+    ))
     .with_data_point(
         "Current Soil Temp",
         format!("{:.1}°F", soil_temp),
-        "NOAA USCRN",
+        DataSource::SoilData.as_str(),
     )
-    .with_data_point("Target", "55°F + 2-3 mowings", "Agronomic")
+    .with_data_point(
+        "Target",
+        format!("{:.0}°F + 2-3 mowings", SPRING_N_MIN_SOIL_F),
+        DataSource::Agronomic.as_str(),
+    )
     .with_action(
         "Continue monitoring soil temperature. Start mowing when grass needs it. \
          After your second or third mowing AND soil is 55°F+, apply light spring nitrogen. \
@@ -203,8 +223,16 @@ fn build_may_cutoff_warning(soil_temp: f64) -> Recommendation {
          recommend skipping spring N entirely and focusing all feeding in fall (September-November). \
          If you must apply, use slow-release only at ≤0.5 lb N/1000sqft.",
     )
-    .with_data_point("Soil Temp", format!("{:.1}°F", soil_temp), "NOAA USCRN")
-    .with_data_point("Deadline", "May 1 (Missouri Extension)", "Agronomic")
+    .with_data_point(
+        "Soil Temp",
+        format!("{:.1}°F", soil_temp),
+        DataSource::SoilData.as_str(),
+    )
+    .with_data_point(
+        "Deadline",
+        "May 1 (Missouri Extension)",
+        DataSource::Agronomic.as_str(),
+    )
     .with_action(
         "If you haven't fertilized yet this spring, consider SKIPPING spring nitrogen \
          entirely. Save your feeding budget for September (the most important fertilization). \
@@ -214,8 +242,8 @@ fn build_may_cutoff_warning(soil_temp: f64) -> Recommendation {
 }
 
 fn build_ready_to_fertilize(soil_temp: f64, profile: &LawnProfile) -> Recommendation {
-    let lawn_size = profile.lawn_size_sqft.unwrap_or(5000.0);
-    let n_needed = lawn_size / 1000.0 * 0.5; // Light spring app: 0.5 lb N
+    let lawn_size = profile.lawn_size_sqft.unwrap_or(DEFAULT_LAWN_SIZE_SQFT);
+    let n_needed = lawn_size / 1000.0 * SPRING_N_RATE_LBS_PER_KSQFT;
 
     Recommendation::new(
         "spring_n_ready",
@@ -228,19 +256,28 @@ fn build_ready_to_fertilize(soil_temp: f64, profile: &LawnProfile) -> Recommenda
             soil_temp
         ),
     )
-    .with_explanation(
-        "With soil at 55°F+, roots are active and can utilize applied nitrogen. \
+    .with_explanation(format!(
+        "With soil at {:.0}°F+, roots are active and can utilize applied nitrogen. \
          Spring feeding should be LIGHT compared to fall - cool-season grass does \
-         most of its feeding in autumn. A light spring application (0.5 lb N/1000 sqft) \
+         most of its feeding in autumn. A light spring application ({:.1} lb N/1000 sqft) \
          supports spring growth without pushing excessive top growth that weakens the plant.",
+        SPRING_N_MIN_SOIL_F, SPRING_N_RATE_LBS_PER_KSQFT
+    ))
+    .with_data_point(
+        "Soil Temp",
+        format!("{:.1}°F", soil_temp),
+        DataSource::SoilData.as_str(),
     )
-    .with_data_point("Soil Temp", format!("{:.1}°F", soil_temp), "NOAA USCRN")
-    .with_data_point("Recommended Rate", "0.5 lb N/1000 sqft", "Agronomic")
+    .with_data_point(
+        "Recommended Rate",
+        format!("{:.1} lb N/1000 sqft", SPRING_N_RATE_LBS_PER_KSQFT),
+        DataSource::Agronomic.as_str(),
+    )
     .with_action(format!(
-        "Apply ~{:.1} lbs of nitrogen for your {:.0} sqft lawn (0.5 lb N/1000 sqft). \
+        "Apply ~{:.1} lbs of nitrogen for your {:.0} sqft lawn ({:.1} lb N/1000 sqft). \
          Use slow-release nitrogen to avoid surge growth. \
          This should be your ONLY spring nitrogen - save the heavy feeding for fall. \
          Verify you've mowed 2-3 times first to confirm grass is actively growing.",
-        n_needed, lawn_size
+        n_needed, lawn_size, SPRING_N_RATE_LBS_PER_KSQFT
     ))
 }

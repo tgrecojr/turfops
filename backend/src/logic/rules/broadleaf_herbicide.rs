@@ -1,6 +1,7 @@
+use super::thresholds::*;
 use super::Rule;
 use crate::models::{
-    Application, ApplicationType, EnvironmentalSummary, LawnProfile, Recommendation,
+    Application, ApplicationType, DataSource, EnvironmentalSummary, LawnProfile, Recommendation,
     RecommendationCategory, Severity,
 };
 use chrono::{Datelike, Local, NaiveDate};
@@ -32,7 +33,7 @@ impl Rule for BroadleafHerbicideRule {
         // Check if overseeded within 60 days — suppress recommendation
         let recent_overseed = history.iter().any(|app| {
             app.application_type == ApplicationType::Overseed
-                && (today - app.application_date).num_days() <= 60
+                && (today - app.application_date).num_days() <= HERBICIDE_OVERSEED_BUFFER_DAYS
         });
 
         if recent_overseed {
@@ -58,7 +59,7 @@ impl Rule for BroadleafHerbicideRule {
         // Spring window: March, soil temp 45-55°F rising
         if month == 3
             && !already_applied_spring
-            && (45.0..=55.0).contains(&soil_temp_avg)
+            && (SPRING_HERBICIDE_SOIL_LOW_F..=SPRING_HERBICIDE_SOIL_HIGH_F).contains(&soil_temp_avg)
             && env.soil_temp_trend.is_rising()
         {
             return Some(build_spring_herbicide_rec(soil_temp_avg));
@@ -71,7 +72,7 @@ impl Rule for BroadleafHerbicideRule {
         if today >= fall_start
             && today <= fall_end
             && !already_applied_fall
-            && (50.0..=65.0).contains(&soil_temp_avg)
+            && (FALL_HERBICIDE_SOIL_LOW_F..=FALL_HERBICIDE_SOIL_HIGH_F).contains(&soil_temp_avg)
         {
             return Some(build_fall_herbicide_rec(soil_temp_avg));
         }
@@ -98,8 +99,16 @@ fn build_spring_herbicide_rec(soil_temp: f64) -> Recommendation {
          weeds are actively growing and susceptible to herbicide. Best results when air \
          temps are 50-80°F and no rain expected for 24 hours.",
     )
-    .with_data_point("Soil Temp", format!("{:.1}°F", soil_temp), "NOAA USCRN")
-    .with_data_point("Target Weeds", "Winter annuals", "Missouri Extension")
+    .with_data_point(
+        "Soil Temp",
+        format!("{:.1}°F", soil_temp),
+        DataSource::SoilData.as_str(),
+    )
+    .with_data_point(
+        "Target Weeds",
+        "Winter annuals",
+        DataSource::MissouriExtension.as_str(),
+    )
     .with_action(
         "Apply post-emergent broadleaf herbicide (2,4-D + dicamba or triclopyr). \
          Apply when air temp is 50-80°F and no rain expected for 24 hours. \
@@ -126,11 +135,15 @@ fn build_fall_herbicide_rec(soil_temp: f64) -> Recommendation {
          follows the same path, killing the entire plant including roots. Spring applications \
          are less effective because weeds are pushing energy outward to leaves.",
     )
-    .with_data_point("Soil Temp", format!("{:.1}°F", soil_temp), "NOAA USCRN")
+    .with_data_point(
+        "Soil Temp",
+        format!("{:.1}°F", soil_temp),
+        DataSource::SoilData.as_str(),
+    )
     .with_data_point(
         "Target Weeds",
         "Perennial broadleaf (dandelion, clover, plantain)",
-        "Missouri Extension",
+        DataSource::MissouriExtension.as_str(),
     )
     .with_action(
         "Apply post-emergent broadleaf herbicide (2,4-D + dicamba or triclopyr). \

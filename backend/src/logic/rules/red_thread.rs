@@ -1,6 +1,7 @@
+use super::thresholds::*;
 use super::Rule;
 use crate::models::{
-    Application, ApplicationType, EnvironmentalSummary, LawnProfile, Recommendation,
+    Application, ApplicationType, DataSource, EnvironmentalSummary, LawnProfile, Recommendation,
     RecommendationCategory, Severity,
 };
 use chrono::{Datelike, Local};
@@ -46,15 +47,15 @@ impl Rule for RedThreadRule {
         let humidity = current.humidity_percent?;
 
         // Temperature range: 40-80°F (peak at 70°F)
-        if !(40.0..=80.0).contains(&ambient_temp) {
+        if !(RED_THREAD_TEMP_LOW_F..=RED_THREAD_TEMP_HIGH_F).contains(&ambient_temp) {
             return None;
         }
 
         // Need elevated humidity or recent rain
-        let humid = humidity >= 75.0;
+        let humid = humidity >= HUMIDITY_RED_THREAD;
         let recent_rain = env
             .precipitation_7day_total_mm
-            .map(|p| p > 10.0)
+            .map(|p| p > RED_THREAD_RAIN_7DAY_MM)
             .unwrap_or(false);
 
         if !humid && !recent_rain {
@@ -69,17 +70,18 @@ impl Rule for RedThreadRule {
                 f.next_days(5)
                     .iter()
                     .filter(|d| {
-                        d.high_temp_f >= 40.0
-                            && d.high_temp_f <= 80.0
-                            && (d.avg_humidity >= 75.0 || d.total_precipitation_mm >= 2.5)
+                        d.high_temp_f >= RED_THREAD_TEMP_LOW_F
+                            && d.high_temp_f <= RED_THREAD_TEMP_HIGH_F
+                            && (d.avg_humidity >= HUMIDITY_RED_THREAD
+                                || d.total_precipitation_mm >= PRECIP_TRACE_MM)
                     })
                     .count()
             })
             .unwrap_or(0);
 
         // Check nitrogen status — this is the key factor
-        let cutoff_45 = today - chrono::Duration::days(45);
-        let cutoff_60 = today - chrono::Duration::days(60);
+        let cutoff_45 = today - chrono::Duration::days(N_DEFICIENCY_DAYS_45);
+        let cutoff_60 = today - chrono::Duration::days(N_DEFICIENCY_DAYS_60);
 
         let n_deficient_45 = !history.iter().any(|app| {
             app.application_type == ApplicationType::Fertilizer && app.application_date >= cutoff_45
@@ -135,13 +137,17 @@ impl Rule for RedThreadRule {
         .with_data_point(
             "Ambient Temp",
             format!("{:.0}°F", ambient_temp),
-            "Patio Sensor",
+            DataSource::HomeAssistant.as_str(),
         )
-        .with_data_point("Humidity", format!("{:.0}%", humidity), "Patio Sensor")
+        .with_data_point(
+            "Humidity",
+            format!("{:.0}%", humidity),
+            DataSource::HomeAssistant.as_str(),
+        )
         .with_data_point(
             "Favorable Days",
             format!("{}", favorable_days),
-            "OpenWeatherMap",
+            DataSource::OpenWeatherMap.as_str(),
         )
         .with_action(
             "Apply nitrogen — red thread is usually a sign of nitrogen deficiency, \

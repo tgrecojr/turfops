@@ -1,7 +1,8 @@
+use super::thresholds::*;
 use super::Rule;
 use crate::models::{
-    Application, EnvironmentalSummary, LawnProfile, Recommendation, RecommendationCategory,
-    Severity,
+    Application, DataSource, EnvironmentalSummary, LawnProfile, Recommendation,
+    RecommendationCategory, Severity,
 };
 
 /// Fertilizer stress avoidance rule
@@ -35,32 +36,40 @@ impl Rule for FertilizerRule {
         let mut data_points: Vec<(&str, String, &str)> = Vec::new();
 
         // Check heat stress
-        if ambient_temp > 85.0 {
+        if ambient_temp > HEAT_STRESS_TEMP_F {
             warnings.push(format!(
-                "Ambient temperature ({:.1}°F) exceeds 85°F heat stress threshold",
-                ambient_temp
+                "Ambient temperature ({:.1}°F) exceeds {:.0}°F heat stress threshold",
+                ambient_temp, HEAT_STRESS_TEMP_F
             ));
             data_points.push((
                 "Ambient Temp",
                 format!("{:.1}°F", ambient_temp),
-                "Patio Sensor",
+                DataSource::HomeAssistant.as_str(),
             ));
         }
 
         // Check soil moisture
         if let Some(moisture) = soil_moisture {
-            if moisture < 0.10 {
+            if moisture < SOIL_MOISTURE_DROUGHT {
                 warnings.push(format!(
-                    "Soil moisture ({:.2}) indicates drought stress (below 0.10)",
-                    moisture
+                    "Soil moisture ({:.2}) indicates drought stress (below {:.2})",
+                    moisture, SOIL_MOISTURE_DROUGHT
                 ));
-                data_points.push(("Soil Moisture", format!("{:.2}", moisture), "NOAA USCRN"));
-            } else if moisture > 0.40 {
+                data_points.push((
+                    "Soil Moisture",
+                    format!("{:.2}", moisture),
+                    DataSource::SoilData.as_str(),
+                ));
+            } else if moisture > SOIL_MOISTURE_SATURATED {
                 warnings.push(format!(
-                    "Soil moisture ({:.2}) indicates saturation (above 0.40) - fertilizer may leach",
-                    moisture
+                    "Soil moisture ({:.2}) indicates saturation (above {:.2}) - fertilizer may leach",
+                    moisture, SOIL_MOISTURE_SATURATED
                 ));
-                data_points.push(("Soil Moisture", format!("{:.2}", moisture), "NOAA USCRN"));
+                data_points.push((
+                    "Soil Moisture",
+                    format!("{:.2}", moisture),
+                    DataSource::SoilData.as_str(),
+                ));
             }
         }
 
@@ -68,7 +77,9 @@ impl Rule for FertilizerRule {
             return None;
         }
 
-        let severity = if ambient_temp > 90.0 || soil_moisture.is_some_and(|m| m < 0.05) {
+        let severity = if ambient_temp > HEAT_STRESS_WARNING_TEMP_F
+            || soil_moisture.is_some_and(|m| m < SOIL_MOISTURE_SEVERE_DROUGHT)
+        {
             Severity::Critical
         } else {
             Severity::Warning
@@ -81,11 +92,12 @@ impl Rule for FertilizerRule {
             "Avoid Fertilizer Application",
             warnings.join(". "),
         )
-        .with_explanation(
-            "Cool-season grasses like Tall Fescue experience heat stress above 85°F and may \
+        .with_explanation(format!(
+            "Cool-season grasses like Tall Fescue experience heat stress above {:.0}°F and may \
              go partially dormant. Applying nitrogen during stress can cause fertilizer burn \
              and damage the lawn. Wait for cooler temperatures or improved soil moisture.",
-        );
+            HEAT_STRESS_TEMP_F
+        ));
 
         for (label, value, source) in data_points {
             rec = rec.with_data_point(label, value, source);
@@ -95,14 +107,15 @@ impl Rule for FertilizerRule {
             rec = rec.with_data_point(
                 "Soil Temp (10cm)",
                 format!("{:.1}°F", soil_temp),
-                "NOAA USCRN",
+                DataSource::SoilData.as_str(),
             );
         }
 
-        rec = rec.with_action(
-            "Delay fertilizer application until ambient temperature drops below 85°F \
-             and soil moisture is between 0.10-0.40. Consider irrigation if drought-stressed.",
-        );
+        rec = rec.with_action(format!(
+            "Delay fertilizer application until ambient temperature drops below {:.0}°F \
+             and soil moisture is between {:.2}-{:.2}. Consider irrigation if drought-stressed.",
+            HEAT_STRESS_TEMP_F, SOIL_MOISTURE_DROUGHT, SOIL_MOISTURE_SATURATED
+        ));
 
         Some(rec)
     }

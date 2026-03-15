@@ -1,6 +1,7 @@
+use super::thresholds::*;
 use super::Rule;
 use crate::models::{
-    Application, ApplicationType, EnvironmentalSummary, LawnProfile, Recommendation,
+    Application, ApplicationType, DataSource, EnvironmentalSummary, LawnProfile, Recommendation,
     RecommendationCategory, Severity,
 };
 use chrono::{Datelike, Local, NaiveDate};
@@ -66,7 +67,7 @@ impl Rule for FallFertilizationRule {
         let phase = determine_fall_phase(today, current_year);
 
         // Check if soil temp is appropriate
-        let soil_temp_ok = (45.0..=65.0).contains(&soil_temp_avg);
+        let soil_temp_ok = (FALL_FERT_SOIL_LOW_F..=FALL_FERT_SOIL_HIGH_F).contains(&soil_temp_avg);
 
         // Generate recommendation based on phase and history
         match phase {
@@ -80,7 +81,7 @@ impl Rule for FallFertilizationRule {
             }
             FallPhase::Mid => {
                 // October - main fall feeding
-                if app_count < 2 && days_since_last >= 21 && soil_temp_ok {
+                if app_count < 2 && days_since_last >= FALL_FERT_MIN_INTERVAL_DAYS && soil_temp_ok {
                     Some(build_mid_fall_rec(soil_temp_avg, app_count, profile, env))
                 } else {
                     None
@@ -88,7 +89,10 @@ impl Rule for FallFertilizationRule {
             }
             FallPhase::Late => {
                 // November - winterizer
-                if app_count < 3 && days_since_last >= 21 && soil_temp_avg >= 40.0 {
+                if app_count < 3
+                    && days_since_last >= FALL_FERT_MIN_INTERVAL_DAYS
+                    && soil_temp_avg >= WINTERIZER_MIN_SOIL_F
+                {
                     Some(build_late_fall_rec(soil_temp_avg, app_count, profile))
                 } else {
                     None
@@ -128,8 +132,8 @@ fn build_early_fall_rec(
     profile: &LawnProfile,
     env: &EnvironmentalSummary,
 ) -> Recommendation {
-    let lawn_size = profile.lawn_size_sqft.unwrap_or(5000.0);
-    let n_needed = lawn_size / 1000.0 * 1.0; // 1.0 lb N per 1000 sqft (K-State, Missouri)
+    let lawn_size = profile.lawn_size_sqft.unwrap_or(DEFAULT_LAWN_SIZE_SQFT);
+    let n_needed = lawn_size / 1000.0 * EARLY_FALL_N_RATE_LBS_PER_KSQFT;
 
     let mut rec = Recommendation::new(
         "fall_fert_early",
@@ -142,28 +146,41 @@ fn build_early_fall_rec(
             soil_temp
         ),
     )
-    .with_explanation(
+    .with_explanation(format!(
         "September is the single most important fertilization of the year for TTTF \
-         (K-State Extension, Missouri Extension g6705). Apply 1.0 lb N per 1000 sqft \
+         (K-State Extension, Missouri Extension g6705). Apply {:.1} lb N per 1000 sqft \
          using quick-release or balanced nitrogen. The grass is recovering from summer \
          stress, roots are actively growing, and this feeding drives fall tillering and \
          carbohydrate storage. Recommended NPK ratios: 30-0-0, 29-5-4, 27-3-3, or \
          any 3:1:1 / 4:1:2 ratio.",
+        EARLY_FALL_N_RATE_LBS_PER_KSQFT
+    ))
+    .with_data_point(
+        "Soil Temp",
+        format!("{:.1}°F", soil_temp),
+        DataSource::SoilData.as_str(),
     )
-    .with_data_point("Soil Temp", format!("{:.1}°F", soil_temp), "NOAA USCRN")
-    .with_data_point("Phase", "September (Primary Feeding)", "Calendar")
-    .with_data_point("Rate", "1.0 lb N/1000sqft", "K-State / Missouri Extension");
+    .with_data_point(
+        "Phase",
+        "September (Primary Feeding)",
+        DataSource::Calendar.as_str(),
+    )
+    .with_data_point(
+        "Rate",
+        format!("{:.1} lb N/1000sqft", EARLY_FALL_N_RATE_LBS_PER_KSQFT),
+        "K-State / Missouri Extension",
+    );
 
     if let Some(trend) = Some(&env.soil_temp_trend) {
-        rec = rec.with_data_point("Trend", trend.as_str(), "Calculated");
+        rec = rec.with_data_point("Trend", trend.as_str(), DataSource::Calculated.as_str());
     }
 
     rec = rec.with_action(format!(
-        "Apply ~{:.1} lbs of nitrogen for your {:.0} sqft lawn (1.0 lb N/1000 sqft). \
+        "Apply ~{:.1} lbs of nitrogen for your {:.0} sqft lawn ({:.1} lb N/1000 sqft). \
          Use quick-release or balanced nitrogen (K-State recommends quick-release for fall). \
          Good NPK choices: 30-0-0, 29-5-4, 27-3-3, or any 3:1:1 / 4:1:2 ratio. \
          Water in lightly if no rain expected.",
-        n_needed, lawn_size
+        n_needed, lawn_size, EARLY_FALL_N_RATE_LBS_PER_KSQFT
     ));
 
     rec
@@ -175,8 +192,8 @@ fn build_mid_fall_rec(
     profile: &LawnProfile,
     env: &EnvironmentalSummary,
 ) -> Recommendation {
-    let lawn_size = profile.lawn_size_sqft.unwrap_or(5000.0);
-    let n_needed = lawn_size / 1000.0 * 0.75; // 0.75 lb N per 1000 sqft
+    let lawn_size = profile.lawn_size_sqft.unwrap_or(DEFAULT_LAWN_SIZE_SQFT);
+    let n_needed = lawn_size / 1000.0 * MID_FALL_N_RATE_LBS_PER_KSQFT;
 
     let severity = if app_count == 0 {
         Severity::Warning // Missed early fall app
@@ -207,27 +224,35 @@ fn build_mid_fall_rec(
          stored as carbohydrates, fueling winter hardiness and explosive spring green-up. \
          This single application has more impact than any other feeding.",
     )
-    .with_data_point("Soil Temp", format!("{:.1}°F", soil_temp), "NOAA USCRN")
-    .with_data_point("Phase", "Mid-Fall (Primary)", "Calendar")
-    .with_data_point("Fall Apps So Far", format!("{}", app_count), "History");
+    .with_data_point(
+        "Soil Temp",
+        format!("{:.1}°F", soil_temp),
+        DataSource::SoilData.as_str(),
+    )
+    .with_data_point("Phase", "Mid-Fall (Primary)", DataSource::Calendar.as_str())
+    .with_data_point(
+        "Fall Apps So Far",
+        format!("{}", app_count),
+        DataSource::History.as_str(),
+    );
 
     if let Some(trend) = Some(&env.soil_temp_trend) {
-        rec = rec.with_data_point("Trend", trend.as_str(), "Calculated");
+        rec = rec.with_data_point("Trend", trend.as_str(), DataSource::Calculated.as_str());
     }
 
     rec = rec.with_action(format!(
-        "Apply ~{:.1} lbs of nitrogen for your {:.0} sqft lawn (0.75 lb N/1000 sqft). \
+        "Apply ~{:.1} lbs of nitrogen for your {:.0} sqft lawn ({:.2} lb N/1000 sqft). \
          A slow-release or balanced fertilizer works well. \
          This is the most important feeding of the year - don't skip it!",
-        n_needed, lawn_size
+        n_needed, lawn_size, MID_FALL_N_RATE_LBS_PER_KSQFT
     ));
 
     rec
 }
 
 fn build_late_fall_rec(soil_temp: f64, app_count: usize, profile: &LawnProfile) -> Recommendation {
-    let lawn_size = profile.lawn_size_sqft.unwrap_or(5000.0);
-    let n_needed = lawn_size / 1000.0 * 1.0; // 1.0 lb N per 1000 sqft for winterizer
+    let lawn_size = profile.lawn_size_sqft.unwrap_or(DEFAULT_LAWN_SIZE_SQFT);
+    let n_needed = lawn_size / 1000.0 * WINTERIZER_N_RATE_LBS_PER_KSQFT;
 
     let severity = if app_count == 0 {
         Severity::Warning // Missed all fall apps - at least get winterizer
@@ -252,13 +277,25 @@ fn build_late_fall_rec(soil_temp: f64, app_count: usize, profile: &LawnProfile) 
          is available immediately when spring arrives, giving you the fastest, greenest \
          spring lawn. Apply even if grass appears dormant - roots are still working.",
     )
-    .with_data_point("Soil Temp", format!("{:.1}°F", soil_temp), "NOAA USCRN")
-    .with_data_point("Phase", "Late Fall (Winterizer)", "Calendar")
-    .with_data_point("Fall Apps So Far", format!("{}", app_count), "History")
+    .with_data_point(
+        "Soil Temp",
+        format!("{:.1}°F", soil_temp),
+        DataSource::SoilData.as_str(),
+    )
+    .with_data_point(
+        "Phase",
+        "Late Fall (Winterizer)",
+        DataSource::Calendar.as_str(),
+    )
+    .with_data_point(
+        "Fall Apps So Far",
+        format!("{}", app_count),
+        DataSource::History.as_str(),
+    )
     .with_action(format!(
-        "Apply ~{:.1} lbs of nitrogen for your {:.0} sqft lawn (1.0 lb N/1000 sqft). \
+        "Apply ~{:.1} lbs of nitrogen for your {:.0} sqft lawn ({:.1} lb N/1000 sqft). \
          Quick-release nitrogen is fine for winterizer since you want immediate uptake. \
          Apply before ground freezes, even if grass looks dormant.",
-        n_needed, lawn_size
+        n_needed, lawn_size, WINTERIZER_N_RATE_LBS_PER_KSQFT
     ))
 }
