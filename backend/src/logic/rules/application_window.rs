@@ -31,7 +31,7 @@ impl Rule for ApplicationWindowRule {
             .iter()
             .take(5)
             .filter_map(|day| {
-                let quality = self.assess_day_quality(day, env);
+                let quality = self.assess_day_quality(day, env, forecast);
                 if quality.is_good() {
                     Some((day.date, quality))
                 } else {
@@ -131,9 +131,8 @@ impl ApplicationWindowRule {
         &self,
         day: &crate::models::DailyForecast,
         env: &EnvironmentalSummary,
+        forecast: &crate::models::WeatherForecast,
     ) -> WindowQuality {
-        let forecast = env.forecast.as_ref().unwrap();
-
         // Check temp range (50-80°F)
         let avg_temp = (day.high_temp_f + day.low_temp_f) / 2.0;
         let temp_ok = avg_temp >= 50.0 && day.high_temp_f <= 85.0;

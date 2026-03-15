@@ -38,33 +38,6 @@ impl FracClass {
         }
     }
 
-    pub fn code(&self) -> &'static str {
-        match self {
-            FracClass::Frac1 => "1",
-            FracClass::Frac3 => "3",
-            FracClass::Frac7 => "7",
-            FracClass::Frac11 => "11",
-            FracClass::Frac12 => "12",
-            FracClass::Frac14 => "14",
-            FracClass::FracM3 => "M3",
-            FracClass::FracM5 => "M5",
-        }
-    }
-
-    pub fn from_code(code: &str) -> Option<Self> {
-        match code.trim().to_uppercase().as_str() {
-            "1" => Some(FracClass::Frac1),
-            "3" => Some(FracClass::Frac3),
-            "7" => Some(FracClass::Frac7),
-            "11" => Some(FracClass::Frac11),
-            "12" => Some(FracClass::Frac12),
-            "14" => Some(FracClass::Frac14),
-            "M3" => Some(FracClass::FracM3),
-            "M5" => Some(FracClass::FracM5),
-            _ => None,
-        }
-    }
-
     pub fn common_products(&self) -> &'static [&'static str] {
         match self {
             FracClass::Frac1 => &["thiophanate-methyl", "Cleary's 3336"],
@@ -154,8 +127,10 @@ pub fn frac_class_for_product(name: &str) -> Option<FracClass> {
 /// Result of analyzing a season's fungicide application history for rotation concerns.
 #[derive(Debug, Clone)]
 pub struct FungicideRotationAdvice {
+    #[allow(dead_code)] // read in tests; clippy doesn't count test reads
     pub total_apps_this_season: usize,
     pub last_class: Option<FracClass>,
+    #[allow(dead_code)] // read in tests; clippy doesn't count test reads
     pub consecutive_same_class: usize,
     pub recommended_next: Option<FracClass>,
     pub rotation_warning: Option<String>,
@@ -272,39 +247,6 @@ fn recommend_rotation(last: FracClass) -> Option<FracClass> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn from_code_round_trip() {
-        let classes = [
-            FracClass::Frac1,
-            FracClass::Frac3,
-            FracClass::Frac7,
-            FracClass::Frac11,
-            FracClass::Frac12,
-            FracClass::Frac14,
-            FracClass::FracM3,
-            FracClass::FracM5,
-        ];
-        for class in &classes {
-            let code = class.code();
-            let parsed = FracClass::from_code(code).unwrap();
-            assert_eq!(*class, parsed, "Round-trip failed for {}", code);
-        }
-    }
-
-    #[test]
-    fn from_code_case_insensitive() {
-        assert_eq!(FracClass::from_code("m3"), Some(FracClass::FracM3));
-        assert_eq!(FracClass::from_code("M5"), Some(FracClass::FracM5));
-        assert_eq!(FracClass::from_code(" 11 "), Some(FracClass::Frac11));
-    }
-
-    #[test]
-    fn from_code_invalid() {
-        assert_eq!(FracClass::from_code("99"), None);
-        assert_eq!(FracClass::from_code(""), None);
-        assert_eq!(FracClass::from_code("abc"), None);
-    }
 
     #[test]
     fn product_lookup() {

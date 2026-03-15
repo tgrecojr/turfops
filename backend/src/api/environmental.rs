@@ -10,7 +10,7 @@ use axum::Json;
 pub async fn get_environmental(
     State(state): State<AppState>,
 ) -> Result<Json<EnvironmentalSummary>, TurfOpsError> {
-    let mut service = state.sync_service.lock().await;
+    let mut service = state.sync_service.write().await;
     let summary = service.get_or_refresh().await?;
     Ok(Json(summary))
 }
@@ -20,7 +20,7 @@ pub async fn get_environmental(
 pub async fn refresh_environmental(
     State(state): State<AppState>,
 ) -> Result<Json<EnvironmentalSummary>, TurfOpsError> {
-    let mut service = state.sync_service.lock().await;
+    let mut service = state.sync_service.write().await;
     let summary = service.force_refresh().await?;
     Ok(Json(summary))
 }

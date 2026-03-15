@@ -38,25 +38,6 @@ impl RecommendationCategory {
             RecommendationCategory::General => "General",
         }
     }
-
-    pub fn color_css(&self) -> &'static str {
-        match self {
-            RecommendationCategory::PreEmergent => "#eab308",
-            RecommendationCategory::GrubControl => "#f87171",
-            RecommendationCategory::Fertilizer => "#22c55e",
-            RecommendationCategory::Fungicide => "#d946ef",
-            RecommendationCategory::Overseeding => "#06b6d4",
-            RecommendationCategory::Irrigation => "#3b82f6",
-            RecommendationCategory::Mowing => "#4ade80",
-            RecommendationCategory::FrostWarning => "#60a5fa",
-            RecommendationCategory::HeatStress => "#ef4444",
-            RecommendationCategory::ApplicationTiming => "#facc15",
-            RecommendationCategory::DiseasePressure => "#e879f9",
-            RecommendationCategory::Herbicide => "#facc15",
-            RecommendationCategory::Aeration => "#67e8f9",
-            RecommendationCategory::General => "#9ca3af",
-        }
-    }
 }
 
 impl std::fmt::Display for RecommendationCategory {
@@ -80,24 +61,6 @@ impl Severity {
             Severity::Advisory => "Advisory",
             Severity::Warning => "Warning",
             Severity::Critical => "Critical",
-        }
-    }
-
-    pub fn color_css(&self) -> &'static str {
-        match self {
-            Severity::Info => "#9ca3af",
-            Severity::Advisory => "#3b82f6",
-            Severity::Warning => "#eab308",
-            Severity::Critical => "#ef4444",
-        }
-    }
-
-    pub fn symbol(&self) -> &'static str {
-        match self {
-            Severity::Info => "ℹ",
-            Severity::Advisory => "→",
-            Severity::Warning => "⚠",
-            Severity::Critical => "!",
         }
     }
 }

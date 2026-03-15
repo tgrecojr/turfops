@@ -26,14 +26,20 @@ pub async fn get_dashboard(
         .await?
         .ok_or_else(|| TurfOpsError::NotFound("No lawn profile found".into()))?;
 
-    let apps = queries::get_applications_for_profile(&state.pool, profile.id.unwrap()).await?;
+    let profile_id = profile
+        .id
+        .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
+    let apps = queries::get_applications_for_profile(&state.pool, profile_id).await?;
 
     // Get environmental data (refreshes if stale)
-    let (summary, connections) = {
-        let mut service = state.sync_service.lock().await;
-        let summary = service.get_or_refresh().await?;
-        let connections = service.check_connections().await;
-        (summary, connections)
+    let summary = {
+        let mut service = state.sync_service.write().await;
+        service.get_or_refresh().await?
+    };
+    // Check connections with read lock (doesn't block other readers)
+    let connections = {
+        let service = state.sync_service.read().await;
+        service.check_connections().await
     };
 
     // Evaluate rules for recommendations

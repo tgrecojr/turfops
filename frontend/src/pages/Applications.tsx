@@ -109,8 +109,8 @@ export default function Applications() {
             </tr>
           </thead>
           <tbody>
-            {apps.map((app) => (
-              <tr key={app.id}>
+            {apps.map((app, index) => (
+              <tr key={app.id ?? `app-${index}`}>
                 <td style={styles.td}>{app.application_date}</td>
                 <td style={styles.td}>
                   <span

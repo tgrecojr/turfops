@@ -45,7 +45,7 @@ async fn main() -> anyhow::Result<()> {
     let sync_service = DataSyncService::initialize(&config, pool.clone()).await;
 
     // Create app state
-    let state = AppState::new(pool, config.clone(), sync_service);
+    let state = AppState::new(pool, sync_service);
 
     // Build router
     let app = Router::new()
@@ -84,7 +84,7 @@ async fn main() -> anyhow::Result<()> {
             patch(api::recommendations::patch_recommendation),
         )
         .layer(RequestBodyLimitLayer::new(1024 * 1024)) // 1MB request body limit
-        .layer(CorsLayer::permissive())
+        .layer(build_cors_layer(&config))
         .with_state(state);
 
     // Serve React SPA static files with fallback to index.html
@@ -112,6 +112,49 @@ async fn main() -> anyhow::Result<()> {
     axum::serve(listener, app).await?;
 
     Ok(())
+}
+
+/// Build CORS layer from config. Defaults to same-origin (the server's own address)
+/// when CORS_ALLOWED_ORIGIN is not set. Set to "*" for permissive access.
+fn build_cors_layer(config: &Config) -> CorsLayer {
+    use axum::http::Method;
+
+    let methods = vec![
+        Method::GET,
+        Method::POST,
+        Method::PUT,
+        Method::PATCH,
+        Method::DELETE,
+    ];
+
+    match config.server.cors_allowed_origin.as_deref() {
+        Some("*") => {
+            tracing::warn!(
+                "CORS configured to allow all origins — use CORS_ALLOWED_ORIGIN to restrict"
+            );
+            CorsLayer::permissive()
+        }
+        Some(origin) => {
+            tracing::info!(origin = %origin, "CORS restricted to configured origin");
+            CorsLayer::new()
+                .allow_origin(
+                    origin
+                        .parse::<axum::http::HeaderValue>()
+                        .expect("Invalid CORS_ALLOWED_ORIGIN"),
+                )
+                .allow_methods(methods)
+                .allow_headers(tower_http::cors::Any)
+        }
+        None => {
+            // Default: allow only from the server's own origin (same host/port)
+            let default_origin = format!("http://localhost:{}", config.server.port);
+            tracing::info!(origin = %default_origin, "CORS defaulting to localhost origin");
+            CorsLayer::new()
+                .allow_origin(default_origin.parse::<axum::http::HeaderValue>().unwrap())
+                .allow_methods(methods)
+                .allow_headers(tower_http::cors::Any)
+        }
+    }
 }
 
 /// Create a default lawn profile from config if no profile exists in the DB.

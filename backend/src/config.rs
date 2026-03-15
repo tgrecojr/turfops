@@ -27,13 +27,25 @@ pub struct NoaaConfig {
     pub station_wbanno: i32,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct SoilDataConfig {
     pub host: String,
     pub port: u16,
     pub database: String,
     pub user: String,
     pub password: String,
+}
+
+impl std::fmt::Debug for SoilDataConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SoilDataConfig")
+            .field("host", &self.host)
+            .field("port", &self.port)
+            .field("database", &self.database)
+            .field("user", &self.user)
+            .field("password", &"[REDACTED]")
+            .finish()
+    }
 }
 
 impl SoilDataConfig {
@@ -103,15 +115,28 @@ impl std::fmt::Debug for OpenWeatherMapConfig {
 pub struct ServerConfig {
     pub host: String,
     pub port: u16,
+    pub cors_allowed_origin: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct DatabaseConfig {
     pub host: String,
     pub port: u16,
     pub name: String,
     pub user: String,
     pub password: String,
+}
+
+impl std::fmt::Debug for DatabaseConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DatabaseConfig")
+            .field("host", &self.host)
+            .field("port", &self.port)
+            .field("name", &self.name)
+            .field("user", &self.user)
+            .field("password", &"[REDACTED]")
+            .finish()
+    }
 }
 
 impl DatabaseConfig {
@@ -200,6 +225,7 @@ impl Config {
                         3000
                     })
                 },
+                cors_allowed_origin: std::env::var("CORS_ALLOWED_ORIGIN").ok(),
             },
             database: DatabaseConfig {
                 host: env_or("DATABASE_HOST", "localhost"),

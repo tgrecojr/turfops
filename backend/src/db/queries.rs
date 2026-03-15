@@ -7,6 +7,24 @@ use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::PgPool;
 use tracing::warn;
 
+/// Safely convert a Serialize enum variant to its string representation for DB storage.
+fn enum_to_db_string<T: serde::Serialize>(value: T) -> Result<String> {
+    let json_val = serde_json::to_value(value)
+        .map_err(|e| TurfOpsError::InvalidData(format!("Failed to serialize enum: {}", e)))?;
+    json_val
+        .as_str()
+        .map(|s| s.to_string())
+        .ok_or_else(|| TurfOpsError::InvalidData("Expected string enum variant".into()))
+}
+
+/// Safely convert an Option<Serialize enum> to Option<String> for DB storage.
+fn opt_enum_to_db_string<T: serde::Serialize>(value: Option<T>) -> Result<Option<String>> {
+    match value {
+        Some(v) => Ok(Some(enum_to_db_string(v)?)),
+        None => Ok(None),
+    }
+}
+
 // Lawn Profile Queries
 
 pub async fn create_lawn_profile(pool: &PgPool, profile: &LawnProfile) -> Result<i64> {
@@ -19,11 +37,11 @@ pub async fn create_lawn_profile(pool: &PgPool, profile: &LawnProfile) -> Result
         "#,
     )
     .bind(&profile.name)
-    .bind(serde_json::to_value(profile.grass_type).unwrap().as_str().unwrap().to_string())
+    .bind(enum_to_db_string(profile.grass_type)?)
     .bind(&profile.usda_zone)
-    .bind(profile.soil_type.map(|s| serde_json::to_value(s).unwrap().as_str().unwrap().to_string()))
+    .bind(opt_enum_to_db_string(profile.soil_type)?)
     .bind(profile.lawn_size_sqft)
-    .bind(profile.irrigation_type.map(|i| serde_json::to_value(i).unwrap().as_str().unwrap().to_string()))
+    .bind(opt_enum_to_db_string(profile.irrigation_type)?)
     .bind(profile.created_at)
     .bind(profile.updated_at)
     .fetch_one(pool)
@@ -56,29 +74,11 @@ pub async fn update_lawn_profile(pool: &PgPool, profile: &LawnProfile) -> Result
         "#,
     )
     .bind(&profile.name)
-    .bind(
-        serde_json::to_value(profile.grass_type)
-            .unwrap()
-            .as_str()
-            .unwrap()
-            .to_string(),
-    )
+    .bind(enum_to_db_string(profile.grass_type)?)
     .bind(&profile.usda_zone)
-    .bind(profile.soil_type.map(|s| {
-        serde_json::to_value(s)
-            .unwrap()
-            .as_str()
-            .unwrap()
-            .to_string()
-    }))
+    .bind(opt_enum_to_db_string(profile.soil_type)?)
     .bind(profile.lawn_size_sqft)
-    .bind(profile.irrigation_type.map(|i| {
-        serde_json::to_value(i)
-            .unwrap()
-            .as_str()
-            .unwrap()
-            .to_string()
-    }))
+    .bind(opt_enum_to_db_string(profile.irrigation_type)?)
     .bind(Utc::now())
     .bind(id)
     .execute(pool)
@@ -119,13 +119,7 @@ pub async fn create_application(pool: &PgPool, app: &Application) -> Result<i64>
         "#,
     )
     .bind(app.lawn_profile_id)
-    .bind(
-        serde_json::to_value(app.application_type)
-            .unwrap()
-            .as_str()
-            .unwrap()
-            .to_string(),
-    )
+    .bind(enum_to_db_string(app.application_type)?)
     .bind(&app.product_name)
     .bind(app.application_date)
     .bind(app.rate_per_1000sqft)
@@ -166,13 +160,7 @@ pub async fn cache_environmental_reading(
         "#,
     )
     .bind(reading.timestamp)
-    .bind(
-        serde_json::to_value(reading.source)
-            .unwrap()
-            .as_str()
-            .unwrap()
-            .to_string(),
-    )
+    .bind(enum_to_db_string(reading.source)?)
     .bind(reading.soil_temp_5_f)
     .bind(reading.soil_temp_10_f)
     .bind(reading.soil_temp_20_f)

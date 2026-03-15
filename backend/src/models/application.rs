@@ -55,24 +55,6 @@ impl ApplicationType {
             _ => None,
         }
     }
-
-    pub fn color_css(&self) -> &'static str {
-        match self {
-            ApplicationType::PreEmergent => "#eab308",  // yellow
-            ApplicationType::PostEmergent => "#facc15", // light yellow
-            ApplicationType::Fertilizer => "#22c55e",   // green
-            ApplicationType::Fungicide => "#d946ef",    // magenta
-            ApplicationType::Insecticide => "#ef4444",  // red
-            ApplicationType::GrubControl => "#f87171",  // light red
-            ApplicationType::Overseed => "#06b6d4",     // cyan
-            ApplicationType::Aeration => "#3b82f6",     // blue
-            ApplicationType::Dethatching => "#60a5fa",  // light blue
-            ApplicationType::Lime => "#f5f5f5",         // white
-            ApplicationType::Sulfur => "#facc15",       // light yellow
-            ApplicationType::Wetting => "#67e8f9",      // light cyan
-            ApplicationType::Other => "#9ca3af",        // gray
-        }
-    }
 }
 
 impl std::fmt::Display for ApplicationType {

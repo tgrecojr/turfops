@@ -14,7 +14,7 @@ pub async fn list_recommendations(
 ) -> Result<Json<Vec<Recommendation>>, TurfOpsError> {
     // Get current environmental data (refreshes if stale)
     let summary = {
-        let mut service = state.sync_service.lock().await;
+        let mut service = state.sync_service.write().await;
         service.get_or_refresh().await?
     };
 
@@ -23,7 +23,10 @@ pub async fn list_recommendations(
         .await?
         .ok_or_else(|| TurfOpsError::NotFound("No lawn profile found".into()))?;
 
-    let apps = queries::get_applications_for_profile(&state.pool, profile.id.unwrap()).await?;
+    let profile_id = profile
+        .id
+        .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
+    let apps = queries::get_applications_for_profile(&state.pool, profile_id).await?;
 
     // Evaluate rules
     let mut recommendations = state.rules_engine.evaluate(&summary, &profile, &apps);

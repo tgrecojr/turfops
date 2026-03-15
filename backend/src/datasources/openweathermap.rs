@@ -211,13 +211,13 @@ impl OpenWeatherMapClient {
         let high_temp_f = points
             .iter()
             .map(|p| p.temp_f)
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .unwrap_or(0.0);
 
         let low_temp_f = points
             .iter()
             .map(|p| p.temp_f)
-            .min_by(|a, b| a.partial_cmp(b).unwrap())
+            .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .unwrap_or(0.0);
 
         let avg_humidity: f64 =
@@ -228,7 +228,7 @@ impl OpenWeatherMapClient {
         let max_precipitation_prob = points
             .iter()
             .map(|p| p.precipitation_prob)
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .unwrap_or(0.0);
 
         // Find dominant weather condition (most frequent)
@@ -248,7 +248,7 @@ impl OpenWeatherMapClient {
         let max_wind_gust_mph = points
             .iter()
             .filter_map(|p| p.wind_gust_mph)
-            .max_by(|a, b| a.partial_cmp(b).unwrap());
+            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         DailyForecast {
             date,
