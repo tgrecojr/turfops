@@ -4,8 +4,6 @@ use crate::db::queries;
 use crate::models::{DataSource, EnvironmentalReading, EnvironmentalSummary, WeatherForecast};
 use chrono::Utc;
 use sqlx::PgPool;
-use std::sync::Arc;
-use tokio::sync::RwLock;
 use tokio::time::Instant;
 
 /// How long before sensor data (SoilData + Home Assistant) is considered stale.
@@ -19,8 +17,8 @@ pub struct DataSyncService {
     soildata_client: Option<SoilDataClient>,
     homeassistant_client: Option<HomeAssistantClient>,
     openweathermap_client: Option<OpenWeatherMapClient>,
-    current_summary: Arc<RwLock<EnvironmentalSummary>>,
-    current_forecast: Arc<RwLock<Option<WeatherForecast>>>,
+    current_summary: EnvironmentalSummary,
+    current_forecast: Option<WeatherForecast>,
     last_sensor_refresh: Option<Instant>,
     last_forecast_refresh: Option<Instant>,
 }
@@ -92,8 +90,8 @@ impl DataSyncService {
             soildata_client,
             homeassistant_client,
             openweathermap_client,
-            current_summary: Arc::new(RwLock::new(EnvironmentalSummary::default())),
-            current_forecast: Arc::new(RwLock::new(None)),
+            current_summary: EnvironmentalSummary::default(),
+            current_forecast: None,
             last_sensor_refresh: None,
             last_forecast_refresh: None,
         }
@@ -109,8 +107,7 @@ impl DataSyncService {
             self.refresh_internal(sensor_stale, forecast_stale).await?;
         }
 
-        let summary = self.current_summary.read().await.clone();
-        Ok(summary)
+        Ok(self.current_summary.clone())
     }
 
     /// Always fetch fresh data from all datasources, ignoring cache age.
@@ -120,8 +117,9 @@ impl DataSyncService {
     }
 
     /// Return the current cached summary without triggering any fetch.
-    pub async fn cached_summary(&self) -> EnvironmentalSummary {
-        self.current_summary.read().await.clone()
+    #[allow(dead_code)]
+    pub fn cached_summary(&self) -> EnvironmentalSummary {
+        self.current_summary.clone()
     }
 
     pub async fn check_connections(&self) -> ConnectionStatus {
@@ -220,7 +218,7 @@ impl DataSyncService {
             }
         } else {
             // Keep existing sensor data
-            summary = self.current_summary.read().await.clone();
+            summary = self.current_summary.clone();
         }
 
         if refresh_forecast {
@@ -228,8 +226,7 @@ impl DataSyncService {
                 match client.fetch_forecast().await {
                     Ok(forecast) => {
                         summary.forecast = Some(forecast.clone());
-                        let mut current_forecast = self.current_forecast.write().await;
-                        *current_forecast = Some(forecast);
+                        self.current_forecast = Some(forecast);
                         self.last_forecast_refresh = Some(Instant::now());
                         tracing::debug!("Weather forecast updated");
                     }
@@ -240,15 +237,13 @@ impl DataSyncService {
             }
         } else {
             // Keep existing forecast
-            let existing_forecast = self.current_forecast.read().await.clone();
             if summary.forecast.is_none() {
-                summary.forecast = existing_forecast;
+                summary.forecast = self.current_forecast.clone();
             }
         }
 
-        // Update shared cached summary
-        let mut current = self.current_summary.write().await;
-        *current = summary.clone();
+        // Update cached summary
+        self.current_summary = summary.clone();
 
         Ok(summary)
     }

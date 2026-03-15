@@ -33,7 +33,10 @@ pub async fn get_calendar(
         .await?
         .ok_or_else(|| TurfOpsError::NotFound("No lawn profile found".into()))?;
 
-    let apps = queries::get_applications_for_profile(&state.pool, profile.id.unwrap()).await?;
+    let profile_id = profile
+        .id
+        .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
+    let apps = queries::get_applications_for_profile(&state.pool, profile_id).await?;
 
     // Filter to the requested month and group by date
     let month_start = NaiveDate::from_ymd_opt(year, month, 1).ok_or_else(|| {

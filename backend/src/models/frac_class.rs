@@ -38,6 +38,7 @@ impl FracClass {
         }
     }
 
+    #[allow(dead_code)]
     pub fn code(&self) -> &'static str {
         match self {
             FracClass::Frac1 => "1",
@@ -51,6 +52,7 @@ impl FracClass {
         }
     }
 
+    #[allow(dead_code)]
     pub fn from_code(code: &str) -> Option<Self> {
         match code.trim().to_uppercase().as_str() {
             "1" => Some(FracClass::Frac1),
@@ -153,6 +155,7 @@ pub fn frac_class_for_product(name: &str) -> Option<FracClass> {
 
 /// Result of analyzing a season's fungicide application history for rotation concerns.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct FungicideRotationAdvice {
     pub total_apps_this_season: usize,
     pub last_class: Option<FracClass>,

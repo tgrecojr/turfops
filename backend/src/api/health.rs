@@ -22,8 +22,8 @@ pub async fn health_check(State(state): State<AppState>) -> Json<HealthResponse>
     .map(|r| r.is_ok())
     .unwrap_or(false);
 
-    // Check external datasource connectivity via the shared service
-    let service = state.sync_service.lock().await;
+    // Check external datasource connectivity via read lock (doesn't block data sync)
+    let service = state.sync_service.read().await;
     let datasources = service.check_connections().await;
 
     Json(HealthResponse {

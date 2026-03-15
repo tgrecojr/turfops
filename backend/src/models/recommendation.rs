@@ -39,6 +39,7 @@ impl RecommendationCategory {
         }
     }
 
+    #[allow(dead_code)]
     pub fn color_css(&self) -> &'static str {
         match self {
             RecommendationCategory::PreEmergent => "#eab308",
@@ -83,6 +84,7 @@ impl Severity {
         }
     }
 
+    #[allow(dead_code)]
     pub fn color_css(&self) -> &'static str {
         match self {
             Severity::Info => "#9ca3af",
@@ -92,6 +94,7 @@ impl Severity {
         }
     }
 
+    #[allow(dead_code)]
     pub fn symbol(&self) -> &'static str {
         match self {
             Severity::Info => "ℹ",

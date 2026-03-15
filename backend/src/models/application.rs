@@ -56,6 +56,7 @@ impl ApplicationType {
         }
     }
 
+    #[allow(dead_code)]
     pub fn color_css(&self) -> &'static str {
         match self {
             ApplicationType::PreEmergent => "#eab308",  // yellow

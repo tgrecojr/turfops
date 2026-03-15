@@ -153,8 +153,8 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {recent_applications.map((app) => (
-                  <tr key={app.id}>
+                {recent_applications.map((app, index) => (
+                  <tr key={app.id ?? `app-${index}`}>
                     <td style={styles.td}>{app.application_date}</td>
                     <td style={styles.td}>
                       <span

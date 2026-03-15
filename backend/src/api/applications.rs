@@ -22,7 +22,9 @@ pub async fn list_applications(
         .await?
         .ok_or_else(|| TurfOpsError::NotFound("No lawn profile found".into()))?;
 
-    let profile_id = profile.id.unwrap();
+    let profile_id = profile
+        .id
+        .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
     let mut apps = queries::get_applications_for_profile(&state.pool, profile_id).await?;
 
     // Optional filter by application type
@@ -72,7 +74,9 @@ pub async fn create_application(
 
     let app = Application {
         id: None,
-        lawn_profile_id: profile.id.unwrap(),
+        lawn_profile_id: profile
+            .id
+            .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?,
         application_type,
         product_name: req.product_name,
         application_date,
