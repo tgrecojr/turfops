@@ -34,7 +34,7 @@ async function fetchJson<T>(
     return res.json();
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') {
-      throw new Error(`Request timed out after ${timeoutMs}ms`);
+      throw new Error(`Request timed out after ${timeoutMs}ms`, { cause: e });
     }
     throw e;
   } finally {
