@@ -1,8 +1,8 @@
 use crate::error::{Result, TurfOpsError};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use sqlx::postgres::PgConnectOptions;
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Config {
     pub lawn: LawnConfig,
     pub noaa: NoaaConfig,
@@ -13,7 +13,7 @@ pub struct Config {
     pub database: DatabaseConfig,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct LawnConfig {
     pub name: String,
     pub grass_type: String,
@@ -23,12 +23,12 @@ pub struct LawnConfig {
     pub irrigation_type: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct NoaaConfig {
     pub station_wbanno: i32,
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Deserialize)]
 pub struct SoilDataConfig {
     pub host: String,
     pub port: u16,
@@ -60,7 +60,7 @@ impl SoilDataConfig {
     }
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Deserialize)]
 pub struct HomeAssistantConfig {
     pub url: String,
     pub token: String,
@@ -82,7 +82,7 @@ impl std::fmt::Debug for HomeAssistantConfig {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Default, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum TemperatureUnit {
     #[default]
@@ -90,7 +90,7 @@ pub enum TemperatureUnit {
     Celsius,
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Deserialize)]
 pub struct OpenWeatherMapConfig {
     pub api_key: String,
     pub latitude: f64,
@@ -114,14 +114,14 @@ impl std::fmt::Debug for OpenWeatherMapConfig {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ServerConfig {
     pub host: String,
     pub port: u16,
     pub cors_allowed_origin: Option<String>,
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Clone, Deserialize)]
 pub struct DatabaseConfig {
     pub host: String,
     pub port: u16,

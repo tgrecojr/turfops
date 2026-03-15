@@ -1,10 +1,12 @@
+use super::disease_common::{
+    add_frac_data_points, append_rotation_warning, build_rotation_guidance, is_nitrogen_deficient,
+};
 use super::thresholds::*;
 use super::Rule;
 use crate::models::{
-    analyze_fungicide_rotation, Application, ApplicationType, DataSource, EnvironmentalSummary,
-    LawnProfile, Recommendation, RecommendationCategory, Severity,
+    analyze_fungicide_rotation, Application, DataSource, EnvironmentalSummary, LawnProfile,
+    Recommendation, RecommendationCategory, Severity,
 };
-use chrono::Local;
 
 /// Disease pressure forecast rule - predicts elevated fungal disease risk
 ///
@@ -249,18 +251,7 @@ impl DiseasePressureRule {
         // Analyze FRAC rotation history
         let advice = analyze_fungicide_rotation(history);
 
-        let rotation_guidance = if let Some(next) = &advice.recommended_next {
-            let products = next.common_products();
-            let example = products.first().copied().unwrap_or("(see label)");
-            format!(
-                "Recommended next application: {} (e.g., {}).",
-                next, example
-            )
-        } else {
-            "Rotate between FRAC classes: Strobilurins (FRAC 11), DMIs (FRAC 3), \
-             Thiophanates (FRAC 1)."
-                .to_string()
-        };
+        let rotation_guidance = build_rotation_guidance(&advice);
 
         let action = match severity {
             Severity::Critical => {
@@ -288,11 +279,7 @@ impl DiseasePressureRule {
             }
         };
 
-        let full_action = if let Some(warning) = &advice.rotation_warning {
-            format!("{} ROTATION WARNING: {}", action, warning)
-        } else {
-            action
-        };
+        let full_action = append_rotation_warning(&action, &advice);
 
         let explanation = match disease_type {
             "Brown Patch" =>
@@ -368,29 +355,6 @@ impl DiseasePressureRule {
         }
 
         // Add FRAC rotation data points
-        if let Some(last) = &advice.last_class {
-            rec = rec.with_data_point(
-                "Last FRAC Class",
-                last.to_string(),
-                DataSource::History.as_str(),
-            );
-        }
-        if let Some(next) = &advice.recommended_next {
-            rec = rec.with_data_point(
-                "Recommended Next",
-                next.to_string(),
-                DataSource::Rotation.as_str(),
-            );
-        }
-
-        rec
+        add_frac_data_points(rec, &advice)
     }
-}
-
-/// Check if lawn is nitrogen-deficient (no fertilizer in N days)
-fn is_nitrogen_deficient(history: &[Application], days: i64) -> bool {
-    let cutoff = Local::now().date_naive() - chrono::Duration::days(days);
-    !history.iter().any(|app| {
-        app.application_type == ApplicationType::Fertilizer && app.application_date >= cutoff
-    })
 }

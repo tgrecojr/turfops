@@ -1,4 +1,28 @@
 import type React from 'react';
+import type { ApplicationType } from '../types';
+import { APPLICATION_TYPE_COLORS } from '../types';
+
+// Cache for computed badge styles keyed by application type
+const badgeStyleCache = new Map<ApplicationType, React.CSSProperties>();
+
+/** Returns a cached badge style for a given application type, avoiding recreation every render. */
+export function appTypeBadgeStyle(
+  baseBadge: React.CSSProperties,
+  appType: ApplicationType
+): React.CSSProperties {
+  let cached = badgeStyleCache.get(appType);
+  if (!cached) {
+    const color = APPLICATION_TYPE_COLORS[appType];
+    cached = {
+      ...baseBadge,
+      backgroundColor: color + '22',
+      color,
+      borderColor: color,
+    };
+    badgeStyleCache.set(appType, cached);
+  }
+  return cached;
+}
 
 export const sharedStyles: Record<string, React.CSSProperties> = {
   loading: { padding: '2rem', color: '#718096' },

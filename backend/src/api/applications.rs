@@ -7,6 +7,7 @@ use axum::http::StatusCode;
 use axum::Json;
 use chrono::{NaiveDate, Utc};
 use serde::Deserialize;
+use std::str::FromStr;
 
 const DEFAULT_PAGE_LIMIT: i64 = 50;
 const MAX_PAGE_LIMIT: i64 = 200;
@@ -42,7 +43,7 @@ pub async fn list_applications(
 
     // Optional filter by application type
     if let Some(type_filter) = params.app_type {
-        let app_type = ApplicationType::from_str(&type_filter).ok_or_else(|| {
+        let app_type = ApplicationType::from_str(&type_filter).map_err(|_| {
             TurfOpsError::InvalidData(format!("Unknown application type filter: {}", type_filter))
         })?;
         apps.retain(|a| a.application_type == app_type);
@@ -70,7 +71,7 @@ pub async fn create_application(
         .await?
         .ok_or_else(|| TurfOpsError::NotFound("No lawn profile found".into()))?;
 
-    let application_type = ApplicationType::from_str(&req.application_type).ok_or_else(|| {
+    let application_type = ApplicationType::from_str(&req.application_type).map_err(|_| {
         TurfOpsError::InvalidData(format!(
             "Unknown application type: {}",
             req.application_type

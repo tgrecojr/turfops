@@ -45,12 +45,12 @@ pub async fn get_dashboard(
     // Evaluate rules for recommendations
     let mut recommendations = state.rules_engine.evaluate(&summary, &profile, &apps);
 
-    // Apply dismissed/addressed state
-    let rec_states = state.recommendation_states.read().await;
+    // Apply dismissed/addressed state from database
+    let rec_states = queries::get_recommendation_states(&state.pool).await?;
     for rec in &mut recommendations {
-        if let Some(action) = rec_states.get(&rec.id) {
-            rec.dismissed = action.dismissed;
-            rec.addressed = action.addressed;
+        if let Some((dismissed, addressed)) = rec_states.get(&rec.id) {
+            rec.dismissed = *dismissed;
+            rec.addressed = *addressed;
         }
     }
     recommendations.retain(|r| r.is_active());

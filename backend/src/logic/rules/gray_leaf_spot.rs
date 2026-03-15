@@ -1,8 +1,9 @@
+use super::disease_common::gray_leaf_spot_fungicide_rec;
 use super::thresholds::*;
 use super::Rule;
 use crate::models::{
     analyze_fungicide_rotation, Application, ApplicationType, DataSource, EnvironmentalSummary,
-    FracClass, LawnProfile, Recommendation, RecommendationCategory, Severity,
+    LawnProfile, Recommendation, RecommendationCategory, Severity,
 };
 use chrono::{Datelike, Local, NaiveDate};
 
@@ -136,19 +137,8 @@ impl Rule for GrayLeafSpotRule {
         );
 
         // FRAC-aware product recommendation for gray leaf spot
-        // Default is FRAC 11 (strobilurins), but rotate if user recently used FRAC 11
         let advice = analyze_fungicide_rotation(history);
-        let fungicide_rec = if advice.last_class == Some(FracClass::Frac11) {
-            let next = advice.recommended_next.unwrap_or(FracClass::Frac3);
-            let products = next.common_products();
-            let example = products.first().copied().unwrap_or("(see label)");
-            format!(
-                "Recent FRAC 11 usage detected — rotate to {} (e.g., {})",
-                next, example
-            )
-        } else {
-            "azoxystrobin or pyraclostrobin (FRAC 11 strobilurins)".to_string()
-        };
+        let fungicide_rec = gray_leaf_spot_fungicide_rec(&advice);
 
         let rec = rec.with_action(format!(
             "Limit nitrogen to ≤0.25 lb N/1000sqft. Apply preventive fungicide: {}. \

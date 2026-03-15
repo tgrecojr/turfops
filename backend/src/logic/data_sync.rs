@@ -24,33 +24,16 @@ pub struct DataSyncService {
 }
 
 impl DataSyncService {
-    /// Create a new DataSyncService and connect to external datasources.
-    /// Call this once at startup; the service is then stored in AppState.
+    /// Create a new DataSyncService with lazy external connections.
+    /// Clients are configured but not tested — connections are validated
+    /// on first data fetch, avoiding slow startup when external services are down.
     pub async fn initialize(config: &Config, pool: PgPool) -> Self {
         let homeassistant_client = if !config.homeassistant.token.is_empty() {
-            let client = HomeAssistantClient::new(config.homeassistant.clone());
-            match client.test_connection().await {
-                Ok(true) => {
-                    tracing::info!(
-                        url = %config.homeassistant.url,
-                        "Connected to Home Assistant"
-                    );
-                }
-                Ok(false) => {
-                    tracing::warn!(
-                        url = %config.homeassistant.url,
-                        "Home Assistant connection test failed - check HA_URL and HA_TOKEN"
-                    );
-                }
-                Err(e) => {
-                    tracing::warn!(
-                        url = %config.homeassistant.url,
-                        error = %e,
-                        "Cannot reach Home Assistant - check HA_URL is correct (expected base URL, e.g. http://homeassistant.local:8123)"
-                    );
-                }
-            }
-            Some(client)
+            tracing::info!(
+                url = %config.homeassistant.url,
+                "Home Assistant client configured (connection tested on first fetch)"
+            );
+            Some(HomeAssistantClient::new(config.homeassistant.clone()))
         } else {
             tracing::warn!(
                 "Home Assistant token not configured - ambient data will be unavailable"
@@ -74,13 +57,13 @@ impl DataSyncService {
         }
 
         let soildata_client =
-            match SoilDataClient::connect(&config.soildata, config.noaa.station_wbanno).await {
+            match SoilDataClient::connect_lazy(&config.soildata, config.noaa.station_wbanno) {
                 Ok(client) => {
-                    tracing::info!("Connected to SoilData PostgreSQL");
+                    tracing::info!("SoilData client configured (connection tested on first fetch)");
                     Some(client)
                 }
                 Err(e) => {
-                    tracing::warn!("Failed to connect to SoilData: {}", e);
+                    tracing::warn!("Failed to configure SoilData client: {}", e);
                     None
                 }
             };

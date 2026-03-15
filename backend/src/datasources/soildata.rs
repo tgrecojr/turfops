@@ -1,5 +1,5 @@
 use crate::config::SoilDataConfig;
-use crate::error::{Result, TurfOpsError};
+use crate::error::Result;
 use crate::models::{
     celsius_to_fahrenheit, DataSource, EnvironmentalReading, EnvironmentalSummary, Trend,
 };
@@ -13,14 +13,11 @@ pub struct SoilDataClient {
 }
 
 impl SoilDataClient {
-    pub async fn connect(config: &SoilDataConfig, station_wbanno: i32) -> Result<Self> {
+    /// Create a client with a lazy connection pool that connects on first query.
+    pub fn connect_lazy(config: &SoilDataConfig, station_wbanno: i32) -> Result<Self> {
         let pool = PgPoolOptions::new()
             .max_connections(2)
-            .connect_with(config.connect_options())
-            .await
-            .map_err(|e| {
-                TurfOpsError::DataSourceUnavailable(format!("SoilData PostgreSQL: {}", e))
-            })?;
+            .connect_lazy_with(config.connect_options());
 
         Ok(Self {
             pool,

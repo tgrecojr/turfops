@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getCalendar } from '../api/client';
+import { appTypeBadgeStyle } from '../styles/shared';
 import type { Application, CalendarResponse } from '../types';
 import { APPLICATION_TYPE_COLORS, APPLICATION_TYPE_LABELS } from '../types';
 
@@ -159,14 +160,7 @@ export default function Calendar() {
             selectedApps.map((app) => (
               <div key={app.id} style={styles.detailCard}>
                 <span
-                  style={{
-                    ...styles.badge,
-                    backgroundColor:
-                      APPLICATION_TYPE_COLORS[app.application_type] + '22',
-                    color: APPLICATION_TYPE_COLORS[app.application_type],
-                    borderColor:
-                      APPLICATION_TYPE_COLORS[app.application_type],
-                  }}
+                  style={appTypeBadgeStyle(styles.badge, app.application_type)}
                 >
                   {APPLICATION_TYPE_LABELS[app.application_type]}
                 </span>

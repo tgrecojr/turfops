@@ -81,13 +81,31 @@ export default function Settings() {
     setSuccess(false);
 
     try {
+      const validGrassType = GRASS_TYPES.includes(grassType as GrassType)
+        ? (grassType as GrassType)
+        : undefined;
+      const validSoilType =
+        soilType && SOIL_TYPES.includes(soilType as SoilType)
+          ? (soilType as SoilType)
+          : undefined;
+      const validIrrigationType =
+        irrigationType && IRRIGATION_TYPES.includes(irrigationType as IrrigationType)
+          ? (irrigationType as IrrigationType)
+          : undefined;
+
+      if (!validGrassType) {
+        setError('Please select a valid grass type');
+        setSaving(false);
+        return;
+      }
+
       const updated = await updateProfile({
         name,
-        grass_type: grassType as GrassType,
+        grass_type: validGrassType,
         usda_zone: zone,
-        soil_type: soilType as SoilType || undefined,
+        soil_type: validSoilType,
         lawn_size_sqft: size ? parseFloat(size) : undefined,
-        irrigation_type: irrigationType as IrrigationType || undefined,
+        irrigation_type: validIrrigationType,
       });
       setProfile(updated);
       setSuccess(true);

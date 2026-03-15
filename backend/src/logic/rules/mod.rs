@@ -1,6 +1,7 @@
 pub mod aeration;
 pub mod application_window;
 pub mod broadleaf_herbicide;
+pub mod disease_common;
 pub mod disease_pressure;
 pub mod engine;
 pub mod fall_fertilization;

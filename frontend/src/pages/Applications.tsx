@@ -4,9 +4,9 @@ import {
   deleteApplication,
   getApplications,
 } from '../api/client';
-import { sharedStyles } from '../styles/shared';
+import { appTypeBadgeStyle, sharedStyles } from '../styles/shared';
 import type { Application, ApplicationType } from '../types';
-import { APPLICATION_TYPE_COLORS, APPLICATION_TYPE_LABELS } from '../types';
+import { APPLICATION_TYPE_LABELS } from '../types';
 
 const APP_TYPES: ApplicationType[] = [
   'PreEmergent',
@@ -119,14 +119,7 @@ export default function Applications() {
                 <td style={sharedStyles.td}>{app.application_date}</td>
                 <td style={sharedStyles.td}>
                   <span
-                    style={{
-                      ...sharedStyles.badge,
-                      backgroundColor:
-                        APPLICATION_TYPE_COLORS[app.application_type] + '22',
-                      color: APPLICATION_TYPE_COLORS[app.application_type],
-                      borderColor:
-                        APPLICATION_TYPE_COLORS[app.application_type],
-                    }}
+                    style={appTypeBadgeStyle(sharedStyles.badge, app.application_type)}
                   >
                     {APPLICATION_TYPE_LABELS[app.application_type]}
                   </span>

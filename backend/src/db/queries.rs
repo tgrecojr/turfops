@@ -5,6 +5,7 @@ use crate::models::{
 };
 use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::PgPool;
+use std::str::FromStr;
 use tracing::warn;
 
 /// Safely convert a Serialize enum variant to its string representation for DB storage.
@@ -220,6 +221,45 @@ pub async fn cleanup_old_environmental_cache(pool: &PgPool, retention_days: i64)
     Ok(result.rows_affected())
 }
 
+// Recommendation State Queries
+
+pub async fn get_recommendation_states(
+    pool: &PgPool,
+) -> Result<std::collections::HashMap<String, (bool, bool)>> {
+    let rows = sqlx::query_as::<_, (String, bool, bool)>(
+        "SELECT id, dismissed, addressed FROM recommendation_states",
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows.into_iter().map(|(id, d, a)| (id, (d, a))).collect())
+}
+
+pub async fn upsert_recommendation_state(
+    pool: &PgPool,
+    id: &str,
+    dismissed: bool,
+    addressed: bool,
+) -> Result<()> {
+    sqlx::query(
+        r#"
+        INSERT INTO recommendation_states (id, dismissed, addressed, updated_at)
+        VALUES ($1, $2, $3, NOW())
+        ON CONFLICT (id) DO UPDATE SET
+            dismissed = $2,
+            addressed = $3,
+            updated_at = NOW()
+        "#,
+    )
+    .bind(id)
+    .bind(dismissed)
+    .bind(addressed)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
 // Row types for sqlx mapping
 
 #[derive(sqlx::FromRow)]
@@ -237,7 +277,7 @@ struct LawnProfileRow {
 
 impl LawnProfileRow {
     fn into_lawn_profile(self) -> LawnProfile {
-        let grass_type = GrassType::from_str(&self.grass_type).unwrap_or_else(|| {
+        let grass_type = GrassType::from_str(&self.grass_type).unwrap_or_else(|_| {
             warn!(
                 grass_type = %self.grass_type,
                 "Unknown grass_type in database, defaulting to TallFescue"
@@ -245,13 +285,13 @@ impl LawnProfileRow {
             GrassType::TallFescue
         });
         let soil_type = self.soil_type.as_ref().and_then(|s| {
-            SoilType::from_str(s).or_else(|| {
+            SoilType::from_str(s).ok().or_else(|| {
                 warn!(soil_type = %s, "Unknown soil_type in database, ignoring");
                 None
             })
         });
         let irrigation_type = self.irrigation_type.as_ref().and_then(|i| {
-            IrrigationType::from_str(i).or_else(|| {
+            IrrigationType::from_str(i).ok().or_else(|| {
                 warn!(irrigation_type = %i, "Unknown irrigation_type in database, ignoring");
                 None
             })
@@ -306,7 +346,7 @@ impl ApplicationRow {
         };
 
         let application_type =
-            ApplicationType::from_str(&self.application_type).unwrap_or_else(|| {
+            ApplicationType::from_str(&self.application_type).unwrap_or_else(|_| {
                 warn!(
                     application_type = %self.application_type,
                     "Unknown application_type in database, defaulting to Other"
