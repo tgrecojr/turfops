@@ -5,7 +5,14 @@
 !.env.example
 
 # Dependencies
+node_modules/
+
+# Rust build artifacts
+backend/target/
 target/
+
+# Frontend build output
+frontend/dist/
 
 # Build outputs
 *.pyc
@@ -22,10 +29,3 @@ CLAUDE.local.md
 # OS
 .DS_Store
 Thumbs.db
-
-# Config (user-specific)
-config/config.yaml
-
-# Local data
-*.db
-*.sqlite
