@@ -1,7 +1,14 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getDashboard } from '../api/client';
 import AlertCard from '../components/AlertCard';
 import Gauge from '../components/Gauge';
+import {
+  SOIL_TEMP_GAUGE,
+  AMBIENT_TEMP_GAUGE,
+  HUMIDITY_GAUGE,
+  SOIL_MOISTURE_GAUGE,
+} from '../components/gaugeConfigs';
+import { sharedStyles } from '../styles/shared';
 import type { DashboardResponse } from '../types';
 import { APPLICATION_TYPE_COLORS, APPLICATION_TYPE_LABELS } from '../types';
 
@@ -11,27 +18,68 @@ export default function Dashboard() {
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const abortRef = useRef<AbortController | null>(null);
 
   const fetchData = useCallback(async () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     try {
       const d = await getDashboard();
-      setData(d);
-      setError(null);
+      if (!controller.signal.aborted) {
+        setData(d);
+        setError(null);
+      }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load dashboard');
+      if (!controller.signal.aborted) {
+        setError(e instanceof Error ? e.message : 'Failed to load dashboard');
+      }
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) {
+        setLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
     fetchData();
-    const id = setInterval(fetchData, POLL_INTERVAL);
-    return () => clearInterval(id);
+
+    const handleVisibility = () => {
+      if (!document.hidden) fetchData();
+    };
+
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const startPolling = () => {
+      stopPolling();
+      if (!document.hidden) {
+        intervalId = setInterval(fetchData, POLL_INTERVAL);
+      }
+    };
+
+    const stopPolling = () => {
+      if (intervalId !== null) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) stopPolling();
+      else startPolling();
+    });
+    startPolling();
+
+    return () => {
+      stopPolling();
+      abortRef.current?.abort();
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [fetchData]);
 
-  if (loading) return <div role="status" style={styles.loading}>Loading dashboard...</div>;
-  if (error && !data) return <div role="alert" style={styles.error}>Error: {error}</div>;
+  if (loading) return <div role="status" style={sharedStyles.loading}>Loading dashboard...</div>;
+  if (error && !data) return <div role="alert" style={sharedStyles.error}>Error: {error}</div>;
   if (!data) return null;
 
   const { profile, environmental, recommendations, recent_applications, connections } = data;
@@ -45,7 +93,7 @@ export default function Dashboard() {
         </div>
       )}
       <div style={styles.headerRow}>
-        <h1 style={styles.title}>{profile.name}</h1>
+        <h1 style={sharedStyles.pageTitle}>{profile.name}</h1>
         <div style={styles.meta}>
           {profile.grass_type} &middot; Zone {profile.usda_zone}
           {environmental.last_updated && (
@@ -66,15 +114,11 @@ export default function Dashboard() {
       </div>
 
       {/* Gauges */}
-      <div style={styles.gaugeGrid}>
-        <div style={styles.card}>
+      <div style={sharedStyles.gaugeGrid}>
+        <div style={sharedStyles.card}>
           <Gauge
-            label="Soil Temp (10cm)"
+            {...SOIL_TEMP_GAUGE}
             value={current?.soil_temp_10_f ?? null}
-            unit="°F"
-            min={30}
-            max={100}
-            thresholds={{ warn: 75, critical: 85 }}
           />
           {environmental.soil_temp_7day_avg_f !== null && (
             <div style={styles.subtext}>
@@ -83,14 +127,10 @@ export default function Dashboard() {
             </div>
           )}
         </div>
-        <div style={styles.card}>
+        <div style={sharedStyles.card}>
           <Gauge
-            label="Ambient Temp"
+            {...AMBIENT_TEMP_GAUGE}
             value={current?.ambient_temp_f ?? null}
-            unit="°F"
-            min={0}
-            max={110}
-            thresholds={{ warn: 85, critical: 95 }}
           />
           {environmental.ambient_temp_7day_avg_f !== null && (
             <div style={styles.subtext}>
@@ -98,28 +138,20 @@ export default function Dashboard() {
             </div>
           )}
         </div>
-        <div style={styles.card}>
+        <div style={sharedStyles.card}>
           <Gauge
-            label="Humidity"
+            {...HUMIDITY_GAUGE}
             value={current?.humidity_percent ?? null}
-            unit="%"
-            min={0}
-            max={100}
-            thresholds={{ warn: 80, critical: 90 }}
           />
         </div>
-        <div style={styles.card}>
+        <div style={sharedStyles.card}>
           <Gauge
-            label="Soil Moisture (10cm)"
+            {...SOIL_MOISTURE_GAUGE}
             value={
               current?.soil_moisture_10 !== null && current?.soil_moisture_10 !== undefined
                 ? current.soil_moisture_10 * 100
                 : null
             }
-            unit="%"
-            min={0}
-            max={50}
-            thresholds={{ warn: 40, critical: 45 }}
           />
           {environmental.precipitation_7day_total_mm !== null && (
             <div style={styles.subtext}>
@@ -132,34 +164,34 @@ export default function Dashboard() {
       {/* Alerts & Recent Apps side by side */}
       <div style={styles.twoCol}>
         <div style={{ flex: 1 }}>
-          <h2 style={styles.sectionTitle}>Active Alerts</h2>
+          <h2 style={sharedStyles.sectionTitle}>Active Alerts</h2>
           {recommendations.length === 0 ? (
-            <div style={styles.empty}>No active recommendations</div>
+            <div style={sharedStyles.empty}>No active recommendations</div>
           ) : (
             recommendations.map((r) => <AlertCard key={r.id} rec={r} />)
           )}
         </div>
         <div style={{ flex: 1 }}>
-          <h2 style={styles.sectionTitle}>Recent Applications</h2>
+          <h2 style={sharedStyles.sectionTitle}>Recent Applications</h2>
           {recent_applications.length === 0 ? (
-            <div style={styles.empty}>No applications recorded</div>
+            <div style={sharedStyles.empty}>No applications recorded</div>
           ) : (
-            <table style={styles.table}>
+            <table style={sharedStyles.table}>
               <thead>
                 <tr>
-                  <th style={styles.th}>Date</th>
-                  <th style={styles.th}>Type</th>
-                  <th style={styles.th}>Product</th>
+                  <th style={sharedStyles.th}>Date</th>
+                  <th style={sharedStyles.th}>Type</th>
+                  <th style={sharedStyles.th}>Product</th>
                 </tr>
               </thead>
               <tbody>
                 {recent_applications.map((app, index) => (
                   <tr key={app.id ?? `app-${index}`}>
-                    <td style={styles.td}>{app.application_date}</td>
-                    <td style={styles.td}>
+                    <td style={sharedStyles.td}>{app.application_date}</td>
+                    <td style={sharedStyles.td}>
                       <span
                         style={{
-                          ...styles.typeBadge,
+                          ...sharedStyles.badge,
                           backgroundColor:
                             APPLICATION_TYPE_COLORS[app.application_type] + '22',
                           color: APPLICATION_TYPE_COLORS[app.application_type],
@@ -169,7 +201,7 @@ export default function Dashboard() {
                         {APPLICATION_TYPE_LABELS[app.application_type]}
                       </span>
                     </td>
-                    <td style={styles.td}>{app.product_name || '-'}</td>
+                    <td style={sharedStyles.td}>{app.product_name || '-'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -198,19 +230,17 @@ function ConnectionDot({ label, ok }: { label: string; ok: boolean }) {
 function trendArrow(trend: string): string {
   switch (trend) {
     case 'Rising':
-      return '↑';
+      return '\u2191';
     case 'Falling':
-      return '↓';
+      return '\u2193';
     case 'Stable':
-      return '→';
+      return '\u2192';
     default:
       return '';
   }
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  loading: { padding: '2rem', color: '#718096' },
-  error: { padding: '2rem', color: '#e53e3e' },
   errorBanner: {
     padding: '0.5rem 1rem',
     backgroundColor: '#fed7d7',
@@ -220,7 +250,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.85rem',
   },
   headerRow: { marginBottom: '1rem' },
-  title: { margin: 0, fontSize: '1.5rem', color: '#1a202c' },
   meta: { color: '#718096', fontSize: '0.85rem', marginTop: 4 },
   updated: { color: '#a0aec0' },
   connections: {
@@ -237,62 +266,6 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '50%',
     display: 'inline-block',
   },
-  gaugeGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-    gap: '1rem',
-    marginBottom: '1.5rem',
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: '1rem',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-  },
   subtext: { fontSize: '0.75rem', color: '#718096', marginTop: 4 },
   twoCol: { display: 'flex', gap: '1.5rem', flexWrap: 'wrap' as const },
-  sectionTitle: {
-    fontSize: '1rem',
-    fontWeight: 600,
-    color: '#2d3748',
-    marginBottom: '0.75rem',
-  },
-  empty: {
-    color: '#a0aec0',
-    fontSize: '0.85rem',
-    padding: '1rem',
-    backgroundColor: '#fff',
-    borderRadius: 8,
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse' as const,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    overflow: 'hidden',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-  },
-  th: {
-    textAlign: 'left' as const,
-    padding: '0.5rem 0.75rem',
-    fontSize: '0.75rem',
-    color: '#718096',
-    fontWeight: 600,
-    borderBottom: '1px solid #e2e8f0',
-    textTransform: 'uppercase' as const,
-  },
-  td: {
-    padding: '0.5rem 0.75rem',
-    fontSize: '0.85rem',
-    borderBottom: '1px solid #edf2f7',
-    color: '#2d3748',
-  },
-  typeBadge: {
-    display: 'inline-block',
-    padding: '2px 8px',
-    borderRadius: 10,
-    fontSize: '0.75rem',
-    fontWeight: 600,
-    border: '1px solid',
-  },
 };

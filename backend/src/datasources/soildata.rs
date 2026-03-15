@@ -16,7 +16,7 @@ impl SoilDataClient {
     pub async fn connect(config: &SoilDataConfig, station_wbanno: i32) -> Result<Self> {
         let pool = PgPoolOptions::new()
             .max_connections(2)
-            .connect(&config.connection_string())
+            .connect_with(config.connect_options())
             .await
             .map_err(|e| {
                 TurfOpsError::DataSourceUnavailable(format!("SoilData PostgreSQL: {}", e))

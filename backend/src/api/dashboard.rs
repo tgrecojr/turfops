@@ -29,7 +29,7 @@ pub async fn get_dashboard(
     let profile_id = profile
         .id
         .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
-    let apps = queries::get_applications_for_profile(&state.pool, profile_id).await?;
+    let apps = queries::get_applications_for_profile(&state.pool, profile_id, 10, 0).await?;
 
     // Get environmental data (refreshes if stale)
     let summary = {

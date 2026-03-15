@@ -1,5 +1,6 @@
 use crate::error::{Result, TurfOpsError};
 use serde::{Deserialize, Serialize};
+use sqlx::postgres::PgConnectOptions;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Config {
@@ -49,11 +50,13 @@ impl std::fmt::Debug for SoilDataConfig {
 }
 
 impl SoilDataConfig {
-    pub fn connection_string(&self) -> String {
-        format!(
-            "postgres://{}:{}@{}:{}/{}",
-            self.user, self.password, self.host, self.port, self.database
-        )
+    pub fn connect_options(&self) -> PgConnectOptions {
+        PgConnectOptions::new()
+            .host(&self.host)
+            .port(self.port)
+            .database(&self.database)
+            .username(&self.user)
+            .password(&self.password)
     }
 }
 
@@ -140,11 +143,13 @@ impl std::fmt::Debug for DatabaseConfig {
 }
 
 impl DatabaseConfig {
-    pub fn connection_string(&self) -> String {
-        format!(
-            "postgres://{}:{}@{}:{}/{}",
-            self.user, self.password, self.host, self.port, self.name
-        )
+    pub fn connect_options(&self) -> PgConnectOptions {
+        PgConnectOptions::new()
+            .host(&self.host)
+            .port(self.port)
+            .database(&self.name)
+            .username(&self.user)
+            .password(&self.password)
     }
 }
 
@@ -189,7 +194,13 @@ impl Config {
                 },
                 database: env_or("SOILDATA_DB_NAME", "uscrn"),
                 user: env_or("SOILDATA_DB_USER", "postgres"),
-                password: env_or("SOILDATA_DB_PASSWORD", ""),
+                password: {
+                    let pw = env_or("SOILDATA_DB_PASSWORD", "");
+                    if pw.is_empty() {
+                        tracing::warn!("SOILDATA_DB_PASSWORD is empty — SoilData connection may fail if authentication is required");
+                    }
+                    pw
+                },
             },
             homeassistant: HomeAssistantConfig {
                 url: env_or("HA_URL", "http://localhost:8123"),

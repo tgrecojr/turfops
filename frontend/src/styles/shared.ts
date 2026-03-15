@@ -1,0 +1,76 @@
+import type React from 'react';
+
+export const sharedStyles: Record<string, React.CSSProperties> = {
+  loading: { padding: '2rem', color: '#718096' },
+  error: {
+    padding: '0.5rem 1rem',
+    backgroundColor: '#fed7d7',
+    color: '#c53030',
+    borderRadius: 6,
+    marginBottom: '1rem',
+    fontSize: '0.85rem',
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: '1rem',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+  },
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse' as const,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    overflow: 'hidden',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+  },
+  th: {
+    textAlign: 'left' as const,
+    padding: '0.6rem 0.75rem',
+    fontSize: '0.75rem',
+    color: '#718096',
+    fontWeight: 600,
+    borderBottom: '2px solid #e2e8f0',
+    textTransform: 'uppercase' as const,
+  },
+  td: {
+    padding: '0.5rem 0.75rem',
+    fontSize: '0.85rem',
+    borderBottom: '1px solid #edf2f7',
+    color: '#2d3748',
+  },
+  badge: {
+    display: 'inline-block',
+    padding: '2px 8px',
+    borderRadius: 10,
+    fontSize: '0.75rem',
+    fontWeight: 600,
+    border: '1px solid',
+  },
+  sectionTitle: {
+    fontSize: '1rem',
+    fontWeight: 600,
+    color: '#2d3748',
+    margin: '0 0 0.75rem',
+  },
+  empty: {
+    color: '#a0aec0',
+    fontSize: '0.85rem',
+    padding: '1rem',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+  },
+  pageTitle: { margin: 0, fontSize: '1.5rem', color: '#1a202c' },
+  headerRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '1rem',
+  },
+  gaugeGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+    gap: '1rem',
+    marginBottom: '1.5rem',
+  },
+};
