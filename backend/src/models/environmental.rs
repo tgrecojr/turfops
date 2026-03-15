@@ -106,6 +106,9 @@ pub struct EnvironmentalSummary {
     /// Weather forecast data (5-day/3-hour) from OpenWeatherMap
     #[serde(skip_serializing_if = "Option::is_none")]
     pub forecast: Option<WeatherForecast>,
+    /// Year-to-date Growing Degree Days (base 50°F)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gdd_base50_ytd: Option<f64>,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]

@@ -87,6 +87,9 @@ pub struct Application {
     pub coverage_sqft: Option<f64>,
     pub notes: Option<String>,
     pub weather_snapshot: Option<WeatherSnapshot>,
+    pub nitrogen_pct: Option<f64>,
+    pub phosphorus_pct: Option<f64>,
+    pub potassium_pct: Option<f64>,
     pub created_at: chrono::DateTime<Utc>,
 }
 

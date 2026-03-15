@@ -61,6 +61,9 @@ pub struct CreateApplicationRequest {
     pub coverage_sqft: Option<f64>,
     pub notes: Option<String>,
     pub weather_snapshot: Option<WeatherSnapshot>,
+    pub nitrogen_pct: Option<f64>,
+    pub phosphorus_pct: Option<f64>,
+    pub potassium_pct: Option<f64>,
 }
 
 pub async fn create_application(
@@ -98,6 +101,9 @@ pub async fn create_application(
         coverage_sqft: req.coverage_sqft,
         notes: req.notes,
         weather_snapshot: req.weather_snapshot,
+        nitrogen_pct: req.nitrogen_pct,
+        phosphorus_pct: req.phosphorus_pct,
+        potassium_pct: req.potassium_pct,
         created_at: Utc::now(),
     };
 

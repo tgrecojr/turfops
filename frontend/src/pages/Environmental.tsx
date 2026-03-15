@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   getEnvironmental,
+  getHistorical,
   refreshEnvironmental,
 } from '../api/client';
 import Gauge from '../components/Gauge';
+import TrendChart from '../components/TrendChart';
 import {
   SOIL_TEMP_GAUGE,
   AMBIENT_TEMP_GAUGE,
@@ -11,12 +13,17 @@ import {
   SOIL_MOISTURE_GAUGE,
 } from '../components/gaugeConfigs';
 import { sharedStyles } from '../styles/shared';
-import type { EnvironmentalSummary } from '../types';
+import type { EnvironmentalSummary, HistoricalData } from '../types';
 
 const POLL_INTERVAL = 30_000;
 
+type HistRange = '7d' | '30d' | '90d';
+
 export default function Environmental() {
   const [data, setData] = useState<EnvironmentalSummary | null>(null);
+  const [histData, setHistData] = useState<HistoricalData | null>(null);
+  const [histRange, setHistRange] = useState<HistRange>('7d');
+  const [histLoading, setHistLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -80,6 +87,23 @@ export default function Environmental() {
       document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [fetchData]);
+
+  // Fetch historical data when range changes
+  useEffect(() => {
+    let cancelled = false;
+    setHistLoading(true);
+    getHistorical(histRange)
+      .then((d) => {
+        if (!cancelled) {
+          setHistData(d);
+          setHistLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setHistLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [histRange]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -236,6 +260,77 @@ export default function Environmental() {
           </div>
         </>
       )}
+
+      {/* Historical Trends */}
+      <div style={styles.trendHeader}>
+        <h2 style={sharedStyles.sectionTitle}>Historical Trends</h2>
+        <div style={styles.rangeButtons}>
+          {(['7d', '30d', '90d'] as HistRange[]).map((r) => (
+            <button
+              key={r}
+              style={{
+                ...styles.rangeBtn,
+                ...(histRange === r ? styles.rangeBtnActive : {}),
+              }}
+              onClick={() => setHistRange(r)}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
+      </div>
+      {histLoading ? (
+        <p style={sharedStyles.loading}>Loading trends...</p>
+      ) : histData ? (
+        <div style={styles.chartGrid}>
+          <TrendChart
+            data={histData.soil_temp_10_f}
+            label="Soil Temperature (10cm)"
+            unit={'\u00B0F'}
+            color="#e67e22"
+            thresholdValue={55}
+            thresholdLabel="Pre-emergent"
+          />
+          <TrendChart
+            data={histData.ambient_temp_f}
+            label="Ambient Temperature"
+            unit={'\u00B0F'}
+            color="#3498db"
+            thresholdValue={85}
+            thresholdLabel="Heat stress"
+          />
+          <TrendChart
+            data={histData.humidity_percent}
+            label="Humidity"
+            unit="%"
+            color="#9b59b6"
+            thresholdValue={80}
+            thresholdLabel="Disease risk"
+          />
+          <TrendChart
+            data={histData.soil_moisture_10}
+            label="Soil Moisture (10cm)"
+            unit=""
+            color="#27ae60"
+            thresholdValue={0.10}
+            thresholdLabel="Drought"
+          />
+          <TrendChart
+            data={histData.precipitation_mm}
+            label="Precipitation"
+            unit="mm"
+            color="#2c3e50"
+          />
+          <TrendChart
+            data={histData.gdd_accumulation}
+            label="GDD Accumulation (Base 50°F)"
+            unit="GDD"
+            color="#48bb78"
+            thresholdValue={200}
+            thresholdLabel="Crabgrass"
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -303,4 +398,35 @@ const styles: Record<string, React.CSSProperties> = {
   forecastCondition: { fontSize: '0.85rem', color: '#4a5568', margin: '4px 0' },
   forecastTemp: { fontSize: '1.1rem', fontWeight: 600, color: '#1a202c' },
   forecastDetail: { fontSize: '0.7rem', color: '#718096', marginTop: 2 },
+  trendHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '0.75rem',
+  },
+  rangeButtons: {
+    display: 'flex',
+    gap: 4,
+  },
+  rangeBtn: {
+    padding: '4px 12px',
+    borderRadius: 6,
+    border: '1px solid #e2e8f0',
+    backgroundColor: '#fff',
+    color: '#4a5568',
+    fontSize: '0.75rem',
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
+  rangeBtnActive: {
+    backgroundColor: '#3182ce',
+    color: '#fff',
+    borderColor: '#3182ce',
+  },
+  chartGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))',
+    gap: '1rem',
+    marginBottom: '1.5rem',
+  },
 };

@@ -50,13 +50,28 @@ impl Rule for PreEmergentRule {
         // Current soil temp for display
         let current_soil_temp = env.current.as_ref()?.soil_temp_10_f?;
 
-        if (PRE_EMERGENT_SOIL_LOW_F..=PRE_EMERGENT_SOIL_HIGH_F).contains(&soil_temp_avg) {
-            // Optimal window
-            let severity = if soil_temp_avg >= PRE_EMERGENT_URGENCY_SOIL_F {
-                Severity::Warning
+        // GDD-enhanced urgency: if GDD data is available, escalate based on crabgrass model
+        let gdd_ytd = env.gdd_base50_ytd;
+        let gdd_urgency = gdd_ytd.map(|gdd| {
+            if gdd >= 200.0 {
+                3 // Post-germination
+            } else if gdd >= 150.0 {
+                2 // Germination likely
+            } else if gdd >= 75.0 {
+                1 // Approaching
             } else {
-                Severity::Advisory
-            };
+                0 // Pre-germination
+            }
+        });
+
+        if (PRE_EMERGENT_SOIL_LOW_F..=PRE_EMERGENT_SOIL_HIGH_F).contains(&soil_temp_avg) {
+            // Optimal window — escalate severity if GDD indicates urgency
+            let severity =
+                if gdd_urgency.unwrap_or(0) >= 2 || soil_temp_avg >= PRE_EMERGENT_URGENCY_SOIL_F {
+                    Severity::Warning
+                } else {
+                    Severity::Advisory
+                };
 
             let mut rec = Recommendation::new(
                 format!("pre_emergent_{}", current_year),
@@ -70,12 +85,22 @@ impl Rule for PreEmergentRule {
                 ),
             );
 
+            let gdd_explanation = if let Some(gdd) = gdd_ytd {
+                format!(
+                    " Year-to-date GDD (base 50°F): {:.0}. Crabgrass germinates at ~200 GDD.",
+                    gdd
+                )
+            } else {
+                String::new()
+            };
+
             rec = rec
-                .with_explanation(
+                .with_explanation(format!(
                     "Crabgrass germinates when soil temperature at 2-4 inch depth reaches 55°F \
                      for 3+ consecutive days. Apply pre-emergent (prodiamine or dithiopyr) \
-                     before germination begins for best results.",
-                )
+                     before germination begins for best results.{}",
+                    gdd_explanation
+                ))
                 .with_data_point(
                     "7-Day Avg Soil Temp",
                     format!("{:.1}°F", soil_temp_avg),
@@ -90,11 +115,20 @@ impl Rule for PreEmergentRule {
                     "Trend",
                     env.soil_temp_trend.as_str(),
                     DataSource::Calculated.as_str(),
-                )
-                .with_action(
-                    "Apply pre-emergent herbicide (prodiamine, dithiopyr, or pendimethalin) \
-                     at label rate. Water in within 24 hours if no rain.",
                 );
+
+            if let Some(gdd) = gdd_ytd {
+                rec = rec.with_data_point(
+                    "GDD (Base 50°F YTD)",
+                    format!("{:.0} / 200", gdd),
+                    DataSource::Calculated.as_str(),
+                );
+            }
+
+            rec = rec.with_action(
+                "Apply pre-emergent herbicide (prodiamine, dithiopyr, or pendimethalin) \
+                     at label rate. Water in within 24 hours if no rain.",
+            );
 
             Some(rec)
         } else if soil_temp_avg > PRE_EMERGENT_SOIL_HIGH_F

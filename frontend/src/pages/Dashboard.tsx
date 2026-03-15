@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getDashboard } from '../api/client';
+import { getDashboard, getGdd, getNitrogenBudget } from '../api/client';
 import AlertCard from '../components/AlertCard';
+import GddWidget from '../components/GddWidget';
 import Gauge from '../components/Gauge';
+import NitrogenBudgetWidget from '../components/NitrogenBudgetWidget';
 import {
   SOIL_TEMP_GAUGE,
   AMBIENT_TEMP_GAUGE,
@@ -9,13 +11,15 @@ import {
   SOIL_MOISTURE_GAUGE,
 } from '../components/gaugeConfigs';
 import { appTypeBadgeStyle, sharedStyles } from '../styles/shared';
-import type { DashboardResponse } from '../types';
+import type { DashboardResponse, GddSummary, NitrogenBudget } from '../types';
 import { APPLICATION_TYPE_LABELS } from '../types';
 
 const POLL_INTERVAL = 30_000; // 30 seconds
 
 export default function Dashboard() {
   const [data, setData] = useState<DashboardResponse | null>(null);
+  const [gddData, setGddData] = useState<GddSummary | null>(null);
+  const [nBudget, setNBudget] = useState<NitrogenBudget | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
@@ -25,9 +29,15 @@ export default function Dashboard() {
     const controller = new AbortController();
     abortRef.current = controller;
     try {
-      const d = await getDashboard();
+      const [d, gdd, nb] = await Promise.all([
+        getDashboard(),
+        getGdd().catch(() => null),
+        getNitrogenBudget().catch(() => null),
+      ]);
       if (!controller.signal.aborted) {
         setData(d);
+        setGddData(gdd);
+        setNBudget(nb);
         setError(null);
       }
     } catch (e) {
@@ -161,6 +171,14 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* GDD & Nitrogen Budget widgets */}
+      {(gddData || nBudget) && (
+        <div style={styles.widgetGrid}>
+          {gddData && <GddWidget data={gddData} />}
+          {nBudget && <NitrogenBudgetWidget data={nBudget} />}
+        </div>
+      )}
+
       {/* Alerts & Recent Apps side by side */}
       <div style={styles.twoCol}>
         <div style={{ flex: 1 }}>
@@ -261,5 +279,11 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'inline-block',
   },
   subtext: { fontSize: '0.75rem', color: '#718096', marginTop: 4 },
+  widgetGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+    gap: '1rem',
+    marginBottom: '1.5rem',
+  },
   twoCol: { display: 'flex', gap: '1.5rem', flexWrap: 'wrap' as const },
 };

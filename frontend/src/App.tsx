@@ -7,6 +7,7 @@ const Applications = lazy(() => import('./pages/Applications'));
 const Calendar = lazy(() => import('./pages/Calendar'));
 const Environmental = lazy(() => import('./pages/Environmental'));
 const Recommendations = lazy(() => import('./pages/Recommendations'));
+const SeasonalPlan = lazy(() => import('./pages/SeasonalPlan'));
 const Settings = lazy(() => import('./pages/Settings'));
 
 class ErrorBoundary extends Component<
@@ -85,6 +86,7 @@ export default function App() {
               <Route path="calendar" element={<Calendar />} />
               <Route path="environmental" element={<Environmental />} />
               <Route path="recommendations" element={<Recommendations />} />
+              <Route path="seasonal-plan" element={<SeasonalPlan />} />
               <Route path="settings" element={<Settings />} />
               <Route path="*" element={<NotFound />} />
             </Route>

@@ -3,7 +3,7 @@ use crate::error::Result;
 use crate::models::{
     celsius_to_fahrenheit, DataSource, EnvironmentalReading, EnvironmentalSummary, Trend,
 };
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Duration, NaiveDate, Utc};
 use sqlx::postgres::PgPoolOptions;
 use sqlx::{PgPool, Row};
 
@@ -246,6 +246,52 @@ impl SoilDataClient {
         } else {
             Trend::Stable
         }
+    }
+
+    /// Fetch daily average soil_temp_10 values aggregated server-side.
+    /// Returns one row per day with the mean soil temp at 10cm depth (°F).
+    /// Used for historical threshold analysis in the seasonal plan.
+    pub async fn fetch_daily_soil_temp_averages(
+        &self,
+        start: DateTime<Utc>,
+        end: DateTime<Utc>,
+    ) -> Result<Vec<crate::models::seasonal_plan::DailySoilTempAvg>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                DATE(utc_datetime) as day,
+                AVG(soil_temp_10) as avg_temp_c,
+                COUNT(*) as readings
+            FROM observations
+            WHERE wbanno = $1
+              AND utc_datetime >= $2
+              AND utc_datetime <= $3
+              AND soil_temp_10 IS NOT NULL
+              AND soil_temp_10 > -9999
+            GROUP BY DATE(utc_datetime)
+            HAVING COUNT(*) >= 12
+            ORDER BY day ASC
+            "#,
+        )
+        .bind(self.station_wbanno)
+        .bind(start)
+        .bind(end)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let results: Vec<crate::models::seasonal_plan::DailySoilTempAvg> = rows
+            .iter()
+            .filter_map(|row| {
+                let day: NaiveDate = row.try_get("day").ok()?;
+                let avg_c: f64 = row.try_get::<f64, _>("avg_temp_c").ok()?;
+                Some(crate::models::seasonal_plan::DailySoilTempAvg {
+                    date: day,
+                    avg_temp_f: celsius_to_fahrenheit(avg_c),
+                })
+            })
+            .collect();
+
+        Ok(results)
     }
 
     pub async fn test_connection(&self) -> Result<bool> {
