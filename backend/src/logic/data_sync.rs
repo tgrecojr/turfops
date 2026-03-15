@@ -116,12 +116,6 @@ impl DataSyncService {
         self.refresh_internal(true, true).await
     }
 
-    /// Return the current cached summary without triggering any fetch.
-    #[allow(dead_code)]
-    pub fn cached_summary(&self) -> EnvironmentalSummary {
-        self.current_summary.clone()
-    }
-
     pub async fn check_connections(&self) -> ConnectionStatus {
         let mut status = ConnectionStatus::default();
 

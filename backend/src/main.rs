@@ -45,7 +45,7 @@ async fn main() -> anyhow::Result<()> {
     let sync_service = DataSyncService::initialize(&config, pool.clone()).await;
 
     // Create app state
-    let state = AppState::new(pool, config.clone(), sync_service);
+    let state = AppState::new(pool, sync_service);
 
     // Build router
     let app = Router::new()
