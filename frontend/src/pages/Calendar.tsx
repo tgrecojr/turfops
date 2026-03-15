@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getCalendar } from '../api/client';
 import type { Application, CalendarResponse } from '../types';
 import { APPLICATION_TYPE_COLORS, APPLICATION_TYPE_LABELS } from '../types';
@@ -11,19 +11,22 @@ export default function Calendar() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchData = useCallback(async () => {
-    try {
-      const d = await getCalendar(year, month);
-      setData(d);
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load');
-    }
-  }, [year, month]);
-
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    let cancelled = false;
+    getCalendar(year, month)
+      .then((d) => {
+        if (!cancelled) {
+          setData(d);
+          setError(null);
+        }
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : 'Failed to load');
+        }
+      });
+    return () => { cancelled = true; };
+  }, [year, month]);
 
   const prevMonth = () => {
     if (month === 1) {
