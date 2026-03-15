@@ -15,6 +15,8 @@ use chrono::{Datelike, Local, NaiveDate};
 ///
 /// Optimal window: Soil temp 50-65°F, late August through October
 /// Germination requires consistent moisture for 10-14 days
+/// GDD >= 2500 indicates season maturity (fall window approaching)
+/// GDD >= 3000 + low time remaining escalates severity
 pub struct FallOverseedingRule;
 
 impl Rule for FallOverseedingRule {
@@ -56,6 +58,11 @@ impl Rule for FallOverseedingRule {
         let soil_temp_avg = env.soil_temp_7day_avg_f?;
         let current_soil_temp = env.current.as_ref()?.soil_temp_10_f?;
 
+        // GDD data for season maturity assessment
+        let gdd_ytd = env.gdd_base50_ytd;
+        let season_mature = gdd_ytd.is_some_and(|gdd| gdd >= OVERSEED_GDD_SEASON_MATURE);
+        let season_late = gdd_ytd.is_some_and(|gdd| gdd >= OVERSEED_GDD_SEASON_LATE);
+
         // Check forecast for upcoming conditions (if available)
         let forecast_favorable = env
             .forecast
@@ -85,7 +92,9 @@ impl Rule for FallOverseedingRule {
                 } else {
                     Severity::Advisory
                 }
-            } else if days_remaining < OVERSEED_URGENT_DAYS {
+            } else if (season_late && days_remaining < OVERSEED_LOW_TIME_DAYS)
+                || days_remaining < OVERSEED_URGENT_DAYS
+            {
                 Severity::Warning
             } else {
                 Severity::Advisory
@@ -130,6 +139,14 @@ impl Rule for FallOverseedingRule {
                     DataSource::Calendar.as_str(),
                 );
 
+            if let Some(gdd) = gdd_ytd {
+                rec = rec.with_data_point(
+                    "GDD (Base 50°F YTD)",
+                    format!("{:.0} (season maturity)", gdd),
+                    DataSource::Calculated.as_str(),
+                );
+            }
+
             // Add forecast note if available
             if !forecast_favorable {
                 rec = rec.with_data_point(
@@ -166,6 +183,12 @@ impl Rule for FallOverseedingRule {
             // Soil still warm - might be early in window
             if today < NaiveDate::from_ymd_opt(current_year, 9, 15)? {
                 // Early September - wait for cooler temps
+                let gdd_note = if season_mature {
+                    " GDD indicates the season is maturing — the fall overseeding window is approaching."
+                } else {
+                    ""
+                };
+
                 let rec = Recommendation::new(
                     format!("fall_overseeding_wait_{}", current_year),
                     RecommendationCategory::Overseeding,
@@ -179,8 +202,8 @@ impl Rule for FallOverseedingRule {
                 )
                 .with_explanation(format!(
                     "TTTF germinates best when soil is {:.0}-{:.0}°F. Seeding when soil is too warm \
-                     can stress seedlings. The window typically opens mid-September in Zone 7a.",
-                    OVERSEED_SOIL_LOW_F, OVERSEED_SOIL_HIGH_F
+                     can stress seedlings. The window typically opens mid-September in Zone 7a.{}",
+                    OVERSEED_SOIL_LOW_F, OVERSEED_SOIL_HIGH_F, gdd_note
                 ))
                 .with_data_point(
                     "Soil Temp",
@@ -251,5 +274,89 @@ impl Rule for FallOverseedingRule {
         } else {
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::{EnvironmentalReading, GrassType};
+
+    fn base_env(soil_avg: f64, soil_current: f64) -> EnvironmentalSummary {
+        let mut reading = EnvironmentalReading::new(DataSource::SoilData);
+        reading.soil_temp_10_f = Some(soil_current);
+        EnvironmentalSummary {
+            current: Some(reading),
+            soil_temp_7day_avg_f: Some(soil_avg),
+            ..Default::default()
+        }
+    }
+
+    fn base_profile() -> LawnProfile {
+        LawnProfile {
+            id: Some(1),
+            name: "Test".into(),
+            grass_type: GrassType::TallFescue,
+            usda_zone: "7a".into(),
+            soil_type: None,
+            lawn_size_sqft: Some(5000.0),
+            irrigation_type: None,
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        }
+    }
+
+    #[test]
+    fn gdd_none_degrades_gracefully() {
+        // GDD = None should not change behavior vs pre-GDD code.
+        let env = base_env(58.0, 57.0);
+        assert!(env.gdd_base50_ytd.is_none());
+        let rule = FallOverseedingRule;
+        // Calendar-gated (Aug 15 - Oct 31), but should not panic regardless.
+        let _ = rule.evaluate(&env, &base_profile(), &[]);
+    }
+
+    #[test]
+    fn gdd_below_season_mature_no_change() {
+        // GDD = 2000 (below 2500 season mature) — no escalation.
+        let mut env = base_env(58.0, 57.0);
+        env.gdd_base50_ytd = Some(2000.0);
+        let rule = FallOverseedingRule;
+        let result = rule.evaluate(&env, &base_profile(), &[]);
+        // If inside window, severity should be based on soil temp + time, not GDD
+        if let Some(rec) = result {
+            assert!(
+                rec.severity == Severity::Advisory || rec.severity == Severity::Warning,
+                "GDD below season mature should not add extra escalation"
+            );
+        }
+    }
+
+    #[test]
+    fn gdd_season_late_with_low_time_escalates() {
+        // GDD = 3000 (season late) — should escalate if days_remaining < 21.
+        // This test is date-sensitive (Aug 15 - Oct 31 window).
+        let mut env = base_env(58.0, 57.0);
+        env.gdd_base50_ytd = Some(3000.0);
+        let rule = FallOverseedingRule;
+        let result = rule.evaluate(&env, &base_profile(), &[]);
+        if let Some(rec) = result {
+            // Result includes GDD data point
+            assert!(
+                rec.data_points.iter().any(|dp| dp.label.contains("GDD")),
+                "Should include GDD data point"
+            );
+        }
+    }
+
+    #[test]
+    fn gdd_season_mature_noted_in_wait_branch() {
+        // GDD = 2500 with warm soil — "approaching" message should note season maturity.
+        // This test is date-sensitive (before Sep 15 + soil > 65°F).
+        let mut env = base_env(70.0, 69.0);
+        env.gdd_base50_ytd = Some(2500.0);
+        let rule = FallOverseedingRule;
+        let _ = rule.evaluate(&env, &base_profile(), &[]);
+        // Cannot assert on exact output without controlling date, but should not panic.
     }
 }

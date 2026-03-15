@@ -13,6 +13,8 @@ use chrono::{Datelike, Local, NaiveDate};
 ///
 /// Proper spring timing:
 /// - Wait until soil temp reaches 55°F (7-day average)
+/// - GDD >= 50 confirms active growth even if soil temp hasn't crossed 55°F
+/// - GDD >= 150 adds urgency — growth well established
 /// - Wait until after first 2-3 mowings
 /// - Let the lawn "wake up" naturally first
 ///
@@ -42,6 +44,9 @@ impl Rule for SpringNitrogenRule {
 
         // Get soil temperature
         let soil_temp_avg = env.soil_temp_7day_avg_f?;
+
+        // GDD data
+        let gdd_ytd = env.gdd_base50_ytd;
 
         // Check for spring fertilizer applications
         let spring_start = NaiveDate::from_ymd_opt(current_year, 2, 1)?;
@@ -75,16 +80,22 @@ impl Rule for SpringNitrogenRule {
                 Some(build_patience_advisory(soil_temp_avg))
             }
         } else if (SPRING_N_APPROACHING_SOIL_F..SPRING_N_MIN_SOIL_F).contains(&soil_temp_avg) {
-            // Getting close - still advise waiting
+            // Getting close - still advise waiting UNLESS GDD confirms active growth
             if !has_spring_fert {
-                Some(build_almost_ready(soil_temp_avg))
+                let gdd_ready = gdd_ytd.is_some_and(|gdd| gdd >= SPRING_N_GDD_READY);
+                if gdd_ready {
+                    // GDD confirms active growth — promote to "ready"
+                    Some(build_ready_to_fertilize(soil_temp_avg, profile, gdd_ytd))
+                } else {
+                    Some(build_almost_ready(soil_temp_avg, gdd_ytd))
+                }
             } else {
                 None // They already applied, no point warning now
             }
         } else if (SPRING_N_MIN_SOIL_F..=SPRING_N_READY_HIGH_F).contains(&soil_temp_avg) {
             // Good range - if they haven't fertilized, now is okay
             if !has_spring_fert {
-                Some(build_ready_to_fertilize(soil_temp_avg, profile))
+                Some(build_ready_to_fertilize(soil_temp_avg, profile, gdd_ytd))
             } else {
                 None
             }
@@ -168,8 +179,8 @@ fn build_patience_advisory(soil_temp: f64) -> Recommendation {
     )
 }
 
-fn build_almost_ready(soil_temp: f64) -> Recommendation {
-    Recommendation::new(
+fn build_almost_ready(soil_temp: f64, gdd_ytd: Option<f64>) -> Recommendation {
+    let mut rec = Recommendation::new(
         "spring_n_almost",
         RecommendationCategory::Fertilizer,
         Severity::Info,
@@ -196,12 +207,23 @@ fn build_almost_ready(soil_temp: f64) -> Recommendation {
         "Target",
         format!("{:.0}°F + 2-3 mowings", SPRING_N_MIN_SOIL_F),
         DataSource::Agronomic.as_str(),
-    )
-    .with_action(
+    );
+
+    if let Some(gdd) = gdd_ytd {
+        rec = rec.with_data_point(
+            "GDD (Base 50°F YTD)",
+            format!("{:.0}", gdd),
+            DataSource::Calculated.as_str(),
+        );
+    }
+
+    rec = rec.with_action(
         "Continue monitoring soil temperature. Start mowing when grass needs it. \
          After your second or third mowing AND soil is 55°F+, apply light spring nitrogen. \
          Don't rush - a week or two of patience makes a stronger summer lawn.",
-    )
+    );
+
+    rec
 }
 
 fn build_may_cutoff_warning(soil_temp: f64) -> Recommendation {
@@ -241,11 +263,30 @@ fn build_may_cutoff_warning(soil_temp: f64) -> Recommendation {
     )
 }
 
-fn build_ready_to_fertilize(soil_temp: f64, profile: &LawnProfile) -> Recommendation {
+fn build_ready_to_fertilize(
+    soil_temp: f64,
+    profile: &LawnProfile,
+    gdd_ytd: Option<f64>,
+) -> Recommendation {
     let lawn_size = profile.lawn_size_sqft.unwrap_or(DEFAULT_LAWN_SIZE_SQFT);
     let n_needed = lawn_size / 1000.0 * SPRING_N_RATE_LBS_PER_KSQFT;
 
-    Recommendation::new(
+    let gdd_note = if let Some(gdd) = gdd_ytd {
+        if gdd >= SPRING_N_GDD_ESTABLISHED {
+            format!(
+                " GDD ({:.0}) confirms growth is well established — good time to apply.",
+                gdd
+            )
+        } else if gdd >= SPRING_N_GDD_READY {
+            format!(" GDD ({:.0}) confirms active growth has begun.", gdd)
+        } else {
+            String::new()
+        }
+    } else {
+        String::new()
+    };
+
+    let mut rec = Recommendation::new(
         "spring_n_ready",
         RecommendationCategory::Fertilizer,
         Severity::Advisory,
@@ -260,8 +301,8 @@ fn build_ready_to_fertilize(soil_temp: f64, profile: &LawnProfile) -> Recommenda
         "With soil at {:.0}°F+, roots are active and can utilize applied nitrogen. \
          Spring feeding should be LIGHT compared to fall - cool-season grass does \
          most of its feeding in autumn. A light spring application ({:.1} lb N/1000 sqft) \
-         supports spring growth without pushing excessive top growth that weakens the plant.",
-        SPRING_N_MIN_SOIL_F, SPRING_N_RATE_LBS_PER_KSQFT
+         supports spring growth without pushing excessive top growth that weakens the plant.{}",
+        SPRING_N_MIN_SOIL_F, SPRING_N_RATE_LBS_PER_KSQFT, gdd_note
     ))
     .with_data_point(
         "Soil Temp",
@@ -272,12 +313,112 @@ fn build_ready_to_fertilize(soil_temp: f64, profile: &LawnProfile) -> Recommenda
         "Recommended Rate",
         format!("{:.1} lb N/1000 sqft", SPRING_N_RATE_LBS_PER_KSQFT),
         DataSource::Agronomic.as_str(),
-    )
-    .with_action(format!(
+    );
+
+    if let Some(gdd) = gdd_ytd {
+        rec = rec.with_data_point(
+            "GDD (Base 50°F YTD)",
+            format!("{:.0}", gdd),
+            DataSource::Calculated.as_str(),
+        );
+    }
+
+    rec = rec.with_action(format!(
         "Apply ~{:.1} lbs of nitrogen for your {:.0} sqft lawn ({:.1} lb N/1000 sqft). \
          Use slow-release nitrogen to avoid surge growth. \
          This should be your ONLY spring nitrogen - save the heavy feeding for fall. \
          Verify you've mowed 2-3 times first to confirm grass is actively growing.",
         n_needed, lawn_size, SPRING_N_RATE_LBS_PER_KSQFT
-    ))
+    ));
+
+    rec
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::{EnvironmentalReading, GrassType};
+
+    fn base_env(soil_avg: f64) -> EnvironmentalSummary {
+        let reading = EnvironmentalReading::new(DataSource::SoilData);
+        EnvironmentalSummary {
+            current: Some(reading),
+            soil_temp_7day_avg_f: Some(soil_avg),
+            ..Default::default()
+        }
+    }
+
+    fn base_profile() -> LawnProfile {
+        LawnProfile {
+            id: Some(1),
+            name: "Test".into(),
+            grass_type: GrassType::TallFescue,
+            usda_zone: "7a".into(),
+            soil_type: None,
+            lawn_size_sqft: Some(5000.0),
+            irrigation_type: None,
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        }
+    }
+
+    #[test]
+    fn gdd_none_degrades_gracefully() {
+        // GDD = None should not change behavior vs pre-GDD code.
+        let env = base_env(52.0);
+        assert!(env.gdd_base50_ytd.is_none());
+        let rule = SpringNitrogenRule;
+        // Month-gated: only produces recommendations Feb-May.
+        let result = rule.evaluate(&env, &base_profile(), &[]);
+        // Should not panic regardless of date.
+        if let Some(rec) = result {
+            // In the 50-55 range with no GDD, should be "almost ready" (Info)
+            assert_eq!(rec.severity, Severity::Info);
+        }
+    }
+
+    #[test]
+    fn gdd_below_threshold_no_promotion() {
+        // GDD = 30 (below 50) in the 50-55°F range — should NOT promote to "ready".
+        let mut env = base_env(52.0);
+        env.gdd_base50_ytd = Some(30.0);
+        let rule = SpringNitrogenRule;
+        let result = rule.evaluate(&env, &base_profile(), &[]);
+        if let Some(rec) = result {
+            // Should still be "almost ready" (Info), not promoted
+            assert_eq!(rec.id, "spring_n_almost");
+        }
+    }
+
+    #[test]
+    fn gdd_at_ready_promotes_almost_to_ready() {
+        // GDD = 50 in the 50-55°F range — should promote "almost ready" to "ready".
+        // Note: This is month-gated (Feb-May), so result depends on current date.
+        let mut env = base_env(52.0);
+        env.gdd_base50_ytd = Some(50.0);
+        let rule = SpringNitrogenRule;
+        let result = rule.evaluate(&env, &base_profile(), &[]);
+        if let Some(rec) = result {
+            // With GDD >= 50, should be promoted to spring_n_ready
+            assert_eq!(rec.id, "spring_n_ready");
+            assert_eq!(rec.severity, Severity::Advisory);
+        }
+    }
+
+    #[test]
+    fn gdd_established_adds_note_in_ready_range() {
+        // GDD = 150 in the 55-65°F range — should include GDD note.
+        let mut env = base_env(58.0);
+        env.gdd_base50_ytd = Some(150.0);
+        let rule = SpringNitrogenRule;
+        let result = rule.evaluate(&env, &base_profile(), &[]);
+        if let Some(rec) = result {
+            assert_eq!(rec.id, "spring_n_ready");
+            // Should include GDD data point
+            assert!(
+                rec.data_points.iter().any(|dp| dp.label.contains("GDD")),
+                "Should include GDD data point"
+            );
+        }
+    }
 }

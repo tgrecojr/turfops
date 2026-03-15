@@ -307,5 +307,36 @@ pub const MID_FALL_N_RATE_LBS_PER_KSQFT: f64 = 0.75;
 /// Winterizer nitrogen rate (lbs N per 1000 sqft).
 pub const WINTERIZER_N_RATE_LBS_PER_KSQFT: f64 = 1.0;
 
-// GDD thresholds are defined in logic/gdd.rs (GDD_BASE_TEMP_F, CRABGRASS_GDD_THRESHOLD, CRABGRASS_GDD_WARNING)
+// =============================================================================
+// GDD (Growing Degree Days) thresholds
+// =============================================================================
+// Note: Crabgrass GDD thresholds are in logic/gdd.rs
 // N budget targets are defined per-grass-type in models/nitrogen_budget.rs (annual_n_target)
+
+/// Grub control — Japanese beetle egg-laying begins (GDD base 50).
+pub const GRUB_GDD_WINDOW_OPEN: f64 = 500.0;
+
+/// Grub control — peak egg-hatch, urgency escalation (GDD base 50).
+pub const GRUB_GDD_PEAK_HATCH: f64 = 700.0;
+
+/// Grub control — window closing (GDD base 50).
+#[allow(dead_code)]
+pub const GRUB_GDD_WINDOW_CLOSING: f64 = 1000.0;
+
+/// Spring nitrogen — active growth begins, grass can metabolize N (GDD base 50).
+pub const SPRING_N_GDD_READY: f64 = 50.0;
+
+/// Spring nitrogen — growth well established (GDD base 50).
+pub const SPRING_N_GDD_ESTABLISHED: f64 = 150.0;
+
+/// Fall overseeding — season maturity, fall window approaching (GDD base 50).
+pub const OVERSEED_GDD_SEASON_MATURE: f64 = 2500.0;
+
+/// Fall overseeding — season fully mature (GDD base 50).
+pub const OVERSEED_GDD_SEASON_LATE: f64 = 3000.0;
+
+/// Broadleaf herbicide spring — winter annuals actively growing (GDD base 50).
+pub const SPRING_HERBICIDE_GDD_LOW: f64 = 50.0;
+
+/// Broadleaf herbicide spring — upper bound, weeds less susceptible (GDD base 50).
+pub const SPRING_HERBICIDE_GDD_HIGH: f64 = 150.0;

@@ -17,7 +17,7 @@ Containerized web application for tracking lawn care activities with data-driven
 
 ### Backend
 - `cd backend && cargo build` — Build backend
-- `cd backend && cargo test` — Run tests (44 tests)
+- `cd backend && cargo test` — Run tests (60 tests)
 - `cd backend && cargo fmt` — Format code
 - `cd backend && cargo clippy` — Run linter
 - `cd backend && cargo run` — Run API server (needs PostgreSQL)
@@ -88,7 +88,9 @@ turfops/
 ## Key Patterns
 
 - Demand-driven data refresh: sensors stale after 5min, forecast after 30min. Zero API calls when idle.
-- 18 agronomic rules are pure functions — no IO, no UI dependencies
+- GDD (Growing Degree Days, base 50°F) populated from `gdd_daily` table during sensor refresh and passed to rules via `EnvironmentalSummary.gdd_base50_ytd`
+- 18 agronomic rules are pure functions — no IO, no UI dependencies. 5 rules (pre-emergent, grub control, spring nitrogen, fall overseeding, broadleaf herbicide) use GDD for enhanced timing/urgency.
+- Rules gracefully degrade when GDD data is `None` — all GDD-enhanced logic is additive
 - Recommendation state (addressed/dismissed) tracked in-memory (resets on restart)
 - All temperatures stored in Fahrenheit (convert from Celsius at ingestion)
 - Axum serves React SPA static files with fallback to index.html for client-side routing
@@ -113,3 +115,6 @@ See `backend/.env.example` for full list:
 | Soil moisture | <0.10 | Irrigation needed |
 | Soil moisture | >0.40 | Saturated - avoid fertilizer |
 | Humidity | >80% | Disease risk |
+| GDD (base 50°F) | 500-700 | Grub control (egg-laying → peak hatch) |
+| GDD (base 50°F) | 50-150 | Spring nitrogen readiness / broadleaf herbicide spring window |
+| GDD (base 50°F) | 2500-3000 | Fall overseeding season maturity |
