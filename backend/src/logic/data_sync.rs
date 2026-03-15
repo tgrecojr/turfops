@@ -117,6 +117,11 @@ impl DataSyncService {
         status
     }
 
+    /// Provide access to the SoilData client for direct queries (GDD, historical).
+    pub fn soildata_client(&self) -> Option<&SoilDataClient> {
+        self.soildata_client.as_ref()
+    }
+
     fn is_sensor_stale(&self) -> bool {
         match self.last_sensor_refresh {
             None => true,

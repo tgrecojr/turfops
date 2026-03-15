@@ -306,3 +306,29 @@ pub const MID_FALL_N_RATE_LBS_PER_KSQFT: f64 = 0.75;
 
 /// Winterizer nitrogen rate (lbs N per 1000 sqft).
 pub const WINTERIZER_N_RATE_LBS_PER_KSQFT: f64 = 1.0;
+
+// =============================================================================
+// Growing Degree Day (GDD) thresholds
+// =============================================================================
+
+/// GDD base temperature (°F) for cool-season turf.
+pub const GDD_BASE_TEMP_F: f64 = 50.0;
+
+/// Crabgrass germination GDD threshold (base 50°F).
+pub const CRABGRASS_GDD_THRESHOLD: f64 = 200.0;
+
+/// GDD level at which crabgrass germination warning should be issued.
+pub const CRABGRASS_GDD_WARNING: f64 = 150.0;
+
+// =============================================================================
+// Annual nitrogen budget targets (lbs N per 1000 sqft per year)
+// =============================================================================
+
+/// TTTF Zone 7a — recommended annual N.
+pub const TTTF_ANNUAL_N_RECOMMENDED: f64 = 3.5;
+
+/// TTTF Zone 7a — minimum annual N.
+pub const TTTF_ANNUAL_N_MIN: f64 = 2.0;
+
+/// TTTF Zone 7a — maximum annual N.
+pub const TTTF_ANNUAL_N_MAX: f64 = 4.0;

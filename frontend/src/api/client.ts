@@ -3,9 +3,13 @@ import type {
   CalendarResponse,
   DashboardResponse,
   EnvironmentalSummary,
+  GddSummary,
   HealthResponse,
+  HistoricalData,
   LawnProfile,
+  NitrogenBudget,
   Recommendation,
+  SeasonalPlan,
 } from '../types';
 
 const BASE = '/api/v1';
@@ -74,6 +78,9 @@ export const createApplication = (data: {
   rate_per_1000sqft?: number;
   coverage_sqft?: number;
   notes?: string;
+  nitrogen_pct?: number;
+  phosphorus_pct?: number;
+  potassium_pct?: number;
 }) =>
   fetchJson<Application>(`${BASE}/applications`, {
     method: 'POST',
@@ -115,3 +122,25 @@ export const patchRecommendation = (
     `${BASE}/recommendations/${encodeURIComponent(id)}`,
     { method: 'PATCH', body: JSON.stringify(data) }
   );
+
+// GDD
+export const getGdd = (year?: number) => {
+  const params = year ? `?year=${year}` : '';
+  return fetchJson<GddSummary>(`${BASE}/gdd${params}`);
+};
+
+// Historical trends
+export const getHistorical = (range: '7d' | '30d' | '90d') =>
+  fetchJson<HistoricalData>(`${BASE}/historical?range=${range}`);
+
+// Nitrogen budget
+export const getNitrogenBudget = (year?: number) => {
+  const params = year ? `?year=${year}` : '';
+  return fetchJson<NitrogenBudget>(`${BASE}/nitrogen-budget${params}`);
+};
+
+// Seasonal plan
+export const getSeasonalPlan = (year?: number) => {
+  const params = year ? `?year=${year}` : '';
+  return fetchJson<SeasonalPlan>(`${BASE}/seasonal-plan${params}`, undefined, 30_000);
+};

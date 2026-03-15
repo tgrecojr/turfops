@@ -42,6 +42,9 @@ export interface Application {
   coverage_sqft: number | null;
   notes: string | null;
   weather_snapshot: WeatherSnapshot | null;
+  nitrogen_pct: number | null;
+  phosphorus_pct: number | null;
+  potassium_pct: number | null;
   created_at: string;
 }
 
@@ -76,6 +79,7 @@ export interface EnvironmentalSummary {
   soil_temp_trend: Trend;
   last_updated: string | null;
   forecast: WeatherForecast | null;
+  gdd_base50_ytd: number | null;
 }
 
 export interface EnvironmentalReading {
@@ -185,6 +189,146 @@ export interface CalendarResponse {
   month: number;
   days: Record<string, Application[]>;
 }
+
+// GDD types
+
+export interface DailyGdd {
+  date: string;
+  high_temp_f: number;
+  low_temp_f: number;
+  gdd_base50: number;
+  cumulative_gdd_base50: number;
+}
+
+export type CrabgrassStatus =
+  | 'PreGermination'
+  | 'ApproachingGermination'
+  | 'GerminationLikely'
+  | 'PostGermination';
+
+export interface CrabgrassModel {
+  germination_threshold: number;
+  current_gdd: number;
+  status: CrabgrassStatus;
+  estimated_germination_date: string | null;
+}
+
+export interface GddSummary {
+  year: number;
+  current_gdd_total: number;
+  daily_history: DailyGdd[];
+  crabgrass_model: CrabgrassModel;
+  last_computed_date: string | null;
+}
+
+// Historical time-series types
+
+export interface TimeSeriesPoint {
+  timestamp: string;
+  value: number;
+}
+
+export interface HistoricalData {
+  range: string;
+  soil_temp_10_f: TimeSeriesPoint[];
+  ambient_temp_f: TimeSeriesPoint[];
+  humidity_percent: TimeSeriesPoint[];
+  soil_moisture_10: TimeSeriesPoint[];
+  precipitation_mm: TimeSeriesPoint[];
+  gdd_accumulation: TimeSeriesPoint[];
+}
+
+// Nitrogen budget types
+
+export interface NitrogenApplication {
+  date: string;
+  product_name: string | null;
+  nitrogen_pct: number;
+  rate_per_1000sqft: number;
+  n_lbs_per_1000sqft: number;
+}
+
+export interface GrassTypeNTarget {
+  grass_type: GrassType;
+  min_lbs_per_1000sqft: number;
+  max_lbs_per_1000sqft: number;
+  recommended_lbs_per_1000sqft: number;
+}
+
+export interface NitrogenBudget {
+  year: number;
+  target_lbs_per_1000sqft: number;
+  applied_lbs_per_1000sqft: number;
+  remaining_lbs_per_1000sqft: number;
+  percent_of_target: number;
+  applications: NitrogenApplication[];
+  grass_type_target: GrassTypeNTarget;
+}
+
+export const CRABGRASS_STATUS_LABELS: Record<CrabgrassStatus, string> = {
+  PreGermination: 'Pre-Germination',
+  ApproachingGermination: 'Approaching',
+  GerminationLikely: 'Likely',
+  PostGermination: 'Post-Germination',
+};
+
+export const CRABGRASS_STATUS_COLORS: Record<CrabgrassStatus, string> = {
+  PreGermination: '#48bb78',
+  ApproachingGermination: '#eab308',
+  GerminationLikely: '#f97316',
+  PostGermination: '#ef4444',
+};
+
+// Seasonal Plan types
+
+export interface SeasonalPlan {
+  year: number;
+  activities: PlannedActivity[];
+  data_years_used: number;
+  generated_at: string;
+}
+
+export interface PlannedActivity {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  date_window: DateWindow;
+  status: ActivityStatus;
+  details: ActivityDetails;
+}
+
+export interface DateWindow {
+  predicted_start: string;
+  predicted_end: string;
+  earliest_historical: string | null;
+  latest_historical: string | null;
+  confidence: WindowConfidence;
+}
+
+export type WindowConfidence = 'High' | 'Medium' | 'Low';
+
+export type ActivityStatus = 'Upcoming' | 'Active' | 'Completed' | 'Missed';
+
+export interface ActivityDetails {
+  soil_temp_trigger: string | null;
+  product_suggestions: string[];
+  rate: string | null;
+  notes: string | null;
+}
+
+export const ACTIVITY_STATUS_COLORS: Record<ActivityStatus, string> = {
+  Upcoming: '#3b82f6',
+  Active: '#22c55e',
+  Completed: '#6b7280',
+  Missed: '#ef4444',
+};
+
+export const CONFIDENCE_LABELS: Record<WindowConfidence, string> = {
+  High: 'High confidence',
+  Medium: 'Moderate confidence',
+  Low: 'Low confidence',
+};
 
 // Display helpers
 

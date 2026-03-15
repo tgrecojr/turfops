@@ -108,6 +108,7 @@ export default function Applications() {
               <th style={sharedStyles.th}>Type</th>
               <th style={sharedStyles.th}>Product</th>
               <th style={sharedStyles.th}>Rate/1k sqft</th>
+              <th style={sharedStyles.th}>N-P-K</th>
               <th style={sharedStyles.th}>Coverage</th>
               <th style={sharedStyles.th}>Notes</th>
               <th style={sharedStyles.th}></th>
@@ -128,6 +129,11 @@ export default function Applications() {
                 <td style={sharedStyles.td}>
                   {app.rate_per_1000sqft != null
                     ? app.rate_per_1000sqft.toFixed(2)
+                    : '-'}
+                </td>
+                <td style={sharedStyles.td}>
+                  {app.nitrogen_pct != null
+                    ? `${app.nitrogen_pct}-${app.phosphorus_pct ?? 0}-${app.potassium_pct ?? 0}`
                     : '-'}
                 </td>
                 <td style={sharedStyles.td}>
@@ -167,6 +173,9 @@ function AddForm({
   const [rate, setRate] = useState('');
   const [coverage, setCoverage] = useState('');
   const [notes, setNotes] = useState('');
+  const [nitrogenPct, setNitrogenPct] = useState('');
+  const [phosphorusPct, setPhosphorusPct] = useState('');
+  const [potassiumPct, setPotassiumPct] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -180,6 +189,9 @@ function AddForm({
         rate_per_1000sqft: rate ? parseFloat(rate) : undefined,
         coverage_sqft: coverage ? parseFloat(coverage) : undefined,
         notes: notes || undefined,
+        nitrogen_pct: nitrogenPct ? parseFloat(nitrogenPct) : undefined,
+        phosphorus_pct: phosphorusPct ? parseFloat(phosphorusPct) : undefined,
+        potassium_pct: potassiumPct ? parseFloat(potassiumPct) : undefined,
       });
       onCreated();
     } catch (err) {
@@ -251,6 +263,39 @@ function AddForm({
             style={styles.input}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
+          />
+        </div>
+        <div>
+          <label style={styles.formLabel}>N %</label>
+          <input
+            type="number"
+            step="0.1"
+            style={styles.input}
+            value={nitrogenPct}
+            onChange={(e) => setNitrogenPct(e.target.value)}
+            placeholder="e.g. 29"
+          />
+        </div>
+        <div>
+          <label style={styles.formLabel}>P %</label>
+          <input
+            type="number"
+            step="0.1"
+            style={styles.input}
+            value={phosphorusPct}
+            onChange={(e) => setPhosphorusPct(e.target.value)}
+            placeholder="e.g. 0"
+          />
+        </div>
+        <div>
+          <label style={styles.formLabel}>K %</label>
+          <input
+            type="number"
+            step="0.1"
+            style={styles.input}
+            value={potassiumPct}
+            onChange={(e) => setPotassiumPct(e.target.value)}
+            placeholder="e.g. 4"
           />
         </div>
       </div>

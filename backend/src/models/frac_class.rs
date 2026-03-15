@@ -292,6 +292,9 @@ mod tests {
             coverage_sqft: None,
             notes: None,
             weather_snapshot: None,
+            nitrogen_pct: None,
+            phosphorus_pct: None,
+            potassium_pct: None,
             created_at: Utc::now(),
         }
     }

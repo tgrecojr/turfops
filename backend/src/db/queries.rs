@@ -1,7 +1,7 @@
 use crate::error::{Result, TurfOpsError};
 use crate::models::{
-    Application, ApplicationType, EnvironmentalReading, GrassType, IrrigationType, LawnProfile,
-    SoilType, WeatherSnapshot,
+    seasonal_plan::ThresholdCrossing, Application, ApplicationType, DailyGdd, EnvironmentalReading,
+    GrassType, IrrigationType, LawnProfile, SoilType, WeatherSnapshot,
 };
 use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::PgPool;
@@ -99,7 +99,7 @@ pub async fn get_applications_for_profile(
     let rows = sqlx::query_as::<_, ApplicationRow>(
         r#"SELECT id, lawn_profile_id, application_type, product_name, application_date,
            rate_per_1000sqft, coverage_sqft, notes, soil_temp_10cm_f, ambient_temp_f,
-           humidity_percent, soil_moisture, created_at
+           humidity_percent, soil_moisture, nitrogen_pct, phosphorus_pct, potassium_pct, created_at
            FROM applications WHERE lawn_profile_id = $1 ORDER BY application_date DESC
            LIMIT $2 OFFSET $3"#,
     )
@@ -121,7 +121,7 @@ pub async fn get_applications_for_profile_in_range(
     let rows = sqlx::query_as::<_, ApplicationRow>(
         r#"SELECT id, lawn_profile_id, application_type, product_name, application_date,
            rate_per_1000sqft, coverage_sqft, notes, soil_temp_10cm_f, ambient_temp_f,
-           humidity_percent, soil_moisture, created_at
+           humidity_percent, soil_moisture, nitrogen_pct, phosphorus_pct, potassium_pct, created_at
            FROM applications
            WHERE lawn_profile_id = $1 AND application_date >= $2 AND application_date < $3
            ORDER BY application_date DESC"#,
@@ -142,8 +142,9 @@ pub async fn create_application(pool: &PgPool, app: &Application) -> Result<i64>
         INSERT INTO applications
             (lawn_profile_id, application_type, product_name, application_date,
              rate_per_1000sqft, coverage_sqft, notes,
-             soil_temp_10cm_f, ambient_temp_f, humidity_percent, soil_moisture)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+             soil_temp_10cm_f, ambient_temp_f, humidity_percent, soil_moisture,
+             nitrogen_pct, phosphorus_pct, potassium_pct)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         RETURNING id
         "#,
     )
@@ -158,6 +159,9 @@ pub async fn create_application(pool: &PgPool, app: &Application) -> Result<i64>
     .bind(weather.as_ref().and_then(|w| w.ambient_temp_f))
     .bind(weather.as_ref().and_then(|w| w.humidity_percent))
     .bind(weather.as_ref().and_then(|w| w.soil_moisture))
+    .bind(app.nitrogen_pct)
+    .bind(app.phosphorus_pct)
+    .bind(app.potassium_pct)
     .fetch_one(pool)
     .await?;
 
@@ -325,6 +329,9 @@ struct ApplicationRow {
     ambient_temp_f: Option<f64>,
     humidity_percent: Option<f64>,
     soil_moisture: Option<f64>,
+    nitrogen_pct: Option<f64>,
+    phosphorus_pct: Option<f64>,
+    potassium_pct: Option<f64>,
     created_at: DateTime<Utc>,
 }
 
@@ -364,7 +371,208 @@ impl ApplicationRow {
             coverage_sqft: self.coverage_sqft,
             notes: self.notes,
             weather_snapshot: weather,
+            nitrogen_pct: self.nitrogen_pct,
+            phosphorus_pct: self.phosphorus_pct,
+            potassium_pct: self.potassium_pct,
             created_at: self.created_at,
         }
     }
+}
+
+// GDD Cache Queries
+
+pub async fn get_gdd_daily_range(
+    pool: &PgPool,
+    start_date: NaiveDate,
+    end_date: NaiveDate,
+) -> Result<Vec<DailyGdd>> {
+    let rows = sqlx::query_as::<_, GddDailyRow>(
+        r#"SELECT date, high_temp_f, low_temp_f, gdd_base50, cumulative_gdd_base50
+           FROM gdd_daily WHERE date >= $1 AND date <= $2
+           ORDER BY date ASC"#,
+    )
+    .bind(start_date)
+    .bind(end_date)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|r| DailyGdd {
+            date: r.date,
+            high_temp_f: r.high_temp_f,
+            low_temp_f: r.low_temp_f,
+            gdd_base50: r.gdd_base50,
+            cumulative_gdd_base50: r.cumulative_gdd_base50,
+        })
+        .collect())
+}
+
+pub async fn get_latest_gdd_date(pool: &PgPool) -> Result<Option<NaiveDate>> {
+    let row =
+        sqlx::query_scalar::<_, NaiveDate>("SELECT date FROM gdd_daily ORDER BY date DESC LIMIT 1")
+            .fetch_optional(pool)
+            .await?;
+    Ok(row)
+}
+
+pub async fn upsert_gdd_daily(pool: &PgPool, gdd: &DailyGdd) -> Result<()> {
+    sqlx::query(
+        r#"
+        INSERT INTO gdd_daily (date, high_temp_f, low_temp_f, gdd_base50, cumulative_gdd_base50, computed_at)
+        VALUES ($1, $2, $3, $4, $5, NOW())
+        ON CONFLICT (date) DO UPDATE SET
+            high_temp_f = $2, low_temp_f = $3, gdd_base50 = $4,
+            cumulative_gdd_base50 = $5, computed_at = NOW()
+        "#,
+    )
+    .bind(gdd.date)
+    .bind(gdd.high_temp_f)
+    .bind(gdd.low_temp_f)
+    .bind(gdd.gdd_base50)
+    .bind(gdd.cumulative_gdd_base50)
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+// Historical / Environmental Cache Queries
+
+pub async fn get_environmental_cache_range(
+    pool: &PgPool,
+    start: DateTime<Utc>,
+    end: DateTime<Utc>,
+) -> Result<Vec<EnvironmentalReading>> {
+    let rows = sqlx::query_as::<_, EnvCacheRow>(
+        r#"SELECT timestamp, source,
+           soil_temp_5_f, soil_temp_10_f, soil_temp_20_f, soil_temp_50_f, soil_temp_100_f,
+           soil_moisture_5, soil_moisture_10, soil_moisture_20, soil_moisture_50, soil_moisture_100,
+           ambient_temp_f, humidity_percent, precipitation_mm
+           FROM environmental_cache
+           WHERE timestamp >= $1 AND timestamp <= $2
+           ORDER BY timestamp ASC"#,
+    )
+    .bind(start)
+    .bind(end)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows.into_iter().map(|r| r.into_reading()).collect())
+}
+
+#[derive(sqlx::FromRow)]
+struct GddDailyRow {
+    date: NaiveDate,
+    high_temp_f: f64,
+    low_temp_f: f64,
+    gdd_base50: f64,
+    cumulative_gdd_base50: f64,
+}
+
+#[derive(sqlx::FromRow)]
+struct EnvCacheRow {
+    timestamp: DateTime<Utc>,
+    source: String,
+    soil_temp_5_f: Option<f64>,
+    soil_temp_10_f: Option<f64>,
+    soil_temp_20_f: Option<f64>,
+    soil_temp_50_f: Option<f64>,
+    soil_temp_100_f: Option<f64>,
+    soil_moisture_5: Option<f64>,
+    soil_moisture_10: Option<f64>,
+    soil_moisture_20: Option<f64>,
+    soil_moisture_50: Option<f64>,
+    soil_moisture_100: Option<f64>,
+    ambient_temp_f: Option<f64>,
+    humidity_percent: Option<f64>,
+    precipitation_mm: Option<f64>,
+}
+
+impl EnvCacheRow {
+    fn into_reading(self) -> EnvironmentalReading {
+        use crate::models::DataSource;
+
+        let source = match self.source.as_str() {
+            "SoilData" => DataSource::SoilData,
+            "HomeAssistant" => DataSource::HomeAssistant,
+            "OpenWeatherMap" => DataSource::OpenWeatherMap,
+            _ => DataSource::Cached,
+        };
+
+        EnvironmentalReading {
+            timestamp: self.timestamp,
+            source,
+            soil_temp_5_f: self.soil_temp_5_f,
+            soil_temp_10_f: self.soil_temp_10_f,
+            soil_temp_20_f: self.soil_temp_20_f,
+            soil_temp_50_f: self.soil_temp_50_f,
+            soil_temp_100_f: self.soil_temp_100_f,
+            soil_moisture_5: self.soil_moisture_5,
+            soil_moisture_10: self.soil_moisture_10,
+            soil_moisture_20: self.soil_moisture_20,
+            soil_moisture_50: self.soil_moisture_50,
+            soil_moisture_100: self.soil_moisture_100,
+            ambient_temp_f: self.ambient_temp_f,
+            humidity_percent: self.humidity_percent,
+            precipitation_mm: self.precipitation_mm,
+        }
+    }
+}
+
+// Seasonal Plan / Threshold Crossing Cache Queries
+
+pub async fn get_threshold_crossings(pool: &PgPool) -> Result<Vec<ThresholdCrossing>> {
+    let rows = sqlx::query_as::<_, ThresholdCrossingRow>(
+        r#"SELECT year, threshold_name, crossing_date, avg_soil_temp_f
+           FROM seasonal_threshold_crossings
+           ORDER BY year ASC, crossing_date ASC"#,
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|r| ThresholdCrossing {
+            year: r.year,
+            threshold_name: r.threshold_name,
+            crossing_date: r.crossing_date,
+            avg_soil_temp_f: r.avg_soil_temp_f,
+        })
+        .collect())
+}
+
+pub async fn get_threshold_crossings_years(pool: &PgPool) -> Result<Vec<i32>> {
+    let rows = sqlx::query_scalar::<_, i32>(
+        "SELECT DISTINCT year FROM seasonal_threshold_crossings ORDER BY year ASC",
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
+}
+
+pub async fn upsert_threshold_crossing(pool: &PgPool, crossing: &ThresholdCrossing) -> Result<()> {
+    sqlx::query(
+        r#"
+        INSERT INTO seasonal_threshold_crossings (year, threshold_name, crossing_date, avg_soil_temp_f, computed_at)
+        VALUES ($1, $2, $3, $4, NOW())
+        ON CONFLICT (year, threshold_name) DO UPDATE SET
+            crossing_date = $3, avg_soil_temp_f = $4, computed_at = NOW()
+        "#,
+    )
+    .bind(crossing.year)
+    .bind(&crossing.threshold_name)
+    .bind(crossing.crossing_date)
+    .bind(crossing.avg_soil_temp_f)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+#[derive(sqlx::FromRow)]
+struct ThresholdCrossingRow {
+    year: i32,
+    threshold_name: String,
+    crossing_date: NaiveDate,
+    avg_soil_temp_f: f64,
 }

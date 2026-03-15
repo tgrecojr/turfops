@@ -84,6 +84,16 @@ async fn main() -> anyhow::Result<()> {
             "/api/v1/recommendations/{id}",
             patch(api::recommendations::patch_recommendation),
         )
+        .route("/api/v1/gdd", get(api::gdd::get_gdd))
+        .route("/api/v1/historical", get(api::historical::get_historical))
+        .route(
+            "/api/v1/nitrogen-budget",
+            get(api::nitrogen_budget::get_nitrogen_budget),
+        )
+        .route(
+            "/api/v1/seasonal-plan",
+            get(api::seasonal_plan::get_seasonal_plan),
+        )
         .layer(RequestBodyLimitLayer::new(1024 * 1024)) // 1MB request body limit
         .layer(build_cors_layer(&config))
         .with_state(state);
