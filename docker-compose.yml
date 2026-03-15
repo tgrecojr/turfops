@@ -1,0 +1,79 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: turfops
+      POSTGRES_USER: turfops
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "5433:5432"
+    volumes:
+      - turfops_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U turfops"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # App database (managed by this compose stack)
+      DATABASE_HOST: ${DATABASE_HOST:-db}
+      DATABASE_PORT: ${DATABASE_PORT:-5432}
+      DATABASE_NAME: ${DATABASE_NAME:-turfops}
+      DATABASE_USER: ${DATABASE_USER:-turfops}
+      DATABASE_PASSWORD: ${DB_PASSWORD}
+
+      # Server
+      SERVER_HOST: "0.0.0.0"
+      SERVER_PORT: "3000"
+
+      # Lawn profile defaults
+      LAWN_NAME: ${LAWN_NAME:-Main Lawn}
+      LAWN_GRASS_TYPE: ${LAWN_GRASS_TYPE:-TallFescue}
+      LAWN_USDA_ZONE: ${LAWN_USDA_ZONE:-7a}
+      LAWN_SOIL_TYPE: ${LAWN_SOIL_TYPE:-Loam}
+      LAWN_SIZE_SQFT: ${LAWN_SIZE_SQFT:-5000}
+      LAWN_IRRIGATION_TYPE: ${LAWN_IRRIGATION_TYPE:-InGround}
+
+      # NOAA station
+      NOAA_STATION_WBANNO: ${NOAA_STATION_WBANNO:-3761}
+
+      # SoilData PostgreSQL (external NOAA database)
+      SOILDATA_DB_HOST: ${SOILDATA_DB_HOST:-host.docker.internal}
+      SOILDATA_DB_PORT: ${SOILDATA_DB_PORT:-5432}
+      SOILDATA_DB_NAME: ${SOILDATA_DB_NAME:-uscrn}
+      SOILDATA_DB_USER: ${SOILDATA_DB_USER:-postgres}
+      SOILDATA_DB_PASSWORD: ${SOILDATA_DB_PASSWORD:-}
+
+      # Home Assistant
+      HA_URL: ${HA_URL:-}
+      HA_TOKEN: ${HA_TOKEN:-}
+      HA_TEMPERATURE_ENTITY: ${HA_TEMPERATURE_ENTITY:-sensor.temp_humidity_sensor_temperature}
+      HA_HUMIDITY_ENTITY: ${HA_HUMIDITY_ENTITY:-sensor.temp_humidity_sensor_humidity}
+      HA_TEMPERATURE_UNIT: ${HA_TEMPERATURE_UNIT:-fahrenheit}
+
+      # OpenWeatherMap (optional)
+      OWM_API_KEY: ${OWM_API_KEY:-}
+      OWM_LATITUDE: ${OWM_LATITUDE:-0}
+      OWM_LONGITUDE: ${OWM_LONGITUDE:-0}
+      OWM_ENABLED: ${OWM_ENABLED:-true}
+
+      # Static files
+      STATIC_DIR: /app/static
+
+      # Logging
+      RUST_LOG: ${RUST_LOG:-info}
+
+volumes:
+  turfops_data:

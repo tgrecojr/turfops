@@ -1,0 +1,156 @@
+mod api;
+mod config;
+mod datasources;
+mod db;
+mod error;
+mod logic;
+mod models;
+mod state;
+
+use crate::config::Config;
+use crate::db::{pool::create_pool, queries};
+use crate::logic::data_sync::DataSyncService;
+use crate::models::{GrassType, IrrigationType, LawnProfile, SoilType};
+use crate::state::AppState;
+use axum::routing::{delete, get, patch, post};
+use axum::Router;
+use std::net::SocketAddr;
+use std::path::PathBuf;
+use tower_http::cors::CorsLayer;
+use tower_http::limit::RequestBodyLimitLayer;
+use tower_http::services::{ServeDir, ServeFile};
+use tracing_subscriber::EnvFilter;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    // Load .env file if present
+    dotenvy::dotenv().ok();
+
+    // Initialize tracing
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
+        .init();
+
+    // Load config from environment
+    let config = Config::from_env()?;
+    tracing::info!("Configuration loaded");
+
+    // Connect to app database and run migrations
+    let pool = create_pool(&config.database.connection_string()).await?;
+
+    // Create default profile if DB is empty
+    ensure_default_profile(&pool, &config).await?;
+
+    // Initialize data sync service (connects to external datasources)
+    let sync_service = DataSyncService::initialize(&config, pool.clone()).await;
+
+    // Create app state
+    let state = AppState::new(pool, config.clone(), sync_service);
+
+    // Build router
+    let app = Router::new()
+        .route("/api/v1/health", get(api::health::health_check))
+        .route("/api/v1/dashboard", get(api::dashboard::get_dashboard))
+        .route(
+            "/api/v1/profile",
+            get(api::profile::get_profile).put(api::profile::update_profile),
+        )
+        .route(
+            "/api/v1/applications",
+            get(api::applications::list_applications).post(api::applications::create_application),
+        )
+        .route(
+            "/api/v1/applications/{id}",
+            delete(api::applications::delete_application),
+        )
+        .route(
+            "/api/v1/applications/calendar",
+            get(api::calendar::get_calendar),
+        )
+        .route(
+            "/api/v1/environmental",
+            get(api::environmental::get_environmental),
+        )
+        .route(
+            "/api/v1/environmental/refresh",
+            post(api::environmental::refresh_environmental),
+        )
+        .route(
+            "/api/v1/recommendations",
+            get(api::recommendations::list_recommendations),
+        )
+        .route(
+            "/api/v1/recommendations/{id}",
+            patch(api::recommendations::patch_recommendation),
+        )
+        .layer(RequestBodyLimitLayer::new(1024 * 1024)) // 1MB request body limit
+        .layer(CorsLayer::permissive())
+        .with_state(state);
+
+    // Serve React SPA static files with fallback to index.html
+    let static_dir = std::env::var("STATIC_DIR").unwrap_or_else(|_| "./static".to_string());
+    let static_path = PathBuf::from(&static_dir);
+
+    let app = if static_path.join("index.html").exists() {
+        let index_file = static_path.join("index.html");
+        let serve_dir = ServeDir::new(&static_path).not_found_service(ServeFile::new(&index_file));
+        tracing::info!("Serving static files from {}", static_dir);
+        app.fallback_service(serve_dir)
+    } else {
+        tracing::warn!("Static directory '{}' not found, API-only mode", static_dir);
+        app
+    };
+
+    // Start server
+    let addr = SocketAddr::new(
+        config.server.host.parse().unwrap_or([0, 0, 0, 0].into()),
+        config.server.port,
+    );
+    tracing::info!("Starting server on {}", addr);
+
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+    axum::serve(listener, app).await?;
+
+    Ok(())
+}
+
+/// Create a default lawn profile from config if no profile exists in the DB.
+async fn ensure_default_profile(pool: &sqlx::PgPool, config: &Config) -> anyhow::Result<()> {
+    if queries::get_default_lawn_profile(pool).await?.is_some() {
+        return Ok(());
+    }
+
+    tracing::info!("No lawn profile found, creating default from config");
+
+    let grass_type = GrassType::from_str(&config.lawn.grass_type).unwrap_or_else(|| {
+        tracing::warn!(
+            grass_type = %config.lawn.grass_type,
+            "Unknown LAWN_GRASS_TYPE, defaulting to TallFescue"
+        );
+        GrassType::TallFescue
+    });
+    let soil_type = config
+        .lawn
+        .soil_type
+        .as_ref()
+        .and_then(|s| SoilType::from_str(s));
+    let irrigation_type = config
+        .lawn
+        .irrigation_type
+        .as_ref()
+        .and_then(|i| IrrigationType::from_str(i));
+
+    let mut profile = LawnProfile::new(
+        config.lawn.name.clone(),
+        grass_type,
+        config.lawn.usda_zone.clone(),
+    );
+    profile.soil_type = soil_type;
+    profile.lawn_size_sqft = config.lawn.lawn_size_sqft;
+    profile.irrigation_type = irrigation_type;
+
+    queries::create_lawn_profile(pool, &profile).await?;
+    tracing::info!("Default lawn profile created: {}", config.lawn.name);
+
+    Ok(())
+}

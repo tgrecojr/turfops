@@ -1,57 +1,102 @@
-# TurfOps - Lawn Care Management TUI
+# TurfOps - Lawn Care Management Web Application
 
 ## Overview
 
-Rust TUI application for tracking lawn care activities with data-driven agronomic recommendations. Integrates with SoilData PostgreSQL (NOAA USCRN hourly data) and Home Assistant Prometheus (local patio sensors).
+Containerized web application for tracking lawn care activities with data-driven agronomic recommendations. Rust/Axum backend serves a React SPA frontend. Integrates with SoilData PostgreSQL (NOAA USCRN hourly data), Home Assistant (local patio sensors), and OpenWeatherMap (forecast). Deployed via Docker Compose.
 
 ## Tech Stack
 
-- Language: Rust
-- TUI Framework: Ratatui + Crossterm
-- Local Storage: SQLite (rusqlite)
-- External Data: PostgreSQL (sqlx), Prometheus HTTP API (reqwest)
+- Backend: Rust + Axum + sqlx (PostgreSQL)
+- Frontend: React 19 + TypeScript + Vite
+- Database: PostgreSQL 16 (app data)
+- External Data: SoilData PostgreSQL (NOAA), Home Assistant API, OpenWeatherMap API
+- Deployment: Docker Compose (app + PostgreSQL)
 - Async Runtime: Tokio
 
 ## Commands
 
-- `cargo build` — Build the application
-- `cargo run` — Run the TUI
-- `cargo test` — Run tests
-- `cargo fmt` — Format code
-- `cargo clippy` — Run linter
+### Backend
+- `cd backend && cargo build` — Build backend
+- `cd backend && cargo test` — Run tests (30 tests)
+- `cd backend && cargo fmt` — Format code
+- `cd backend && cargo clippy` — Run linter
+- `cd backend && cargo run` — Run API server (needs PostgreSQL)
+
+### Frontend
+- `cd frontend && npm install` — Install dependencies
+- `cd frontend && npm run dev` — Dev server with API proxy (port 5173)
+- `cd frontend && npm run build` — Production build to dist/
+- `cd frontend && npx tsc --noEmit` — Type check
+
+### Docker
+- `docker compose up -d` — Start full stack (port 3000)
+- `docker compose down` — Stop all services
+- `docker compose build` — Rebuild containers
 
 ## Architecture
 
 ```
-src/
-├── main.rs              # Entry point, terminal setup
-├── app.rs               # Screen state management
-├── config.rs            # Configuration loading
-├── error.rs             # Custom error types
-├── db/                  # SQLite layer
-├── models/              # Data structures
-├── logic/rules/         # Agronomic rules engine
-├── datasources/         # External data clients
-└── ui/                  # TUI screens and components
+turfops/
+├── backend/
+│   └── src/
+│       ├── main.rs              # Axum server, static file serving
+│       ├── config.rs            # Env-var-based configuration
+│       ├── error.rs             # Error types with HTTP responses
+│       ├── state.rs             # AppState (pool, sync, rules engine)
+│       ├── api/                 # Route handlers (12 endpoints)
+│       ├── db/                  # PostgreSQL pool, queries, migrations
+│       ├── models/              # Data structures (shared with rules)
+│       ├── logic/               # Data sync + 18 agronomic rules
+│       └── datasources/         # SoilData, HomeAssistant, OpenWeatherMap
+├── frontend/
+│   └── src/
+│       ├── App.tsx              # React Router, 6 routes
+│       ├── api/client.ts        # Fetch wrapper for all API endpoints
+│       ├── types/index.ts       # TypeScript interfaces matching Rust models
+│       ├── pages/               # Dashboard, Calendar, Applications, Environmental, Recommendations, Settings
+│       └── components/          # Layout, Gauge, AlertCard
+├── Dockerfile                   # Multi-stage: Node → Rust → slim runtime
+└── docker-compose.yml           # app + PostgreSQL 16
 ```
+
+## API Endpoints
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | /api/v1/health | Connection status |
+| GET | /api/v1/dashboard | Composite dashboard data |
+| GET/PUT | /api/v1/profile | Lawn profile CRUD |
+| GET/POST | /api/v1/applications | List/create applications |
+| DELETE | /api/v1/applications/:id | Delete application |
+| GET | /api/v1/applications/calendar | Calendar view |
+| GET | /api/v1/environmental | Environmental data (demand-driven refresh) |
+| POST | /api/v1/environmental/refresh | Force data refresh |
+| GET | /api/v1/recommendations | Active recommendations |
+| PATCH | /api/v1/recommendations/:id | Mark addressed/dismissed |
 
 ## Data Sources
 
-- **Ambient (temp/humidity)**: Prometheus → Home Assistant patio sensor
+- **Ambient (temp/humidity)**: Home Assistant API → patio sensor
 - **Soil (temp/moisture)**: SoilData PostgreSQL → NOAA USCRN PA Avondale (WBANNO 3761)
 - **Precipitation**: SoilData PostgreSQL → NOAA measured values
+- **Forecast**: OpenWeatherMap API (5-day forecast)
 
 ## Key Patterns
 
-- Screen state management follows `runlogger/src/app.rs` pattern
-- PostgreSQL queries follow `soildata/src/db/repository.rs` pattern
+- Demand-driven data refresh: sensors stale after 5min, forecast after 30min. Zero API calls when idle.
+- 18 agronomic rules are pure functions — no IO, no UI dependencies
+- Recommendation state (addressed/dismissed) tracked in-memory (resets on restart)
 - All temperatures stored in Fahrenheit (convert from Celsius at ingestion)
+- Axum serves React SPA static files with fallback to index.html for client-side routing
 
 ## Environment Variables
 
-See `.env.example`:
-- `SOILDATA_DB_*` — PostgreSQL connection for NOAA data
-- `PROMETHEUS_URL` — Home Assistant Prometheus endpoint
+See `backend/.env.example` for full list:
+- `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_NAME`, `DATABASE_USER`, `DATABASE_PASSWORD` — App PostgreSQL connection
+- `SOILDATA_DB_*` — External NOAA data PostgreSQL
+- `HA_URL`, `HA_TOKEN` — Home Assistant connection
+- `OWM_API_KEY` — OpenWeatherMap API key
+- `LAWN_*` — Default lawn profile settings
 
 ## Agronomic Thresholds (TTTF Zone 7a)
 
