@@ -294,6 +294,57 @@ impl SoilDataClient {
         Ok(results)
     }
 
+    /// Fetch daily average paired (air_temp, soil_temp_10) values.
+    /// Returns (date, avg_air_temp_f, avg_soil_temp_10_f) tuples.
+    /// Used by the soil temperature prediction model.
+    pub async fn fetch_daily_paired_averages(
+        &self,
+        start: DateTime<Utc>,
+        end: DateTime<Utc>,
+    ) -> Result<Vec<(NaiveDate, f64, f64)>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                DATE(utc_datetime) as day,
+                AVG(t_calc) as avg_air_c,
+                AVG(soil_temp_10) as avg_soil_c,
+                COUNT(*) as readings
+            FROM observations
+            WHERE wbanno = $1
+              AND utc_datetime >= $2
+              AND utc_datetime <= $3
+              AND t_calc IS NOT NULL
+              AND t_calc > -9999
+              AND soil_temp_10 IS NOT NULL
+              AND soil_temp_10 > -9999
+            GROUP BY DATE(utc_datetime)
+            HAVING COUNT(*) >= 12
+            ORDER BY day ASC
+            "#,
+        )
+        .bind(self.station_wbanno)
+        .bind(start)
+        .bind(end)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let results: Vec<(NaiveDate, f64, f64)> = rows
+            .iter()
+            .filter_map(|row| {
+                let day: NaiveDate = row.try_get("day").ok()?;
+                let avg_air_c: f64 = row.try_get::<f64, _>("avg_air_c").ok()?;
+                let avg_soil_c: f64 = row.try_get::<f64, _>("avg_soil_c").ok()?;
+                Some((
+                    day,
+                    celsius_to_fahrenheit(avg_air_c),
+                    celsius_to_fahrenheit(avg_soil_c),
+                ))
+            })
+            .collect();
+
+        Ok(results)
+    }
+
     pub async fn test_connection(&self) -> Result<bool> {
         let result = sqlx::query("SELECT 1").fetch_one(&self.pool).await;
 

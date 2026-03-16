@@ -6,7 +6,8 @@ use super::{
     grub_control::GrubControlRule, heat_stress::HeatStressRule,
     irrigation_forecast::IrrigationForecastRule, mowing_height::MowingHeightRule,
     pre_emergent::PreEmergentRule, pythium_blight::PythiumBlightRule, rain_delay::RainDelayRule,
-    red_thread::RedThreadRule, spring_nitrogen::SpringNitrogenRule, Rule,
+    red_thread::RedThreadRule, soil_temp_forecast::SoilTempForecastRule,
+    spring_nitrogen::SpringNitrogenRule, Rule,
 };
 use crate::models::{Application, EnvironmentalSummary, LawnProfile, Recommendation};
 
@@ -40,6 +41,8 @@ impl RulesEngine {
             Box::new(HeatStressRule),
             Box::new(ApplicationWindowRule),
             Box::new(MowingHeightRule),
+            // Proactive forecast-based rules
+            Box::new(SoilTempForecastRule),
         ];
 
         Self { rules }

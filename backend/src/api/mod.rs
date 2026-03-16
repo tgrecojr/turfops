@@ -9,3 +9,4 @@ pub mod nitrogen_budget;
 pub mod profile;
 pub mod recommendations;
 pub mod seasonal_plan;
+pub mod soil_temp_prediction;

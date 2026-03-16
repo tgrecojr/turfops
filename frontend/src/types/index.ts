@@ -81,6 +81,8 @@ export interface EnvironmentalSummary {
   last_updated: string | null;
   forecast: WeatherForecast | null;
   gdd_base50_ytd: number | null;
+  soil_temp_predictions?: SoilTempPrediction[];
+  predicted_threshold_crossings?: ThresholdPrediction[];
 }
 
 export interface EnvironmentalReading {
@@ -278,6 +280,49 @@ export const CRABGRASS_STATUS_COLORS: Record<CrabgrassStatus, string> = {
   ApproachingGermination: '#eab308',
   GerminationLikely: '#f97316',
   PostGermination: '#ef4444',
+};
+
+// Soil Temperature Prediction types
+
+export type PredictionConfidence = 'High' | 'Medium' | 'Low';
+
+export type CrossingDirection = 'Rising' | 'Falling';
+
+export interface SoilTempPrediction {
+  date: string;
+  predicted_soil_temp_f: number;
+  confidence: PredictionConfidence;
+  air_temp_used_f: number;
+  source_description: string;
+}
+
+export interface ThresholdPrediction {
+  threshold_name: string;
+  threshold_temp_f: number;
+  estimated_crossing_date: string;
+  days_until_crossing: number;
+  confidence: PredictionConfidence;
+  direction: CrossingDirection;
+}
+
+export interface SoilTempModelInfo {
+  r_squared: number;
+  lag_days: number;
+  training_window_days: number;
+  quality: string;
+}
+
+export interface SoilTempForecast {
+  predictions: SoilTempPrediction[];
+  threshold_crossings: ThresholdPrediction[];
+  model_info: SoilTempModelInfo;
+  generated_at: string;
+}
+
+export const PREDICTION_CONFIDENCE_COLORS: Record<PredictionConfidence, string> = {
+  High: '#22c55e',
+  Medium: '#eab308',
+  Low: '#f97316',
 };
 
 // Seasonal Plan types

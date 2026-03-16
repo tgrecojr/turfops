@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getDashboard, getGdd, getNitrogenBudget } from '../api/client';
+import { getDashboard, getGdd, getNitrogenBudget, getSoilTempForecast } from '../api/client';
 import AlertCard from '../components/AlertCard';
 import GddWidget from '../components/GddWidget';
 import Gauge from '../components/Gauge';
 import NitrogenBudgetWidget from '../components/NitrogenBudgetWidget';
+import SoilTempForecastWidget from '../components/SoilTempForecastWidget';
 import {
   SOIL_TEMP_GAUGE,
   AMBIENT_TEMP_GAUGE,
@@ -11,7 +12,7 @@ import {
   SOIL_MOISTURE_GAUGE,
 } from '../components/gaugeConfigs';
 import { appTypeBadgeStyle, sharedStyles } from '../styles/shared';
-import type { DashboardResponse, GddSummary, NitrogenBudget } from '../types';
+import type { DashboardResponse, GddSummary, NitrogenBudget, SoilTempForecast } from '../types';
 import { APPLICATION_TYPE_LABELS } from '../types';
 
 const POLL_INTERVAL = 30_000; // 30 seconds
@@ -20,6 +21,7 @@ export default function Dashboard() {
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [gddData, setGddData] = useState<GddSummary | null>(null);
   const [nBudget, setNBudget] = useState<NitrogenBudget | null>(null);
+  const [soilForecast, setSoilForecast] = useState<SoilTempForecast | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
@@ -29,15 +31,17 @@ export default function Dashboard() {
     const controller = new AbortController();
     abortRef.current = controller;
     try {
-      const [d, gdd, nb] = await Promise.all([
+      const [d, gdd, nb, sf] = await Promise.all([
         getDashboard(),
         getGdd().catch(() => null),
         getNitrogenBudget().catch(() => null),
+        getSoilTempForecast().catch(() => null),
       ]);
       if (!controller.signal.aborted) {
         setData(d);
         setGddData(gdd);
         setNBudget(nb);
+        setSoilForecast(sf);
         setError(null);
       }
     } catch (e) {
@@ -171,11 +175,17 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* GDD & Nitrogen Budget widgets */}
-      {(gddData || nBudget) && (
+      {/* GDD, Nitrogen Budget & Soil Temp Forecast widgets */}
+      {(gddData || nBudget || soilForecast) && (
         <div style={styles.widgetGrid}>
           {gddData && <GddWidget data={gddData} />}
           {nBudget && <NitrogenBudgetWidget data={nBudget} />}
+          {soilForecast && (
+            <SoilTempForecastWidget
+              crossings={soilForecast.threshold_crossings}
+              currentSoilTemp={current?.soil_temp_10_f ?? null}
+            />
+          )}
         </div>
       )}
 

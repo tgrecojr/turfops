@@ -109,6 +109,13 @@ pub struct EnvironmentalSummary {
     /// Year-to-date Growing Degree Days (base 50°F)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub gdd_base50_ytd: Option<f64>,
+    /// Predicted soil temperatures from regression model
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub soil_temp_predictions: Option<Vec<super::soil_temp_prediction::SoilTempPrediction>>,
+    /// Predicted threshold crossings
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub predicted_threshold_crossings:
+        Option<Vec<super::soil_temp_prediction::ThresholdPrediction>>,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
