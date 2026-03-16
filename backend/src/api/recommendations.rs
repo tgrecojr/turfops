@@ -1,6 +1,7 @@
-use crate::db::queries;
+use crate::db::{queries, soil_test_queries};
 use crate::error::TurfOpsError;
-use crate::models::Recommendation;
+use crate::logic::soil_test_recommendations::generate_soil_test_recommendations;
+use crate::models::{DataSource, Recommendation, RecommendationCategory, Severity};
 use crate::state::AppState;
 use axum::extract::{Path, State};
 use axum::Json;
@@ -30,6 +31,114 @@ pub async fn list_recommendations(
 
     // Evaluate rules
     let mut recommendations = state.rules_engine.evaluate(&summary, &profile, &apps);
+
+    // Append soil-test-based recommendations if a test exists
+    if let Ok(Some(test)) = soil_test_queries::get_latest_soil_test(&state.pool, profile_id).await {
+        let soil_summary = generate_soil_test_recommendations(&test, &profile, &apps);
+
+        if let Some(ph_rec) = &soil_summary.ph_recommendation {
+            recommendations.push(
+                Recommendation::new(
+                    "soil_test_ph",
+                    RecommendationCategory::SoilTest,
+                    if (ph_rec.current_ph - ph_rec.target_ph).abs() > 1.0 {
+                        Severity::Warning
+                    } else {
+                        Severity::Advisory
+                    },
+                    format!("pH Adjustment: Apply {}", ph_rec.amendment),
+                    &ph_rec.explanation,
+                )
+                .with_data_point(
+                    "Current pH",
+                    format!("{:.1}", ph_rec.current_ph),
+                    DataSource::SoilTestData.as_str(),
+                )
+                .with_data_point(
+                    "Target pH",
+                    format!("{:.1}", ph_rec.target_ph),
+                    DataSource::Agronomic.as_str(),
+                )
+                .with_action(format!(
+                    "Apply {} at {:.0} lbs/1000 sqft",
+                    ph_rec.amendment, ph_rec.rate_lbs_per_1000sqft
+                )),
+            );
+        }
+
+        if let Some(npk_rec) = &soil_summary.npk_recommendation {
+            if npk_rec.nitrogen_rate_lbs_per_1000sqft > 0.0
+                || npk_rec.phosphorus_rate_lbs_per_1000sqft > 0.0
+                || npk_rec.potassium_rate_lbs_per_1000sqft > 0.0
+            {
+                recommendations.push(
+                    Recommendation::new(
+                        "soil_test_npk",
+                        RecommendationCategory::SoilTest,
+                        Severity::Advisory,
+                        format!("Fertilizer: Use {} ratio", npk_rec.recommended_ratio),
+                        &npk_rec.explanation,
+                    )
+                    .with_data_point(
+                        "N rate",
+                        format!("{:.2} lbs/1000sqft", npk_rec.nitrogen_rate_lbs_per_1000sqft),
+                        DataSource::SoilTestData.as_str(),
+                    )
+                    .with_data_point(
+                        "P₂O₅ rate",
+                        format!(
+                            "{:.2} lbs/1000sqft",
+                            npk_rec.phosphorus_rate_lbs_per_1000sqft
+                        ),
+                        DataSource::SoilTestData.as_str(),
+                    )
+                    .with_data_point(
+                        "K₂O rate",
+                        format!(
+                            "{:.2} lbs/1000sqft",
+                            npk_rec.potassium_rate_lbs_per_1000sqft
+                        ),
+                        DataSource::SoilTestData.as_str(),
+                    )
+                    .with_data_point(
+                        "N budget remaining",
+                        format!(
+                            "{:.2} lbs/1000sqft",
+                            npk_rec.remaining_n_budget_lbs_per_1000sqft
+                        ),
+                        DataSource::Calculated.as_str(),
+                    )
+                    .with_action(format!(
+                        "Apply {} product at {:.1} lbs/1000 sqft",
+                        npk_rec.example_product_ratio, npk_rec.product_rate_lbs_per_1000sqft
+                    )),
+                );
+            }
+        }
+
+        for micro in &soil_summary.micronutrient_recommendations {
+            recommendations.push(
+                Recommendation::new(
+                    format!("soil_test_micro_{}", micro.nutrient.to_lowercase()),
+                    RecommendationCategory::SoilTest,
+                    Severity::Info,
+                    format!("{} Deficiency Detected", micro.nutrient),
+                    &micro.suggestion,
+                )
+                .with_data_point(
+                    &format!("{} (ppm)", micro.nutrient),
+                    format!("{:.1}", micro.current_ppm),
+                    DataSource::SoilTestData.as_str(),
+                )
+                .with_data_point(
+                    "Threshold (ppm)",
+                    format!("{:.1}", micro.threshold_ppm),
+                    DataSource::Agronomic.as_str(),
+                )
+                .with_action(&micro.suggestion),
+            );
+        }
+    }
 
     // Apply dismissed/addressed state from database
     let rec_states = queries::get_recommendation_states(&state.pool).await?;

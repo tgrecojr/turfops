@@ -376,6 +376,75 @@ export const CONFIDENCE_LABELS: Record<WindowConfidence, string> = {
   Low: 'Low confidence',
 };
 
+// Soil Test types
+
+export interface SoilTest {
+  id: number | null;
+  lawn_profile_id: number;
+  test_date: string;
+  lab_name: string | null;
+  ph: number;
+  buffer_ph: number | null;
+  phosphorus_ppm: number | null;
+  potassium_ppm: number | null;
+  calcium_ppm: number | null;
+  magnesium_ppm: number | null;
+  sulfur_ppm: number | null;
+  iron_ppm: number | null;
+  manganese_ppm: number | null;
+  zinc_ppm: number | null;
+  boron_ppm: number | null;
+  copper_ppm: number | null;
+  organic_matter_pct: number | null;
+  cec: number | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export type NutrientLevel = 'Low' | 'Adequate' | 'High';
+
+export interface PhRecommendation {
+  current_ph: number;
+  target_ph: number;
+  amendment: string;
+  rate_lbs_per_1000sqft: number;
+  explanation: string;
+}
+
+export interface NpkRecommendation {
+  phosphorus_level: NutrientLevel;
+  potassium_level: NutrientLevel;
+  recommended_ratio: string;
+  nitrogen_rate_lbs_per_1000sqft: number;
+  phosphorus_rate_lbs_per_1000sqft: number;
+  potassium_rate_lbs_per_1000sqft: number;
+  product_rate_lbs_per_1000sqft: number;
+  example_product_ratio: string;
+  remaining_n_budget_lbs_per_1000sqft: number;
+  explanation: string;
+}
+
+export interface MicronutrientRecommendation {
+  nutrient: string;
+  current_ppm: number;
+  threshold_ppm: number;
+  level: NutrientLevel;
+  suggestion: string;
+}
+
+export interface SoilTestSummary {
+  soil_test: SoilTest;
+  ph_recommendation: PhRecommendation | null;
+  npk_recommendation: NpkRecommendation | null;
+  micronutrient_recommendations: MicronutrientRecommendation[];
+}
+
+export const NUTRIENT_LEVEL_COLORS: Record<NutrientLevel, string> = {
+  Low: '#ef4444',
+  Adequate: '#22c55e',
+  High: '#eab308',
+};
+
 // Display helpers
 
 export const APPLICATION_TYPE_LABELS: Record<ApplicationType, string> = {

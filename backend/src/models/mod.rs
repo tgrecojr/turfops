@@ -9,6 +9,7 @@ pub mod nitrogen_budget;
 pub mod recommendation;
 pub mod seasonal_plan;
 pub mod soil_temp_prediction;
+pub mod soil_test;
 
 pub use application::*;
 pub use environmental::*;
@@ -19,3 +20,4 @@ pub use historical::*;
 pub use lawn_profile::*;
 pub use nitrogen_budget::*;
 pub use recommendation::*;
+pub use soil_test::*;

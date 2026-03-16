@@ -11,6 +11,8 @@ import type {
   Recommendation,
   SeasonalPlan,
   SoilTempForecast,
+  SoilTest,
+  SoilTestSummary,
 } from '../types';
 
 const BASE = '/api/v1';
@@ -143,6 +145,40 @@ export const getNitrogenBudget = (year?: number) => {
 // Soil temperature forecast
 export const getSoilTempForecast = () =>
   fetchJson<SoilTempForecast>(`${BASE}/soil-temp-forecast`);
+
+// Soil Tests
+export const getSoilTests = () =>
+  fetchJson<SoilTest[]>(`${BASE}/soil-tests`);
+
+export const createSoilTest = (data: {
+  test_date: string;
+  lab_name?: string;
+  ph: number;
+  buffer_ph?: number;
+  phosphorus_ppm?: number;
+  potassium_ppm?: number;
+  calcium_ppm?: number;
+  magnesium_ppm?: number;
+  sulfur_ppm?: number;
+  iron_ppm?: number;
+  manganese_ppm?: number;
+  zinc_ppm?: number;
+  boron_ppm?: number;
+  copper_ppm?: number;
+  organic_matter_pct?: number;
+  cec?: number;
+  notes?: string;
+}) =>
+  fetchJson<SoilTest>(`${BASE}/soil-tests`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+
+export const deleteSoilTest = (id: number) =>
+  fetchJson<void>(`${BASE}/soil-tests/${id}`, { method: 'DELETE' });
+
+export const getSoilTestRecommendations = () =>
+  fetchJson<SoilTestSummary>(`${BASE}/soil-tests/recommendations`);
 
 // Seasonal plan
 export const getSeasonalPlan = (year?: number) => {

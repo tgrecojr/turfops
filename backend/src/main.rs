@@ -98,6 +98,18 @@ async fn main() -> anyhow::Result<()> {
             "/api/v1/soil-temp-forecast",
             get(api::soil_temp_prediction::get_soil_temp_forecast),
         )
+        .route(
+            "/api/v1/soil-tests/recommendations",
+            get(api::soil_tests::get_soil_test_recommendations),
+        )
+        .route(
+            "/api/v1/soil-tests",
+            get(api::soil_tests::list_soil_tests).post(api::soil_tests::create_soil_test),
+        )
+        .route(
+            "/api/v1/soil-tests/{id}",
+            delete(api::soil_tests::delete_soil_test),
+        )
         .layer(RequestBodyLimitLayer::new(1024 * 1024)) // 1MB request body limit
         .layer(build_cors_layer(&config))
         .with_state(state);
