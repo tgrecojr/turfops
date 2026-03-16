@@ -15,6 +15,7 @@ pub enum DataSource {
     Agronomic,
     MissouriExtension,
     Rotation,
+    SoilTestData,
 }
 
 impl DataSource {
@@ -31,6 +32,7 @@ impl DataSource {
             DataSource::Agronomic => "Agronomic",
             DataSource::MissouriExtension => "Missouri Extension",
             DataSource::Rotation => "Rotation",
+            DataSource::SoilTestData => "Soil Test",
         }
     }
 }
@@ -211,6 +213,7 @@ mod tests {
         assert_eq!(DataSource::Agronomic.as_str(), "Agronomic");
         assert_eq!(DataSource::MissouriExtension.as_str(), "Missouri Extension");
         assert_eq!(DataSource::Rotation.as_str(), "Rotation");
+        assert_eq!(DataSource::SoilTestData.as_str(), "Soil Test");
     }
 
     #[test]

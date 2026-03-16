@@ -17,6 +17,7 @@ pub enum RecommendationCategory {
     Herbicide,
     Aeration,
     SoilTempForecast,
+    SoilTest,
     General,
 }
 
@@ -37,6 +38,7 @@ impl RecommendationCategory {
             RecommendationCategory::Herbicide => "Herbicide",
             RecommendationCategory::Aeration => "Aeration",
             RecommendationCategory::SoilTempForecast => "Soil Temp Forecast",
+            RecommendationCategory::SoilTest => "Soil Test",
             RecommendationCategory::General => "General",
         }
     }
