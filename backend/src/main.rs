@@ -94,6 +94,10 @@ async fn main() -> anyhow::Result<()> {
             "/api/v1/seasonal-plan",
             get(api::seasonal_plan::get_seasonal_plan),
         )
+        .route(
+            "/api/v1/soil-temp-forecast",
+            get(api::soil_temp_prediction::get_soil_temp_forecast),
+        )
         .layer(RequestBodyLimitLayer::new(1024 * 1024)) // 1MB request body limit
         .layer(build_cors_layer(&config))
         .with_state(state);

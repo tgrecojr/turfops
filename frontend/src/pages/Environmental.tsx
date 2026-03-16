@@ -2,9 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   getEnvironmental,
   getHistorical,
+  getSoilTempForecast,
   refreshEnvironmental,
 } from '../api/client';
 import Gauge from '../components/Gauge';
+import PredictionChart from '../components/PredictionChart';
 import TrendChart from '../components/TrendChart';
 import {
   SOIL_TEMP_GAUGE,
@@ -13,7 +15,8 @@ import {
   SOIL_MOISTURE_GAUGE,
 } from '../components/gaugeConfigs';
 import { sharedStyles } from '../styles/shared';
-import type { EnvironmentalSummary, HistoricalData } from '../types';
+import type { EnvironmentalSummary, HistoricalData, SoilTempForecast } from '../types';
+import { PREDICTION_CONFIDENCE_COLORS } from '../types';
 
 const POLL_INTERVAL = 30_000;
 
@@ -22,6 +25,7 @@ type HistRange = '7d' | '30d' | '90d';
 export default function Environmental() {
   const [data, setData] = useState<EnvironmentalSummary | null>(null);
   const [histData, setHistData] = useState<HistoricalData | null>(null);
+  const [soilForecast, setSoilForecast] = useState<SoilTempForecast | null>(null);
   const [histRange, setHistRange] = useState<HistRange>('7d');
   const [histLoading, setHistLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,9 +38,13 @@ export default function Environmental() {
     const controller = new AbortController();
     abortRef.current = controller;
     try {
-      const d = await getEnvironmental();
+      const [d, sf] = await Promise.all([
+        getEnvironmental(),
+        getSoilTempForecast().catch(() => null),
+      ]);
       if (!controller.signal.aborted) {
         setData(d);
+        setSoilForecast(sf);
         setError(null);
       }
     } catch (e) {
@@ -261,6 +269,49 @@ export default function Environmental() {
         </>
       )}
 
+      {/* Soil Temperature Forecast */}
+      {soilForecast && (
+        <>
+          <h2 style={sharedStyles.sectionTitle}>Soil Temperature Forecast</h2>
+          <div style={{ marginBottom: '1rem' }}>
+            <PredictionChart
+              recentSoilTemps={histData?.soil_temp_10_f ?? []}
+              predictions={soilForecast.predictions}
+            />
+          </div>
+          {soilForecast.threshold_crossings.length > 0 && (
+            <div style={styles.crossingGrid}>
+              {soilForecast.threshold_crossings.map((c, i) => (
+                <div key={i} style={styles.crossingCard}>
+                  <div style={styles.crossingHeader}>
+                    <span style={styles.crossingName}>{c.threshold_name}</span>
+                    <span
+                      style={{
+                        ...styles.crossingBadge,
+                        backgroundColor: PREDICTION_CONFIDENCE_COLORS[c.confidence] + '22',
+                        color: PREDICTION_CONFIDENCE_COLORS[c.confidence],
+                        borderColor: PREDICTION_CONFIDENCE_COLORS[c.confidence],
+                      }}
+                    >
+                      {c.confidence}
+                    </span>
+                  </div>
+                  <div style={styles.crossingTemp}>
+                    {c.direction === 'Rising' ? '\u2191' : '\u2193'} {c.threshold_temp_f}{'\u00B0F'}
+                  </div>
+                  <div style={styles.crossingDate}>
+                    ~{c.days_until_crossing} days ({new Date(c.estimated_crossing_date + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })})
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={styles.modelInfo}>
+            Model: R\u00B2={soilForecast.model_info.r_squared.toFixed(2)}, lag={soilForecast.model_info.lag_days}d, quality={soilForecast.model_info.quality}
+          </div>
+        </>
+      )}
+
       {/* Historical Trends */}
       <div style={styles.trendHeader}>
         <h2 style={sharedStyles.sectionTitle}>Historical Trends</h2>
@@ -427,6 +478,53 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))',
     gap: '1rem',
+    marginBottom: '1.5rem',
+  },
+  crossingGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+    gap: '0.75rem',
+    marginBottom: '0.75rem',
+  },
+  crossingCard: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: '0.8rem',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+  },
+  crossingHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  crossingName: {
+    fontSize: '0.75rem',
+    fontWeight: 600,
+    color: '#4a5568',
+  },
+  crossingBadge: {
+    display: 'inline-block',
+    padding: '1px 6px',
+    borderRadius: 8,
+    fontSize: '0.6rem',
+    fontWeight: 600,
+    border: '1px solid',
+  },
+  crossingTemp: {
+    fontSize: '1.1rem',
+    fontWeight: 700,
+    color: '#1a202c',
+  },
+  crossingDate: {
+    fontSize: '0.7rem',
+    color: '#718096',
+    marginTop: 2,
+  },
+  modelInfo: {
+    fontSize: '0.65rem',
+    color: '#a0aec0',
+    textAlign: 'center' as const,
     marginBottom: '1.5rem',
   },
 };

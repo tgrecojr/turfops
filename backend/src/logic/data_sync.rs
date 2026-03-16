@@ -1,8 +1,9 @@
 use crate::config::Config;
 use crate::datasources::{HomeAssistantClient, OpenWeatherMapClient, SoilDataClient};
 use crate::db::queries;
+use crate::logic::soil_temp_prediction;
 use crate::models::{DataSource, EnvironmentalReading, EnvironmentalSummary, WeatherForecast};
-use chrono::{Datelike, Utc};
+use chrono::{Datelike, Duration, Utc};
 use sqlx::PgPool;
 use tokio::time::Instant;
 
@@ -207,6 +208,52 @@ impl DataSyncService {
                 }
                 Err(e) => {
                     tracing::warn!("Failed to fetch GDD YTD: {}", e);
+                }
+            }
+
+            // Populate soil temp predictions if we have SoilData + forecast
+            if let Some(ref client) = self.soildata_client {
+                let now = Utc::now();
+                let thirty_days_ago = now - Duration::days(30);
+                match client
+                    .fetch_daily_paired_averages(thirty_days_ago, now)
+                    .await
+                {
+                    Ok(daily_pairs) if daily_pairs.len() >= 14 => {
+                        let recent_air: Vec<(chrono::NaiveDate, f64)> =
+                            daily_pairs.iter().map(|(d, air, _)| (*d, *air)).collect();
+
+                        let forecast_air: Vec<(chrono::NaiveDate, f64)> = summary
+                            .forecast
+                            .as_ref()
+                            .map(|f| {
+                                f.daily_summary
+                                    .iter()
+                                    .map(|d| (d.date, (d.high_temp_f + d.low_temp_f) / 2.0))
+                                    .collect()
+                            })
+                            .unwrap_or_default();
+
+                        if !forecast_air.is_empty() {
+                            let current_soil = combined_reading.soil_temp_10_f.unwrap_or(50.0);
+                            if let Some(forecast) = soil_temp_prediction::build_forecast(
+                                &daily_pairs,
+                                &recent_air,
+                                &forecast_air,
+                                current_soil,
+                            ) {
+                                summary.soil_temp_predictions = Some(forecast.predictions);
+                                summary.predicted_threshold_crossings =
+                                    Some(forecast.threshold_crossings);
+                            }
+                        }
+                    }
+                    Ok(_) => {
+                        tracing::debug!("Insufficient paired data for soil temp prediction model");
+                    }
+                    Err(e) => {
+                        tracing::debug!("Failed to fetch paired data for prediction: {}", e);
+                    }
                 }
             }
 

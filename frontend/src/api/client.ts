@@ -10,6 +10,7 @@ import type {
   NitrogenBudget,
   Recommendation,
   SeasonalPlan,
+  SoilTempForecast,
 } from '../types';
 
 const BASE = '/api/v1';
@@ -138,6 +139,10 @@ export const getNitrogenBudget = (year?: number) => {
   const params = year ? `?year=${year}` : '';
   return fetchJson<NitrogenBudget>(`${BASE}/nitrogen-budget${params}`);
 };
+
+// Soil temperature forecast
+export const getSoilTempForecast = () =>
+  fetchJson<SoilTempForecast>(`${BASE}/soil-temp-forecast`);
 
 // Seasonal plan
 export const getSeasonalPlan = (year?: number) => {
