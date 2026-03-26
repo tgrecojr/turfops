@@ -150,7 +150,7 @@ export const getSoilTempForecast = () =>
 export const getSoilTests = () =>
   fetchJson<SoilTest[]>(`${BASE}/soil-tests`);
 
-export const createSoilTest = (data: {
+type SoilTestData = {
   test_date: string;
   lab_name?: string;
   ph: number;
@@ -168,9 +168,17 @@ export const createSoilTest = (data: {
   organic_matter_pct?: number;
   cec?: number;
   notes?: string;
-}) =>
+};
+
+export const createSoilTest = (data: SoilTestData) =>
   fetchJson<SoilTest>(`${BASE}/soil-tests`, {
     method: 'POST',
+    body: JSON.stringify(data),
+  });
+
+export const updateSoilTest = (id: number, data: SoilTestData) =>
+  fetchJson<SoilTest>(`${BASE}/soil-tests/${id}`, {
+    method: 'PUT',
     body: JSON.stringify(data),
   });
 

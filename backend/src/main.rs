@@ -12,7 +12,7 @@ use crate::db::{pool::create_pool, queries};
 use crate::logic::data_sync::DataSyncService;
 use crate::models::{GrassType, IrrigationType, LawnProfile, SoilType};
 use crate::state::AppState;
-use axum::routing::{delete, get, patch, post};
+use axum::routing::{delete, get, patch, post, put};
 use axum::Router;
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -108,7 +108,7 @@ async fn main() -> anyhow::Result<()> {
         )
         .route(
             "/api/v1/soil-tests/{id}",
-            delete(api::soil_tests::delete_soil_test),
+            put(api::soil_tests::update_soil_test).delete(api::soil_tests::delete_soil_test),
         )
         .layer(RequestBodyLimitLayer::new(1024 * 1024)) // 1MB request body limit
         .layer(build_cors_layer(&config))

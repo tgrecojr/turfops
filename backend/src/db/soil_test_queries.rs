@@ -79,6 +79,50 @@ pub async fn create_soil_test(pool: &PgPool, test: &SoilTest) -> Result<i64> {
     Ok(row)
 }
 
+pub async fn update_soil_test(pool: &PgPool, id: i64, test: &SoilTest) -> Result<SoilTest> {
+    let row = sqlx::query_as::<_, SoilTestRow>(
+        r#"
+        UPDATE soil_tests SET
+            test_date = $2, lab_name = $3, ph = $4, buffer_ph = $5,
+            phosphorus_ppm = $6, potassium_ppm = $7, calcium_ppm = $8, magnesium_ppm = $9,
+            sulfur_ppm = $10, iron_ppm = $11, manganese_ppm = $12, zinc_ppm = $13,
+            boron_ppm = $14, copper_ppm = $15, organic_matter_pct = $16, cec = $17, notes = $18
+        WHERE id = $1
+        RETURNING id, lawn_profile_id, test_date, lab_name, ph, buffer_ph,
+            phosphorus_ppm, potassium_ppm, calcium_ppm, magnesium_ppm,
+            sulfur_ppm, iron_ppm, manganese_ppm, zinc_ppm, boron_ppm, copper_ppm,
+            organic_matter_pct, cec, notes, created_at
+        "#,
+    )
+    .bind(id)
+    .bind(test.test_date)
+    .bind(&test.lab_name)
+    .bind(test.ph)
+    .bind(test.buffer_ph)
+    .bind(test.phosphorus_ppm)
+    .bind(test.potassium_ppm)
+    .bind(test.calcium_ppm)
+    .bind(test.magnesium_ppm)
+    .bind(test.sulfur_ppm)
+    .bind(test.iron_ppm)
+    .bind(test.manganese_ppm)
+    .bind(test.zinc_ppm)
+    .bind(test.boron_ppm)
+    .bind(test.copper_ppm)
+    .bind(test.organic_matter_pct)
+    .bind(test.cec)
+    .bind(&test.notes)
+    .fetch_optional(pool)
+    .await?;
+
+    match row {
+        Some(r) => Ok(r.into_soil_test()),
+        None => Err(crate::error::TurfOpsError::NotFound(format!(
+            "Soil test {id} not found"
+        ))),
+    }
+}
+
 pub async fn delete_soil_test(pool: &PgPool, id: i64) -> Result<()> {
     sqlx::query("DELETE FROM soil_tests WHERE id = $1")
         .bind(id)

@@ -123,6 +123,60 @@ pub async fn create_soil_test(
     Ok((StatusCode::CREATED, Json(created)))
 }
 
+/// PUT /api/v1/soil-tests/:id
+pub async fn update_soil_test(
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+    Json(req): Json<CreateSoilTestRequest>,
+) -> Result<Json<SoilTest>, TurfOpsError> {
+    let profile = queries::get_default_lawn_profile(&state.pool)
+        .await?
+        .ok_or_else(|| TurfOpsError::NotFound("No lawn profile found".into()))?;
+
+    let profile_id = profile
+        .id
+        .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
+
+    let test_date = NaiveDate::parse_from_str(&req.test_date, "%Y-%m-%d").map_err(|_| {
+        TurfOpsError::InvalidData(format!(
+            "Invalid date format: {}. Expected YYYY-MM-DD",
+            req.test_date
+        ))
+    })?;
+
+    if req.ph < 0.0 || req.ph > 14.0 {
+        return Err(TurfOpsError::InvalidData(
+            "pH must be between 0 and 14".into(),
+        ));
+    }
+
+    let test = SoilTest {
+        id: Some(id),
+        lawn_profile_id: profile_id,
+        test_date,
+        lab_name: req.lab_name,
+        ph: req.ph,
+        buffer_ph: req.buffer_ph,
+        phosphorus_ppm: req.phosphorus_ppm,
+        potassium_ppm: req.potassium_ppm,
+        calcium_ppm: req.calcium_ppm,
+        magnesium_ppm: req.magnesium_ppm,
+        sulfur_ppm: req.sulfur_ppm,
+        iron_ppm: req.iron_ppm,
+        manganese_ppm: req.manganese_ppm,
+        zinc_ppm: req.zinc_ppm,
+        boron_ppm: req.boron_ppm,
+        copper_ppm: req.copper_ppm,
+        organic_matter_pct: req.organic_matter_pct,
+        cec: req.cec,
+        notes: req.notes,
+        created_at: Utc::now(),
+    };
+
+    let updated = soil_test_queries::update_soil_test(&state.pool, id, &test).await?;
+    Ok(Json(updated))
+}
+
 /// DELETE /api/v1/soil-tests/:id
 pub async fn delete_soil_test(
     State(state): State<AppState>,
