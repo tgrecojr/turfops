@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   createSoilTest,
+  updateSoilTest,
   deleteSoilTest,
   getSoilTests,
   getSoilTestRecommendations,
@@ -19,6 +20,7 @@ export default function SoilTests() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [formOpen, setFormOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   // Form fields
@@ -61,6 +63,7 @@ export default function SoilTests() {
   useEffect(() => { loadData(); }, [loadData]);
 
   const resetForm = () => {
+    setEditingId(null);
     setTestDate(new Date().toISOString().slice(0, 10));
     setLabName('');
     setPh('');
@@ -80,6 +83,28 @@ export default function SoilTests() {
     setNotes('');
   };
 
+  const handleEdit = (t: SoilTest) => {
+    setEditingId(t.id ?? null);
+    setTestDate(t.test_date);
+    setLabName(t.lab_name ?? '');
+    setPh(String(t.ph));
+    setBufferPh(t.buffer_ph != null ? String(t.buffer_ph) : '');
+    setPhosphorus(t.phosphorus_ppm != null ? String(t.phosphorus_ppm) : '');
+    setPotassium(t.potassium_ppm != null ? String(t.potassium_ppm) : '');
+    setCalcium(t.calcium_ppm != null ? String(t.calcium_ppm) : '');
+    setMagnesium(t.magnesium_ppm != null ? String(t.magnesium_ppm) : '');
+    setSulfur(t.sulfur_ppm != null ? String(t.sulfur_ppm) : '');
+    setIron(t.iron_ppm != null ? String(t.iron_ppm) : '');
+    setManganese(t.manganese_ppm != null ? String(t.manganese_ppm) : '');
+    setZinc(t.zinc_ppm != null ? String(t.zinc_ppm) : '');
+    setBoron(t.boron_ppm != null ? String(t.boron_ppm) : '');
+    setCopper(t.copper_ppm != null ? String(t.copper_ppm) : '');
+    setOrganicMatter(t.organic_matter_pct != null ? String(t.organic_matter_pct) : '');
+    setCec(t.cec != null ? String(t.cec) : '');
+    setNotes(t.notes ?? '');
+    setFormOpen(true);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!ph) { setError('pH is required'); return; }
@@ -87,7 +112,7 @@ export default function SoilTests() {
     setError('');
     try {
       const optNum = (v: string) => v ? Number(v) : undefined;
-      await createSoilTest({
+      const data = {
         test_date: testDate,
         lab_name: labName || undefined,
         ph: Number(ph),
@@ -105,12 +130,17 @@ export default function SoilTests() {
         organic_matter_pct: optNum(organicMatter),
         cec: optNum(cec),
         notes: notes || undefined,
-      });
+      };
+      if (editingId) {
+        await updateSoilTest(editingId, data);
+      } else {
+        await createSoilTest(data);
+      }
       resetForm();
       setFormOpen(false);
       await loadData();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to create soil test');
+      setError(e instanceof Error ? e.message : editingId ? 'Failed to update soil test' : 'Failed to create soil test');
     } finally {
       setSubmitting(false);
     }
@@ -131,7 +161,7 @@ export default function SoilTests() {
     <div>
       <div style={sharedStyles.headerRow}>
         <h1 style={sharedStyles.pageTitle}>Soil Tests</h1>
-        <button onClick={() => setFormOpen(!formOpen)} style={styles.addBtn}>
+        <button onClick={() => { if (formOpen) { resetForm(); setFormOpen(false); } else { setFormOpen(true); } }} style={styles.addBtn}>
           {formOpen ? 'Cancel' : '+ Add Soil Test'}
         </button>
       </div>
@@ -140,7 +170,7 @@ export default function SoilTests() {
 
       {formOpen && (
         <form onSubmit={handleSubmit} style={{ ...sharedStyles.card, marginBottom: '1.5rem' }}>
-          <h3 style={sharedStyles.sectionTitle}>New Soil Test</h3>
+          <h3 style={sharedStyles.sectionTitle}>{editingId ? 'Edit Soil Test' : 'New Soil Test'}</h3>
 
           <div style={styles.formSection}>
             <h4 style={styles.formSectionTitle}>Core</h4>
@@ -235,7 +265,7 @@ export default function SoilTests() {
           </div>
 
           <button type="submit" disabled={submitting} style={styles.submitBtn}>
-            {submitting ? 'Saving...' : 'Save Soil Test'}
+            {submitting ? 'Saving...' : editingId ? 'Update Soil Test' : 'Save Soil Test'}
           </button>
         </form>
       )}
@@ -274,7 +304,8 @@ export default function SoilTests() {
                   <td style={sharedStyles.td}>{t.calcium_ppm?.toFixed(0) ?? '-'}</td>
                   <td style={sharedStyles.td}>{t.magnesium_ppm?.toFixed(0) ?? '-'}</td>
                   <td style={sharedStyles.td}>{t.organic_matter_pct?.toFixed(1) ?? '-'}</td>
-                  <td style={sharedStyles.td}>
+                  <td style={{ ...sharedStyles.td, display: 'flex', gap: '0.5rem' }}>
+                    <button onClick={() => handleEdit(t)} style={styles.editBtn}>Edit</button>
                     <button onClick={() => t.id && handleDelete(t.id)} style={styles.deleteBtn}>Delete</button>
                   </td>
                 </tr>
@@ -444,6 +475,15 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     fontSize: '0.85rem',
     marginTop: '0.5rem',
+  },
+  editBtn: {
+    padding: '2px 8px',
+    backgroundColor: 'transparent',
+    color: '#3182ce',
+    border: '1px solid #3182ce',
+    borderRadius: 4,
+    cursor: 'pointer',
+    fontSize: '0.75rem',
   },
   deleteBtn: {
     padding: '2px 8px',
