@@ -48,7 +48,7 @@ export default function SoilTempForecastWidget({
 
       <div style={styles.mainRow}>
         <span style={styles.bigValue}>~{nearest.days_until_crossing}d</span>
-        <span style={styles.unit}>until {nearest.threshold_temp_f}\u00B0F</span>
+        <span style={styles.unit}>until {nearest.threshold_temp_f}°F</span>
       </div>
 
       <div style={styles.detail}>
@@ -70,7 +70,7 @@ export default function SoilTempForecastWidget({
           {upcoming.slice(1, 3).map((c, i) => (
             <div key={i} style={styles.moreItem}>
               {c.direction === 'Rising' ? '\u2191' : '\u2193'}{' '}
-              {c.threshold_temp_f}\u00B0F ({c.threshold_name}) ~{c.days_until_crossing}d
+              {c.threshold_temp_f}°F ({c.threshold_name}) ~{c.days_until_crossing}d
             </div>
           ))}
         </div>
