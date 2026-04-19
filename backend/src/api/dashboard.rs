@@ -56,7 +56,7 @@ pub async fn get_dashboard(
     recommendations.retain(|r| r.is_active());
 
     // Top 3 recommendations by severity
-    recommendations.sort_by(|a, b| b.severity.cmp(&a.severity));
+    recommendations.sort_by_key(|r| std::cmp::Reverse(r.severity));
     recommendations.truncate(3);
 
     // 5 most recent applications
