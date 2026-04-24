@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   createPlant,
   deletePlant,
@@ -30,6 +30,7 @@ export default function Landscape() {
   const [showForm, setShowForm] = useState(false);
   const [refreshingId, setRefreshingId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
 
   const fetchPlants = useCallback(async () => {
     try {
@@ -47,9 +48,36 @@ export default function Landscape() {
     fetchPlants();
   }, [fetchPlants]);
 
-  const handleCreated = () => {
+  const sortedPlants = useMemo(
+    () =>
+      [...plants].sort((a, b) =>
+        a.common_name.localeCompare(b.common_name, undefined, {
+          sensitivity: 'base',
+        })
+      ),
+    [plants]
+  );
+
+  const toggleExpanded = (id: number) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleCreated = (plant: Plant) => {
     setShowForm(false);
-    fetchPlants();
+    setPlants((prev) => [...prev, plant]);
+    if (plant.id != null) {
+      const newId = plant.id;
+      setExpandedIds((prev) => {
+        const next = new Set(prev);
+        next.add(newId);
+        return next;
+      });
+    }
   };
 
   const handleDelete = async (id: number, name: string) => {
@@ -58,6 +86,12 @@ export default function Landscape() {
     try {
       await deletePlant(id);
       setPlants((prev) => prev.filter((p) => p.id !== id));
+      setExpandedIds((prev) => {
+        if (!prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to delete');
     } finally {
@@ -103,11 +137,13 @@ export default function Landscape() {
           No plants yet. Click "+ Add Plant" to get started.
         </p>
       ) : (
-        <div style={styles.cardGrid}>
-          {plants.map((plant) => (
-            <PlantCard
+        <div style={styles.list}>
+          {sortedPlants.map((plant) => (
+            <PlantRow
               key={plant.id ?? plant.common_name}
               plant={plant}
+              expanded={plant.id != null && expandedIds.has(plant.id)}
+              onToggle={() => plant.id != null && toggleExpanded(plant.id)}
               onRefresh={() => plant.id != null && handleRefresh(plant.id)}
               onDelete={() =>
                 plant.id != null && handleDelete(plant.id, plant.common_name)
@@ -122,14 +158,18 @@ export default function Landscape() {
   );
 }
 
-function PlantCard({
+function PlantRow({
   plant,
+  expanded,
+  onToggle,
   onRefresh,
   onDelete,
   refreshing,
   deleting,
 }: {
   plant: Plant;
+  expanded: boolean;
+  onToggle: () => void;
   onRefresh: () => void;
   onDelete: () => void;
   refreshing: boolean;
@@ -140,13 +180,29 @@ function PlantCard({
     IDENTIFICATION_CONFIDENCE_COLORS[plan.identification_confidence];
 
   return (
-    <div style={styles.card}>
-      <div style={styles.cardHeader}>
-        <div>
-          <h2 style={styles.plantName}>{plant.common_name}</h2>
-          {plant.scientific_name && (
-            <div style={styles.sciName}>{plant.scientific_name}</div>
-          )}
+    <div style={styles.row}>
+      <button
+        type="button"
+        onClick={onToggle}
+        style={styles.rowHeader}
+        aria-expanded={expanded}
+      >
+        <span style={styles.chevron}>{expanded ? '▾' : '▸'}</span>
+        <div style={styles.rowHeaderMain}>
+          <div style={styles.rowTitleLine}>
+            <span style={styles.plantName}>{plant.common_name}</span>
+            {plant.scientific_name && (
+              <span style={styles.sciName}>{plant.scientific_name}</span>
+            )}
+          </div>
+          <div style={styles.metaRow}>
+            <span style={styles.metaItem}>{PLANT_TYPE_LABELS[plant.plant_type]}</span>
+            {plant.location && (
+              <span style={styles.metaItem}>📍 {plant.location}</span>
+            )}
+            <span style={styles.metaItem}>{plan.tasks.length} tasks</span>
+          </div>
+          {!expanded && <div style={styles.rowSummary}>{plan.summary}</div>}
         </div>
         <span
           style={{
@@ -154,67 +210,66 @@ function PlantCard({
             backgroundColor: confidenceColor + '22',
             color: confidenceColor,
             borderColor: confidenceColor,
+            flexShrink: 0,
           }}
           title="LLM identification confidence"
         >
           {plan.identification_confidence} confidence
         </span>
-      </div>
+      </button>
 
-      <div style={styles.metaRow}>
-        <span style={styles.metaItem}>{PLANT_TYPE_LABELS[plant.plant_type]}</span>
-        {plant.location && (
-          <span style={styles.metaItem}>📍 {plant.location}</span>
-        )}
-        {plant.planting_date && (
-          <span style={styles.metaItem}>Planted {plant.planting_date}</span>
-        )}
-      </div>
+      {expanded && (
+        <div style={styles.rowBody}>
+          <p style={styles.summary}>{plan.summary}</p>
 
-      <p style={styles.summary}>{plan.summary}</p>
+          {plant.planting_date && (
+            <div style={styles.bodyMeta}>Planted {plant.planting_date}</div>
+          )}
 
-      {plan.warnings.length > 0 && (
-        <div style={styles.warningsBox}>
-          {plan.warnings.map((w, i) => (
-            <div key={i} style={styles.warning}>
-              ⚠ {w}
+          {plan.warnings.length > 0 && (
+            <div style={styles.warningsBox}>
+              {plan.warnings.map((w, i) => (
+                <div key={i} style={styles.warning}>
+                  ⚠ {w}
+                </div>
+              ))}
             </div>
-          ))}
+          )}
+
+          <h3 style={styles.tasksHeading}>Maintenance tasks ({plan.tasks.length})</h3>
+          {plan.tasks.length === 0 ? (
+            <p style={sharedStyles.empty}>No tasks in this plan.</p>
+          ) : (
+            <ul style={styles.taskList}>
+              {plan.tasks.map((task, idx) => (
+                <TaskRow key={idx} task={task} />
+              ))}
+            </ul>
+          )}
+
+          <div style={styles.rowFooter}>
+            <div style={styles.footerMeta}>
+              Plan generated {formatDate(plant.plan_generated_at)} · {plant.plan_model}
+            </div>
+            <div style={styles.footerButtons}>
+              <button
+                style={styles.secondaryBtn}
+                onClick={onRefresh}
+                disabled={refreshing}
+              >
+                {refreshing ? 'Regenerating…' : 'Regenerate plan'}
+              </button>
+              <button
+                style={styles.deleteBtn}
+                onClick={onDelete}
+                disabled={deleting}
+              >
+                {deleting ? 'Deleting…' : 'Delete'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
-
-      <h3 style={styles.tasksHeading}>Maintenance tasks ({plan.tasks.length})</h3>
-      {plan.tasks.length === 0 ? (
-        <p style={sharedStyles.empty}>No tasks in this plan.</p>
-      ) : (
-        <ul style={styles.taskList}>
-          {plan.tasks.map((task, idx) => (
-            <TaskRow key={idx} task={task} />
-          ))}
-        </ul>
-      )}
-
-      <div style={styles.cardFooter}>
-        <div style={styles.footerMeta}>
-          Plan generated {formatDate(plant.plan_generated_at)} · {plant.plan_model}
-        </div>
-        <div style={styles.footerButtons}>
-          <button
-            style={styles.secondaryBtn}
-            onClick={onRefresh}
-            disabled={refreshing}
-          >
-            {refreshing ? 'Regenerating…' : 'Regenerate plan'}
-          </button>
-          <button
-            style={styles.deleteBtn}
-            onClick={onDelete}
-            disabled={deleting}
-          >
-            {deleting ? 'Deleting…' : 'Delete'}
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
@@ -240,7 +295,7 @@ function AddPlantForm({
   onCreated,
   onError,
 }: {
-  onCreated: () => void;
+  onCreated: (plant: Plant) => void;
   onError: (msg: string) => void;
 }) {
   const [input, setInput] = useState('');
@@ -258,7 +313,7 @@ function AddPlantForm({
       // Heuristic: two-word "Genus species" with capital first letter → treat as scientific.
       const looksScientific =
         /^[A-Z][a-z]+\s+[a-z]+/.test(trimmed) && trimmed.split(/\s+/).length >= 2;
-      await createPlant({
+      const created = await createPlant({
         common_name: looksScientific ? undefined : trimmed,
         scientific_name: looksScientific ? trimmed : undefined,
         plant_type: plantType,
@@ -266,7 +321,7 @@ function AddPlantForm({
         planting_date: plantingDate || undefined,
         notes: notes || undefined,
       });
-      onCreated();
+      onCreated(created);
     } catch (err) {
       onError(err instanceof Error ? err.message : 'Failed to create plant');
     } finally {
@@ -369,36 +424,71 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     fontSize: '0.85rem',
   },
-  cardGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
-    gap: '1rem',
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: '1rem',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+  list: {
     display: 'flex',
     flexDirection: 'column',
+    gap: '0.5rem',
+    maxWidth: 960,
   },
-  cardHeader: {
+  row: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+    overflow: 'hidden',
+  },
+  rowHeader: {
     display: 'flex',
-    justifyContent: 'space-between',
     alignItems: 'flex-start',
-    gap: 8,
-    marginBottom: 6,
+    gap: '0.75rem',
+    width: '100%',
+    padding: '0.75rem 1rem',
+    backgroundColor: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    textAlign: 'left',
+    fontFamily: 'inherit',
   },
-  plantName: { fontSize: '1.1rem', color: '#1a202c', margin: 0 },
+  chevron: {
+    fontSize: '0.85rem',
+    color: '#4a5568',
+    marginTop: 4,
+    width: 12,
+    flexShrink: 0,
+  },
+  rowHeaderMain: {
+    flex: 1,
+    minWidth: 0,
+  },
+  rowTitleLine: {
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: '0.5rem',
+    flexWrap: 'wrap',
+  },
+  rowSummary: {
+    fontSize: '0.8rem',
+    color: '#4a5568',
+    marginTop: 4,
+  },
+  rowBody: {
+    padding: '0.75rem 1rem 1rem',
+    borderTop: '1px solid #edf2f7',
+  },
+  bodyMeta: {
+    fontSize: '0.75rem',
+    color: '#4a5568',
+    marginBottom: '0.5rem',
+  },
+  plantName: { fontSize: '1.05rem', color: '#1a202c', fontWeight: 600 },
   sciName: { fontSize: '0.8rem', color: '#718096', fontStyle: 'italic' },
   metaRow: {
     display: 'flex',
     flexWrap: 'wrap',
     gap: '0.5rem',
-    marginBottom: '0.5rem',
+    marginTop: 2,
   },
   metaItem: { fontSize: '0.75rem', color: '#4a5568' },
-  summary: { fontSize: '0.85rem', color: '#2d3748', marginBottom: '0.75rem' },
+  summary: { fontSize: '0.85rem', color: '#2d3748', marginBottom: '0.75rem', marginTop: 0 },
   warningsBox: {
     backgroundColor: '#fefce8',
     border: '1px solid #fde68a',
@@ -441,14 +531,14 @@ const styles: Record<string, React.CSSProperties> = {
     fontStyle: 'italic',
     marginTop: 2,
   },
-  cardFooter: {
-    marginTop: 'auto',
+  rowFooter: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: '0.5rem',
     paddingTop: '0.5rem',
     borderTop: '1px solid #edf2f7',
+    flexWrap: 'wrap',
   },
   footerMeta: { fontSize: '0.7rem', color: '#a0aec0' },
   footerButtons: { display: 'flex', gap: '0.5rem' },
