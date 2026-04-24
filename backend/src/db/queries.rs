@@ -99,7 +99,8 @@ pub async fn get_applications_for_profile(
     let rows = sqlx::query_as::<_, ApplicationRow>(
         r#"SELECT id, lawn_profile_id, application_type, product_name, application_date,
            rate_per_1000sqft, coverage_sqft, notes, soil_temp_10cm_f, ambient_temp_f,
-           humidity_percent, soil_moisture, nitrogen_pct, phosphorus_pct, potassium_pct, created_at
+           humidity_percent, soil_moisture, nitrogen_pct, phosphorus_pct, potassium_pct,
+           plant_id, created_at
            FROM applications WHERE lawn_profile_id = $1 ORDER BY application_date DESC
            LIMIT $2 OFFSET $3"#,
     )
@@ -121,7 +122,8 @@ pub async fn get_applications_for_profile_in_range(
     let rows = sqlx::query_as::<_, ApplicationRow>(
         r#"SELECT id, lawn_profile_id, application_type, product_name, application_date,
            rate_per_1000sqft, coverage_sqft, notes, soil_temp_10cm_f, ambient_temp_f,
-           humidity_percent, soil_moisture, nitrogen_pct, phosphorus_pct, potassium_pct, created_at
+           humidity_percent, soil_moisture, nitrogen_pct, phosphorus_pct, potassium_pct,
+           plant_id, created_at
            FROM applications
            WHERE lawn_profile_id = $1 AND application_date >= $2 AND application_date < $3
            ORDER BY application_date DESC"#,
@@ -143,8 +145,8 @@ pub async fn create_application(pool: &PgPool, app: &Application) -> Result<i64>
             (lawn_profile_id, application_type, product_name, application_date,
              rate_per_1000sqft, coverage_sqft, notes,
              soil_temp_10cm_f, ambient_temp_f, humidity_percent, soil_moisture,
-             nitrogen_pct, phosphorus_pct, potassium_pct)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+             nitrogen_pct, phosphorus_pct, potassium_pct, plant_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         RETURNING id
         "#,
     )
@@ -162,6 +164,7 @@ pub async fn create_application(pool: &PgPool, app: &Application) -> Result<i64>
     .bind(app.nitrogen_pct)
     .bind(app.phosphorus_pct)
     .bind(app.potassium_pct)
+    .bind(app.plant_id)
     .fetch_one(pool)
     .await?;
 
@@ -332,6 +335,7 @@ struct ApplicationRow {
     nitrogen_pct: Option<f64>,
     phosphorus_pct: Option<f64>,
     potassium_pct: Option<f64>,
+    plant_id: Option<i64>,
     created_at: DateTime<Utc>,
 }
 
@@ -374,6 +378,7 @@ impl ApplicationRow {
             nitrogen_pct: self.nitrogen_pct,
             phosphorus_pct: self.phosphorus_pct,
             potassium_pct: self.potassium_pct,
+            plant_id: self.plant_id,
             created_at: self.created_at,
         }
     }

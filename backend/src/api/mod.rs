@@ -6,6 +6,7 @@ pub mod gdd;
 pub mod health;
 pub mod historical;
 pub mod nitrogen_budget;
+pub mod plants;
 pub mod profile;
 pub mod recommendations;
 pub mod seasonal_plan;

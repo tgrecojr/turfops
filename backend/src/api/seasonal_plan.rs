@@ -1,5 +1,6 @@
-use crate::db::queries;
+use crate::db::{plant_queries, queries};
 use crate::error::TurfOpsError;
+use crate::logic::plant_maintenance::build_plant_activities;
 use crate::logic::seasonal_plan::{build_seasonal_plan, find_threshold_crossings};
 use crate::models::seasonal_plan::SeasonalPlan;
 use crate::state::AppState;
@@ -116,7 +117,15 @@ pub async fn get_seasonal_plan(
     )
     .await?;
 
-    let plan = build_seasonal_plan(year, &all_crossings, &applications, data_years);
+    let mut plan = build_seasonal_plan(year, &all_crossings, &applications, data_years);
+
+    // Overlay plant-maintenance activities from the landscape feature.
+    let plants = plant_queries::list_plants_for_profile(&state.pool, profile_id).await?;
+    let today = Local::now().date_naive();
+    plan.activities
+        .extend(build_plant_activities(&plants, &applications, year, today));
+    plan.activities
+        .sort_by_key(|a| a.date_window.predicted_start);
 
     Ok(Json(plan))
 }

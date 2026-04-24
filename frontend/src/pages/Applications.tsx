@@ -3,10 +3,11 @@ import {
   createApplication,
   deleteApplication,
   getApplications,
+  listPlants,
 } from '../api/client';
 import { appTypeBadgeStyle, sharedStyles } from '../styles/shared';
-import type { Application, ApplicationType } from '../types';
-import { APPLICATION_TYPE_LABELS } from '../types';
+import type { Application, ApplicationType, Plant } from '../types';
+import { APPLICATION_TYPE_LABELS, isPlantScopedApplicationType } from '../types';
 
 const APP_TYPES: ApplicationType[] = [
   'PreEmergent',
@@ -23,6 +24,11 @@ const APP_TYPES: ApplicationType[] = [
   'Wetting',
   'Mowing',
   'Other',
+  'Pruning',
+  'PlantFertilizer',
+  'Mulching',
+  'Deadheading',
+  'WinterProtection',
 ];
 
 export default function Applications() {
@@ -168,7 +174,7 @@ function AddForm({
   onCreated: () => void;
   onError: (msg: string) => void;
 }) {
-  const [appType, setAppType] = useState<string>('Fertilizer');
+  const [appType, setAppType] = useState<ApplicationType>('Fertilizer');
   const [productName, setProductName] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [rate, setRate] = useState('');
@@ -177,10 +183,25 @@ function AddForm({
   const [nitrogenPct, setNitrogenPct] = useState('');
   const [phosphorusPct, setPhosphorusPct] = useState('');
   const [potassiumPct, setPotassiumPct] = useState('');
+  const [plants, setPlants] = useState<Plant[]>([]);
+  const [plantId, setPlantId] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
+
+  const plantScoped = isPlantScopedApplicationType(appType);
+
+  useEffect(() => {
+    // Only fetch plants once; they rarely change during a form session.
+    listPlants()
+      .then(setPlants)
+      .catch(() => setPlants([]));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (plantScoped && !plantId) {
+      onError('Select which plant this action is for.');
+      return;
+    }
     setSubmitting(true);
     try {
       await createApplication({
@@ -193,6 +214,7 @@ function AddForm({
         nitrogen_pct: nitrogenPct ? parseFloat(nitrogenPct) : undefined,
         phosphorus_pct: phosphorusPct ? parseFloat(phosphorusPct) : undefined,
         potassium_pct: potassiumPct ? parseFloat(potassiumPct) : undefined,
+        plant_id: plantScoped && plantId ? parseInt(plantId, 10) : undefined,
       });
       onCreated();
     } catch (err) {
@@ -210,7 +232,7 @@ function AddForm({
           <select
             style={styles.input}
             value={appType}
-            onChange={(e) => setAppType(e.target.value)}
+            onChange={(e) => setAppType(e.target.value as ApplicationType)}
           >
             {APP_TYPES.map((t) => (
               <option key={t} value={t}>
@@ -219,6 +241,25 @@ function AddForm({
             ))}
           </select>
         </div>
+        {plantScoped && (
+          <div>
+            <label style={styles.formLabel}>Plant</label>
+            <select
+              style={styles.input}
+              value={plantId}
+              onChange={(e) => setPlantId(e.target.value)}
+              required
+            >
+              <option value="">Select a plant…</option>
+              {plants.map((p) => (
+                <option key={p.id ?? p.common_name} value={p.id ?? ''}>
+                  {p.common_name}
+                  {p.location ? ` (${p.location})` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div>
           <label style={styles.formLabel}>Date</label>
           <input

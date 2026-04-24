@@ -18,6 +18,7 @@ pub enum RecommendationCategory {
     Aeration,
     SoilTempForecast,
     SoilTest,
+    PlantMaintenance,
     General,
 }
 
@@ -39,6 +40,7 @@ impl RecommendationCategory {
             RecommendationCategory::Aeration => "Aeration",
             RecommendationCategory::SoilTempForecast => "Soil Temp Forecast",
             RecommendationCategory::SoilTest => "Soil Test",
+            RecommendationCategory::PlantMaintenance => "Plant Maintenance",
             RecommendationCategory::General => "General",
         }
     }

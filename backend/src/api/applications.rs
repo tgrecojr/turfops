@@ -64,6 +64,7 @@ pub struct CreateApplicationRequest {
     pub nitrogen_pct: Option<f64>,
     pub phosphorus_pct: Option<f64>,
     pub potassium_pct: Option<f64>,
+    pub plant_id: Option<i64>,
 }
 
 pub async fn create_application(
@@ -89,6 +90,14 @@ pub async fn create_application(
             ))
         })?;
 
+    // Plant-scoped application types require a plant_id.
+    if application_type.is_plant_scoped() && req.plant_id.is_none() {
+        return Err(TurfOpsError::InvalidData(format!(
+            "Application type {} requires plant_id",
+            application_type
+        )));
+    }
+
     let app = Application {
         id: None,
         lawn_profile_id: profile
@@ -104,6 +113,7 @@ pub async fn create_application(
         nitrogen_pct: req.nitrogen_pct,
         phosphorus_pct: req.phosphorus_pct,
         potassium_pct: req.potassium_pct,
+        plant_id: req.plant_id,
         created_at: Utc::now(),
     };
 

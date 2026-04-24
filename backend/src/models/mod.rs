@@ -6,6 +6,7 @@ pub mod gdd;
 pub mod historical;
 pub mod lawn_profile;
 pub mod nitrogen_budget;
+pub mod plant;
 pub mod recommendation;
 pub mod seasonal_plan;
 pub mod soil_temp_prediction;

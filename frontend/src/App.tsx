@@ -6,6 +6,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Applications = lazy(() => import('./pages/Applications'));
 const Calendar = lazy(() => import('./pages/Calendar'));
 const Environmental = lazy(() => import('./pages/Environmental'));
+const Landscape = lazy(() => import('./pages/Landscape'));
 const Recommendations = lazy(() => import('./pages/Recommendations'));
 const SoilTests = lazy(() => import('./pages/SoilTests'));
 const SeasonalPlan = lazy(() => import('./pages/SeasonalPlan'));
@@ -84,6 +85,7 @@ export default function App() {
             <Route element={<Layout />}>
               <Route index element={<Dashboard />} />
               <Route path="applications" element={<Applications />} />
+              <Route path="landscape" element={<Landscape />} />
               <Route path="calendar" element={<Calendar />} />
               <Route path="environmental" element={<Environmental />} />
               <Route path="recommendations" element={<Recommendations />} />

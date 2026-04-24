@@ -9,6 +9,7 @@ A containerized web application for tracking lawn care activities and providing 
 - **Smart Recommendations**: 18 agronomic rules provide data-driven alerts for optimal treatment timing
 - **Calendar View**: Visualize application history and seasonal plan activity windows with colored indicators
 - **Seasonal Plan Integration**: Calendar overlays predicted activity windows from the seasonal plan alongside actual applications
+- **Landscape Maintenance** *(optional)*: Track shrubs, trees, and perennials alongside turf. Enter a plant by common or scientific name and get a homeowner-level care plan (pruning windows, fertilizing, mulching) that overlays Calendar, Seasonal Plan, and Recommendations. Powered by an LLM through OpenRouter and cached per plant.
 - **FRAC Rotation**: Fungicide resistance management with automatic class rotation recommendations
 - **Demand-Driven Refresh**: Sensor data refreshes only when viewed (5-min staleness for sensors, 30-min for forecasts)
 
@@ -63,6 +64,7 @@ Tagged releases are also available by version (e.g., `ghcr.io/tgrecojr/turfops:1
 - (Optional) [SoilData](https://github.com/tgrecojr/soildata) PostgreSQL database for NOAA soil data
 - (Optional) Home Assistant instance with temperature/humidity sensors
 - (Optional) OpenWeatherMap API key for forecast-based rules
+- (Optional) [OpenRouter](https://openrouter.ai) API key to enable the Landscape Maintenance feature
 
 ### 1. Configure
 
@@ -198,6 +200,23 @@ Enables forecast-based rules (rain delay, heat stress warnings, optimal applicat
 
 Sign up for a free API key at [openweathermap.org](https://openweathermap.org/api). The free tier (1,000 calls/day) is more than sufficient.
 
+### OpenRouter (Optional — Landscape Maintenance)
+
+Enables the **Landscape** page, which generates a homeowner-level maintenance plan for each plant you add (pruning windows, fertilizing, mulching, deadheading, winter protection). Plans are generated once per plant through an LLM on [OpenRouter](https://openrouter.ai) and cached in Postgres, so there is no recurring per-view cost — only on plant creation or a manual "Regenerate plan" click.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `OPENROUTER_API_KEY` | OpenRouter API key | *(empty — feature disabled if not set)* |
+| `OPENROUTER_MODEL` | Model identifier | `anthropic/claude-haiku-4-5` |
+| `OPENROUTER_ENABLED` | Enable/disable the feature | `true` |
+| `OPENROUTER_BASE_URL` | API base URL | `https://openrouter.ai/api/v1` |
+
+> **Feature flag behavior**: The **presence of `OPENROUTER_API_KEY` is the feature flag** — there is no separate toggle. `OPENROUTER_ENABLED` is a second kill-switch you can flip without rotating the key. When disabled:
+>
+> - The `/landscape` page still loads, but adding a plant or regenerating a plan returns a clear `503 — OpenRouter not configured` error.
+> - **Existing cached plans stay visible.** Plant rows you added earlier still appear on the Landscape page, and their maintenance windows still overlay Calendar, Seasonal Plan, and Recommendations. Only *new* plan generation and *regenerating* existing plans are blocked.
+> - All turf features continue to work unchanged.
+
 ### Server
 
 | Variable | Description | Default |
@@ -248,6 +267,11 @@ OWM_API_KEY=your_api_key_here
 OWM_LATITUDE=40.71
 OWM_LONGITUDE=-74.01
 
+# OpenRouter (optional — enables the Landscape Maintenance feature)
+OPENROUTER_API_KEY=your_openrouter_key_here
+# OPENROUTER_MODEL=anthropic/claude-haiku-4-5
+# OPENROUTER_ENABLED=true
+
 # Logging
 RUST_LOG=info
 ```
@@ -280,6 +304,13 @@ RUST_LOG=info
 | `POST` | `/api/v1/environmental/refresh` | Force immediate data refresh |
 | `GET` | `/api/v1/recommendations` | Active recommendations from rules engine |
 | `PATCH` | `/api/v1/recommendations/:id` | Mark recommendation addressed/dismissed |
+| `GET` | `/api/v1/seasonal-plan?year=Y` | Full year of predicted activity windows (turf + plants) |
+| `GET` | `/api/v1/plants` | List plants for the active profile |
+| `POST` | `/api/v1/plants` | Add a plant — backend calls OpenRouter and caches the plan |
+| `GET` | `/api/v1/plants/:id` | Single plant with cached maintenance plan |
+| `PUT` | `/api/v1/plants/:id` | Update plant metadata (name, location, notes) |
+| `DELETE` | `/api/v1/plants/:id` | Delete a plant |
+| `POST` | `/api/v1/plants/:id/refresh-plan` | Regenerate the cached plan via OpenRouter |
 
 ## Pages
 
@@ -287,9 +318,11 @@ RUST_LOG=info
 |------|-------------|
 | **Dashboard** | Gauges for soil temp, ambient temp, humidity, and soil moisture. Active alerts and recent applications. Auto-refreshes every 30 seconds. |
 | **Applications** | Filterable table of all lawn treatments including mowing. Add new applications with type, product, rate, and notes. |
-| **Calendar** | Month grid view with colored dots for applications and status-colored bars for seasonal plan activity windows. Click any date to see details for both. |
+| **Calendar** | Month grid view with colored dots for applications and status-colored bars for seasonal plan activity windows. Plant-maintenance windows render as outlined bars (distinct from filled turf bars). Click any date to see details grouped into Applications, Turf Activities, and Plant Maintenance. |
+| **Landscape** | Add plants by common or scientific name to get a homeowner-level care plan (pruning, fertilizing, mulching, etc.) per plant. Each card shows the plan summary, task windows, warnings, and a "Regenerate plan" button. **Requires `OPENROUTER_API_KEY`** — see [OpenRouter](#openrouter-optional--landscape-maintenance). |
 | **Environmental** | Detailed sensor data, soil depth readings, 7-day trends and averages. |
-| **Recommendations** | Active recommendations from the rules engine. Mark as addressed or dismiss. |
+| **Recommendations** | Active recommendations from the rules engine, including a new **Plant Maintenance** category when a plant's care window is open. Mark as addressed or dismiss. |
+| **Seasonal Plan** | Full-year timeline of predicted activity windows. When plants are configured, a **All / Turf / Plants** filter appears so you can view them separately. |
 | **Settings** | Edit lawn profile (grass type, zone, soil type, size, irrigation). |
 
 ## Development

@@ -153,11 +153,14 @@ function ActivityCard({ activity }: { activity: PlannedActivity }) {
   );
 }
 
+type CategoryFilter = 'All' | 'Turf' | 'Plants';
+
 export default function SeasonalPlan() {
   const [plan, setPlan] = useState<SeasonalPlanType | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [year, setYear] = useState(new Date().getFullYear());
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('All');
   const abortRef = useRef<AbortController | null>(null);
 
   const fetchPlan = useCallback(async (y: number) => {
@@ -210,13 +213,21 @@ export default function SeasonalPlan() {
 
   if (!plan) return null;
 
-  const statusCounts = plan.activities.reduce(
+  const filteredActivities = plan.activities.filter((a) => {
+    if (categoryFilter === 'All') return true;
+    const isPlant = a.category === 'Plant Maintenance';
+    return categoryFilter === 'Plants' ? isPlant : !isPlant;
+  });
+
+  const statusCounts = filteredActivities.reduce(
     (acc, a) => {
       acc[a.status] = (acc[a.status] || 0) + 1;
       return acc;
     },
     {} as Record<string, number>,
   );
+
+  const hasPlants = plan.activities.some((a) => a.category === 'Plant Maintenance');
 
   return (
     <div style={styles.page}>
@@ -264,16 +275,35 @@ export default function SeasonalPlan() {
         )}
       </div>
 
+      {hasPlants && (
+        <div style={styles.filterRow}>
+          {(['All', 'Turf', 'Plants'] as CategoryFilter[]).map((f) => (
+            <button
+              key={f}
+              onClick={() => setCategoryFilter(f)}
+              style={{
+                ...styles.filterBtn,
+                backgroundColor: f === categoryFilter ? '#3182ce' : '#e2e8f0',
+                color: f === categoryFilter ? '#fff' : '#4a5568',
+              }}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div style={styles.timeline}>
-        {plan.activities.map((activity) => (
+        {filteredActivities.map((activity) => (
           <ActivityCard key={activity.id} activity={activity} />
         ))}
       </div>
 
-      {plan.activities.length === 0 && (
+      {filteredActivities.length === 0 && (
         <div style={styles.empty}>
-          No activities could be projected for {year}. Insufficient historical
-          data may be the cause.
+          {plan.activities.length === 0
+            ? `No activities could be projected for ${year}. Insufficient historical data may be the cause.`
+            : `No ${categoryFilter.toLowerCase()} activities for ${year}.`}
         </div>
       )}
     </div>
@@ -329,6 +359,19 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.8rem',
     fontWeight: 600,
     border: '1px solid',
+  },
+  filterRow: {
+    display: 'flex',
+    gap: 6,
+    marginBottom: '1rem',
+  },
+  filterBtn: {
+    padding: '0.35rem 0.8rem',
+    border: 'none',
+    borderRadius: 6,
+    cursor: 'pointer',
+    fontSize: '0.8rem',
+    fontWeight: 600,
   },
   card: {
     marginBottom: 0,
