@@ -8,6 +8,7 @@ mod models;
 mod state;
 
 use crate::config::Config;
+use crate::datasources::OpenRouterClient;
 use crate::db::{pool::create_pool, queries};
 use crate::logic::data_sync::DataSyncService;
 use crate::models::{GrassType, IrrigationType, LawnProfile, SoilType};
@@ -45,8 +46,23 @@ async fn main() -> anyhow::Result<()> {
     // Initialize data sync service (connects to external datasources)
     let sync_service = DataSyncService::initialize(&config, pool.clone()).await;
 
+    // Initialize OpenRouter client (optional, used for plant maintenance plans)
+    let openrouter = config
+        .openrouter
+        .as_ref()
+        .filter(|c| c.enabled && !c.api_key.is_empty())
+        .map(|c| {
+            tracing::info!(model = %c.model, "OpenRouter client configured for plant plans");
+            OpenRouterClient::new(c.clone())
+        });
+    if openrouter.is_none() {
+        tracing::info!(
+            "OpenRouter not configured — landscape maintenance plan generation unavailable"
+        );
+    }
+
     // Create app state
-    let state = AppState::new(pool, sync_service);
+    let state = AppState::new(pool, sync_service, openrouter);
 
     // Build router
     let app = Router::new()
@@ -93,6 +109,20 @@ async fn main() -> anyhow::Result<()> {
         .route(
             "/api/v1/seasonal-plan",
             get(api::seasonal_plan::get_seasonal_plan),
+        )
+        .route(
+            "/api/v1/plants",
+            get(api::plants::list_plants).post(api::plants::create_plant),
+        )
+        .route(
+            "/api/v1/plants/{id}",
+            get(api::plants::get_plant)
+                .put(api::plants::update_plant)
+                .delete(api::plants::delete_plant),
+        )
+        .route(
+            "/api/v1/plants/{id}/refresh-plan",
+            post(api::plants::refresh_plant_plan),
         )
         .route(
             "/api/v1/soil-temp-forecast",

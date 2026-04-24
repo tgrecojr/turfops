@@ -9,6 +9,7 @@ pub struct Config {
     pub soildata: SoilDataConfig,
     pub homeassistant: HomeAssistantConfig,
     pub openweathermap: Option<OpenWeatherMapConfig>,
+    pub openrouter: Option<OpenRouterConfig>,
     pub server: ServerConfig,
     pub database: DatabaseConfig,
 }
@@ -110,6 +111,36 @@ impl std::fmt::Debug for OpenWeatherMapConfig {
             .field("latitude", &self.latitude)
             .field("longitude", &self.longitude)
             .field("enabled", &self.enabled)
+            .finish()
+    }
+}
+
+#[derive(Clone, Deserialize)]
+pub struct OpenRouterConfig {
+    pub api_key: String,
+    #[serde(default = "default_openrouter_model")]
+    pub model: String,
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
+    #[serde(default = "default_openrouter_base_url")]
+    pub base_url: String,
+}
+
+fn default_openrouter_model() -> String {
+    "anthropic/claude-haiku-4-5".to_string()
+}
+
+fn default_openrouter_base_url() -> String {
+    "https://openrouter.ai/api/v1".to_string()
+}
+
+impl std::fmt::Debug for OpenRouterConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("OpenRouterConfig")
+            .field("api_key", &"[REDACTED]")
+            .field("model", &self.model)
+            .field("enabled", &self.enabled)
+            .field("base_url", &self.base_url)
             .finish()
     }
 }
@@ -226,6 +257,14 @@ impl Config {
                     latitude: env_or("OWM_LATITUDE", "0").parse().unwrap_or(0.0),
                     longitude: env_or("OWM_LONGITUDE", "0").parse().unwrap_or(0.0),
                     enabled: env_or("OWM_ENABLED", "true") == "true",
+                }),
+            openrouter: std::env::var("OPENROUTER_API_KEY")
+                .ok()
+                .map(|api_key| OpenRouterConfig {
+                    api_key,
+                    model: env_or("OPENROUTER_MODEL", "anthropic/claude-haiku-4-5"),
+                    enabled: env_or("OPENROUTER_ENABLED", "true") == "true",
+                    base_url: env_or("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
                 }),
             server: ServerConfig {
                 host: env_or("SERVER_HOST", "0.0.0.0"),

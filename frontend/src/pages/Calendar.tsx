@@ -226,17 +226,22 @@ export default function Calendar() {
                       {/* Planned activity bars */}
                       {dayActivities.length > 0 && (
                         <div style={styles.activityBars}>
-                          {dayActivities.map((a) => (
-                            <span
-                              key={a.id}
-                              style={{
-                                ...styles.activityBar,
-                                backgroundColor:
-                                  ACTIVITY_STATUS_COLORS[a.status],
-                              }}
-                              title={a.name}
-                            />
-                          ))}
+                          {dayActivities.map((a) => {
+                            const isPlant = a.category === 'Plant Maintenance';
+                            const color = ACTIVITY_STATUS_COLORS[a.status];
+                            return (
+                              <span
+                                key={a.id}
+                                style={{
+                                  ...styles.activityBar,
+                                  backgroundColor: isPlant ? 'transparent' : color,
+                                  border: isPlant ? `2px solid ${color}` : 'none',
+                                  height: isPlant ? 2 : 4,
+                                }}
+                                title={`${a.name}${isPlant ? ' (plant)' : ''}`}
+                              />
+                            );
+                          })}
                         </div>
                       )}
                     </td>
@@ -278,11 +283,17 @@ export default function Calendar() {
             </div>
           )}
 
-          {/* Planned activities section */}
+          {/* Planned activities section — grouped by turf vs plants */}
           {selectedActivities.length > 0 && (
             <div>
-              <h4 style={styles.sectionLabel}>Planned Activities</h4>
-              {selectedActivities.map((activity) => (
+              <h4 style={styles.sectionLabel}>
+                {selectedActivities.some((a) => a.category === 'Plant Maintenance')
+                  ? 'Turf Activities'
+                  : 'Planned Activities'}
+              </h4>
+              {selectedActivities
+                .filter((a) => a.category !== 'Plant Maintenance')
+                .map((activity) => (
                 <div key={activity.id} style={styles.activityDetailCard}>
                   <div style={styles.activityDetailHeader}>
                     <span
@@ -324,6 +335,44 @@ export default function Calendar() {
                   )}
                 </div>
               ))}
+              {/* Plant maintenance subsection */}
+              {selectedActivities.some((a) => a.category === 'Plant Maintenance') && (
+                <>
+                  <h4 style={{ ...styles.sectionLabel, marginTop: '1rem' }}>
+                    Plant Maintenance
+                  </h4>
+                  {selectedActivities
+                    .filter((a) => a.category === 'Plant Maintenance')
+                    .map((activity) => (
+                      <div key={activity.id} style={styles.activityDetailCard}>
+                        <div style={styles.activityDetailHeader}>
+                          <span
+                            style={{
+                              ...styles.statusBadge,
+                              backgroundColor:
+                                ACTIVITY_STATUS_COLORS[activity.status] + '22',
+                              color: ACTIVITY_STATUS_COLORS[activity.status],
+                              borderColor: ACTIVITY_STATUS_COLORS[activity.status],
+                            }}
+                          >
+                            {activity.status}
+                          </span>
+                          <span style={{ fontWeight: 500 }}>{activity.name}</span>
+                        </div>
+                        <div style={styles.activityMeta}>
+                          {formatDateRange(
+                            activity.date_window.predicted_start,
+                            activity.date_window.predicted_end
+                          )}
+                        </div>
+                        <div style={styles.notes}>{activity.description}</div>
+                        {activity.details.notes && (
+                          <div style={styles.notes}>{activity.details.notes}</div>
+                        )}
+                      </div>
+                    ))}
+                </>
+              )}
             </div>
           )}
 

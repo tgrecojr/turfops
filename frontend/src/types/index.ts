@@ -45,6 +45,7 @@ export interface Application {
   nitrogen_pct: number | null;
   phosphorus_pct: number | null;
   potassium_pct: number | null;
+  plant_id?: number | null;
   created_at: string;
 }
 
@@ -62,7 +63,84 @@ export type ApplicationType =
   | 'Sulfur'
   | 'Wetting'
   | 'Mowing'
+  | 'Other'
+  | 'Pruning'
+  | 'PlantFertilizer'
+  | 'Mulching'
+  | 'Deadheading'
+  | 'WinterProtection';
+
+export const PLANT_SCOPED_APPLICATION_TYPES: ApplicationType[] = [
+  'Pruning',
+  'PlantFertilizer',
+  'Mulching',
+  'Deadheading',
+  'WinterProtection',
+];
+
+export function isPlantScopedApplicationType(t: ApplicationType): boolean {
+  return PLANT_SCOPED_APPLICATION_TYPES.includes(t);
+}
+
+// Plants / landscape maintenance
+
+export type PlantType =
+  | 'Shrub'
+  | 'Tree'
+  | 'Perennial'
+  | 'Annual'
+  | 'Vine'
+  | 'Groundcover'
   | 'Other';
+
+export type TaskType =
+  | 'Pruning'
+  | 'Fertilizing'
+  | 'Mulching'
+  | 'Watering'
+  | 'PestInspection'
+  | 'Deadheading'
+  | 'WinterProtection'
+  | 'Other';
+
+export type TaskFrequency = 'Once' | 'Twice' | 'Monthly' | 'AsNeeded';
+
+export type IdentificationConfidence = 'High' | 'Medium' | 'Low';
+
+export interface MaintenanceTask {
+  task_type: TaskType;
+  window_start_month_day: string;
+  window_end_month_day: string;
+  frequency: TaskFrequency;
+  description: string;
+  severity: Severity;
+  zone_note: string | null;
+}
+
+export interface PlantMaintenancePlan {
+  identified_name: string;
+  scientific_name: string | null;
+  identification_confidence: IdentificationConfidence;
+  summary: string;
+  tasks: MaintenanceTask[];
+  warnings: string[];
+}
+
+export interface Plant {
+  id: number | null;
+  lawn_profile_id: number;
+  common_name: string;
+  scientific_name: string | null;
+  plant_type: PlantType;
+  location: string | null;
+  planting_date: string | null;
+  notes: string | null;
+  maintenance_plan: PlantMaintenancePlan;
+  plan_generated_at: string;
+  plan_model: string;
+  created_at: string;
+  updated_at: string;
+}
 
 export interface WeatherSnapshot {
   soil_temp_10cm_f: number | null;
@@ -462,6 +540,11 @@ export const APPLICATION_TYPE_LABELS: Record<ApplicationType, string> = {
   Wetting: 'Wetting Agent',
   Mowing: 'Mowing',
   Other: 'Other',
+  Pruning: 'Pruning',
+  PlantFertilizer: 'Plant Fertilizer',
+  Mulching: 'Mulching',
+  Deadheading: 'Deadheading',
+  WinterProtection: 'Winter Protection',
 };
 
 export const APPLICATION_TYPE_COLORS: Record<ApplicationType, string> = {
@@ -479,6 +562,41 @@ export const APPLICATION_TYPE_COLORS: Record<ApplicationType, string> = {
   Wetting: '#67e8f9',
   Mowing: '#16a34a',
   Other: '#9ca3af',
+  Pruning: '#84cc16',
+  PlantFertilizer: '#65a30d',
+  Mulching: '#a16207',
+  Deadheading: '#ec4899',
+  WinterProtection: '#475569',
+};
+
+export const PLANT_TYPE_LABELS: Record<PlantType, string> = {
+  Shrub: 'Shrub',
+  Tree: 'Tree',
+  Perennial: 'Perennial',
+  Annual: 'Annual',
+  Vine: 'Vine',
+  Groundcover: 'Groundcover',
+  Other: 'Other',
+};
+
+export const TASK_TYPE_LABELS: Record<TaskType, string> = {
+  Pruning: 'Pruning',
+  Fertilizing: 'Fertilizing',
+  Mulching: 'Mulching',
+  Watering: 'Watering',
+  PestInspection: 'Pest Inspection',
+  Deadheading: 'Deadheading',
+  WinterProtection: 'Winter Protection',
+  Other: 'Other',
+};
+
+export const IDENTIFICATION_CONFIDENCE_COLORS: Record<
+  IdentificationConfidence,
+  string
+> = {
+  High: '#22c55e',
+  Medium: '#eab308',
+  Low: '#ef4444',
 };
 
 export const SEVERITY_COLORS: Record<Severity, string> = {

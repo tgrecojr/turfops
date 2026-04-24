@@ -1,10 +1,12 @@
-use crate::db::{queries, soil_test_queries};
+use crate::db::{plant_queries, queries, soil_test_queries};
 use crate::error::TurfOpsError;
+use crate::logic::plant_maintenance::generate_plant_maintenance_recommendations;
 use crate::logic::soil_test_recommendations::generate_soil_test_recommendations;
 use crate::models::{DataSource, Recommendation, RecommendationCategory, Severity};
 use crate::state::AppState;
 use axum::extract::{Path, State};
 use axum::Json;
+use chrono::Local;
 use serde::Deserialize;
 
 /// GET /api/v1/recommendations
@@ -31,6 +33,13 @@ pub async fn list_recommendations(
 
     // Evaluate rules
     let mut recommendations = state.rules_engine.evaluate(&summary, &profile, &apps);
+
+    // Append plant maintenance recommendations for landscape plants.
+    let plants = plant_queries::list_plants_for_profile(&state.pool, profile_id).await?;
+    let today = Local::now().date_naive();
+    recommendations.extend(generate_plant_maintenance_recommendations(
+        &plants, &apps, today,
+    ));
 
     // Append soil-test-based recommendations if a test exists
     if let Ok(Some(test)) = soil_test_queries::get_latest_soil_test(&state.pool, profile_id).await {

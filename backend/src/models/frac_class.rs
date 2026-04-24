@@ -295,6 +295,7 @@ mod tests {
             nitrogen_pct: None,
             phosphorus_pct: None,
             potassium_pct: None,
+            plant_id: None,
             created_at: Utc::now(),
         }
     }

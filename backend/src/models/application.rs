@@ -18,6 +18,12 @@ pub enum ApplicationType {
     Wetting,
     Mowing,
     Other,
+    // Plant-scoped types (carry plant_id on Application)
+    Pruning,
+    PlantFertilizer,
+    Mulching,
+    Deadheading,
+    WinterProtection,
 }
 
 impl ApplicationType {
@@ -37,7 +43,24 @@ impl ApplicationType {
             ApplicationType::Wetting => "Wetting Agent",
             ApplicationType::Mowing => "Mowing",
             ApplicationType::Other => "Other",
+            ApplicationType::Pruning => "Pruning",
+            ApplicationType::PlantFertilizer => "Plant Fertilizer",
+            ApplicationType::Mulching => "Mulching",
+            ApplicationType::Deadheading => "Deadheading",
+            ApplicationType::WinterProtection => "Winter Protection",
         }
+    }
+
+    /// True if this application type is logged against a specific plant (plant_id required).
+    pub fn is_plant_scoped(&self) -> bool {
+        matches!(
+            self,
+            ApplicationType::Pruning
+                | ApplicationType::PlantFertilizer
+                | ApplicationType::Mulching
+                | ApplicationType::Deadheading
+                | ApplicationType::WinterProtection
+        )
     }
 }
 
@@ -60,6 +83,11 @@ impl FromStr for ApplicationType {
             "wetting" | "wettingagent" => Ok(ApplicationType::Wetting),
             "mowing" | "mow" => Ok(ApplicationType::Mowing),
             "other" => Ok(ApplicationType::Other),
+            "pruning" | "prune" => Ok(ApplicationType::Pruning),
+            "plantfertilizer" => Ok(ApplicationType::PlantFertilizer),
+            "mulching" | "mulch" => Ok(ApplicationType::Mulching),
+            "deadheading" | "deadhead" => Ok(ApplicationType::Deadheading),
+            "winterprotection" => Ok(ApplicationType::WinterProtection),
             _ => Err(format!("Unknown application type: {}", s)),
         }
     }
@@ -93,6 +121,8 @@ pub struct Application {
     pub nitrogen_pct: Option<f64>,
     pub phosphorus_pct: Option<f64>,
     pub potassium_pct: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plant_id: Option<i64>,
     pub created_at: chrono::DateTime<Utc>,
 }
 

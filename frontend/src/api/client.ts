@@ -8,6 +8,8 @@ import type {
   HistoricalData,
   LawnProfile,
   NitrogenBudget,
+  Plant,
+  PlantType,
   Recommendation,
   SeasonalPlan,
   SoilTempForecast,
@@ -84,6 +86,7 @@ export const createApplication = (data: {
   nitrogen_pct?: number;
   phosphorus_pct?: number;
   potassium_pct?: number;
+  plant_id?: number | null;
 }) =>
   fetchJson<Application>(`${BASE}/applications`, {
     method: 'POST',
@@ -193,3 +196,45 @@ export const getSeasonalPlan = (year?: number) => {
   const params = year ? `?year=${year}` : '';
   return fetchJson<SeasonalPlan>(`${BASE}/seasonal-plan${params}`, undefined, 30_000);
 };
+
+// Plants (landscape maintenance)
+export const listPlants = () => fetchJson<Plant[]>(`${BASE}/plants`);
+
+export const getPlant = (id: number) => fetchJson<Plant>(`${BASE}/plants/${id}`);
+
+type CreatePlantBody = {
+  common_name?: string;
+  scientific_name?: string;
+  plant_type: PlantType;
+  location?: string;
+  planting_date?: string;
+  notes?: string;
+};
+
+export const createPlant = (data: CreatePlantBody) =>
+  // LLM round-trip can take a while — extend the client-side timeout.
+  fetchJson<Plant>(`${BASE}/plants`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }, 60_000);
+
+type UpdatePlantBody = {
+  common_name?: string;
+  scientific_name?: string | null;
+  plant_type?: PlantType;
+  location?: string | null;
+  planting_date?: string | null;
+  notes?: string | null;
+};
+
+export const updatePlant = (id: number, data: UpdatePlantBody) =>
+  fetchJson<Plant>(`${BASE}/plants/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+
+export const deletePlant = (id: number) =>
+  fetchJson<void>(`${BASE}/plants/${id}`, { method: 'DELETE' });
+
+export const refreshPlantPlan = (id: number) =>
+  fetchJson<Plant>(`${BASE}/plants/${id}/refresh-plan`, { method: 'POST' }, 60_000);
