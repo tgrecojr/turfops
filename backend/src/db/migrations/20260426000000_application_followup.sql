@@ -19,7 +19,7 @@ BEGIN
     WHERE c.conrelid = 'applications'::regclass
       AND c.contype = 'u'
       AND (
-        SELECT array_agg(attname ORDER BY attnum)
+        SELECT array_agg(attname::text ORDER BY ord)
         FROM unnest(c.conkey) WITH ORDINALITY AS k(attnum_, ord)
         JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.attnum_
       ) = ARRAY['lawn_profile_id', 'application_type', 'application_date'];
