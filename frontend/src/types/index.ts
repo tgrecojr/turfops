@@ -46,6 +46,7 @@ export interface Application {
   phosphorus_pct: number | null;
   potassium_pct: number | null;
   plant_id?: number | null;
+  follow_up_date?: string | null;
   created_at: string;
 }
 
@@ -70,7 +71,11 @@ export type ApplicationType =
   | 'Deadheading'
   | 'WinterProtection';
 
-export const PLANT_SCOPED_APPLICATION_TYPES: ApplicationType[] = [
+// Plant scope classification (mirrors backend ApplicationScope).
+// PlantRequired: must be tied to a plant.
+// Universal: may be tied to a plant or to the turf.
+// TurfOnly: turf-only, no plant_id allowed.
+export const PLANT_REQUIRED_APPLICATION_TYPES: ApplicationType[] = [
   'Pruning',
   'PlantFertilizer',
   'Mulching',
@@ -78,8 +83,41 @@ export const PLANT_SCOPED_APPLICATION_TYPES: ApplicationType[] = [
   'WinterProtection',
 ];
 
-export function isPlantScopedApplicationType(t: ApplicationType): boolean {
-  return PLANT_SCOPED_APPLICATION_TYPES.includes(t);
+export const UNIVERSAL_APPLICATION_TYPES: ApplicationType[] = [
+  'Fertilizer',
+  'Fungicide',
+  'Insecticide',
+  'Wetting',
+  'Other',
+];
+
+export const TURF_ONLY_APPLICATION_TYPES: ApplicationType[] = [
+  'PreEmergent',
+  'PostEmergent',
+  'GrubControl',
+  'Overseed',
+  'Aeration',
+  'Dethatching',
+  'Lime',
+  'Sulfur',
+  'Mowing',
+];
+
+export function isPlantRequiredApplicationType(t: ApplicationType): boolean {
+  return PLANT_REQUIRED_APPLICATION_TYPES.includes(t);
+}
+
+export function isUniversalApplicationType(t: ApplicationType): boolean {
+  return UNIVERSAL_APPLICATION_TYPES.includes(t);
+}
+
+export function isTurfOnlyApplicationType(t: ApplicationType): boolean {
+  return TURF_ONLY_APPLICATION_TYPES.includes(t);
+}
+
+/** True if a plant dropdown should appear (plant-required or universal). */
+export function canTargetPlant(t: ApplicationType): boolean {
+  return !isTurfOnlyApplicationType(t);
 }
 
 // Plants / landscape maintenance

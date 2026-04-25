@@ -1,6 +1,6 @@
 use crate::db::queries;
 use crate::error::TurfOpsError;
-use crate::models::{Application, ApplicationType, WeatherSnapshot};
+use crate::models::{Application, ApplicationScope, ApplicationType, WeatherSnapshot};
 use crate::state::AppState;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
@@ -65,6 +65,7 @@ pub struct CreateApplicationRequest {
     pub phosphorus_pct: Option<f64>,
     pub potassium_pct: Option<f64>,
     pub plant_id: Option<i64>,
+    pub follow_up_date: Option<String>,
 }
 
 pub async fn create_application(
@@ -90,12 +91,41 @@ pub async fn create_application(
             ))
         })?;
 
-    // Plant-scoped application types require a plant_id.
-    if application_type.is_plant_scoped() && req.plant_id.is_none() {
-        return Err(TurfOpsError::InvalidData(format!(
-            "Application type {} requires plant_id",
-            application_type
-        )));
+    match application_type.scope() {
+        ApplicationScope::PlantRequired if req.plant_id.is_none() => {
+            return Err(TurfOpsError::InvalidData(format!(
+                "Application type {} requires plant_id",
+                application_type
+            )));
+        }
+        ApplicationScope::TurfOnly if req.plant_id.is_some() => {
+            return Err(TurfOpsError::InvalidData(format!(
+                "Application type {} cannot be linked to a plant",
+                application_type
+            )));
+        }
+        _ => {}
+    }
+
+    let follow_up_date = req
+        .follow_up_date
+        .as_deref()
+        .map(|s| {
+            NaiveDate::parse_from_str(s, "%Y-%m-%d").map_err(|_| {
+                TurfOpsError::InvalidData(format!(
+                    "Invalid follow_up_date format: {}. Expected YYYY-MM-DD",
+                    s
+                ))
+            })
+        })
+        .transpose()?;
+
+    if let Some(fu) = follow_up_date {
+        if fu < application_date {
+            return Err(TurfOpsError::InvalidData(
+                "follow_up_date must be on or after application_date".into(),
+            ));
+        }
     }
 
     let app = Application {
@@ -114,6 +144,7 @@ pub async fn create_application(
         phosphorus_pct: req.phosphorus_pct,
         potassium_pct: req.potassium_pct,
         plant_id: req.plant_id,
+        follow_up_date,
         created_at: Utc::now(),
     };
 

@@ -51,17 +51,41 @@ impl ApplicationType {
         }
     }
 
-    /// True if this application type is logged against a specific plant (plant_id required).
-    pub fn is_plant_scoped(&self) -> bool {
-        matches!(
-            self,
+    /// Where this application type can be logged: against a specific plant, against
+    /// the turf, or either.
+    pub fn scope(&self) -> ApplicationScope {
+        match self {
             ApplicationType::Pruning
-                | ApplicationType::PlantFertilizer
-                | ApplicationType::Mulching
-                | ApplicationType::Deadheading
-                | ApplicationType::WinterProtection
-        )
+            | ApplicationType::PlantFertilizer
+            | ApplicationType::Mulching
+            | ApplicationType::Deadheading
+            | ApplicationType::WinterProtection => ApplicationScope::PlantRequired,
+            ApplicationType::Fertilizer
+            | ApplicationType::Fungicide
+            | ApplicationType::Insecticide
+            | ApplicationType::Wetting
+            | ApplicationType::Other => ApplicationScope::Universal,
+            ApplicationType::PreEmergent
+            | ApplicationType::PostEmergent
+            | ApplicationType::GrubControl
+            | ApplicationType::Overseed
+            | ApplicationType::Aeration
+            | ApplicationType::Dethatching
+            | ApplicationType::Lime
+            | ApplicationType::Sulfur
+            | ApplicationType::Mowing => ApplicationScope::TurfOnly,
+        }
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ApplicationScope {
+    /// plant_id must be set (e.g. Pruning, Mulching).
+    PlantRequired,
+    /// plant_id may be set or null (e.g. Insecticide on a viburnum, or on the turf).
+    Universal,
+    /// plant_id must be null (e.g. Aeration, PreEmergent).
+    TurfOnly,
 }
 
 impl FromStr for ApplicationType {
@@ -123,6 +147,8 @@ pub struct Application {
     pub potassium_pct: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub plant_id: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub follow_up_date: Option<NaiveDate>,
     pub created_at: chrono::DateTime<Utc>,
 }
 

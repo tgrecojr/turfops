@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getCalendar, getSeasonalPlan } from '../api/client';
 import { appTypeBadgeStyle } from '../styles/shared';
 import type {
@@ -110,6 +110,36 @@ export default function Calendar() {
   const dateKey = (day: number) =>
     `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
+  // Build a map of follow-up applications keyed by their follow_up_date.
+  // The backend includes any application whose follow_up_date falls in the month range.
+  const followUpsByDate = useMemo(() => {
+    const map: Record<string, Application[]> = {};
+    if (!data) return map;
+    const seen = new Set<string>();
+    for (const apps of Object.values(data.days)) {
+      for (const app of apps) {
+        if (!app.follow_up_date) continue;
+        const key = `${app.id}-${app.follow_up_date}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        (map[app.follow_up_date] ??= []).push(app);
+      }
+    }
+    return map;
+  }, [data]);
+
+  // Logged applications keyed by their application_date — used to know whether
+  // an entry on a given day is the actual log or just a planned follow-up.
+  const loggedAppsByDate = useMemo(() => {
+    const map: Record<string, Application[]> = {};
+    if (!data) return map;
+    for (const [dateStr, apps] of Object.entries(data.days)) {
+      const filtered = apps.filter((a) => a.application_date === dateStr);
+      if (filtered.length > 0) map[dateStr] = filtered;
+    }
+    return map;
+  }, [data]);
+
   // Get planned activities whose window includes the given date
   const getActivitiesForDate = (dateStr: string): PlannedActivity[] => {
     if (!plan) return [];
@@ -121,7 +151,9 @@ export default function Calendar() {
   };
 
   const selectedApps: Application[] =
-    selectedDate && data?.days[selectedDate] ? data.days[selectedDate] : [];
+    selectedDate ? loggedAppsByDate[selectedDate] ?? [] : [];
+  const selectedFollowUps: Application[] =
+    selectedDate ? followUpsByDate[selectedDate] ?? [] : [];
   const selectedActivities: PlannedActivity[] = selectedDate
     ? getActivitiesForDate(selectedDate)
     : [];
@@ -149,6 +181,17 @@ export default function Calendar() {
         <span style={styles.legendItem}>
           <span style={{ ...styles.dot, backgroundColor: '#4a5568' }} />
           Applications
+        </span>
+        <span style={styles.legendItem}>
+          <span
+            style={{
+              ...styles.dot,
+              backgroundColor: 'transparent',
+              border: '2px solid #4a5568',
+              boxSizing: 'border-box',
+            }}
+          />
+          Follow-up due
         </span>
         <span style={styles.legendDivider}>|</span>
         <span style={styles.legendItem}>
@@ -187,10 +230,13 @@ export default function Calendar() {
                   if (day === null)
                     return <td key={di} style={styles.emptyCell} />;
                   const dk = dateKey(day);
-                  const dayApps = data?.days[dk] || [];
+                  const dayApps = loggedAppsByDate[dk] || [];
+                  const dayFollowUps = followUpsByDate[dk] || [];
                   const dayActivities = getActivitiesForDate(dk);
                   const hasContent =
-                    dayApps.length > 0 || dayActivities.length > 0;
+                    dayApps.length > 0 ||
+                    dayFollowUps.length > 0 ||
+                    dayActivities.length > 0;
                   const isSelected = dk === selectedDate;
                   return (
                     <td
@@ -211,7 +257,7 @@ export default function Calendar() {
                       <div style={styles.dots}>
                         {dayApps.map((a, i) => (
                           <span
-                            key={i}
+                            key={`app-${i}`}
                             style={{
                               ...styles.dot,
                               backgroundColor:
@@ -220,6 +266,18 @@ export default function Calendar() {
                             title={
                               APPLICATION_TYPE_LABELS[a.application_type]
                             }
+                          />
+                        ))}
+                        {dayFollowUps.map((a, i) => (
+                          <span
+                            key={`fu-${i}`}
+                            style={{
+                              ...styles.dot,
+                              backgroundColor: 'transparent',
+                              border: `2px solid ${APPLICATION_TYPE_COLORS[a.application_type]}`,
+                              boxSizing: 'border-box',
+                            }}
+                            title={`Follow-up: ${APPLICATION_TYPE_LABELS[a.application_type]}`}
                           />
                         ))}
                       </div>
@@ -260,7 +318,7 @@ export default function Calendar() {
 
           {/* Applications section */}
           {selectedApps.length > 0 && (
-            <div style={{ marginBottom: selectedActivities.length > 0 ? '1rem' : 0 }}>
+            <div style={{ marginBottom: '1rem' }}>
               <h4 style={styles.sectionLabel}>Applications</h4>
               {selectedApps.map((app) => (
                 <div key={app.id} style={styles.detailCard}>
@@ -275,9 +333,39 @@ export default function Calendar() {
                   {app.product_name && (
                     <span style={{ marginLeft: 8 }}>{app.product_name}</span>
                   )}
+                  {app.follow_up_date && (
+                    <div style={styles.notes}>
+                      Follow-up scheduled for {app.follow_up_date}
+                    </div>
+                  )}
                   {app.notes && (
                     <div style={styles.notes}>{app.notes}</div>
                   )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Follow-ups due on this date */}
+          {selectedFollowUps.length > 0 && (
+            <div style={{ marginBottom: '1rem' }}>
+              <h4 style={styles.sectionLabel}>Follow-ups Due</h4>
+              {selectedFollowUps.map((app) => (
+                <div key={`fu-${app.id}`} style={styles.detailCard}>
+                  <span
+                    style={{
+                      ...appTypeBadgeStyle(styles.badge, app.application_type),
+                      backgroundColor: 'transparent',
+                    }}
+                  >
+                    {APPLICATION_TYPE_LABELS[app.application_type]}
+                  </span>
+                  {app.product_name && (
+                    <span style={{ marginLeft: 8 }}>{app.product_name}</span>
+                  )}
+                  <div style={styles.notes}>
+                    Originally applied {app.application_date}
+                  </div>
                 </div>
               ))}
             </div>
@@ -376,9 +464,11 @@ export default function Calendar() {
             </div>
           )}
 
-          {selectedApps.length === 0 && selectedActivities.length === 0 && (
-            <p style={{ color: '#a0aec0' }}>No items on this date.</p>
-          )}
+          {selectedApps.length === 0 &&
+            selectedFollowUps.length === 0 &&
+            selectedActivities.length === 0 && (
+              <p style={{ color: '#a0aec0' }}>No items on this date.</p>
+            )}
         </div>
       )}
     </div>

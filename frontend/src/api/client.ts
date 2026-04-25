@@ -87,6 +87,7 @@ export const createApplication = (data: {
   phosphorus_pct?: number;
   potassium_pct?: number;
   plant_id?: number | null;
+  follow_up_date?: string | null;
 }) =>
   fetchJson<Application>(`${BASE}/applications`, {
     method: 'POST',

@@ -287,6 +287,7 @@ mod tests {
             phosphorus_pct: None,
             potassium_pct: None,
             plant_id: Some(plant_id),
+            follow_up_date: None,
             created_at: Utc::now(),
         }
     }
