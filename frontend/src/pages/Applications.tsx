@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   createApplication,
   deleteApplication,
@@ -7,7 +7,20 @@ import {
 } from '../api/client';
 import { appTypeBadgeStyle, sharedStyles } from '../styles/shared';
 import type { Application, ApplicationType, Plant } from '../types';
-import { APPLICATION_TYPE_LABELS, isPlantScopedApplicationType } from '../types';
+import {
+  APPLICATION_TYPE_LABELS,
+  canTargetPlant,
+  isPlantRequiredApplicationType,
+  isTurfOnlyApplicationType,
+} from '../types';
+
+type ScopeFilter = 'all' | 'turf' | 'landscape';
+
+function addDaysISO(dateStr: string, days: number): string {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split('T')[0];
+}
 
 const APP_TYPES: ApplicationType[] = [
   'PreEmergent',
@@ -34,10 +47,12 @@ const APP_TYPES: ApplicationType[] = [
 export default function Applications() {
   const [apps, setApps] = useState<Application[]>([]);
   const [filter, setFilter] = useState('');
+  const [scopeFilter, setScopeFilter] = useState<ScopeFilter>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [plants, setPlants] = useState<Plant[]>([]);
 
   const fetchApps = useCallback(async () => {
     try {
@@ -54,6 +69,26 @@ export default function Applications() {
   useEffect(() => {
     fetchApps();
   }, [fetchApps]);
+
+  useEffect(() => {
+    listPlants()
+      .then(setPlants)
+      .catch(() => setPlants([]));
+  }, []);
+
+  const plantNameById = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const p of plants) {
+      if (p.id != null) map.set(p.id, p.common_name);
+    }
+    return map;
+  }, [plants]);
+
+  const visibleApps = useMemo(() => {
+    if (scopeFilter === 'all') return apps;
+    if (scopeFilter === 'landscape') return apps.filter((a) => a.plant_id != null);
+    return apps.filter((a) => a.plant_id == null);
+  }, [apps, scopeFilter]);
 
   const handleDelete = async (id: number) => {
     if (!confirm('Delete this application?')) return;
@@ -82,13 +117,38 @@ export default function Applications() {
         </button>
       </div>
 
-      {showForm && <AddForm onCreated={handleCreated} onError={setError} />}
+      {showForm && (
+        <AddForm
+          plants={plants}
+          onCreated={handleCreated}
+          onError={setError}
+        />
+      )}
 
       {error && <div style={sharedStyles.error}>{error}</div>}
 
-      {/* Filter */}
+      {/* Filters */}
       <div style={styles.filterRow}>
-        <label style={styles.filterLabel}>Filter by type:</label>
+        <label style={styles.filterLabel}>Scope:</label>
+        <div style={styles.scopeToggle}>
+          {(['all', 'turf', 'landscape'] as ScopeFilter[]).map((s) => (
+            <button
+              key={s}
+              type="button"
+              style={{
+                ...styles.scopeBtn,
+                ...(scopeFilter === s ? styles.scopeBtnActive : {}),
+              }}
+              onClick={() => setScopeFilter(s)}
+            >
+              {s === 'all' ? 'All' : s === 'turf' ? 'Turf' : 'Landscape'}
+            </button>
+          ))}
+        </div>
+
+        <label style={{ ...styles.filterLabel, marginLeft: 16 }}>
+          Type:
+        </label>
         <select
           style={styles.select}
           value={filter}
@@ -105,7 +165,7 @@ export default function Applications() {
 
       {loading ? (
         <p style={sharedStyles.loading}>Loading...</p>
-      ) : apps.length === 0 ? (
+      ) : visibleApps.length === 0 ? (
         <p style={sharedStyles.empty}>No applications found.</p>
       ) : (
         <table style={sharedStyles.table}>
@@ -113,16 +173,18 @@ export default function Applications() {
             <tr>
               <th style={sharedStyles.th}>Date</th>
               <th style={sharedStyles.th}>Type</th>
+              <th style={sharedStyles.th}>Target</th>
               <th style={sharedStyles.th}>Product</th>
               <th style={sharedStyles.th}>Rate/1k sqft</th>
               <th style={sharedStyles.th}>N-P-K</th>
               <th style={sharedStyles.th}>Coverage</th>
+              <th style={sharedStyles.th}>Follow-up</th>
               <th style={sharedStyles.th}>Notes</th>
               <th style={sharedStyles.th}></th>
             </tr>
           </thead>
           <tbody>
-            {apps.map((app, index) => (
+            {visibleApps.map((app, index) => (
               <tr key={app.id ?? `app-${index}`}>
                 <td style={sharedStyles.td}>{app.application_date}</td>
                 <td style={sharedStyles.td}>
@@ -131,6 +193,11 @@ export default function Applications() {
                   >
                     {APPLICATION_TYPE_LABELS[app.application_type]}
                   </span>
+                </td>
+                <td style={sharedStyles.td}>
+                  {app.plant_id != null
+                    ? (plantNameById.get(app.plant_id) ?? `Plant #${app.plant_id}`)
+                    : <span style={styles.turfTag}>Turf</span>}
                 </td>
                 <td style={sharedStyles.td}>{app.product_name || '-'}</td>
                 <td style={sharedStyles.td}>
@@ -147,6 +214,9 @@ export default function Applications() {
                   {app.coverage_sqft != null
                     ? `${app.coverage_sqft.toLocaleString()} sqft`
                     : '-'}
+                </td>
+                <td style={sharedStyles.td}>
+                  {app.follow_up_date ?? '-'}
                 </td>
                 <td style={sharedStyles.td}>{app.notes || '-'}</td>
                 <td style={sharedStyles.td}>
@@ -168,9 +238,11 @@ export default function Applications() {
 }
 
 function AddForm({
+  plants,
   onCreated,
   onError,
 }: {
+  plants: Plant[];
   onCreated: () => void;
   onError: (msg: string) => void;
 }) {
@@ -183,23 +255,37 @@ function AddForm({
   const [nitrogenPct, setNitrogenPct] = useState('');
   const [phosphorusPct, setPhosphorusPct] = useState('');
   const [potassiumPct, setPotassiumPct] = useState('');
-  const [plants, setPlants] = useState<Plant[]>([]);
   const [plantId, setPlantId] = useState<string>('');
+  const [followUpEnabled, setFollowUpEnabled] = useState(false);
+  const [followUpDate, setFollowUpDate] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const plantScoped = isPlantScopedApplicationType(appType);
+  const plantRequired = isPlantRequiredApplicationType(appType);
+  const turfOnly = isTurfOnlyApplicationType(appType);
+  const plantSelectable = canTargetPlant(appType);
 
+  // When type changes, drop any incompatible plant selection.
   useEffect(() => {
-    // Only fetch plants once; they rarely change during a form session.
-    listPlants()
-      .then(setPlants)
-      .catch(() => setPlants([]));
-  }, []);
+    if (turfOnly) setPlantId('');
+  }, [turfOnly]);
+
+  const setFollowUpOffset = (days: number) => {
+    setFollowUpEnabled(true);
+    setFollowUpDate(addDaysISO(date, days));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (plantScoped && !plantId) {
+    if (plantRequired && !plantId) {
       onError('Select which plant this action is for.');
+      return;
+    }
+    if (followUpEnabled && !followUpDate) {
+      onError('Pick a follow-up date or uncheck the follow-up option.');
+      return;
+    }
+    if (followUpEnabled && followUpDate < date) {
+      onError('Follow-up date must be on or after the application date.');
       return;
     }
     setSubmitting(true);
@@ -214,7 +300,8 @@ function AddForm({
         nitrogen_pct: nitrogenPct ? parseFloat(nitrogenPct) : undefined,
         phosphorus_pct: phosphorusPct ? parseFloat(phosphorusPct) : undefined,
         potassium_pct: potassiumPct ? parseFloat(potassiumPct) : undefined,
-        plant_id: plantScoped && plantId ? parseInt(plantId, 10) : undefined,
+        plant_id: plantSelectable && plantId ? parseInt(plantId, 10) : undefined,
+        follow_up_date: followUpEnabled && followUpDate ? followUpDate : undefined,
       });
       onCreated();
     } catch (err) {
@@ -241,16 +328,20 @@ function AddForm({
             ))}
           </select>
         </div>
-        {plantScoped && (
+        {plantSelectable && (
           <div>
-            <label style={styles.formLabel}>Plant</label>
+            <label style={styles.formLabel}>
+              Plant {plantRequired ? '' : '(optional — leave blank for turf)'}
+            </label>
             <select
               style={styles.input}
               value={plantId}
               onChange={(e) => setPlantId(e.target.value)}
-              required
+              required={plantRequired}
             >
-              <option value="">Select a plant…</option>
+              <option value="">
+                {plantRequired ? 'Select a plant…' : 'Turf (no specific plant)'}
+              </option>
               {plants.map((p) => (
                 <option key={p.id ?? p.common_name} value={p.id ?? ''}>
                   {p.common_name}
@@ -341,6 +432,49 @@ function AddForm({
           />
         </div>
       </div>
+
+      {/* Follow-up scheduling */}
+      <div style={styles.followUpRow}>
+        <label style={styles.followUpLabel}>
+          <input
+            type="checkbox"
+            checked={followUpEnabled}
+            onChange={(e) => {
+              setFollowUpEnabled(e.target.checked);
+              if (!e.target.checked) setFollowUpDate('');
+            }}
+          />
+          {' '}Schedule a follow-up
+        </label>
+        {followUpEnabled && (
+          <>
+            <input
+              type="date"
+              style={styles.followUpInput}
+              value={followUpDate}
+              min={date}
+              onChange={(e) => setFollowUpDate(e.target.value)}
+            />
+            <div style={styles.shortcutRow}>
+              {[
+                { label: '+2 wk', days: 14 },
+                { label: '+4 wk', days: 28 },
+                { label: '+6 wk', days: 42 },
+              ].map((s) => (
+                <button
+                  key={s.label}
+                  type="button"
+                  style={styles.shortcutBtn}
+                  onClick={() => setFollowUpOffset(s.days)}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
       <button type="submit" style={styles.submitBtn} disabled={submitting}>
         {submitting ? 'Saving...' : 'Save Application'}
       </button>
@@ -417,5 +551,66 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     fontWeight: 600,
     fontSize: '0.85rem',
+  },
+  scopeToggle: {
+    display: 'inline-flex',
+    border: '1px solid #e2e8f0',
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  scopeBtn: {
+    padding: '0.4rem 0.8rem',
+    backgroundColor: '#fff',
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: '0.8rem',
+    color: '#4a5568',
+    borderRight: '1px solid #e2e8f0',
+  },
+  scopeBtnActive: {
+    backgroundColor: '#3182ce',
+    color: '#fff',
+  },
+  turfTag: {
+    display: 'inline-block',
+    padding: '1px 8px',
+    borderRadius: 10,
+    fontSize: '0.7rem',
+    color: '#4a5568',
+    backgroundColor: '#edf2f7',
+  },
+  followUpRow: {
+    display: 'flex',
+    flexWrap: 'wrap' as const,
+    alignItems: 'center',
+    gap: 12,
+    padding: '0.5rem 0',
+    marginBottom: '0.75rem',
+    borderTop: '1px dashed #e2e8f0',
+  },
+  followUpLabel: {
+    fontSize: '0.85rem',
+    color: '#4a5568',
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
+  followUpInput: {
+    padding: '0.4rem 0.6rem',
+    borderRadius: 6,
+    border: '1px solid #e2e8f0',
+    fontSize: '0.85rem',
+  },
+  shortcutRow: {
+    display: 'flex',
+    gap: 6,
+  },
+  shortcutBtn: {
+    padding: '0.3rem 0.6rem',
+    borderRadius: 4,
+    border: '1px solid #cbd5e0',
+    backgroundColor: '#f7fafc',
+    cursor: 'pointer',
+    fontSize: '0.75rem',
+    color: '#4a5568',
   },
 };

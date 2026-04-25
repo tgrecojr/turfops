@@ -1,5 +1,6 @@
 use crate::db::{plant_queries, queries, soil_test_queries};
 use crate::error::TurfOpsError;
+use crate::logic::follow_up::generate_follow_up_recommendations;
 use crate::logic::plant_maintenance::generate_plant_maintenance_recommendations;
 use crate::logic::soil_test_recommendations::generate_soil_test_recommendations;
 use crate::models::{DataSource, Recommendation, RecommendationCategory, Severity};
@@ -39,6 +40,17 @@ pub async fn list_recommendations(
     let today = Local::now().date_naive();
     recommendations.extend(generate_plant_maintenance_recommendations(
         &plants, &apps, today,
+    ));
+
+    // Append follow-up reminders for applications that scheduled one.
+    let plants_by_id: std::collections::HashMap<i64, &crate::models::plant::Plant> = plants
+        .iter()
+        .filter_map(|p| p.id.map(|id| (id, p)))
+        .collect();
+    recommendations.extend(generate_follow_up_recommendations(
+        &apps,
+        &plants_by_id,
+        today,
     ));
 
     // Append soil-test-based recommendations if a test exists
