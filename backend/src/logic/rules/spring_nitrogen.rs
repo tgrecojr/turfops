@@ -384,24 +384,31 @@ mod tests {
         env.gdd_base50_ytd = Some(30.0);
         let rule = SpringNitrogenRule;
         let result = rule.evaluate(&env, &base_profile(), &[]);
-        if let Some(rec) = result {
-            // Should still be "almost ready" (Info), not promoted
-            assert_eq!(rec.id, "spring_n_almost");
+        // The soil-temp/GDD branch only runs Feb-Apr; May returns the cutoff
+        // recommendation regardless of GDD, and other months return None.
+        let month = Local::now().date_naive().month();
+        if (2..=4).contains(&month) {
+            if let Some(rec) = result {
+                // Should still be "almost ready" (Info), not promoted
+                assert_eq!(rec.id, "spring_n_almost");
+            }
         }
     }
 
     #[test]
     fn gdd_at_ready_promotes_almost_to_ready() {
         // GDD = 50 in the 50-55°F range — should promote "almost ready" to "ready".
-        // Note: This is month-gated (Feb-May), so result depends on current date.
         let mut env = base_env(52.0);
         env.gdd_base50_ytd = Some(50.0);
         let rule = SpringNitrogenRule;
         let result = rule.evaluate(&env, &base_profile(), &[]);
-        if let Some(rec) = result {
-            // With GDD >= 50, should be promoted to spring_n_ready
-            assert_eq!(rec.id, "spring_n_ready");
-            assert_eq!(rec.severity, Severity::Advisory);
+        let month = Local::now().date_naive().month();
+        if (2..=4).contains(&month) {
+            if let Some(rec) = result {
+                // With GDD >= 50, should be promoted to spring_n_ready
+                assert_eq!(rec.id, "spring_n_ready");
+                assert_eq!(rec.severity, Severity::Advisory);
+            }
         }
     }
 
@@ -412,13 +419,16 @@ mod tests {
         env.gdd_base50_ytd = Some(150.0);
         let rule = SpringNitrogenRule;
         let result = rule.evaluate(&env, &base_profile(), &[]);
-        if let Some(rec) = result {
-            assert_eq!(rec.id, "spring_n_ready");
-            // Should include GDD data point
-            assert!(
-                rec.data_points.iter().any(|dp| dp.label.contains("GDD")),
-                "Should include GDD data point"
-            );
+        let month = Local::now().date_naive().month();
+        if (2..=4).contains(&month) {
+            if let Some(rec) = result {
+                assert_eq!(rec.id, "spring_n_ready");
+                // Should include GDD data point
+                assert!(
+                    rec.data_points.iter().any(|dp| dp.label.contains("GDD")),
+                    "Should include GDD data point"
+                );
+            }
         }
     }
 }
