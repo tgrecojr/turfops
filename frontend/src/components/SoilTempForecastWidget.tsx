@@ -1,17 +1,39 @@
-import type { ThresholdPrediction } from '../types';
+import type { SoilTempPrediction, ThresholdPrediction } from '../types';
 import { PREDICTION_CONFIDENCE_COLORS } from '../types';
 
 interface SoilTempForecastWidgetProps {
   crossings: ThresholdPrediction[];
+  predictions: SoilTempPrediction[];
   currentSoilTemp: number | null;
+}
+
+// A Falling crossing is only "meaningful" if the forecast stays below the
+// threshold at the end of the window. Otherwise it's a transient dip and
+// shouldn't replace the next agronomic milestone as the headline.
+function isMeaningfulCrossing(
+  crossing: ThresholdPrediction,
+  predictions: SoilTempPrediction[],
+): boolean {
+  if (crossing.direction === 'Rising') return true;
+  if (predictions.length === 0) return true;
+  const last = predictions[predictions.length - 1];
+  return last.predicted_soil_temp_f < crossing.threshold_temp_f;
+}
+
+function describeCrossing(c: ThresholdPrediction): string {
+  return c.direction === 'Rising'
+    ? `until soil reaches ${c.threshold_temp_f}°F`
+    : `until soil drops below ${c.threshold_temp_f}°F`;
 }
 
 export default function SoilTempForecastWidget({
   crossings,
+  predictions,
   currentSoilTemp,
 }: SoilTempForecastWidgetProps) {
-  // Show the nearest actionable crossing
-  const upcoming = crossings.filter((c) => c.days_until_crossing > 0);
+  const upcoming = crossings.filter(
+    (c) => c.days_until_crossing > 0 && isMeaningfulCrossing(c, predictions),
+  );
 
   if (upcoming.length === 0) {
     return (
@@ -19,7 +41,7 @@ export default function SoilTempForecastWidget({
         <div style={styles.label}>Soil Temp Forecast</div>
         <div style={styles.noData}>
           {currentSoilTemp != null
-            ? `Current: ${currentSoilTemp.toFixed(1)}\u00B0F \u2014 No threshold crossings predicted`
+            ? `Current: ${currentSoilTemp.toFixed(1)}°F — No threshold crossings predicted`
             : 'Prediction data unavailable'}
         </div>
       </div>
@@ -27,7 +49,6 @@ export default function SoilTempForecastWidget({
   }
 
   const nearest = upcoming[0];
-  const directionArrow = nearest.direction === 'Rising' ? '\u2191' : '\u2193';
   const confColor = PREDICTION_CONFIDENCE_COLORS[nearest.confidence];
 
   return (
@@ -48,12 +69,10 @@ export default function SoilTempForecastWidget({
 
       <div style={styles.mainRow}>
         <span style={styles.bigValue}>~{nearest.days_until_crossing}d</span>
-        <span style={styles.unit}>until {nearest.threshold_temp_f}°F</span>
+        <span style={styles.unit}>{describeCrossing(nearest)}</span>
       </div>
 
-      <div style={styles.detail}>
-        {directionArrow} {nearest.threshold_name}
-      </div>
+      <div style={styles.detail}>{nearest.threshold_name}</div>
 
       <div style={styles.detail}>
         Est. {new Date(nearest.estimated_crossing_date + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
@@ -61,7 +80,7 @@ export default function SoilTempForecastWidget({
 
       {currentSoilTemp != null && (
         <div style={styles.currentTemp}>
-          Current soil: {currentSoilTemp.toFixed(1)}{'\u00B0F'}
+          Current soil: {currentSoilTemp.toFixed(1)}{'°F'}
         </div>
       )}
 
@@ -69,8 +88,7 @@ export default function SoilTempForecastWidget({
         <div style={styles.moreList}>
           {upcoming.slice(1, 3).map((c, i) => (
             <div key={i} style={styles.moreItem}>
-              {c.direction === 'Rising' ? '\u2191' : '\u2193'}{' '}
-              {c.threshold_temp_f}°F ({c.threshold_name}) ~{c.days_until_crossing}d
+              ~{c.days_until_crossing}d {describeCrossing(c)} ({c.threshold_name})
             </div>
           ))}
         </div>
@@ -117,7 +135,7 @@ const styles: Record<string, React.CSSProperties> = {
   unit: {
     fontSize: '0.9rem',
     color: '#718096',
-    marginLeft: 4,
+    marginLeft: 6,
   },
   detail: {
     fontSize: '0.8rem',

@@ -14,6 +14,7 @@ import {
 import { appTypeBadgeStyle, sharedStyles } from '../styles/shared';
 import type { DashboardResponse, GddSummary, NitrogenBudget, SoilTempForecast } from '../types';
 import { APPLICATION_TYPE_LABELS } from '../types';
+import { formatInches } from '../utils/units';
 
 const POLL_INTERVAL = 30_000; // 30 seconds
 
@@ -169,7 +170,7 @@ export default function Dashboard() {
           />
           {environmental.precipitation_7day_total_mm !== null && (
             <div style={styles.subtext}>
-              7-day precip: {environmental.precipitation_7day_total_mm.toFixed(1)} mm
+              7-day precip: {formatInches(environmental.precipitation_7day_total_mm)}
             </div>
           )}
         </div>
@@ -183,6 +184,7 @@ export default function Dashboard() {
           {soilForecast && (
             <SoilTempForecastWidget
               crossings={soilForecast.threshold_crossings}
+              predictions={soilForecast.predictions}
               currentSoilTemp={current?.soil_temp_10_f ?? null}
             />
           )}

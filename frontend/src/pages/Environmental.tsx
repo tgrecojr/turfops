@@ -17,6 +17,7 @@ import {
 import { sharedStyles } from '../styles/shared';
 import type { EnvironmentalSummary, HistoricalData, SoilTempForecast } from '../types';
 import { PREDICTION_CONFIDENCE_COLORS } from '../types';
+import { mmToInches } from '../utils/units';
 
 const POLL_INTERVAL = 30_000;
 
@@ -210,8 +211,9 @@ export default function Environmental() {
         />
         <SummaryCard
           label="7-Day Precipitation"
-          value={data?.precipitation_7day_total_mm}
-          unit="mm"
+          value={data?.precipitation_7day_total_mm != null ? mmToInches(data.precipitation_7day_total_mm) : null}
+          unit="in"
+          decimals={2}
         />
       </div>
 
@@ -260,7 +262,7 @@ export default function Environmental() {
                   Humidity: {day.avg_humidity.toFixed(0)}%
                 </div>
                 <div style={styles.forecastDetail}>
-                  Precip: {day.total_precipitation_mm.toFixed(1)}mm (
+                  Precip: {mmToInches(day.total_precipitation_mm).toFixed(2)} in (
                   {(day.max_precipitation_prob * 100).toFixed(0)}%)
                 </div>
               </div>
@@ -367,9 +369,12 @@ export default function Environmental() {
             thresholdLabel="Drought"
           />
           <TrendChart
-            data={histData.precipitation_mm}
+            data={histData.precipitation_mm.map((p) => ({
+              timestamp: p.timestamp,
+              value: mmToInches(p.value),
+            }))}
             label="Precipitation"
-            unit="mm"
+            unit="in"
             color="#2c3e50"
           />
           <TrendChart
@@ -390,16 +395,18 @@ function SummaryCard({
   label,
   value,
   unit,
+  decimals = 1,
 }: {
   label: string;
   value: number | null | undefined;
   unit: string;
+  decimals?: number;
 }) {
   return (
     <div style={styles.summaryCard}>
       <div style={styles.summaryLabel}>{label}</div>
       <div style={styles.summaryValue}>
-        {value != null ? `${value.toFixed(1)} ${unit}` : '--'}
+        {value != null ? `${value.toFixed(decimals)} ${unit}` : '--'}
       </div>
     </div>
   );
