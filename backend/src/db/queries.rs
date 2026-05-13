@@ -176,6 +176,68 @@ pub async fn create_application(pool: &PgPool, app: &Application) -> Result<i64>
     Ok(row)
 }
 
+pub async fn update_application(pool: &PgPool, app: &Application) -> Result<u64> {
+    let id = app.id.ok_or_else(|| {
+        TurfOpsError::InvalidData("update_application requires Application.id".into())
+    })?;
+    let weather = &app.weather_snapshot;
+    let result = sqlx::query(
+        r#"
+        UPDATE applications
+           SET application_type = $2,
+               product_name = $3,
+               application_date = $4,
+               rate_per_1000sqft = $5,
+               coverage_sqft = $6,
+               notes = $7,
+               soil_temp_10cm_f = $8,
+               ambient_temp_f = $9,
+               humidity_percent = $10,
+               soil_moisture = $11,
+               nitrogen_pct = $12,
+               phosphorus_pct = $13,
+               potassium_pct = $14,
+               plant_id = $15,
+               follow_up_date = $16
+         WHERE id = $1
+        "#,
+    )
+    .bind(id)
+    .bind(enum_to_db_string(app.application_type)?)
+    .bind(&app.product_name)
+    .bind(app.application_date)
+    .bind(app.rate_per_1000sqft)
+    .bind(app.coverage_sqft)
+    .bind(&app.notes)
+    .bind(weather.as_ref().and_then(|w| w.soil_temp_10cm_f))
+    .bind(weather.as_ref().and_then(|w| w.ambient_temp_f))
+    .bind(weather.as_ref().and_then(|w| w.humidity_percent))
+    .bind(weather.as_ref().and_then(|w| w.soil_moisture))
+    .bind(app.nitrogen_pct)
+    .bind(app.phosphorus_pct)
+    .bind(app.potassium_pct)
+    .bind(app.plant_id)
+    .bind(app.follow_up_date)
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected())
+}
+
+pub async fn get_application_by_id(pool: &PgPool, id: i64) -> Result<Option<Application>> {
+    let row = sqlx::query_as::<_, ApplicationRow>(
+        r#"SELECT id, lawn_profile_id, application_type, product_name, application_date,
+                  rate_per_1000sqft, coverage_sqft, notes, soil_temp_10cm_f, ambient_temp_f,
+                  humidity_percent, soil_moisture, nitrogen_pct, phosphorus_pct, potassium_pct,
+                  plant_id, follow_up_date, created_at
+           FROM applications WHERE id = $1"#,
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await?;
+    Ok(row.map(|r| r.into_application()))
+}
+
 pub async fn delete_application(pool: &PgPool, id: i64) -> Result<()> {
     sqlx::query("DELETE FROM applications WHERE id = $1")
         .bind(id)

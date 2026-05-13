@@ -94,6 +94,27 @@ export const createApplication = (data: {
     body: JSON.stringify(data),
   });
 
+export const updateApplication = (
+  id: number,
+  data: {
+    application_type: string;
+    product_name?: string;
+    application_date: string;
+    rate_per_1000sqft?: number;
+    coverage_sqft?: number;
+    notes?: string;
+    nitrogen_pct?: number;
+    phosphorus_pct?: number;
+    potassium_pct?: number;
+    plant_id?: number | null;
+    follow_up_date?: string | null;
+  }
+) =>
+  fetchJson<Application>(`${BASE}/applications/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+
 export const deleteApplication = (id: number) =>
   fetchJson<void>(`${BASE}/applications/${id}`, { method: 'DELETE' });
 

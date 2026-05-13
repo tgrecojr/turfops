@@ -158,6 +158,96 @@ pub async fn create_application(
     Ok((StatusCode::CREATED, Json(created)))
 }
 
+pub async fn update_application(
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+    Json(req): Json<CreateApplicationRequest>,
+) -> Result<Json<Application>, TurfOpsError> {
+    let existing = queries::get_application_by_id(&state.pool, id)
+        .await?
+        .ok_or_else(|| TurfOpsError::NotFound(format!("Application {} not found", id)))?;
+
+    let application_type = ApplicationType::from_str(&req.application_type).map_err(|_| {
+        TurfOpsError::InvalidData(format!(
+            "Unknown application type: {}",
+            req.application_type
+        ))
+    })?;
+
+    let application_date =
+        NaiveDate::parse_from_str(&req.application_date, "%Y-%m-%d").map_err(|_| {
+            TurfOpsError::InvalidData(format!(
+                "Invalid date format: {}. Expected YYYY-MM-DD",
+                req.application_date
+            ))
+        })?;
+
+    match application_type.scope() {
+        ApplicationScope::PlantRequired if req.plant_id.is_none() => {
+            return Err(TurfOpsError::InvalidData(format!(
+                "Application type {} requires plant_id",
+                application_type
+            )));
+        }
+        ApplicationScope::TurfOnly if req.plant_id.is_some() => {
+            return Err(TurfOpsError::InvalidData(format!(
+                "Application type {} cannot be linked to a plant",
+                application_type
+            )));
+        }
+        _ => {}
+    }
+
+    let follow_up_date = req
+        .follow_up_date
+        .as_deref()
+        .map(|s| {
+            NaiveDate::parse_from_str(s, "%Y-%m-%d").map_err(|_| {
+                TurfOpsError::InvalidData(format!(
+                    "Invalid follow_up_date format: {}. Expected YYYY-MM-DD",
+                    s
+                ))
+            })
+        })
+        .transpose()?;
+
+    if let Some(fu) = follow_up_date {
+        if fu < application_date {
+            return Err(TurfOpsError::InvalidData(
+                "follow_up_date must be on or after application_date".into(),
+            ));
+        }
+    }
+
+    let updated = Application {
+        id: Some(id),
+        lawn_profile_id: existing.lawn_profile_id,
+        application_type,
+        product_name: req.product_name,
+        application_date,
+        rate_per_1000sqft: req.rate_per_1000sqft,
+        coverage_sqft: req.coverage_sqft,
+        notes: req.notes,
+        weather_snapshot: req.weather_snapshot.or(existing.weather_snapshot),
+        nitrogen_pct: req.nitrogen_pct,
+        phosphorus_pct: req.phosphorus_pct,
+        potassium_pct: req.potassium_pct,
+        plant_id: req.plant_id,
+        follow_up_date,
+        created_at: existing.created_at,
+    };
+
+    let affected = queries::update_application(&state.pool, &updated).await?;
+    if affected == 0 {
+        return Err(TurfOpsError::NotFound(format!(
+            "Application {} not found",
+            id
+        )));
+    }
+
+    Ok(Json(updated))
+}
+
 pub async fn delete_application(
     State(state): State<AppState>,
     Path(id): Path<i64>,
