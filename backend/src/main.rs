@@ -13,7 +13,7 @@ use crate::db::{pool::create_pool, queries};
 use crate::logic::data_sync::DataSyncService;
 use crate::models::{GrassType, IrrigationType, LawnProfile, SoilType};
 use crate::state::AppState;
-use axum::routing::{delete, get, patch, post, put};
+use axum::routing::{get, patch, post, put};
 use axum::Router;
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -78,7 +78,8 @@ async fn main() -> anyhow::Result<()> {
         )
         .route(
             "/api/v1/applications/{id}",
-            delete(api::applications::delete_application),
+            put(api::applications::update_application)
+                .delete(api::applications::delete_application),
         )
         .route(
             "/api/v1/applications/calendar",

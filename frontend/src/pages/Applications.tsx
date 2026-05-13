@@ -4,6 +4,7 @@ import {
   deleteApplication,
   getApplications,
   listPlants,
+  updateApplication,
 } from '../api/client';
 import { appTypeBadgeStyle, sharedStyles } from '../styles/shared';
 import type { Application, ApplicationType, Plant } from '../types';
@@ -51,6 +52,7 @@ export default function Applications() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<Application | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [plants, setPlants] = useState<Plant[]>([]);
 
@@ -103,24 +105,47 @@ export default function Applications() {
     }
   };
 
-  const handleCreated = () => {
+  const handleSaved = () => {
     setShowForm(false);
+    setEditing(null);
     fetchApps();
+  };
+
+  const handleEdit = (app: Application) => {
+    setEditing(app);
+    setShowForm(false);
+    setError(null);
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditing(null);
+    setError(null);
+  };
+
+  const handleToggleAdd = () => {
+    if (editing) setEditing(null);
+    setShowForm((v) => !v);
   };
 
   return (
     <div>
       <div style={sharedStyles.headerRow}>
         <h1 style={sharedStyles.pageTitle}>Applications</h1>
-        <button style={styles.addBtn} onClick={() => setShowForm(!showForm)}>
+        <button style={styles.addBtn} onClick={handleToggleAdd} disabled={editing != null}>
           {showForm ? 'Cancel' : '+ Add Application'}
         </button>
       </div>
 
-      {showForm && (
-        <AddForm
+      {(showForm || editing) && (
+        <ApplicationForm
+          key={editing?.id ?? 'new'}
+          initial={editing}
           plants={plants}
-          onCreated={handleCreated}
+          onSaved={handleSaved}
+          onCancel={editing ? handleCancelEdit : () => setShowForm(false)}
           onError={setError}
         />
       )}
@@ -220,13 +245,22 @@ export default function Applications() {
                 </td>
                 <td style={sharedStyles.td}>{app.notes || '-'}</td>
                 <td style={sharedStyles.td}>
-                  <button
-                    style={styles.deleteBtn}
-                    onClick={() => app.id != null && handleDelete(app.id)}
-                    disabled={deletingId === app.id}
-                  >
-                    {deletingId === app.id ? 'Deleting...' : 'Delete'}
-                  </button>
+                  <div style={styles.rowActions}>
+                    <button
+                      style={styles.editBtn}
+                      onClick={() => handleEdit(app)}
+                      disabled={editing?.id === app.id}
+                    >
+                      {editing?.id === app.id ? 'Editing…' : 'Edit'}
+                    </button>
+                    <button
+                      style={styles.deleteBtn}
+                      onClick={() => app.id != null && handleDelete(app.id)}
+                      disabled={deletingId === app.id}
+                    >
+                      {deletingId === app.id ? 'Deleting...' : 'Delete'}
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -237,27 +271,50 @@ export default function Applications() {
   );
 }
 
-function AddForm({
+function ApplicationForm({
+  initial,
   plants,
-  onCreated,
+  onSaved,
+  onCancel,
   onError,
 }: {
+  initial?: Application | null;
   plants: Plant[];
-  onCreated: () => void;
+  onSaved: () => void;
+  onCancel: () => void;
   onError: (msg: string) => void;
 }) {
-  const [appType, setAppType] = useState<ApplicationType>('Fertilizer');
-  const [productName, setProductName] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [rate, setRate] = useState('');
-  const [coverage, setCoverage] = useState('');
-  const [notes, setNotes] = useState('');
-  const [nitrogenPct, setNitrogenPct] = useState('');
-  const [phosphorusPct, setPhosphorusPct] = useState('');
-  const [potassiumPct, setPotassiumPct] = useState('');
-  const [plantId, setPlantId] = useState<string>('');
-  const [followUpEnabled, setFollowUpEnabled] = useState(false);
-  const [followUpDate, setFollowUpDate] = useState('');
+  const isEdit = initial != null && initial.id != null;
+  const [appType, setAppType] = useState<ApplicationType>(
+    initial?.application_type ?? 'Fertilizer'
+  );
+  const [productName, setProductName] = useState(initial?.product_name ?? '');
+  const [date, setDate] = useState(
+    initial?.application_date ?? new Date().toISOString().split('T')[0]
+  );
+  const [rate, setRate] = useState(
+    initial?.rate_per_1000sqft != null ? String(initial.rate_per_1000sqft) : ''
+  );
+  const [coverage, setCoverage] = useState(
+    initial?.coverage_sqft != null ? String(initial.coverage_sqft) : ''
+  );
+  const [notes, setNotes] = useState(initial?.notes ?? '');
+  const [nitrogenPct, setNitrogenPct] = useState(
+    initial?.nitrogen_pct != null ? String(initial.nitrogen_pct) : ''
+  );
+  const [phosphorusPct, setPhosphorusPct] = useState(
+    initial?.phosphorus_pct != null ? String(initial.phosphorus_pct) : ''
+  );
+  const [potassiumPct, setPotassiumPct] = useState(
+    initial?.potassium_pct != null ? String(initial.potassium_pct) : ''
+  );
+  const [plantId, setPlantId] = useState<string>(
+    initial?.plant_id != null ? String(initial.plant_id) : ''
+  );
+  const [followUpEnabled, setFollowUpEnabled] = useState(
+    initial?.follow_up_date != null
+  );
+  const [followUpDate, setFollowUpDate] = useState(initial?.follow_up_date ?? '');
   const [submitting, setSubmitting] = useState(false);
 
   const plantRequired = isPlantRequiredApplicationType(appType);
@@ -289,23 +346,28 @@ function AddForm({
       return;
     }
     setSubmitting(true);
+    const payload = {
+      application_type: appType,
+      product_name: productName || undefined,
+      application_date: date,
+      rate_per_1000sqft: rate ? parseFloat(rate) : undefined,
+      coverage_sqft: coverage ? parseFloat(coverage) : undefined,
+      notes: notes || undefined,
+      nitrogen_pct: nitrogenPct ? parseFloat(nitrogenPct) : undefined,
+      phosphorus_pct: phosphorusPct ? parseFloat(phosphorusPct) : undefined,
+      potassium_pct: potassiumPct ? parseFloat(potassiumPct) : undefined,
+      plant_id: plantSelectable && plantId ? parseInt(plantId, 10) : undefined,
+      follow_up_date: followUpEnabled && followUpDate ? followUpDate : undefined,
+    };
     try {
-      await createApplication({
-        application_type: appType,
-        product_name: productName || undefined,
-        application_date: date,
-        rate_per_1000sqft: rate ? parseFloat(rate) : undefined,
-        coverage_sqft: coverage ? parseFloat(coverage) : undefined,
-        notes: notes || undefined,
-        nitrogen_pct: nitrogenPct ? parseFloat(nitrogenPct) : undefined,
-        phosphorus_pct: phosphorusPct ? parseFloat(phosphorusPct) : undefined,
-        potassium_pct: potassiumPct ? parseFloat(potassiumPct) : undefined,
-        plant_id: plantSelectable && plantId ? parseInt(plantId, 10) : undefined,
-        follow_up_date: followUpEnabled && followUpDate ? followUpDate : undefined,
-      });
-      onCreated();
+      if (isEdit && initial?.id != null) {
+        await updateApplication(initial.id, payload);
+      } else {
+        await createApplication(payload);
+      }
+      onSaved();
     } catch (err) {
-      onError(err instanceof Error ? err.message : 'Failed to create');
+      onError(err instanceof Error ? err.message : isEdit ? 'Failed to save' : 'Failed to create');
     } finally {
       setSubmitting(false);
     }
@@ -475,9 +537,21 @@ function AddForm({
         )}
       </div>
 
-      <button type="submit" style={styles.submitBtn} disabled={submitting}>
-        {submitting ? 'Saving...' : 'Save Application'}
-      </button>
+      <div style={styles.formActions}>
+        <button type="submit" style={styles.submitBtn} disabled={submitting}>
+          {submitting ? 'Saving...' : isEdit ? 'Update Application' : 'Save Application'}
+        </button>
+        {isEdit && (
+          <button
+            type="button"
+            style={styles.cancelBtn}
+            onClick={onCancel}
+            disabled={submitting}
+          >
+            Cancel
+          </button>
+        )}
+      </div>
     </form>
   );
 }
@@ -514,6 +588,34 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 4,
     cursor: 'pointer',
     fontSize: '0.75rem',
+  },
+  editBtn: {
+    padding: '4px 10px',
+    backgroundColor: 'transparent',
+    color: '#3182ce',
+    border: '1px solid #3182ce',
+    borderRadius: 4,
+    cursor: 'pointer',
+    fontSize: '0.75rem',
+  },
+  rowActions: {
+    display: 'flex',
+    gap: 6,
+  },
+  formActions: {
+    display: 'flex',
+    gap: 8,
+    alignItems: 'center',
+  },
+  cancelBtn: {
+    padding: '0.5rem 1.25rem',
+    backgroundColor: 'transparent',
+    color: '#4a5568',
+    border: '1px solid #cbd5e0',
+    borderRadius: 6,
+    cursor: 'pointer',
+    fontWeight: 600,
+    fontSize: '0.85rem',
   },
   form: {
     backgroundColor: '#fff',
