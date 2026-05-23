@@ -33,10 +33,14 @@ jobs:
         env:
           SOCKET_SECURITY_API_KEY: ${{ secrets.SOCKET_SECURITY_API_KEY }}
         run: |
+          # Socket repo slug must not contain a slash; strip the owner prefix.
+          # On pull_request, GITHUB_REF_NAME is "<pr>/merge"; prefer the head ref.
+          repo_slug="${GITHUB_REPOSITORY##*/}"
+          branch_name="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
           npx -y @socketsecurity/cli@latest scan create \
             --org grecolabs \
-            --repo "${GITHUB_REPOSITORY}" \
-            --branch "${GITHUB_REF_NAME}" \
+            --repo "${repo_slug}" \
+            --branch "${branch_name}" \
             --report \
             ./frontend
 
