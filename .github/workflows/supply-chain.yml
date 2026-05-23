@@ -34,10 +34,10 @@ jobs:
           SOCKET_SECURITY_API_KEY: ${{ secrets.SOCKET_SECURITY_API_KEY }}
         run: |
           npx -y @socketsecurity/cli@latest scan create \
+            --org grecolabs \
             --repo "${GITHUB_REPOSITORY}" \
             --branch "${GITHUB_REF_NAME}" \
             --report \
-            --view \
             ./frontend
 
       - name: OSV scan (npm + cargo lockfiles)
