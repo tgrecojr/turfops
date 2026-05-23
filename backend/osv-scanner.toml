@@ -1,6 +1,7 @@
 # osv-scanner configuration
-# Auto-loaded by google/osv-scanner-action when present at the repo root.
-# Docs: https://google.github.io/osv-scanner/configuration/
+# Per https://google.github.io/osv-scanner/configuration/, this file applies
+# only to lockfiles in the same directory (backend/Cargo.lock), which is
+# exactly the scope we want.
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2023-0071"
