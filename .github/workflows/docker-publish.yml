@@ -12,7 +12,13 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  supply-chain:
+    name: Supply chain
+    uses: ./.github/workflows/supply-chain.yml
+    secrets: inherit
+
   build-and-push:
+    needs: supply-chain
     runs-on: ubuntu-latest
     permissions:
       contents: read
