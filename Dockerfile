@@ -10,9 +10,6 @@ RUN npm run build
 FROM rust:1.95-slim-bookworm@sha256:d7482085ff5b415f84dba5647ae71606650bdef00db7aeb69f4b3d170c3e4082 AS backend-build
 WORKDIR /app
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
-
 # Copy manifests first for dependency caching
 COPY backend/Cargo.toml backend/Cargo.lock* ./
 RUN mkdir src && echo 'fn main() { println!("placeholder"); }' > src/main.rs
@@ -27,27 +24,15 @@ RUN touch src/main.rs
 RUN cargo build --release
 
 # Stage 3: Runtime
-FROM debian:bookworm-slim@sha256:0104b334637a5f19aa9c983a91b54c89887c0984081f2068983107a6f6c21eeb
-RUN apt-get update && apt-get install -y ca-certificates libssl3 curl && rm -rf /var/lib/apt/lists/*
-
-# Create non-root user
-RUN useradd -m -s /bin/bash appuser
+FROM cgr.dev/chainguard/glibc-dynamic:latest@sha256:22bdf20a414970c48bead807f32ca833125cfe477d0b4f66f8d1d10d48c6b434
 
 WORKDIR /app
 
-# Copy backend binary
-COPY --from=backend-build /app/target/release/turfops-backend ./turfops-backend
-
-# Copy frontend static files
-COPY --from=frontend-build /app/frontend/dist ./static
+COPY --from=backend-build --chown=65532:65532 /app/target/release/turfops-backend ./turfops-backend
+COPY --from=frontend-build --chown=65532:65532 /app/frontend/dist ./static
 
 ENV STATIC_DIR=/app/static
 
-USER appuser
-
 EXPOSE 3000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:3000/api/v1/health || exit 1
-
-CMD ["./turfops-backend"]
+ENTRYPOINT ["./turfops-backend"]

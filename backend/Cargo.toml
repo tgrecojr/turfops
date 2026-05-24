@@ -14,7 +14,7 @@ tokio = { version = "1", features = ["full"] }
 # Database
 sqlx = { version = "0.8", default-features = false, features = [
     "runtime-tokio",
-    "tls-native-tls",
+    "tls-rustls",
     "postgres",
     "chrono",
     "migrate",
@@ -22,7 +22,7 @@ sqlx = { version = "0.8", default-features = false, features = [
 ] }
 
 # HTTP client (for external datasources)
-reqwest = { version = "0.13", features = ["json"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
