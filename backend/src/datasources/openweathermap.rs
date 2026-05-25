@@ -6,8 +6,11 @@ use crate::models::forecast::{
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::Deserialize;
 use std::collections::HashMap;
+use std::time::Duration;
 
 const API_BASE_URL: &str = "https://api.openweathermap.org/data/2.5";
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
 
 pub struct OpenWeatherMapClient {
     client: reqwest::Client,
@@ -85,10 +88,12 @@ struct OwmCoord {
 
 impl OpenWeatherMapClient {
     pub fn new(config: OpenWeatherMapConfig) -> Self {
-        Self {
-            client: reqwest::Client::new(),
-            config,
-        }
+        let client = reqwest::Client::builder()
+            .connect_timeout(CONNECT_TIMEOUT)
+            .timeout(REQUEST_TIMEOUT)
+            .build()
+            .expect("failed to build OpenWeatherMap HTTP client");
+        Self { client, config }
     }
 
     /// Fetch 5-day/3-hour forecast from OpenWeatherMap

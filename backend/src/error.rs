@@ -36,7 +36,13 @@ impl IntoResponse for TurfOpsError {
         let (status, message) = match &self {
             TurfOpsError::NotFound(msg) => (StatusCode::NOT_FOUND, msg.clone()),
             TurfOpsError::InvalidData(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
-            TurfOpsError::Config(msg) => (StatusCode::INTERNAL_SERVER_ERROR, msg.clone()),
+            TurfOpsError::Config(msg) => {
+                tracing::error!("Configuration error: {}", msg);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "An internal error occurred".to_string(),
+                )
+            }
             TurfOpsError::DataSourceUnavailable(msg) => {
                 (StatusCode::SERVICE_UNAVAILABLE, msg.clone())
             }

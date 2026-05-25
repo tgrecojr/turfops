@@ -25,8 +25,10 @@ use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // Load .env file if present
-    dotenvy::dotenv().ok();
+    #[cfg(feature = "dev-env")]
+    {
+        let _ = dotenvy::dotenv();
+    }
 
     // Initialize tracing
     tracing_subscriber::fmt()

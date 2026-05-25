@@ -9,7 +9,15 @@ authors = ["tgrecojr"]
 # Web framework
 axum = { version = "0.8", features = ["macros"] }
 tower-http = { version = "0.6", features = ["cors", "fs", "limit"] }
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1", default-features = false, features = [
+    "macros",
+    "rt-multi-thread",
+    "net",
+    "sync",
+    "time",
+    "io-util",
+    "signal",
+] }
 
 # Database
 sqlx = { version = "0.9", default-features = false, features = [
@@ -39,11 +47,13 @@ thiserror = "2.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
-# Environment
-dotenvy = "0.15"
+# Optional: only used by `cargo run --features dev-env` for loading .env locally.
+# Production containers receive env vars from the orchestrator and do not need this.
+dotenvy = { version = "0.15", optional = true }
 
-# Unique IDs
-uuid = { version = "1", features = ["v4"] }
+[features]
+default = []
+dev-env = ["dep:dotenvy"]
 
 [profile.release]
 strip = true

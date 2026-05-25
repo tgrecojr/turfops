@@ -3,9 +3,12 @@ use crate::error::{Result, TurfOpsError};
 use crate::models::plant::{PlantMaintenancePlan, PlantType};
 use serde::Serialize;
 use serde_json::json;
+use std::time::Duration;
 
 const APP_URL: &str = "https://github.com/tgrecojr/turfops";
 const APP_TITLE: &str = "TurfOps";
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
 
 pub struct OpenRouterClient {
     client: reqwest::Client,
@@ -22,10 +25,12 @@ pub struct PlantPlanRequest<'a> {
 
 impl OpenRouterClient {
     pub fn new(config: OpenRouterConfig) -> Self {
-        Self {
-            client: reqwest::Client::new(),
-            config,
-        }
+        let client = reqwest::Client::builder()
+            .connect_timeout(CONNECT_TIMEOUT)
+            .timeout(REQUEST_TIMEOUT)
+            .build()
+            .expect("failed to build OpenRouter HTTP client");
+        Self { client, config }
     }
 
     pub fn model(&self) -> &str {
