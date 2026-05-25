@@ -3,6 +3,10 @@ use crate::error::{Result, TurfOpsError};
 use crate::models::{celsius_to_fahrenheit, DataSource, EnvironmentalReading};
 use chrono::Utc;
 use serde::Deserialize;
+use std::time::Duration;
+
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 
 pub struct HomeAssistantClient {
     client: reqwest::Client,
@@ -18,10 +22,12 @@ struct EntityState {
 
 impl HomeAssistantClient {
     pub fn new(config: HomeAssistantConfig) -> Self {
-        Self {
-            client: reqwest::Client::new(),
-            config,
-        }
+        let client = reqwest::Client::builder()
+            .connect_timeout(CONNECT_TIMEOUT)
+            .timeout(REQUEST_TIMEOUT)
+            .build()
+            .expect("failed to build Home Assistant HTTP client");
+        Self { client, config }
     }
 
     pub async fn fetch_current(&self) -> Result<EnvironmentalReading> {
