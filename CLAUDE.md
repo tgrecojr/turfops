@@ -2,14 +2,14 @@
 
 ## Overview
 
-Containerized web application for tracking lawn care activities with data-driven agronomic recommendations. Rust/Axum backend serves a React SPA frontend. Integrates with SoilData PostgreSQL (NOAA USCRN hourly data), Home Assistant (local patio sensors), and OpenWeatherMap (forecast). Deployed via Docker Compose.
+Containerized web application for tracking lawn care activities with data-driven agronomic recommendations. Rust/Axum backend serves a React SPA frontend. Integrates with a NOAA USCRN weather data lake (Dagster bronze/silver/gold parquet on a mounted filesystem, read via embedded DuckDB), Home Assistant (local patio sensors), and OpenWeatherMap (forecast). Deployed via Docker Compose.
 
 ## Tech Stack
 
 - Backend: Rust + Axum + sqlx (PostgreSQL)
 - Frontend: React 19 + TypeScript + Vite
 - Database: PostgreSQL 16 (app data)
-- External Data: SoilData PostgreSQL (NOAA), Home Assistant API, OpenWeatherMap API
+- External Data: NOAA USCRN weather data lake (embedded DuckDB over parquet), Home Assistant API, OpenWeatherMap API
 - Deployment: Docker Compose (app + PostgreSQL)
 - Async Runtime: Tokio
 
@@ -17,7 +17,7 @@ Containerized web application for tracking lawn care activities with data-driven
 
 ### Backend
 - `cd backend && cargo build` — Build backend
-- `cd backend && cargo test` — Run tests (60 tests)
+- `cd backend && cargo test` — Run tests (107 tests)
 - `cd backend && cargo fmt` — Format code
 - `cd backend && cargo clippy` — Run linter
 - `cd backend && cargo run` — Run API server (needs PostgreSQL)
@@ -46,8 +46,8 @@ turfops/
 │       ├── api/                 # Route handlers (16 endpoints)
 │       ├── db/                  # PostgreSQL pool, queries, migrations
 │       ├── models/              # Data structures (shared with rules)
-│       ├── logic/               # Data sync + 18 agronomic rules + GDD computation + seasonal plan
-│       └── datasources/         # SoilData, HomeAssistant, OpenWeatherMap
+│       ├── logic/               # Data sync + 18 agronomic rules + GDD accumulation + seasonal plan
+│       └── datasources/         # WeatherLake (DuckDB/parquet), HomeAssistant, OpenWeatherMap
 ├── frontend/
 │   └── src/
 │       ├── App.tsx              # React Router, 7 routes
@@ -81,14 +81,15 @@ turfops/
 ## Data Sources
 
 - **Ambient (temp/humidity)**: Home Assistant API → patio sensor
-- **Soil (temp/moisture)**: SoilData PostgreSQL → NOAA USCRN PA Avondale (WBANNO 3761)
-- **Precipitation**: SoilData PostgreSQL → NOAA measured values
+- **Soil (temp/moisture)**: Weather data lake silver hourly parquet → NOAA USCRN PA Avondale (WBANNO 3761)
+- **Precipitation**: Weather data lake silver hourly parquet → NOAA measured values
 - **Forecast**: OpenWeatherMap API (5-day forecast)
+- Lake layers: **silver** (`silver_weather.parquet`, hourly cleaned/deduped, °C/mm/% native units) backs the live reading, 7-day summary, trend, and `/historical`; **gold** (`daily_weather.parquet`, daily means already in °F + precomputed `gdd50`) backs the seasonal plan, soil-temp regression, and GDD. Read in-process via embedded DuckDB (`datasources/weather.rs`).
 
 ## Key Patterns
 
-- Demand-driven data refresh: sensors stale after 5min, forecast after 30min. Zero API calls when idle.
-- GDD (Growing Degree Days, base 50°F) populated from `gdd_daily` table during sensor refresh and passed to rules via `EnvironmentalSummary.gdd_base50_ytd`
+- Demand-driven data refresh: sensors stale after 5min, forecast after 30min. Zero external calls when idle. (Lake parquet reads are local + fast, so soil/weather is re-read on each refresh rather than cached in Postgres.)
+- GDD (Growing Degree Days, base 50°F): the gold layer precomputes daily `gdd50` (verified identical to the app's own `((max+min)/2 - 50).max(0)` formula); the app sums it to a YTD running total on demand (`gdd::accumulate_daily_gdd`) and passes it to rules via `EnvironmentalSummary.gdd_base50_ytd`. No `gdd_daily` cache table.
 - 18 agronomic rules are pure functions — no IO, no UI dependencies. 5 rules (pre-emergent, grub control, spring nitrogen, fall overseeding, broadleaf herbicide) use GDD for enhanced timing/urgency.
 - Rules gracefully degrade when GDD data is `None` — all GDD-enhanced logic is additive
 - Recommendation state (addressed/dismissed) tracked in-memory (resets on restart)
@@ -102,7 +103,8 @@ turfops/
 
 See `backend/.env.example` for full list:
 - `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_NAME`, `DATABASE_USER`, `DATABASE_PASSWORD` — App PostgreSQL connection
-- `SOILDATA_DB_*` — External NOAA data PostgreSQL
+- `DATALAKE_ROOT` — Mount point of the NOAA weather data lake (default `/data`); silver/gold weather parquet paths derive beneath it. Override individually with `WEATHER_SILVER_PATH` / `WEATHER_GOLD_PATH`.
+- `NOAA_STATION_WBANNO` — USCRN station filter (default 3761)
 - `HA_URL`, `HA_TOKEN` — Home Assistant connection
 - `OWM_API_KEY` — OpenWeatherMap API key
 - `LAWN_*` — Default lawn profile settings

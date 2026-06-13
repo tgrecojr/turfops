@@ -1,10 +1,10 @@
-use crate::db::queries;
 use crate::error::TurfOpsError;
+use crate::logic::gdd;
 use crate::models::{HistoricalData, TimeSeriesPoint};
 use crate::state::AppState;
 use axum::extract::{Query, State};
 use axum::Json;
-use chrono::{Duration, Utc};
+use chrono::{Datelike, Duration, NaiveDate, Utc};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -13,7 +13,8 @@ pub struct HistoricalQuery {
 }
 
 /// GET /api/v1/historical?range=7d
-/// Returns time-series environmental data for the requested range.
+/// Returns time-series environmental data for the requested range, read directly from
+/// the data lake (silver hourly observations + gold daily GDD).
 /// Supported ranges: 7d, 30d, 90d
 pub async fn get_historical(
     State(state): State<AppState>,
@@ -22,10 +23,11 @@ pub async fn get_historical(
     let range_str = params.range.as_deref().unwrap_or("7d");
     let now = Utc::now();
 
+    // Silver is hourly, so downsample to keep point counts reasonable on longer ranges.
     let (start, downsample_interval) = match range_str {
-        "7d" => (now - Duration::days(7), 1),    // Every reading
-        "30d" => (now - Duration::days(30), 6),  // ~every 30min (6 * 5min)
-        "90d" => (now - Duration::days(90), 24), // ~every 2hr (24 * 5min)
+        "7d" => (now - Duration::days(7), 1),    // ~168 hourly points
+        "30d" => (now - Duration::days(30), 6),  // ~every 6h
+        "90d" => (now - Duration::days(90), 24), // ~daily
         _ => {
             return Err(TurfOpsError::InvalidData(
                 "Invalid range. Use 7d, 30d, or 90d".into(),
@@ -33,10 +35,15 @@ pub async fn get_historical(
         }
     };
 
-    // Query the environmental_cache table (local DB, up to 90 days retention)
-    let readings = queries::get_environmental_cache_range(&state.pool, start, now).await?;
+    let service = state.sync_service.read().await;
+    let client = service.weather_client().ok_or_else(|| {
+        TurfOpsError::DataSourceUnavailable("Weather data lake not configured".into())
+    })?;
 
-    // Build time-series, downsampling for longer ranges
+    // fetch_range returns newest-first; reverse to ascending for charting.
+    let mut readings = client.fetch_range(start, now).await?;
+    readings.reverse();
+
     let mut soil_temp_10_f = Vec::new();
     let mut ambient_temp_f = Vec::new();
     let mut humidity_percent = Vec::new();
@@ -82,14 +89,20 @@ pub async fn get_historical(
         }
     }
 
-    // Add GDD accumulation from gdd_daily cache
-    let gdd_start_date = start.date_naive();
-    let gdd_end_date = now.date_naive();
-    let gdd_records =
-        queries::get_gdd_daily_range(&state.pool, gdd_start_date, gdd_end_date).await?;
+    // GDD accumulation from the gold daily layer. Accumulate from Jan 1 so the values
+    // are true year-to-date (resetting on year boundaries), then keep only points
+    // within the requested range.
+    let start_date = start.date_naive();
+    let accum_start = NaiveDate::from_ymd_opt(start.year(), 1, 1).unwrap_or(start_date);
+    let gdd_records = gdd::accumulate_daily_gdd(
+        &client
+            .fetch_daily_gdd(accum_start, now.date_naive())
+            .await?,
+    );
 
     let gdd_accumulation: Vec<TimeSeriesPoint> = gdd_records
         .iter()
+        .filter(|d| d.date >= start_date)
         .map(|d| TimeSeriesPoint {
             timestamp: d.date.and_hms_opt(12, 0, 0).unwrap().and_utc(),
             value: d.cumulative_gdd_base50,

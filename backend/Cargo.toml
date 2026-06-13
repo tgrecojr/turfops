@@ -32,6 +32,11 @@ sqlx = { version = "0.9", default-features = false, features = [
 # HTTP client (for external datasources)
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
 
+# Embedded analytics engine for reading the weather data lake (parquet on mounted FS).
+# `bundled` statically compiles libduckdb into the binary (no runtime lib needed);
+# `chrono` enables TIMESTAMP/DATE <-> chrono mapping.
+duckdb = { version = "1", features = ["bundled", "chrono"] }
+
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

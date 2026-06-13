@@ -7,6 +7,9 @@ pub enum TurfOpsError {
     #[error("Database error: {0}")]
     Database(#[from] sqlx::Error),
 
+    #[error("Data lake query error: {0}")]
+    DataLake(#[from] duckdb::Error),
+
     #[error("HTTP request error: {0}")]
     Http(#[from] reqwest::Error),
 

@@ -26,6 +26,10 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      # Mount the NOAA weather data lake read-only. Set DATALAKE_HOST_PATH to the host
+      # directory whose children are silver/ and gold/ (defaults to /data).
+      - ${DATALAKE_HOST_PATH:-/data}:/data:ro
     environment:
       # App database (managed by this compose stack)
       DATABASE_HOST: ${DATABASE_HOST:-db}
@@ -49,12 +53,11 @@ services:
       # NOAA station
       NOAA_STATION_WBANNO: ${NOAA_STATION_WBANNO:-3761}
 
-      # SoilData PostgreSQL (external NOAA database)
-      SOILDATA_DB_HOST: ${SOILDATA_DB_HOST:-host.docker.internal}
-      SOILDATA_DB_PORT: ${SOILDATA_DB_PORT:-5432}
-      SOILDATA_DB_NAME: ${SOILDATA_DB_NAME:-uscrn}
-      SOILDATA_DB_USER: ${SOILDATA_DB_USER:-postgres}
-      SOILDATA_DB_PASSWORD: ${SOILDATA_DB_PASSWORD:-}
+      # NOAA weather data lake (Dagster bronze/silver/gold parquet, read via embedded DuckDB).
+      # DATALAKE_ROOT is the in-container mount point; the silver/gold weather parquet
+      # paths are derived beneath it (override individually with WEATHER_SILVER_PATH /
+      # WEATHER_GOLD_PATH if the layout differs).
+      DATALAKE_ROOT: ${DATALAKE_ROOT:-/data}
 
       # Home Assistant
       HA_URL: ${HA_URL:-}

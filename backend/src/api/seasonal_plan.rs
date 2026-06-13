@@ -18,7 +18,7 @@ pub struct SeasonalPlanQuery {
 ///
 /// Returns a seasonal plan for the requested year based on historical
 /// soil temperature threshold crossings from NOAA data.
-/// Lazily fills the threshold crossing cache from SoilData on first call.
+/// Lazily fills the threshold crossing cache from the weather data lake on first call.
 pub async fn get_seasonal_plan(
     State(state): State<AppState>,
     Query(params): Query<SeasonalPlanQuery>,
@@ -28,17 +28,17 @@ pub async fn get_seasonal_plan(
     // Load cached crossings
     let cached_years = queries::get_threshold_crossings_years(&state.pool).await?;
 
-    // Determine which years need backfilling from SoilData
+    // Determine which years need backfilling from the data lake
     let current_year = Local::now().year();
     let earliest_desired = current_year - 10; // Up to 10 years of history
     let years_to_fill: Vec<i32> = (earliest_desired..=current_year)
         .filter(|y| !cached_years.contains(y))
         .collect();
 
-    // Backfill from SoilData if needed
+    // Backfill from the data lake if needed
     if !years_to_fill.is_empty() {
         let sync = state.sync_service.read().await;
-        if let Some(client) = sync.soildata_client() {
+        if let Some(client) = sync.weather_client() {
             for fill_year in &years_to_fill {
                 let start = Utc
                     .with_ymd_and_hms(*fill_year, 1, 1, 0, 0, 0)

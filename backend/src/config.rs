@@ -6,7 +6,7 @@ use sqlx::postgres::PgConnectOptions;
 pub struct Config {
     pub lawn: LawnConfig,
     pub noaa: NoaaConfig,
-    pub soildata: SoilDataConfig,
+    pub datalake: DataLakeConfig,
     pub homeassistant: HomeAssistantConfig,
     pub openweathermap: Option<OpenWeatherMapConfig>,
     pub openrouter: Option<OpenRouterConfig>,
@@ -29,36 +29,14 @@ pub struct NoaaConfig {
     pub station_wbanno: i32,
 }
 
-#[derive(Clone, Deserialize)]
-pub struct SoilDataConfig {
-    pub host: String,
-    pub port: u16,
-    pub database: String,
-    pub user: String,
-    pub password: String,
-}
-
-impl std::fmt::Debug for SoilDataConfig {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SoilDataConfig")
-            .field("host", &self.host)
-            .field("port", &self.port)
-            .field("database", &self.database)
-            .field("user", &self.user)
-            .field("password", &"[REDACTED]")
-            .finish()
-    }
-}
-
-impl SoilDataConfig {
-    pub fn connect_options(&self) -> PgConnectOptions {
-        PgConnectOptions::new()
-            .host(&self.host)
-            .port(self.port)
-            .database(&self.database)
-            .username(&self.user)
-            .password(&self.password)
-    }
+/// Filesystem paths to the NOAA weather data lake (parquet, produced by the
+/// Dagster bronze/silver/gold pipeline and mounted into this container).
+#[derive(Debug, Clone, Deserialize)]
+pub struct DataLakeConfig {
+    /// Silver hourly weather parquet (cleaned, deduped, one row per hourly observation).
+    pub silver_weather_path: String,
+    /// Gold daily weather parquet (pre-aggregated daily means + gdd50).
+    pub gold_weather_path: String,
 }
 
 #[derive(Clone, Deserialize)]
@@ -214,24 +192,23 @@ impl Config {
                     })
                 },
             },
-            soildata: SoilDataConfig {
-                host: env_or("SOILDATA_DB_HOST", "localhost"),
-                port: {
-                    let raw = env_or("SOILDATA_DB_PORT", "5432");
-                    raw.parse().unwrap_or_else(|_| {
-                        tracing::warn!(value = %raw, "Invalid SOILDATA_DB_PORT, defaulting to 5432");
-                        5432
-                    })
-                },
-                database: env_or("SOILDATA_DB_NAME", "uscrn"),
-                user: env_or("SOILDATA_DB_USER", "postgres"),
-                password: {
-                    let pw = env_or("SOILDATA_DB_PASSWORD", "");
-                    if pw.is_empty() {
-                        tracing::warn!("SOILDATA_DB_PASSWORD is empty — SoilData connection may fail if authentication is required");
-                    }
-                    pw
-                },
+            datalake: {
+                // Either set the two full paths explicitly, or set DATALAKE_ROOT and
+                // derive the conventional weather parquet locations beneath it.
+                let root = env_or("DATALAKE_ROOT", "/data");
+                let silver_weather_path = std::env::var("WEATHER_SILVER_PATH")
+                    .unwrap_or_else(|_| format!("{root}/silver/weather/silver_weather.parquet"));
+                let gold_weather_path = std::env::var("WEATHER_GOLD_PATH")
+                    .unwrap_or_else(|_| format!("{root}/gold/weather/daily_weather.parquet"));
+                tracing::info!(
+                    silver = %silver_weather_path,
+                    gold = %gold_weather_path,
+                    "Weather data lake paths configured"
+                );
+                DataLakeConfig {
+                    silver_weather_path,
+                    gold_weather_path,
+                }
             },
             homeassistant: HomeAssistantConfig {
                 url: env_or("HA_URL", "http://localhost:8123"),
