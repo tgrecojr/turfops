@@ -10,6 +10,16 @@ RUN npm run build
 FROM rust:1.96-slim-bookworm@sha256:c8a94a78f67ec8c4d474ec7f71e0720f21eb7e584e158daec0874cafa7c30e4d AS backend-build
 WORKDIR /app
 
+# g++ is required to compile DuckDB's bundled C++ amalgamation (duckdb crate, `bundled`).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Statically link the C++ runtime (libstdc++) and libgcc into the binary so it only
+# depends on glibc at runtime — the cgr.dev/chainguard/glibc-dynamic image provides
+# glibc but NOT libstdc++.so.6, which the bundled DuckDB would otherwise need.
+ENV RUSTFLAGS="-C link-arg=-static-libstdc++ -C link-arg=-static-libgcc"
+
 # Copy manifests first for dependency caching
 COPY backend/Cargo.toml backend/Cargo.lock* ./
 RUN mkdir src && echo 'fn main() { println!("placeholder"); }' > src/main.rs

@@ -1,21 +1,21 @@
 use crate::config::Config;
-use crate::datasources::{HomeAssistantClient, OpenWeatherMapClient, SoilDataClient};
-use crate::db::queries;
+use crate::datasources::{HomeAssistantClient, OpenWeatherMapClient, WeatherLakeClient};
 use crate::logic::soil_temp_prediction;
 use crate::models::{DataSource, EnvironmentalReading, EnvironmentalSummary, WeatherForecast};
 use chrono::{Datelike, Duration, Utc};
 use sqlx::PgPool;
 use tokio::time::Instant;
 
-/// How long before sensor data (SoilData + Home Assistant) is considered stale.
+/// How long before sensor data (weather lake + Home Assistant) is considered stale.
 const SENSOR_STALENESS_SECS: u64 = 5 * 60; // 5 minutes
 
 /// How long before forecast data (OpenWeatherMap) is considered stale.
 const FORECAST_STALENESS_SECS: u64 = 30 * 60; // 30 minutes
 
 pub struct DataSyncService {
+    #[allow(dead_code)]
     pool: PgPool,
-    soildata_client: Option<SoilDataClient>,
+    weather_client: Option<WeatherLakeClient>,
     homeassistant_client: Option<HomeAssistantClient>,
     openweathermap_client: Option<OpenWeatherMapClient>,
     current_summary: EnvironmentalSummary,
@@ -57,21 +57,15 @@ impl DataSyncService {
             );
         }
 
-        let soildata_client =
-            match SoilDataClient::connect_lazy(&config.soildata, config.noaa.station_wbanno) {
-                Ok(client) => {
-                    tracing::info!("SoilData client configured (connection tested on first fetch)");
-                    Some(client)
-                }
-                Err(e) => {
-                    tracing::warn!("Failed to configure SoilData client: {}", e);
-                    None
-                }
-            };
+        let weather_client = Some(WeatherLakeClient::new(
+            &config.datalake,
+            config.noaa.station_wbanno,
+        ));
+        tracing::info!("Weather data lake client configured (parquet read on first fetch)");
 
         Self {
             pool,
-            soildata_client,
+            weather_client,
             homeassistant_client,
             openweathermap_client,
             current_summary: EnvironmentalSummary::default(),
@@ -103,7 +97,7 @@ impl DataSyncService {
     pub async fn check_connections(&self) -> ConnectionStatus {
         let mut status = ConnectionStatus::default();
 
-        if let Some(ref client) = self.soildata_client {
+        if let Some(ref client) = self.weather_client {
             status.soildata = client.test_connection().await.unwrap_or(false);
         }
 
@@ -118,9 +112,9 @@ impl DataSyncService {
         status
     }
 
-    /// Provide access to the SoilData client for direct queries (GDD, historical).
-    pub fn soildata_client(&self) -> Option<&SoilDataClient> {
-        self.soildata_client.as_ref()
+    /// Provide access to the weather lake client for direct queries (GDD, historical).
+    pub fn weather_client(&self) -> Option<&WeatherLakeClient> {
+        self.weather_client.as_ref()
     }
 
     fn is_sensor_stale(&self) -> bool {
@@ -146,8 +140,8 @@ impl DataSyncService {
         let mut combined_reading = EnvironmentalReading::new(DataSource::Cached);
 
         if refresh_sensors {
-            // Fetch soil data from PostgreSQL
-            if let Some(ref client) = self.soildata_client {
+            // Fetch soil/weather data from the data lake (silver hourly)
+            if let Some(ref client) = self.weather_client {
                 match client.fetch_summary().await {
                     Ok(soil_summary) => {
                         summary = soil_summary;
@@ -193,26 +187,21 @@ impl DataSyncService {
             summary.last_updated = Some(Utc::now());
             self.last_sensor_refresh = Some(Instant::now());
 
-            // Cache the reading to app DB
-            if let Err(e) =
-                queries::cache_environmental_reading(&self.pool, &combined_reading).await
-            {
-                tracing::error!("Failed to cache environmental reading: {}", e);
-            }
-
-            // Populate GDD YTD from gdd_daily table
+            // Populate GDD YTD by summing the gold layer's precomputed daily gdd50
             let current_year = Utc::now().year();
-            match queries::get_latest_gdd_ytd(&self.pool, current_year).await {
-                Ok(gdd) => {
-                    summary.gdd_base50_ytd = gdd;
-                }
-                Err(e) => {
-                    tracing::warn!("Failed to fetch GDD YTD: {}", e);
+            if let Some(ref client) = self.weather_client {
+                match client.fetch_gdd_ytd(current_year).await {
+                    Ok(gdd) => {
+                        summary.gdd_base50_ytd = gdd;
+                    }
+                    Err(e) => {
+                        tracing::warn!("Failed to fetch GDD YTD: {}", e);
+                    }
                 }
             }
 
-            // Populate soil temp predictions if we have SoilData + forecast
-            if let Some(ref client) = self.soildata_client {
+            // Populate soil temp predictions if we have lake data + forecast
+            if let Some(ref client) = self.weather_client {
                 let now = Utc::now();
                 let thirty_days_ago = now - Duration::days(30);
                 match client
@@ -255,17 +244,6 @@ impl DataSyncService {
                         tracing::debug!("Failed to fetch paired data for prediction: {}", e);
                     }
                 }
-            }
-
-            // Clean up old cache entries (retain 90 days)
-            match queries::cleanup_old_environmental_cache(&self.pool, 90).await {
-                Ok(deleted) if deleted > 0 => {
-                    tracing::info!("Cleaned up {} old environmental cache rows", deleted);
-                }
-                Err(e) => {
-                    tracing::warn!("Failed to clean up environmental cache: {}", e);
-                }
-                _ => {}
             }
         } else {
             // Keep existing sensor data

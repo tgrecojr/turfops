@@ -13,15 +13,15 @@ pub async fn get_soil_temp_forecast(
 ) -> Result<Json<SoilTempForecast>, TurfOpsError> {
     let service = state.sync_service.read().await;
 
-    // We need: SoilData client for paired data, current soil temp, and forecast
-    let soildata = service
-        .soildata_client()
-        .ok_or_else(|| TurfOpsError::DataSourceUnavailable("SoilData not configured".into()))?;
+    // We need: weather lake client for paired data, current soil temp, and forecast
+    let weather = service.weather_client().ok_or_else(|| {
+        TurfOpsError::DataSourceUnavailable("Weather data lake not configured".into())
+    })?;
 
-    // Fetch 30 days of daily paired (air_temp, soil_temp) averages from NOAA
+    // Fetch 30 days of daily paired (air_temp, soil_temp) averages from the gold layer
     let now = Utc::now();
     let thirty_days_ago = now - Duration::days(30);
-    let daily_pairs = soildata
+    let daily_pairs = weather
         .fetch_daily_paired_averages(thirty_days_ago, now)
         .await?;
 
