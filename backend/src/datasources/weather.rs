@@ -236,9 +236,11 @@ impl WeatherLakeClient {
             let mut out = Vec::new();
             while let Some(row) = rows.next()? {
                 let date: NaiveDate = row.get(0)?;
-                let high_f: f64 = row.get(1)?;
-                let low_f: f64 = row.get(2)?;
-                let gdd50: f64 = row.get(3)?;
+                // air_temp_max/min can be NULL on sparse days even when gdd50 is present;
+                // they only feed the high/low display, so default to 0.0 when missing.
+                let high_f: f64 = row.get::<_, Option<f64>>(1)?.unwrap_or(0.0);
+                let low_f: f64 = row.get::<_, Option<f64>>(2)?.unwrap_or(0.0);
+                let gdd50: f64 = row.get::<_, Option<f64>>(3)?.unwrap_or(0.0);
                 out.push((date, high_f, low_f, gdd50));
             }
             Ok(out)
