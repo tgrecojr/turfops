@@ -1,5 +1,5 @@
 import { Component, lazy, Suspense, type ReactNode } from 'react';
-import { BrowserRouter, Link, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Link, Route, Routes } from 'react-router';
 import Layout from './components/Layout';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
