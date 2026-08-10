@@ -1,0 +1,16 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.5.7/schema.json",
+	"files": {
+		"includes": ["**", "!dist", "!public"]
+	},
+	"linter": {
+		"domains": {
+			"react": "recommended"
+		},
+		"rules": {
+			"style": {
+				"useComponentExportOnlyModules": "error"
+			}
+		}
+	}
+}
