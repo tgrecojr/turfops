@@ -27,6 +27,8 @@ Containerized web application for tracking lawn care activities with data-driven
 - `cd frontend && npm run dev` — Dev server with API proxy (port 5173)
 - `cd frontend && npm run build` — Production build to dist/
 - `cd frontend && npx tsc --noEmit` — Type check
+- `cd frontend && npm run lint` — Biome lint + format check
+- `cd frontend && npm run format` — Biome auto-format
 
 ### Docker
 - `docker compose up -d` — Start full stack (port 3000)

@@ -1,663 +1,666 @@
 // Matches Rust models exactly
 
 export interface LawnProfile {
-  id: number | null;
-  name: string;
-  grass_type: GrassType;
-  usda_zone: string;
-  soil_type: SoilType | null;
-  lawn_size_sqft: number | null;
-  irrigation_type: IrrigationType | null;
-  created_at: string;
-  updated_at: string;
+	id: number | null;
+	name: string;
+	grass_type: GrassType;
+	usda_zone: string;
+	soil_type: SoilType | null;
+	lawn_size_sqft: number | null;
+	irrigation_type: IrrigationType | null;
+	created_at: string;
+	updated_at: string;
 }
 
 export type GrassType =
-  | 'KentuckyBluegrass'
-  | 'TallFescue'
-  | 'PerennialRyegrass'
-  | 'FineFescue'
-  | 'Bermuda'
-  | 'Zoysia'
-  | 'StAugustine'
-  | 'Mixed';
+	| "KentuckyBluegrass"
+	| "TallFescue"
+	| "PerennialRyegrass"
+	| "FineFescue"
+	| "Bermuda"
+	| "Zoysia"
+	| "StAugustine"
+	| "Mixed";
 
 export type SoilType =
-  | 'Clay'
-  | 'Loam'
-  | 'Sandy'
-  | 'SiltLoam'
-  | 'ClayLoam'
-  | 'SandyLoam';
+	| "Clay"
+	| "Loam"
+	| "Sandy"
+	| "SiltLoam"
+	| "ClayLoam"
+	| "SandyLoam";
 
-export type IrrigationType = 'InGround' | 'Hose' | 'None';
+export type IrrigationType = "InGround" | "Hose" | "None";
 
 export interface Application {
-  id: number | null;
-  lawn_profile_id: number;
-  application_type: ApplicationType;
-  product_name: string | null;
-  application_date: string;
-  rate_per_1000sqft: number | null;
-  coverage_sqft: number | null;
-  notes: string | null;
-  weather_snapshot: WeatherSnapshot | null;
-  nitrogen_pct: number | null;
-  phosphorus_pct: number | null;
-  potassium_pct: number | null;
-  plant_id?: number | null;
-  follow_up_date?: string | null;
-  created_at: string;
+	id: number | null;
+	lawn_profile_id: number;
+	application_type: ApplicationType;
+	product_name: string | null;
+	application_date: string;
+	rate_per_1000sqft: number | null;
+	coverage_sqft: number | null;
+	notes: string | null;
+	weather_snapshot: WeatherSnapshot | null;
+	nitrogen_pct: number | null;
+	phosphorus_pct: number | null;
+	potassium_pct: number | null;
+	plant_id?: number | null;
+	follow_up_date?: string | null;
+	created_at: string;
 }
 
 export type ApplicationType =
-  | 'PreEmergent'
-  | 'PostEmergent'
-  | 'Fertilizer'
-  | 'Fungicide'
-  | 'Insecticide'
-  | 'GrubControl'
-  | 'Overseed'
-  | 'Aeration'
-  | 'Dethatching'
-  | 'Lime'
-  | 'Sulfur'
-  | 'Wetting'
-  | 'Mowing'
-  | 'Other'
-  | 'Pruning'
-  | 'PlantFertilizer'
-  | 'Mulching'
-  | 'Deadheading'
-  | 'WinterProtection';
+	| "PreEmergent"
+	| "PostEmergent"
+	| "Fertilizer"
+	| "Fungicide"
+	| "Insecticide"
+	| "GrubControl"
+	| "Overseed"
+	| "Aeration"
+	| "Dethatching"
+	| "Lime"
+	| "Sulfur"
+	| "Wetting"
+	| "Mowing"
+	| "Other"
+	| "Pruning"
+	| "PlantFertilizer"
+	| "Mulching"
+	| "Deadheading"
+	| "WinterProtection";
 
 // Plant scope classification (mirrors backend ApplicationScope).
 // PlantRequired: must be tied to a plant.
 // Universal: may be tied to a plant or to the turf.
 // TurfOnly: turf-only, no plant_id allowed.
 export const PLANT_REQUIRED_APPLICATION_TYPES: ApplicationType[] = [
-  'Pruning',
-  'PlantFertilizer',
-  'Mulching',
-  'Deadheading',
-  'WinterProtection',
+	"Pruning",
+	"PlantFertilizer",
+	"Mulching",
+	"Deadheading",
+	"WinterProtection",
 ];
 
 export const UNIVERSAL_APPLICATION_TYPES: ApplicationType[] = [
-  'Fertilizer',
-  'Fungicide',
-  'Insecticide',
-  'Wetting',
-  'Other',
+	"Fertilizer",
+	"Fungicide",
+	"Insecticide",
+	"Wetting",
+	"Other",
 ];
 
 export const TURF_ONLY_APPLICATION_TYPES: ApplicationType[] = [
-  'PreEmergent',
-  'PostEmergent',
-  'GrubControl',
-  'Overseed',
-  'Aeration',
-  'Dethatching',
-  'Lime',
-  'Sulfur',
-  'Mowing',
+	"PreEmergent",
+	"PostEmergent",
+	"GrubControl",
+	"Overseed",
+	"Aeration",
+	"Dethatching",
+	"Lime",
+	"Sulfur",
+	"Mowing",
 ];
 
 export function isPlantRequiredApplicationType(t: ApplicationType): boolean {
-  return PLANT_REQUIRED_APPLICATION_TYPES.includes(t);
+	return PLANT_REQUIRED_APPLICATION_TYPES.includes(t);
 }
 
 export function isUniversalApplicationType(t: ApplicationType): boolean {
-  return UNIVERSAL_APPLICATION_TYPES.includes(t);
+	return UNIVERSAL_APPLICATION_TYPES.includes(t);
 }
 
 export function isTurfOnlyApplicationType(t: ApplicationType): boolean {
-  return TURF_ONLY_APPLICATION_TYPES.includes(t);
+	return TURF_ONLY_APPLICATION_TYPES.includes(t);
 }
 
 /** True if a plant dropdown should appear (plant-required or universal). */
 export function canTargetPlant(t: ApplicationType): boolean {
-  return !isTurfOnlyApplicationType(t);
+	return !isTurfOnlyApplicationType(t);
 }
 
 // Plants / landscape maintenance
 
 export type PlantType =
-  | 'Shrub'
-  | 'Tree'
-  | 'Perennial'
-  | 'Annual'
-  | 'Vine'
-  | 'Groundcover'
-  | 'Other';
+	| "Shrub"
+	| "Tree"
+	| "Perennial"
+	| "Annual"
+	| "Vine"
+	| "Groundcover"
+	| "Other";
 
 export type TaskType =
-  | 'Pruning'
-  | 'Fertilizing'
-  | 'Mulching'
-  | 'Watering'
-  | 'PestInspection'
-  | 'Deadheading'
-  | 'WinterProtection'
-  | 'Other';
+	| "Pruning"
+	| "Fertilizing"
+	| "Mulching"
+	| "Watering"
+	| "PestInspection"
+	| "Deadheading"
+	| "WinterProtection"
+	| "Other";
 
-export type TaskFrequency = 'Once' | 'Twice' | 'Monthly' | 'AsNeeded';
+export type TaskFrequency = "Once" | "Twice" | "Monthly" | "AsNeeded";
 
-export type IdentificationConfidence = 'High' | 'Medium' | 'Low';
+export type IdentificationConfidence = "High" | "Medium" | "Low";
 
 export interface MaintenanceTask {
-  task_type: TaskType;
-  window_start_month_day: string;
-  window_end_month_day: string;
-  frequency: TaskFrequency;
-  description: string;
-  severity: Severity;
-  zone_note: string | null;
+	task_type: TaskType;
+	window_start_month_day: string;
+	window_end_month_day: string;
+	frequency: TaskFrequency;
+	description: string;
+	severity: Severity;
+	zone_note: string | null;
 }
 
 export interface PlantMaintenancePlan {
-  identified_name: string;
-  scientific_name: string | null;
-  identification_confidence: IdentificationConfidence;
-  summary: string;
-  tasks: MaintenanceTask[];
-  warnings: string[];
+	identified_name: string;
+	scientific_name: string | null;
+	identification_confidence: IdentificationConfidence;
+	summary: string;
+	tasks: MaintenanceTask[];
+	warnings: string[];
 }
 
 export interface Plant {
-  id: number | null;
-  lawn_profile_id: number;
-  common_name: string;
-  scientific_name: string | null;
-  plant_type: PlantType;
-  location: string | null;
-  planting_date: string | null;
-  notes: string | null;
-  maintenance_plan: PlantMaintenancePlan;
-  plan_generated_at: string;
-  plan_model: string;
-  created_at: string;
-  updated_at: string;
+	id: number | null;
+	lawn_profile_id: number;
+	common_name: string;
+	scientific_name: string | null;
+	plant_type: PlantType;
+	location: string | null;
+	planting_date: string | null;
+	notes: string | null;
+	maintenance_plan: PlantMaintenancePlan;
+	plan_generated_at: string;
+	plan_model: string;
+	created_at: string;
+	updated_at: string;
 }
 
 export interface WeatherSnapshot {
-  soil_temp_10cm_f: number | null;
-  ambient_temp_f: number | null;
-  humidity_percent: number | null;
-  soil_moisture: number | null;
+	soil_temp_10cm_f: number | null;
+	ambient_temp_f: number | null;
+	humidity_percent: number | null;
+	soil_moisture: number | null;
 }
 
 export interface EnvironmentalSummary {
-  current: EnvironmentalReading | null;
-  soil_temp_7day_avg_f: number | null;
-  ambient_temp_7day_avg_f: number | null;
-  humidity_7day_avg: number | null;
-  precipitation_7day_total_mm: number | null;
-  soil_temp_trend: Trend;
-  last_updated: string | null;
-  forecast: WeatherForecast | null;
-  gdd_base50_ytd: number | null;
-  soil_temp_predictions?: SoilTempPrediction[];
-  predicted_threshold_crossings?: ThresholdPrediction[];
+	current: EnvironmentalReading | null;
+	soil_temp_7day_avg_f: number | null;
+	ambient_temp_7day_avg_f: number | null;
+	humidity_7day_avg: number | null;
+	precipitation_7day_total_mm: number | null;
+	soil_temp_trend: Trend;
+	last_updated: string | null;
+	forecast: WeatherForecast | null;
+	gdd_base50_ytd: number | null;
+	soil_temp_predictions?: SoilTempPrediction[];
+	predicted_threshold_crossings?: ThresholdPrediction[];
 }
 
 export interface EnvironmentalReading {
-  timestamp: string;
-  source: string;
-  soil_temp_5_f: number | null;
-  soil_temp_10_f: number | null;
-  soil_temp_20_f: number | null;
-  soil_temp_50_f: number | null;
-  soil_temp_100_f: number | null;
-  soil_moisture_5: number | null;
-  soil_moisture_10: number | null;
-  soil_moisture_20: number | null;
-  soil_moisture_50: number | null;
-  soil_moisture_100: number | null;
-  ambient_temp_f: number | null;
-  humidity_percent: number | null;
-  precipitation_mm: number | null;
+	timestamp: string;
+	source: string;
+	soil_temp_5_f: number | null;
+	soil_temp_10_f: number | null;
+	soil_temp_20_f: number | null;
+	soil_temp_50_f: number | null;
+	soil_temp_100_f: number | null;
+	soil_moisture_5: number | null;
+	soil_moisture_10: number | null;
+	soil_moisture_20: number | null;
+	soil_moisture_50: number | null;
+	soil_moisture_100: number | null;
+	ambient_temp_f: number | null;
+	humidity_percent: number | null;
+	precipitation_mm: number | null;
 }
 
-export type Trend = 'Rising' | 'Falling' | 'Stable' | 'Unknown';
+export type Trend = "Rising" | "Falling" | "Stable" | "Unknown";
 
 export interface WeatherForecast {
-  fetched_at: string;
-  location: ForecastLocation;
-  hourly: ForecastPoint[];
-  daily_summary: DailyForecast[];
+	fetched_at: string;
+	location: ForecastLocation;
+	hourly: ForecastPoint[];
+	daily_summary: DailyForecast[];
 }
 
 export interface ForecastLocation {
-  city: string;
-  country: string;
-  latitude: number;
-  longitude: number;
+	city: string;
+	country: string;
+	latitude: number;
+	longitude: number;
 }
 
 export interface ForecastPoint {
-  timestamp: string;
-  temp_f: number;
-  feels_like_f: number;
-  humidity_percent: number;
-  precipitation_mm: number;
-  precipitation_prob: number;
-  wind_speed_mph: number;
-  wind_gust_mph: number | null;
-  cloud_cover_percent: number;
-  weather_condition: string;
+	timestamp: string;
+	temp_f: number;
+	feels_like_f: number;
+	humidity_percent: number;
+	precipitation_mm: number;
+	precipitation_prob: number;
+	wind_speed_mph: number;
+	wind_gust_mph: number | null;
+	cloud_cover_percent: number;
+	weather_condition: string;
 }
 
 export interface DailyForecast {
-  date: string;
-  high_temp_f: number;
-  low_temp_f: number;
-  avg_humidity: number;
-  total_precipitation_mm: number;
-  max_precipitation_prob: number;
-  dominant_condition: string;
-  avg_wind_speed_mph: number;
-  max_wind_gust_mph: number | null;
+	date: string;
+	high_temp_f: number;
+	low_temp_f: number;
+	avg_humidity: number;
+	total_precipitation_mm: number;
+	max_precipitation_prob: number;
+	dominant_condition: string;
+	avg_wind_speed_mph: number;
+	max_wind_gust_mph: number | null;
 }
 
 export interface Recommendation {
-  id: string;
-  category: string;
-  severity: Severity;
-  title: string;
-  description: string;
-  explanation: string;
-  data_points: DataPoint[];
-  suggested_action: string | null;
-  created_at: string;
-  dismissed: boolean;
-  addressed: boolean;
+	id: string;
+	category: string;
+	severity: Severity;
+	title: string;
+	description: string;
+	explanation: string;
+	data_points: DataPoint[];
+	suggested_action: string | null;
+	created_at: string;
+	dismissed: boolean;
+	addressed: boolean;
 }
 
-export type Severity = 'Info' | 'Advisory' | 'Warning' | 'Critical';
+export type Severity = "Info" | "Advisory" | "Warning" | "Critical";
 
 export interface DataPoint {
-  label: string;
-  value: string;
-  source: string;
+	label: string;
+	value: string;
+	source: string;
 }
 
 export interface ConnectionStatus {
-  soildata: boolean;
-  homeassistant: boolean;
-  openweathermap: boolean;
+	soildata: boolean;
+	homeassistant: boolean;
+	openweathermap: boolean;
 }
 
 export interface HealthResponse {
-  status: string;
-  version: string;
-  database: boolean;
-  datasources: ConnectionStatus;
+	status: string;
+	version: string;
+	database: boolean;
+	datasources: ConnectionStatus;
 }
 
 export interface DashboardResponse {
-  profile: LawnProfile;
-  environmental: EnvironmentalSummary;
-  recommendations: Recommendation[];
-  recent_applications: Application[];
-  connections: ConnectionStatus;
+	profile: LawnProfile;
+	environmental: EnvironmentalSummary;
+	recommendations: Recommendation[];
+	recent_applications: Application[];
+	connections: ConnectionStatus;
 }
 
 export interface CalendarResponse {
-  year: number;
-  month: number;
-  days: Record<string, Application[]>;
+	year: number;
+	month: number;
+	days: Record<string, Application[]>;
 }
 
 // GDD types
 
 export interface DailyGdd {
-  date: string;
-  high_temp_f: number;
-  low_temp_f: number;
-  gdd_base50: number;
-  cumulative_gdd_base50: number;
+	date: string;
+	high_temp_f: number;
+	low_temp_f: number;
+	gdd_base50: number;
+	cumulative_gdd_base50: number;
 }
 
 export type CrabgrassStatus =
-  | 'PreGermination'
-  | 'ApproachingGermination'
-  | 'GerminationLikely'
-  | 'PostGermination';
+	| "PreGermination"
+	| "ApproachingGermination"
+	| "GerminationLikely"
+	| "PostGermination";
 
 export interface CrabgrassModel {
-  germination_threshold: number;
-  current_gdd: number;
-  status: CrabgrassStatus;
-  estimated_germination_date: string | null;
+	germination_threshold: number;
+	current_gdd: number;
+	status: CrabgrassStatus;
+	estimated_germination_date: string | null;
 }
 
 export interface GddSummary {
-  year: number;
-  current_gdd_total: number;
-  daily_history: DailyGdd[];
-  crabgrass_model: CrabgrassModel;
-  last_computed_date: string | null;
+	year: number;
+	current_gdd_total: number;
+	daily_history: DailyGdd[];
+	crabgrass_model: CrabgrassModel;
+	last_computed_date: string | null;
 }
 
 // Historical time-series types
 
 export interface TimeSeriesPoint {
-  timestamp: string;
-  value: number;
+	timestamp: string;
+	value: number;
 }
 
 export interface HistoricalData {
-  range: string;
-  soil_temp_10_f: TimeSeriesPoint[];
-  ambient_temp_f: TimeSeriesPoint[];
-  humidity_percent: TimeSeriesPoint[];
-  soil_moisture_10: TimeSeriesPoint[];
-  precipitation_mm: TimeSeriesPoint[];
-  gdd_accumulation: TimeSeriesPoint[];
+	range: string;
+	soil_temp_10_f: TimeSeriesPoint[];
+	ambient_temp_f: TimeSeriesPoint[];
+	humidity_percent: TimeSeriesPoint[];
+	soil_moisture_10: TimeSeriesPoint[];
+	precipitation_mm: TimeSeriesPoint[];
+	gdd_accumulation: TimeSeriesPoint[];
 }
 
 // Nitrogen budget types
 
 export interface NitrogenApplication {
-  date: string;
-  product_name: string | null;
-  nitrogen_pct: number;
-  rate_per_1000sqft: number;
-  n_lbs_per_1000sqft: number;
+	date: string;
+	product_name: string | null;
+	nitrogen_pct: number;
+	rate_per_1000sqft: number;
+	n_lbs_per_1000sqft: number;
 }
 
 export interface GrassTypeNTarget {
-  grass_type: GrassType;
-  min_lbs_per_1000sqft: number;
-  max_lbs_per_1000sqft: number;
-  recommended_lbs_per_1000sqft: number;
+	grass_type: GrassType;
+	min_lbs_per_1000sqft: number;
+	max_lbs_per_1000sqft: number;
+	recommended_lbs_per_1000sqft: number;
 }
 
 export interface NitrogenBudget {
-  year: number;
-  target_lbs_per_1000sqft: number;
-  applied_lbs_per_1000sqft: number;
-  remaining_lbs_per_1000sqft: number;
-  percent_of_target: number;
-  applications: NitrogenApplication[];
-  grass_type_target: GrassTypeNTarget;
+	year: number;
+	target_lbs_per_1000sqft: number;
+	applied_lbs_per_1000sqft: number;
+	remaining_lbs_per_1000sqft: number;
+	percent_of_target: number;
+	applications: NitrogenApplication[];
+	grass_type_target: GrassTypeNTarget;
 }
 
 export const CRABGRASS_STATUS_LABELS: Record<CrabgrassStatus, string> = {
-  PreGermination: 'Pre-Germination',
-  ApproachingGermination: 'Approaching',
-  GerminationLikely: 'Likely',
-  PostGermination: 'Post-Germination',
+	PreGermination: "Pre-Germination",
+	ApproachingGermination: "Approaching",
+	GerminationLikely: "Likely",
+	PostGermination: "Post-Germination",
 };
 
 export const CRABGRASS_STATUS_COLORS: Record<CrabgrassStatus, string> = {
-  PreGermination: '#48bb78',
-  ApproachingGermination: '#eab308',
-  GerminationLikely: '#f97316',
-  PostGermination: '#ef4444',
+	PreGermination: "#48bb78",
+	ApproachingGermination: "#eab308",
+	GerminationLikely: "#f97316",
+	PostGermination: "#ef4444",
 };
 
 // Soil Temperature Prediction types
 
-export type PredictionConfidence = 'High' | 'Medium' | 'Low';
+export type PredictionConfidence = "High" | "Medium" | "Low";
 
-export type CrossingDirection = 'Rising' | 'Falling';
+export type CrossingDirection = "Rising" | "Falling";
 
 export interface SoilTempPrediction {
-  date: string;
-  predicted_soil_temp_f: number;
-  confidence: PredictionConfidence;
-  air_temp_used_f: number;
-  source_description: string;
+	date: string;
+	predicted_soil_temp_f: number;
+	confidence: PredictionConfidence;
+	air_temp_used_f: number;
+	source_description: string;
 }
 
 export interface ThresholdPrediction {
-  threshold_name: string;
-  threshold_temp_f: number;
-  estimated_crossing_date: string;
-  days_until_crossing: number;
-  confidence: PredictionConfidence;
-  direction: CrossingDirection;
+	threshold_name: string;
+	threshold_temp_f: number;
+	estimated_crossing_date: string;
+	days_until_crossing: number;
+	confidence: PredictionConfidence;
+	direction: CrossingDirection;
 }
 
 export interface SoilTempModelInfo {
-  r_squared: number;
-  lag_days: number;
-  training_window_days: number;
-  quality: string;
+	r_squared: number;
+	lag_days: number;
+	training_window_days: number;
+	quality: string;
 }
 
 export interface SoilTempForecast {
-  predictions: SoilTempPrediction[];
-  threshold_crossings: ThresholdPrediction[];
-  model_info: SoilTempModelInfo;
-  generated_at: string;
+	predictions: SoilTempPrediction[];
+	threshold_crossings: ThresholdPrediction[];
+	model_info: SoilTempModelInfo;
+	generated_at: string;
 }
 
-export const PREDICTION_CONFIDENCE_COLORS: Record<PredictionConfidence, string> = {
-  High: '#22c55e',
-  Medium: '#eab308',
-  Low: '#f97316',
+export const PREDICTION_CONFIDENCE_COLORS: Record<
+	PredictionConfidence,
+	string
+> = {
+	High: "#22c55e",
+	Medium: "#eab308",
+	Low: "#f97316",
 };
 
 // Seasonal Plan types
 
 export interface SeasonalPlan {
-  year: number;
-  activities: PlannedActivity[];
-  data_years_used: number;
-  generated_at: string;
+	year: number;
+	activities: PlannedActivity[];
+	data_years_used: number;
+	generated_at: string;
 }
 
 export interface PlannedActivity {
-  id: string;
-  name: string;
-  category: string;
-  description: string;
-  date_window: DateWindow;
-  status: ActivityStatus;
-  details: ActivityDetails;
+	id: string;
+	name: string;
+	category: string;
+	description: string;
+	date_window: DateWindow;
+	status: ActivityStatus;
+	details: ActivityDetails;
 }
 
 export interface DateWindow {
-  predicted_start: string;
-  predicted_end: string;
-  earliest_historical: string | null;
-  latest_historical: string | null;
-  confidence: WindowConfidence;
+	predicted_start: string;
+	predicted_end: string;
+	earliest_historical: string | null;
+	latest_historical: string | null;
+	confidence: WindowConfidence;
 }
 
-export type WindowConfidence = 'High' | 'Medium' | 'Low';
+export type WindowConfidence = "High" | "Medium" | "Low";
 
-export type ActivityStatus = 'Upcoming' | 'Active' | 'Completed' | 'Missed';
+export type ActivityStatus = "Upcoming" | "Active" | "Completed" | "Missed";
 
 export interface ActivityDetails {
-  soil_temp_trigger: string | null;
-  product_suggestions: string[];
-  rate: string | null;
-  notes: string | null;
+	soil_temp_trigger: string | null;
+	product_suggestions: string[];
+	rate: string | null;
+	notes: string | null;
 }
 
 export const ACTIVITY_STATUS_COLORS: Record<ActivityStatus, string> = {
-  Upcoming: '#3b82f6',
-  Active: '#22c55e',
-  Completed: '#6b7280',
-  Missed: '#ef4444',
+	Upcoming: "#3b82f6",
+	Active: "#22c55e",
+	Completed: "#6b7280",
+	Missed: "#ef4444",
 };
 
 export const CONFIDENCE_LABELS: Record<WindowConfidence, string> = {
-  High: 'High confidence',
-  Medium: 'Moderate confidence',
-  Low: 'Low confidence',
+	High: "High confidence",
+	Medium: "Moderate confidence",
+	Low: "Low confidence",
 };
 
 // Soil Test types
 
 export interface SoilTest {
-  id: number | null;
-  lawn_profile_id: number;
-  test_date: string;
-  lab_name: string | null;
-  ph: number;
-  buffer_ph: number | null;
-  phosphorus_ppm: number | null;
-  potassium_ppm: number | null;
-  calcium_ppm: number | null;
-  magnesium_ppm: number | null;
-  sulfur_ppm: number | null;
-  iron_ppm: number | null;
-  manganese_ppm: number | null;
-  zinc_ppm: number | null;
-  boron_ppm: number | null;
-  copper_ppm: number | null;
-  organic_matter_pct: number | null;
-  cec: number | null;
-  notes: string | null;
-  created_at: string;
+	id: number | null;
+	lawn_profile_id: number;
+	test_date: string;
+	lab_name: string | null;
+	ph: number;
+	buffer_ph: number | null;
+	phosphorus_ppm: number | null;
+	potassium_ppm: number | null;
+	calcium_ppm: number | null;
+	magnesium_ppm: number | null;
+	sulfur_ppm: number | null;
+	iron_ppm: number | null;
+	manganese_ppm: number | null;
+	zinc_ppm: number | null;
+	boron_ppm: number | null;
+	copper_ppm: number | null;
+	organic_matter_pct: number | null;
+	cec: number | null;
+	notes: string | null;
+	created_at: string;
 }
 
-export type NutrientLevel = 'Low' | 'Adequate' | 'High';
+export type NutrientLevel = "Low" | "Adequate" | "High";
 
 export interface PhRecommendation {
-  current_ph: number;
-  target_ph: number;
-  amendment: string;
-  rate_lbs_per_1000sqft: number;
-  explanation: string;
+	current_ph: number;
+	target_ph: number;
+	amendment: string;
+	rate_lbs_per_1000sqft: number;
+	explanation: string;
 }
 
 export interface NpkRecommendation {
-  phosphorus_level: NutrientLevel;
-  potassium_level: NutrientLevel;
-  recommended_ratio: string;
-  nitrogen_rate_lbs_per_1000sqft: number;
-  phosphorus_rate_lbs_per_1000sqft: number;
-  potassium_rate_lbs_per_1000sqft: number;
-  product_rate_lbs_per_1000sqft: number;
-  example_product_ratio: string;
-  remaining_n_budget_lbs_per_1000sqft: number;
-  explanation: string;
+	phosphorus_level: NutrientLevel;
+	potassium_level: NutrientLevel;
+	recommended_ratio: string;
+	nitrogen_rate_lbs_per_1000sqft: number;
+	phosphorus_rate_lbs_per_1000sqft: number;
+	potassium_rate_lbs_per_1000sqft: number;
+	product_rate_lbs_per_1000sqft: number;
+	example_product_ratio: string;
+	remaining_n_budget_lbs_per_1000sqft: number;
+	explanation: string;
 }
 
 export interface MicronutrientRecommendation {
-  nutrient: string;
-  current_ppm: number;
-  threshold_ppm: number;
-  level: NutrientLevel;
-  suggestion: string;
+	nutrient: string;
+	current_ppm: number;
+	threshold_ppm: number;
+	level: NutrientLevel;
+	suggestion: string;
 }
 
 export interface SoilTestSummary {
-  soil_test: SoilTest;
-  ph_recommendation: PhRecommendation | null;
-  npk_recommendation: NpkRecommendation | null;
-  micronutrient_recommendations: MicronutrientRecommendation[];
+	soil_test: SoilTest;
+	ph_recommendation: PhRecommendation | null;
+	npk_recommendation: NpkRecommendation | null;
+	micronutrient_recommendations: MicronutrientRecommendation[];
 }
 
 export const NUTRIENT_LEVEL_COLORS: Record<NutrientLevel, string> = {
-  Low: '#ef4444',
-  Adequate: '#22c55e',
-  High: '#eab308',
+	Low: "#ef4444",
+	Adequate: "#22c55e",
+	High: "#eab308",
 };
 
 // Display helpers
 
 export const APPLICATION_TYPE_LABELS: Record<ApplicationType, string> = {
-  PreEmergent: 'Pre-Emergent',
-  PostEmergent: 'Post-Emergent',
-  Fertilizer: 'Fertilizer',
-  Fungicide: 'Fungicide',
-  Insecticide: 'Insecticide',
-  GrubControl: 'Grub Control',
-  Overseed: 'Overseed',
-  Aeration: 'Aeration',
-  Dethatching: 'Dethatching',
-  Lime: 'Lime',
-  Sulfur: 'Sulfur',
-  Wetting: 'Wetting Agent',
-  Mowing: 'Mowing',
-  Other: 'Other',
-  Pruning: 'Pruning',
-  PlantFertilizer: 'Plant Fertilizer',
-  Mulching: 'Mulching',
-  Deadheading: 'Deadheading',
-  WinterProtection: 'Winter Protection',
+	PreEmergent: "Pre-Emergent",
+	PostEmergent: "Post-Emergent",
+	Fertilizer: "Fertilizer",
+	Fungicide: "Fungicide",
+	Insecticide: "Insecticide",
+	GrubControl: "Grub Control",
+	Overseed: "Overseed",
+	Aeration: "Aeration",
+	Dethatching: "Dethatching",
+	Lime: "Lime",
+	Sulfur: "Sulfur",
+	Wetting: "Wetting Agent",
+	Mowing: "Mowing",
+	Other: "Other",
+	Pruning: "Pruning",
+	PlantFertilizer: "Plant Fertilizer",
+	Mulching: "Mulching",
+	Deadheading: "Deadheading",
+	WinterProtection: "Winter Protection",
 };
 
 export const APPLICATION_TYPE_COLORS: Record<ApplicationType, string> = {
-  PreEmergent: '#eab308',
-  PostEmergent: '#facc15',
-  Fertilizer: '#22c55e',
-  Fungicide: '#d946ef',
-  Insecticide: '#ef4444',
-  GrubControl: '#f87171',
-  Overseed: '#06b6d4',
-  Aeration: '#3b82f6',
-  Dethatching: '#60a5fa',
-  Lime: '#f5f5f5',
-  Sulfur: '#facc15',
-  Wetting: '#67e8f9',
-  Mowing: '#16a34a',
-  Other: '#9ca3af',
-  Pruning: '#84cc16',
-  PlantFertilizer: '#65a30d',
-  Mulching: '#a16207',
-  Deadheading: '#ec4899',
-  WinterProtection: '#475569',
+	PreEmergent: "#eab308",
+	PostEmergent: "#facc15",
+	Fertilizer: "#22c55e",
+	Fungicide: "#d946ef",
+	Insecticide: "#ef4444",
+	GrubControl: "#f87171",
+	Overseed: "#06b6d4",
+	Aeration: "#3b82f6",
+	Dethatching: "#60a5fa",
+	Lime: "#f5f5f5",
+	Sulfur: "#facc15",
+	Wetting: "#67e8f9",
+	Mowing: "#16a34a",
+	Other: "#9ca3af",
+	Pruning: "#84cc16",
+	PlantFertilizer: "#65a30d",
+	Mulching: "#a16207",
+	Deadheading: "#ec4899",
+	WinterProtection: "#475569",
 };
 
 export const PLANT_TYPE_LABELS: Record<PlantType, string> = {
-  Shrub: 'Shrub',
-  Tree: 'Tree',
-  Perennial: 'Perennial',
-  Annual: 'Annual',
-  Vine: 'Vine',
-  Groundcover: 'Groundcover',
-  Other: 'Other',
+	Shrub: "Shrub",
+	Tree: "Tree",
+	Perennial: "Perennial",
+	Annual: "Annual",
+	Vine: "Vine",
+	Groundcover: "Groundcover",
+	Other: "Other",
 };
 
 export const TASK_TYPE_LABELS: Record<TaskType, string> = {
-  Pruning: 'Pruning',
-  Fertilizing: 'Fertilizing',
-  Mulching: 'Mulching',
-  Watering: 'Watering',
-  PestInspection: 'Pest Inspection',
-  Deadheading: 'Deadheading',
-  WinterProtection: 'Winter Protection',
-  Other: 'Other',
+	Pruning: "Pruning",
+	Fertilizing: "Fertilizing",
+	Mulching: "Mulching",
+	Watering: "Watering",
+	PestInspection: "Pest Inspection",
+	Deadheading: "Deadheading",
+	WinterProtection: "Winter Protection",
+	Other: "Other",
 };
 
 export const IDENTIFICATION_CONFIDENCE_COLORS: Record<
-  IdentificationConfidence,
-  string
+	IdentificationConfidence,
+	string
 > = {
-  High: '#22c55e',
-  Medium: '#eab308',
-  Low: '#ef4444',
+	High: "#22c55e",
+	Medium: "#eab308",
+	Low: "#ef4444",
 };
 
 export const SEVERITY_COLORS: Record<Severity, string> = {
-  Info: '#9ca3af',
-  Advisory: '#3b82f6',
-  Warning: '#eab308',
-  Critical: '#ef4444',
+	Info: "#9ca3af",
+	Advisory: "#3b82f6",
+	Warning: "#eab308",
+	Critical: "#ef4444",
 };
 
 export const SEVERITY_SYMBOLS: Record<Severity, string> = {
-  Info: 'ℹ',
-  Advisory: '→',
-  Warning: '⚠',
-  Critical: '!',
+	Info: "ℹ",
+	Advisory: "→",
+	Warning: "⚠",
+	Critical: "!",
 };
 
 export const GRASS_TYPE_LABELS: Record<GrassType, string> = {
-  KentuckyBluegrass: 'Kentucky Bluegrass',
-  TallFescue: 'Tall Fescue',
-  PerennialRyegrass: 'Perennial Ryegrass',
-  FineFescue: 'Fine Fescue',
-  Bermuda: 'Bermuda',
-  Zoysia: 'Zoysia',
-  StAugustine: 'St. Augustine',
-  Mixed: 'Mixed',
+	KentuckyBluegrass: "Kentucky Bluegrass",
+	TallFescue: "Tall Fescue",
+	PerennialRyegrass: "Perennial Ryegrass",
+	FineFescue: "Fine Fescue",
+	Bermuda: "Bermuda",
+	Zoysia: "Zoysia",
+	StAugustine: "St. Augustine",
+	Mixed: "Mixed",
 };
