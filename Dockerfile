@@ -34,7 +34,7 @@ RUN touch src/main.rs
 RUN cargo build --release
 
 # Stage 3: Runtime
-FROM cgr.dev/chainguard/glibc-dynamic:latest@sha256:993affbc31d155dfdd4c86c4415e87557df5695a0c84bce924992c8e93724168
+FROM cgr.dev/chainguard/glibc-dynamic:latest@sha256:d49aa7837ef1ef8fae33917f94369294c6d49940d2f0b225beee65a3bb6747ed
 
 WORKDIR /app
 
