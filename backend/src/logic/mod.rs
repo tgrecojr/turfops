@@ -1,4 +1,5 @@
 pub mod data_sync;
+pub mod disease;
 pub mod follow_up;
 pub mod gdd;
 pub mod plant_maintenance;

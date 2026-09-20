@@ -1,6 +1,7 @@
 pub mod applications;
 pub mod calendar;
 pub mod dashboard;
+pub mod disease_risk;
 pub mod environmental;
 pub mod gdd;
 pub mod health;
