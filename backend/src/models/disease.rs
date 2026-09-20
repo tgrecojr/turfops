@@ -181,6 +181,8 @@ pub struct DiseaseRisk {
 #[derive(Debug, Clone, Serialize)]
 pub struct DiseaseRiskResponse {
     pub generated_at: DateTime<Utc>,
+    /// Today's date at the station (the headline `as_of` can trail it).
+    pub today: NaiveDate,
     pub station: String,
     pub diseases: Vec<DiseaseRisk>,
     /// Caveats about the inputs (lake lag, missing forecast, ...).

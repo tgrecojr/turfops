@@ -53,6 +53,7 @@ pub async fn get_disease_risk(
     let data_notes = data_notes(&series, today, forecast.is_some());
     Ok(Json(DiseaseRiskResponse {
         generated_at: Utc::now(),
+        today,
         station: format!("NOAA USCRN station {}", client.station_wbanno()),
         diseases: disease::assess_all(&series, today, &ctx),
         data_notes,
