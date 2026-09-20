@@ -358,7 +358,7 @@ cargo run  # migrations run automatically on startup
 
 # Development commands
 cargo build          # Build
-cargo test           # Run tests (154 tests)
+cargo test           # Run tests (159 tests)
 cargo fmt            # Format code
 cargo clippy         # Lint
 RUST_LOG=debug cargo run  # Run with debug logging
@@ -563,9 +563,10 @@ Every disease page turns its tier into an action:
 
 - **Cultural practices** come first for every disease (nitrogen, irrigation timing, mowing, airflow).
 - A **preventative program** and a **curative program** ("if you see symptoms") list FRAC classes with example products, efficacy, and interval. TurfOps cannot see your lawn, so the curative program is always shown for you to apply on your own judgment.
-- **Protection window**: a logged fungicide that is at least *Good* on a disease counts as protection for 21 days (single-site systemic) or 14 days (contact / phosphonate), shortened by 7 days under Severe pressure. Efficacy is per disease — a strobilurin applied for brown patch does not count as dollar spot or Pythium protection.
+- **Protection window**: a logged fungicide that is at least *Good* on a disease counts as protection for 21 days (single-site systemic) or 14 days (contact / phosphonate), shortened by 7 days under Severe pressure. Efficacy is per disease: azoxystrobin (Heritage) applied for brown patch does **not** count as dollar spot protection — it has no useful dollar spot activity and can make it worse. A strobilurin does count as Pythium protection at High risk, but not at Severe, where only Pythium-specific chemistry (cyazofamid, propamocarb, mefenoxam) is trusted.
 - **Red thread** is treated with nitrogen, not fungicide.
-- **No application rates are given.** Rates are product-specific; always read and follow the product label. Efficacy ratings summarize university extension guidance and are a starting point, not a prescription.
+- **No application rates are given.** Rates are product-specific; always read and follow the product label.
+- **Where the efficacy ratings come from.** They were checked against the University of Kentucky's [PPA-1, *Chemical Control of Turfgrass Diseases 2024*](https://publications.mgcafe.uky.edu/files/PPA1.pdf), which rates each active ingredient 1–4 per disease: 4 / 3.5 → Excellent, 3 / 2.5 → Good, 2 / 1.5 → Fair. Those ratings come largely from golf-turf trials, so treat them as relative efficacy, not a home-lawn prescription. Ratings are kept per FRAC *class*, but actives within a class can differ (pyraclostrobin is good on dollar spot while azoxystrobin is not); where a class is split like that it is left out of that disease's options, which errs toward not claiming protection.
 
 Diseases at High or Severe also appear as recommendations on the Dashboard and Recommendations page, generated from the same model output so the two always agree.
 
@@ -577,16 +578,16 @@ TurfOps tracks fungicide application history and provides rotation-aware recomme
 |------------|------|-----------------|
 | FRAC 1 | Thiophanates | thiophanate-methyl, Cleary's 3336 |
 | FRAC 3 | DMIs/Triazoles | propiconazole, Banner MAXX, myclobutanil, Eagle |
-| FRAC 4 | Phenylamides (Pythium) | mefenoxam, Subdue MAXX |
+| FRAC 4 | Phenylamides (Pythium) | mefenoxam, Subdue MAXX — resistance risk; don't use back to back |
 | FRAC 7 | SDHI | fluxapyroxad, Xzemplar, penthiopyrad, Velista |
 | FRAC 11 | Strobilurins | azoxystrobin, Heritage, pyraclostrobin, Insignia |
 | FRAC 12 | Phenylpyrroles | fludioxonil, Medallion |
 | FRAC 14 | Aromatics | PCNB, Turfcide |
 | FRAC 21 | QiI (Pythium) | cyazofamid, Segway |
 | FRAC 28 | Carbamates (Pythium) | propamocarb, Banol |
-| FRAC P07 | Phosphonates (Pythium, preventative only) | fosetyl-Al, Signature, phosphite |
-| FRAC M3 | Multi-site | chlorothalonil, Daconil — not labeled for residential lawns in the US; tracked for protection, never suggested |
-| FRAC M5 | Multi-site | mancozeb |
+| FRAC P07 | Phosphonates, formerly FRAC 33 (Pythium, preventative only) | fosetyl-Al, Signature, phosphite |
+| FRAC M3 | Multi-site (dithiocarbamates) | mancozeb |
+| FRAC M5 | Multi-site (chloronitriles) | chlorothalonil, Daconil — not labeled for residential lawns in the US; tracked for protection, never suggested |
 
 **Rotation**: for each disease, the suggested class is the most effective option for *that disease* that is not the single-site class you used last; the last-used class is tagged "rotate". A season-level warning appears after two consecutive applications of the same single-site class or three or more fungicide applications in a year. Multi-site fungicides (M3, M5) are excluded from rotation calculations (low resistance risk). FRAC classes are inferred from the product name on the logged application, so use a recognizable product or active-ingredient name.
 

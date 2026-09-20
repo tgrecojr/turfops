@@ -173,7 +173,8 @@ fn protection_days(class: FracClass, tier: RiskTier) -> i64 {
 }
 
 /// The most recent logged application that is at least Good on this disease and whose
-/// residual window still covers today.
+/// residual window still covers today. Some chemistry is good enough at High pressure
+/// but not trusted once pressure is Severe (`protects_at_severe`).
 fn active_protection(
     spec: &ProgramSpec,
     apps: &[FungicideRecord],
@@ -184,6 +185,9 @@ fn active_protection(
         let class = app.class?;
         let option = spec.options.iter().find(|o| o.class == class)?;
         if option.efficacy < Efficacy::Good {
+            return None;
+        }
+        if tier == RiskTier::Severe && !option.protects_at_severe {
             return None;
         }
         let through = app.date + Duration::days(protection_days(class, tier));
