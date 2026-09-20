@@ -1,8 +1,9 @@
 //! Dollar spot — Smith-Kerns logistic model (Smith et al. 2018, PLOS ONE 13(3):e0194216).
 
-use super::{fmt_temp_f, score_window, trailing_mean};
+use super::{fmt_temp_f, management, score_window, trailing_mean};
 use crate::models::{
-    DailyWeather, Disease, DiseaseRisk, FactorStatus, Methodology, RiskFactor, RiskScale, RiskTier,
+    DailyWeather, Disease, DiseaseContext, DiseaseRisk, FactorStatus, Methodology, RiskFactor,
+    RiskScale, RiskTier,
 };
 use chrono::NaiveDate;
 
@@ -44,7 +45,11 @@ fn window_means(series: &[DailyWeather], idx: usize) -> Option<(f64, f64)> {
     Some((temp, rh))
 }
 
-pub(super) fn assess(series: &[DailyWeather], today: NaiveDate) -> Option<DiseaseRisk> {
+pub(super) fn assess(
+    series: &[DailyWeather],
+    today: NaiveDate,
+    ctx: &DiseaseContext,
+) -> Option<DiseaseRisk> {
     let scale = scale();
     let value_at = |i: usize| window_means(series, i).map(|(t, rh)| probability_pct(t, rh));
     let scored = score_window(series, today, &scale, value_at)?;
@@ -53,12 +58,14 @@ pub(super) fn assess(series: &[DailyWeather], today: NaiveDate) -> Option<Diseas
     let tier = scale.tier_for(pct);
 
     let disease = Disease::DollarSpot;
+    let management = management::plan(disease, tier, &scored.daily, today, ctx);
     Some(DiseaseRisk {
         disease,
         slug: disease.slug().into(),
         name: disease.name().into(),
         pathogen: disease.pathogen().into(),
         tier,
+        tier_note: None,
         score: pct,
         score_label: format!("{pct:.0}% probability"),
         as_of: series[scored.headline_idx].date,
@@ -67,6 +74,7 @@ pub(super) fn assess(series: &[DailyWeather], today: NaiveDate) -> Option<Diseas
         factors: factors(mean_temp_c, mean_rh, pct),
         summary: summary(tier, pct),
         methodology: methodology(),
+        management,
     })
 }
 
@@ -191,7 +199,7 @@ mod tests {
         // Four cool dry days then one hot humid day: the average stays low.
         let mut series = run_of(today, 5, |d| day(d, 12.0, 8.0, 16.0, 50.0));
         series[4] = day(today, 28.0, 22.0, 33.0, 95.0);
-        let risk = assess(&series, today).unwrap();
+        let risk = assess(&series, today, &DiseaseContext::default()).unwrap();
         assert_eq!(risk.tier, RiskTier::Low);
     }
 
@@ -199,14 +207,14 @@ mod tests {
     fn needs_three_days_of_history() {
         let today = date(9, 20);
         let series = run_of(today, 2, |d| day(d, 22.0, 18.0, 27.0, 85.0));
-        assert!(assess(&series, today).is_none());
+        assert!(assess(&series, today, &DiseaseContext::default()).is_none());
     }
 
     #[test]
     fn warm_humid_stretch_is_severe() {
         let today = date(9, 20);
         let series = run_of(today, 8, |d| day(d, 24.0, 19.0, 29.0, 85.0));
-        let risk = assess(&series, today).unwrap();
+        let risk = assess(&series, today, &DiseaseContext::default()).unwrap();
         assert_eq!(risk.tier, RiskTier::Severe);
     }
 }

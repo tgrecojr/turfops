@@ -1,9 +1,10 @@
 //! Brown patch — Fidanza-Dernoeden E-index (Fidanza, Dernoeden & Grybauskas 1996,
 //! Phytopathology 86:385-390).
 
-use super::{fmt_temp_f, score_window, trailing_mean};
+use super::{fmt_temp_f, management, score_window, trailing_mean};
 use crate::models::{
-    DailyWeather, Disease, DiseaseRisk, FactorStatus, Methodology, RiskFactor, RiskScale, RiskTier,
+    DailyWeather, Disease, DiseaseContext, DiseaseRisk, FactorStatus, Methodology, RiskFactor,
+    RiskScale, RiskTier,
 };
 use chrono::NaiveDate;
 
@@ -32,7 +33,11 @@ fn scale() -> RiskScale {
     }
 }
 
-pub(super) fn assess(series: &[DailyWeather], today: NaiveDate) -> Option<DiseaseRisk> {
+pub(super) fn assess(
+    series: &[DailyWeather],
+    today: NaiveDate,
+    ctx: &DiseaseContext,
+) -> Option<DiseaseRisk> {
     let scale = scale();
     let value_at = |i: usize| Some(e_index(series[i].rh_mean, series[i].temp_min_c));
     let scored = score_window(series, today, &scale, value_at)?;
@@ -44,12 +49,14 @@ pub(super) fn assess(series: &[DailyWeather], today: NaiveDate) -> Option<Diseas
     });
 
     let disease = Disease::BrownPatch;
+    let management = management::plan(disease, tier, &scored.daily, today, ctx);
     Some(DiseaseRisk {
         disease,
         slug: disease.slug().into(),
         name: disease.name().into(),
         pathogen: disease.pathogen().into(),
         tier,
+        tier_note: None,
         score: e,
         score_label: format!("E-index {e:.1}"),
         as_of: day.date,
@@ -58,6 +65,7 @@ pub(super) fn assess(series: &[DailyWeather], today: NaiveDate) -> Option<Diseas
         factors: factors(day, e, week_avg),
         summary: summary(tier, e),
         methodology: methodology(),
+        management,
     })
 }
 
@@ -196,7 +204,7 @@ mod tests {
     fn warm_humid_nights_are_severe() {
         let today = date(7, 20);
         let series = run_of(today, 8, |d| day(d, 26.0, 21.0, 32.0, 90.0));
-        let risk = assess(&series, today).unwrap();
+        let risk = assess(&series, today, &DiseaseContext::default()).unwrap();
         assert_eq!(risk.tier, RiskTier::Severe);
         assert_eq!(risk.as_of, today);
         assert_eq!(risk.daily.len(), 7);
@@ -206,7 +214,7 @@ mod tests {
     fn cool_nights_are_low() {
         let today = date(10, 20);
         let series = run_of(today, 8, |d| day(d, 10.0, 5.0, 15.0, 80.0));
-        let risk = assess(&series, today).unwrap();
+        let risk = assess(&series, today, &DiseaseContext::default()).unwrap();
         assert_eq!(risk.tier, RiskTier::Low);
         assert!(risk.score < 0.0);
     }
@@ -218,7 +226,7 @@ mod tests {
         for d in series.iter_mut().filter(|d| d.date > today) {
             d.is_forecast = true;
         }
-        let risk = assess(&series, today).unwrap();
+        let risk = assess(&series, today, &DiseaseContext::default()).unwrap();
         assert_eq!(risk.as_of, today);
         assert_eq!(risk.daily.iter().filter(|d| d.is_forecast).count(), 2);
     }

@@ -2,7 +2,8 @@
 //! No validated forecasting model exists; drivers follow extension guidance.
 
 use super::{
-    amplify, fmt_temp_f, ramp, score_window, suitability_status, trailing_mean, trapezoid,
+    amplify, fmt_temp_f, management, ramp, score_window, suitability_status, trailing_mean,
+    trapezoid,
 };
 use crate::models::{
     DailyWeather, Disease, DiseaseContext, DiseaseRisk, FactorStatus, Methodology, RiskFactor,
@@ -64,26 +65,33 @@ pub(super) fn assess(
 ) -> Option<DiseaseRisk> {
     let scale = scale();
     let value_at = |i: usize| trailing_mean(series, i, WINDOW_DAYS, 1, daily_index);
-    let mut scored = score_window(series, today, &scale, value_at)?;
+    let scored = score_window(series, today, &scale, value_at)?;
     let day = &series[scored.headline_idx];
     let index = scored.headline_value;
 
     let hungry = nitrogen_hungry(ctx);
-    let mut tier = scale.tier_for(index);
+    let weather_tier = scale.tier_for(index);
+    let mut tier = weather_tier;
+    // Only the headline is amplified: the daily series stays weather-only so its bars
+    // agree with the scale's tier thresholds.
     if hungry {
         tier = amplify(tier);
-        for d in &mut scored.daily {
-            d.tier = amplify(d.tier);
-        }
     }
 
     let disease = Disease::RedThread;
+    let management = management::plan(disease, tier, &scored.daily, today, ctx);
     Some(DiseaseRisk {
         disease,
         slug: disease.slug().into(),
         name: disease.name().into(),
         pathogen: disease.pathogen().into(),
         tier,
+        tier_note: (tier != weather_tier).then(|| {
+            format!(
+                "Raised from {} — no nitrogen logged in 60+ days",
+                weather_tier.as_str()
+            )
+        }),
         score: index,
         score_label: format!("{index:.0} / 100"),
         as_of: day.date,
@@ -92,6 +100,7 @@ pub(super) fn assess(
         factors: factors(day, ctx, hungry),
         summary: summary(tier, index, hungry),
         methodology: methodology(),
+        management,
     })
 }
 
@@ -186,8 +195,9 @@ fn methodology() -> Methodology {
             "The score is the 5-day trailing mean of the daily index. Tiers: < 25 Low · 25–49 \
              Moderate · 50–74 High · ≥ 75 Severe."
                 .into(),
-            "If no fertilizer has been logged in the last 60 days, any tier at or above \
-             Moderate is raised one step — nitrogen-deficient turf is the primary risk factor."
+            "If no fertilizer has been logged in the last 60 days, a current risk at or above \
+             Moderate is raised one tier — nitrogen-deficient turf is the primary risk factor. \
+             Daily bars stay weather-only."
                 .into(),
         ],
     }
@@ -205,8 +215,8 @@ mod tests {
 
     fn fed(days: i64) -> DiseaseContext {
         DiseaseContext {
-            days_since_overseed: None,
             days_since_fertilizer: Some(days),
+            ..Default::default()
         }
     }
 
@@ -228,14 +238,12 @@ mod tests {
         let today = date(5, 10);
         // temp 18°C → 1.0, wetness 8 h → 0.5 → index 50 → High.
         let series = run_of(today, 6, |d| wet(day(d, 18.0, 12.0, 22.0, 85.0), 8.0));
-        assert_eq!(
-            assess(&series, today, &fed(20)).unwrap().tier,
-            RiskTier::High
-        );
-        assert_eq!(
-            assess(&series, today, &fed(75)).unwrap().tier,
-            RiskTier::Severe
-        );
+        let fed_recently = assess(&series, today, &fed(20)).unwrap();
+        assert_eq!(fed_recently.tier, RiskTier::High);
+        assert!(fed_recently.tier_note.is_none());
+        let hungry = assess(&series, today, &fed(75)).unwrap();
+        assert_eq!(hungry.tier, RiskTier::Severe);
+        assert!(hungry.tier_note.unwrap().starts_with("Raised from High"));
         let unknown = DiseaseContext::default();
         assert_eq!(
             assess(&series, today, &unknown).unwrap().tier,

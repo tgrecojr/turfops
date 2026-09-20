@@ -43,12 +43,57 @@ export interface Methodology {
 	steps: string[];
 }
 
+export type ManagementAction =
+	| "NoAction"
+	| "Monitor"
+	| "Cultural"
+	| "ApplyPreventative"
+	| "Protected";
+
+export type Efficacy = "Fair" | "Good" | "Excellent";
+
+export interface FungicideOption {
+	frac_class: string;
+	class_label: string;
+	examples: string[];
+	efficacy: Efficacy;
+	note: string | null;
+	last_used: boolean;
+	recommended: boolean;
+}
+
+export interface FungicideProgram {
+	when: string;
+	interval: string;
+	guidance: string[];
+	options: FungicideOption[];
+}
+
+export interface ProtectionStatus {
+	product: string;
+	class_label: string;
+	applied_on: string;
+	protected_through: string;
+	days_remaining: number;
+}
+
+export interface DiseaseManagement {
+	action: ManagementAction;
+	headline: string;
+	cultural: string[];
+	preventative: FungicideProgram;
+	curative: FungicideProgram;
+	protection: ProtectionStatus | null;
+	notes: string[];
+}
+
 export interface DiseaseRisk {
 	disease: Disease;
 	slug: string;
 	name: string;
 	pathogen: string;
 	tier: RiskTier;
+	tier_note: string | null;
 	score: number;
 	score_label: string;
 	as_of: string;
@@ -57,6 +102,7 @@ export interface DiseaseRisk {
 	factors: RiskFactor[];
 	summary: string;
 	methodology: Methodology;
+	management: DiseaseManagement;
 }
 
 export interface DiseaseRiskResponse {
@@ -96,6 +142,14 @@ export const FACTOR_STATUS_SYMBOLS: Record<FactorStatus, string> = {
 	Unfavorable: "✓",
 	Marginal: "△",
 	Favorable: "⚠",
+};
+
+export const MANAGEMENT_ACTION_LABELS: Record<ManagementAction, string> = {
+	NoAction: "No action",
+	Monitor: "Monitor",
+	Cultural: "Cultural fix",
+	ApplyPreventative: "Apply preventative",
+	Protected: "Protected",
 };
 
 /** Format an ISO `YYYY-MM-DD` date as `M/D` without timezone shifts. */

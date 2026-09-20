@@ -6,13 +6,16 @@
 mod brown_patch;
 mod dollar_spot;
 mod gray_leaf_spot;
+mod management;
 mod pythium;
+pub mod recommendations;
 mod red_thread;
 pub mod weather_days;
 
 use crate::models::{
-    celsius_to_fahrenheit, Application, ApplicationType, DailyRisk, DailyWeather, DiseaseContext,
-    DiseaseRisk, FactorStatus, RiskScale, RiskTier,
+    analyze_fungicide_rotation, celsius_to_fahrenheit, frac_class_for_product, Application,
+    ApplicationType, DailyRisk, DailyWeather, DiseaseContext, DiseaseRisk, FactorStatus,
+    FungicideRecord, RiskScale, RiskTier,
 };
 use chrono::{Duration, NaiveDate};
 
@@ -33,9 +36,9 @@ pub fn assess_all(
     ctx: &DiseaseContext,
 ) -> Vec<DiseaseRisk> {
     [
-        brown_patch::assess(series, today),
-        dollar_spot::assess(series, today),
-        pythium::assess(series, today),
+        brown_patch::assess(series, today, ctx),
+        dollar_spot::assess(series, today, ctx),
+        pythium::assess(series, today, ctx),
         gray_leaf_spot::assess(series, today, ctx),
         red_thread::assess(series, today, ctx),
     ]
@@ -54,9 +57,27 @@ pub fn context_from_history(history: &[Application], today: NaiveDate) -> Diseas
             .map(|app| (today - app.application_date).num_days())
             .min()
     };
+    let mut fungicide_apps: Vec<FungicideRecord> = history
+        .iter()
+        .filter(|app| {
+            app.application_type == ApplicationType::Fungicide && app.application_date <= today
+        })
+        .map(|app| {
+            let product = app.product_name.clone().unwrap_or_default();
+            FungicideRecord {
+                date: app.application_date,
+                class: frac_class_for_product(&product),
+                product,
+            }
+        })
+        .collect();
+    fungicide_apps.sort_by_key(|app| std::cmp::Reverse(app.date));
+
     DiseaseContext {
         days_since_overseed: days_since(ApplicationType::Overseed),
         days_since_fertilizer: days_since(ApplicationType::Fertilizer),
+        fungicide_apps,
+        rotation_warning: analyze_fungicide_rotation(history).rotation_warning,
     }
 }
 

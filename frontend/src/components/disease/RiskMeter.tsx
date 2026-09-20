@@ -26,6 +26,16 @@ export default function RiskMeter({
 		scale.severe_at,
 		scale.max,
 	];
+	// Highlight the band the score sits in. Lawn history can raise `tier` above it;
+	// the badge and tier note carry that, while the meter stays true to the scale.
+	const scoreBand =
+		score >= scale.severe_at
+			? "Severe"
+			: score >= scale.high_at
+				? "High"
+				: score >= scale.moderate_at
+					? "Moderate"
+					: "Low";
 	const markerPct =
 		(Math.min(scale.max, Math.max(scale.min, score)) - scale.min) / span;
 
@@ -44,7 +54,7 @@ export default function RiskMeter({
 							height: compact ? 6 : 10,
 							flexGrow: (bounds[i + 1] - bounds[i]) / span,
 							backgroundColor: RISK_TIER_COLORS[band],
-							opacity: band === tier ? 1 : 0.25,
+							opacity: band === scoreBand ? 1 : 0.25,
 						}}
 					/>
 				))}

@@ -17,7 +17,7 @@ Containerized web application for tracking lawn care activities with data-driven
 
 ### Backend
 - `cd backend && cargo build` — Build backend
-- `cd backend && cargo test` — Run tests (140 tests)
+- `cd backend && cargo test` — Run tests (154 tests)
 - `cd backend && cargo fmt` — Format code
 - `cd backend && cargo clippy` — Run linter
 - `cd backend && cargo run` — Run API server (needs PostgreSQL)
@@ -48,7 +48,7 @@ turfops/
 │       ├── api/                 # Route handlers (17 endpoints)
 │       ├── db/                  # PostgreSQL pool, queries, migrations
 │       ├── models/              # Data structures (shared with rules)
-│       ├── logic/               # Data sync + 18 agronomic rules + GDD accumulation + seasonal plan + disease risk models
+│       ├── logic/               # Data sync + 14 agronomic rules + GDD accumulation + seasonal plan + disease risk models
 │       └── datasources/         # WeatherLake (DuckDB/parquet), HomeAssistant, OpenWeatherMap
 ├── frontend/
 │   └── src/
@@ -93,9 +93,11 @@ turfops/
 
 - Demand-driven data refresh: sensors stale after 5min, forecast after 30min. Zero external calls when idle. (Lake parquet reads are local + fast, so soil/weather is re-read on each refresh rather than cached in Postgres.)
 - GDD (Growing Degree Days, base 50°F): the gold layer precomputes daily `gdd50` (verified identical to the app's own `((max+min)/2 - 50).max(0)` formula); the app sums it to a YTD running total on demand (`gdd::accumulate_daily_gdd`) and passes it to rules via `EnvironmentalSummary.gdd_base50_ytd`. No `gdd_daily` cache table.
-- Disease risk (`logic/disease/`): one pure model per disease over a daily weather series — brown patch (Fidanza E-index), dollar spot (Smith-Kerns), Pythium blight (Nutter-criteria score), gray leaf spot + red thread (experimental suitability indices, `validated: false`). Each keeps its native score; only the Low/Moderate/High/Severe tier is comparable, so there is no blended score. Observed days come from silver hourly aggregated per local day in DuckDB (`datasources/weather/disease.rs`); the lake lags ~1 day, so today's remainder + the outlook come from the OWM 3-hourly forecast (`weather_days::build_series`). The headline falls back to the last complete day when today has <12 h of data. Overseeding (≤60 d) amplifies gray leaf spot; no fertilizer in 60 d amplifies red thread.
+- Disease risk (`logic/disease/`): one pure model per disease over a daily weather series — brown patch (Fidanza E-index), dollar spot (Smith-Kerns), Pythium blight (Nutter-criteria score), gray leaf spot + red thread (experimental suitability indices, `validated: false`). Each keeps its native score; only the Low/Moderate/High/Severe tier is comparable, so there is no blended score. Observed days come from silver hourly aggregated per local day in DuckDB (`datasources/weather/disease.rs`); the lake lags ~1 day, so today's remainder + the outlook come from the OWM 3-hourly forecast (`weather_days::build_series`). The headline falls back to the last complete day when today has <12 h of data. Overseeding (≤60 d) amplifies gray leaf spot; no fertilizer in 60 d amplifies red thread — only the headline tier is raised (`tier_note` explains it); the daily series stays weather-only.
+- Disease management (`logic/disease/management/`): tier → action (Low none · Moderate monitor · High/Severe apply preventative, or `Protected` when a logged fungicide that is ≥ Good on that disease is within its residual window: 21 d systemic / 14 d contact, −7 d under Severe). Each disease has cultural practices plus preventative and curative programs from a static FRAC efficacy matrix (`programs.rs`); the suggested class is the best non-restricted option that isn't the class used last. No application rates are ever given — label governs. There is deliberately no "I see symptoms" toggle: the curative program is always shown for the user to apply on their own judgment. Red thread's remedy is nitrogen, never a spray.
+- Disease recommendations: the five old heuristic disease rules were replaced by `disease::recommendations::to_recommendations` (High/Severe only; `Protected` → Info, red thread → Advisory), appended in the dashboard and recommendations handlers so the feed always agrees with the Disease Risk page. A lake/forecast outage degrades to no disease alerts.
 - Disease Risk UI (`/disease-risk`, `/disease-risk/:slug`): tier colors are the status palette in `types/disease.ts` and are never used alone — always symbol + label, with text in ink colors. Forecast bars are faded, today is outlined, and every chart has a table view.
-- 18 agronomic rules are pure functions — no IO, no UI dependencies. 5 rules (pre-emergent, grub control, spring nitrogen, fall overseeding, broadleaf herbicide) use GDD for enhanced timing/urgency.
+- 14 agronomic rules are pure functions — no IO, no UI dependencies. 5 rules (pre-emergent, grub control, spring nitrogen, fall overseeding, broadleaf herbicide) use GDD for enhanced timing/urgency.
 - Rules gracefully degrade when GDD data is `None` — all GDD-enhanced logic is additive
 - Recommendation state (addressed/dismissed) tracked in-memory (resets on restart)
 - All temperatures stored in Fahrenheit (convert from Celsius at ingestion)

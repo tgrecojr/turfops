@@ -60,19 +60,6 @@ impl WeatherForecast {
             .map(|d| d.high_temp_f)
             .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
     }
-
-    /// Count consecutive days with high humidity
-    pub fn consecutive_high_humidity_days(&self, threshold: f64) -> u32 {
-        let mut count = 0;
-        for day in &self.daily_summary {
-            if day.avg_humidity >= threshold {
-                count += 1;
-            } else {
-                break;
-            }
-        }
-        count
-    }
 }
 
 #[derive(Debug, Clone)]

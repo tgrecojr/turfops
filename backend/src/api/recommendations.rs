@@ -35,6 +35,9 @@ pub async fn list_recommendations(
     // Evaluate rules
     let mut recommendations = state.rules_engine.evaluate(&summary, &profile, &apps);
 
+    // Append per-disease risk recommendations (High/Severe tiers).
+    recommendations.extend(super::disease_risk::recommendations(&state, &profile).await);
+
     // Append plant maintenance recommendations for landscape plants.
     let plants = plant_queries::list_plants_for_profile(&state.pool, profile_id).await?;
     let today = Local::now().date_naive();
