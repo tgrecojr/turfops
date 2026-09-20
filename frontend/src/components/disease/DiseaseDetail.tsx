@@ -7,6 +7,7 @@ import {
 	RISK_TIER_COLORS,
 } from "../../types/disease";
 import DailyRiskChart from "./DailyRiskChart";
+import ManagementPanel from "./ManagementPanel";
 import RiskMeter from "./RiskMeter";
 import TierBadge from "./TierBadge";
 
@@ -26,6 +27,9 @@ export default function DiseaseDetail({ risk, today }: DiseaseDetailProps) {
 				<div style={{ ...sharedStyles.card, ...styles.scoreCard }}>
 					<div style={styles.scoreLabel}>{risk.score_label}</div>
 					<TierBadge tier={risk.tier} size="lg" />
+					{risk.tier_note && (
+						<div style={styles.tierNote}>{risk.tier_note}</div>
+					)}
 					<div style={styles.asOf}>Current risk · {asOf}</div>
 					<RiskMeter scale={risk.scale} score={risk.score} tier={risk.tier} />
 					<div style={styles.modelName}>{methodology.model_name}</div>
@@ -47,6 +51,8 @@ export default function DiseaseDetail({ risk, today }: DiseaseDetailProps) {
 			>
 				{risk.summary}
 			</div>
+
+			<ManagementPanel management={risk.management} />
 
 			<div style={{ ...sharedStyles.card, marginBottom: "1rem" }}>
 				<h3 style={sharedStyles.sectionTitle}>Contributing factors · {asOf}</h3>
@@ -124,6 +130,7 @@ const styles: Record<string, React.CSSProperties> = {
 	},
 	chartCard: { flex: "3 1 420px", minWidth: 0 },
 	scoreLabel: { fontSize: "1.6rem", fontWeight: 700, color: "#1a202c" },
+	tierNote: { fontSize: "0.75rem", color: "#4a5568", lineHeight: 1.4 },
 	asOf: { fontSize: "0.75rem", color: "#718096" },
 	modelName: { fontSize: "0.75rem", color: "#718096" },
 	summary: {

@@ -2,7 +2,8 @@
 //! validated turf forecasting model exists; drivers follow Uddin et al. (2003).
 
 use super::{
-    amplify, fmt_temp_f, ramp, score_window, suitability_status, trailing_mean, trapezoid,
+    amplify, fmt_temp_f, management, ramp, score_window, suitability_status, trailing_mean,
+    trapezoid,
 };
 use crate::models::{
     DailyWeather, Disease, DiseaseContext, DiseaseRisk, FactorStatus, Methodology, RiskFactor,
@@ -55,26 +56,33 @@ pub(super) fn assess(
 ) -> Option<DiseaseRisk> {
     let scale = scale();
     let value_at = |i: usize| trailing_mean(series, i, WINDOW_DAYS, 1, daily_index);
-    let mut scored = score_window(series, today, &scale, value_at)?;
+    let scored = score_window(series, today, &scale, value_at)?;
     let day = &series[scored.headline_idx];
     let index = scored.headline_value;
 
     let seedlings = ctx.days_since_overseed.filter(|d| *d <= SEEDLING_DAYS);
-    let mut tier = scale.tier_for(index);
+    let weather_tier = scale.tier_for(index);
+    let mut tier = weather_tier;
+    // Only the headline is amplified: the daily series stays weather-only so its bars
+    // agree with the scale's tier thresholds.
     if seedlings.is_some() {
         tier = amplify(tier);
-        for d in &mut scored.daily {
-            d.tier = amplify(d.tier);
-        }
     }
 
     let disease = Disease::GrayLeafSpot;
+    let management = management::plan(disease, tier, &scored.daily, today, ctx);
     Some(DiseaseRisk {
         disease,
         slug: disease.slug().into(),
         name: disease.name().into(),
         pathogen: disease.pathogen().into(),
         tier,
+        tier_note: (tier != weather_tier).then(|| {
+            format!(
+                "Raised from {} — recently overseeded turf is highly susceptible",
+                weather_tier.as_str()
+            )
+        }),
         score: index,
         score_label: format!("{index:.0} / 100"),
         as_of: day.date,
@@ -83,6 +91,7 @@ pub(super) fn assess(
         factors: factors(day, seedlings),
         summary: summary(tier, index, seedlings.is_some()),
         methodology: methodology(),
+        management,
     })
 }
 
@@ -176,8 +185,9 @@ fn methodology() -> Methodology {
             "The score is the 3-day trailing mean of the daily index. Tiers: < 25 Low · 25–49 \
              Moderate · 50–74 High · ≥ 75 Severe."
                 .into(),
-            "If the lawn was overseeded within 60 days, any tier at or above Moderate is raised \
-             one step — seedling turf is far more susceptible."
+            "If the lawn was overseeded within 60 days, a current risk at or above Moderate is \
+             raised one tier — seedling turf is far more susceptible. Daily bars stay \
+             weather-only."
                 .into(),
         ],
     }
@@ -210,7 +220,7 @@ mod tests {
         let today = date(9, 10);
         let ctx = DiseaseContext {
             days_since_overseed: Some(14),
-            days_since_fertilizer: None,
+            ..Default::default()
         };
         // temp 21.5°C → 0.5, wetness 16 h → 1.0 → index 50 → High → Severe with seedlings.
         let favorable = run_of(today, 4, |d| wet(day(d, 21.5, 18.0, 26.0, 90.0), 16.0));
@@ -230,7 +240,7 @@ mod tests {
         let today = date(9, 10);
         let ctx = DiseaseContext {
             days_since_overseed: Some(90),
-            days_since_fertilizer: None,
+            ..Default::default()
         };
         let series = run_of(today, 4, |d| wet(day(d, 21.5, 18.0, 26.0, 90.0), 16.0));
         assert_eq!(assess(&series, today, &ctx).unwrap().tier, RiskTier::High);

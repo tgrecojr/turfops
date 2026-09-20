@@ -1,3 +1,4 @@
+use crate::models::{DiseaseManagement, FungicideRecord};
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -55,6 +56,15 @@ pub enum RiskTier {
 }
 
 impl RiskTier {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            RiskTier::Low => "Low",
+            RiskTier::Moderate => "Moderate",
+            RiskTier::High => "High",
+            RiskTier::Severe => "Severe",
+        }
+    }
+
     /// One tier higher, saturating at Severe.
     pub fn raised(&self) -> RiskTier {
         match self {
@@ -93,6 +103,10 @@ pub struct DiseaseContext {
     pub days_since_overseed: Option<i64>,
     /// Days since the most recent fertilizer application, if any on record.
     pub days_since_fertilizer: Option<i64>,
+    /// Fungicide applications from the past year, most recent first.
+    pub fungicide_apps: Vec<FungicideRecord>,
+    /// Season-level resistance warning from the rotation analysis.
+    pub rotation_warning: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -166,6 +180,8 @@ pub struct DiseaseRisk {
     pub name: String,
     pub pathogen: String,
     pub tier: RiskTier,
+    /// Set when lawn history raised the tier above what the weather score alone gives.
+    pub tier_note: Option<String>,
     pub score: f64,
     /// Human-readable score, e.g. "E-index 6.1" or "42% probability".
     pub score_label: String,
@@ -176,6 +192,7 @@ pub struct DiseaseRisk {
     pub factors: Vec<RiskFactor>,
     pub summary: String,
     pub methodology: Methodology,
+    pub management: DiseaseManagement,
 }
 
 #[derive(Debug, Clone, Serialize)]

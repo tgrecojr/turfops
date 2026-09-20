@@ -1,6 +1,6 @@
 // Centralized agronomic thresholds for TTTF Zone 7a.
 //
-// All numeric thresholds used across the 18 rule files are defined here
+// All numeric thresholds used across the rule files are defined here
 // for easy reference, maintenance, and future configurability.
 
 // =============================================================================
@@ -94,50 +94,6 @@ pub const FALL_HERBICIDE_SOIL_LOW_F: f64 = 50.0;
 /// Fall broadleaf herbicide — soil temp upper bound (°F).
 pub const FALL_HERBICIDE_SOIL_HIGH_F: f64 = 65.0;
 
-// -- Disease temperature thresholds --
-
-/// Brown patch onset — night temp (°F). NC State Extension.
-pub const BROWN_PATCH_NIGHT_ONSET_F: f64 = 60.0;
-
-/// Brown patch elevated risk — night temp (°F).
-pub const BROWN_PATCH_NIGHT_ELEVATED_F: f64 = 65.0;
-
-/// Brown patch severe — night temp (°F).
-pub const BROWN_PATCH_NIGHT_SEVERE_F: f64 = 70.0;
-
-/// Brown patch severe — day temp (°F).
-pub const BROWN_PATCH_DAY_SEVERE_F: f64 = 90.0;
-
-/// Dollar spot onset — night temp (°F). NC State Extension.
-pub const DOLLAR_SPOT_NIGHT_ONSET_F: f64 = 50.0;
-
-/// Dollar spot distinguishing threshold — below this = dollar spot, above = brown patch.
-pub const DOLLAR_SPOT_NIGHT_UPPER_F: f64 = 68.0;
-
-/// Disease pressure warm day range — lower bound (°F).
-pub const DISEASE_WARM_DAY_LOW_F: f64 = 75.0;
-
-/// Disease pressure warm day range — upper bound (°F).
-pub const DISEASE_WARM_DAY_HIGH_F: f64 = 90.0;
-
-/// Pythium blight — minimum night temp (°F).
-pub const PYTHIUM_NIGHT_MIN_F: f64 = 65.0;
-
-/// Pythium blight — minimum day temp (°F).
-pub const PYTHIUM_DAY_MIN_F: f64 = 85.0;
-
-/// Gray leaf spot — ambient temp lower bound (°F).
-pub const GRAY_LEAF_SPOT_TEMP_LOW_F: f64 = 70.0;
-
-/// Gray leaf spot — ambient temp upper bound (°F).
-pub const GRAY_LEAF_SPOT_TEMP_HIGH_F: f64 = 95.0;
-
-/// Red thread — ambient temp lower bound (°F).
-pub const RED_THREAD_TEMP_LOW_F: f64 = 40.0;
-
-/// Red thread — ambient temp upper bound (°F).
-pub const RED_THREAD_TEMP_HIGH_F: f64 = 80.0;
-
 // -- Mowing height temperature breaks --
 
 /// Mowing height — heat stress break (°F, 7-day avg ambient).
@@ -189,18 +145,6 @@ pub const SOIL_MOISTURE_SATURATED: f64 = 0.40;
 // Humidity thresholds (%)
 // =============================================================================
 
-/// Humidity above which disease risk begins (general fungal diseases).
-pub const HUMIDITY_DISEASE_RISK: f64 = 80.0;
-
-/// Humidity above which disease risk is elevated (gray leaf spot, etc.).
-pub const HUMIDITY_HIGH_DISEASE: f64 = 85.0;
-
-/// Humidity above which disease risk is severe.
-pub const HUMIDITY_SEVERE_DISEASE: f64 = 90.0;
-
-/// Red thread / sustained humidity threshold.
-pub const HUMIDITY_RED_THREAD: f64 = 75.0;
-
 /// Application window — low humidity bonus threshold.
 pub const HUMIDITY_APP_WINDOW_LOW: f64 = 70.0;
 
@@ -223,9 +167,6 @@ pub const PRECIP_FORECAST_MIN_INCHES: f64 = 0.1;
 /// Precipitation probability threshold for application window / rain delay.
 pub const PRECIP_PROB_LIKELY: f64 = 0.5;
 
-/// Precipitation probability threshold for Pythium/thunderstorm risk.
-pub const PRECIP_PROB_THUNDERSTORM: f64 = 0.6;
-
 /// Rain delay — critical probability threshold.
 pub const RAIN_DELAY_CRITICAL_PROB: f64 = 0.7;
 
@@ -234,9 +175,6 @@ pub const RAIN_DELAY_ADVISORY_PROB: f64 = 0.3;
 
 /// Rain delay — advisory expected amount (mm, ~0.2 inch).
 pub const RAIN_DELAY_ADVISORY_MM: f64 = 5.0;
-
-/// Red thread — 7-day precipitation indicating recent rain (mm).
-pub const RED_THREAD_RAIN_7DAY_MM: f64 = 10.0;
 
 // =============================================================================
 // Wind speed thresholds (mph)
@@ -263,12 +201,6 @@ pub const OVERSEED_URGENT_DAYS: i64 = 14;
 
 /// Days between fall fertilizer applications.
 pub const FALL_FERT_MIN_INTERVAL_DAYS: i64 = 21;
-
-/// Days for nitrogen deficiency check (red thread / dollar spot risk).
-pub const N_DEFICIENCY_DAYS_45: i64 = 45;
-
-/// Extended nitrogen deficiency check (red thread severity escalation).
-pub const N_DEFICIENCY_DAYS_60: i64 = 60;
 
 /// Broadleaf herbicide — suppression window after overseeding (days).
 pub const HERBICIDE_OVERSEED_BUFFER_DAYS: i64 = 60;

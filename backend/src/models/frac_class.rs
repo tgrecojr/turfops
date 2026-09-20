@@ -10,6 +10,8 @@ pub enum FracClass {
     Frac1,
     /// FRAC 3 — DMIs/Triazoles (propiconazole, myclobutanil)
     Frac3,
+    /// FRAC 4 — Phenylamides (mefenoxam) — Pythium-specific
+    Frac4,
     /// FRAC 7 — SDHI (fluxapyroxad, penthiopyrad)
     Frac7,
     /// FRAC 11 — Strobilurins (azoxystrobin, pyraclostrobin)
@@ -18,6 +20,12 @@ pub enum FracClass {
     Frac12,
     /// FRAC 14 — Aromatics (PCNB)
     Frac14,
+    /// FRAC 21 — QiI (cyazofamid) — Pythium-specific
+    Frac21,
+    /// FRAC 28 — Carbamates (propamocarb) — Pythium-specific
+    Frac28,
+    /// FRAC P07 — Phosphonates (fosetyl-Al, phosphites) — Pythium preventative
+    FracP07,
     /// FRAC M3 — Chlorothalonil (Daconil) — multi-site
     FracM3,
     /// FRAC M5 — Dithiocarbamates (mancozeb) — multi-site
@@ -29,10 +37,14 @@ impl FracClass {
         match self {
             FracClass::Frac1 => "FRAC 1 (Thiophanates)",
             FracClass::Frac3 => "FRAC 3 (DMIs)",
+            FracClass::Frac4 => "FRAC 4 (Phenylamides)",
             FracClass::Frac7 => "FRAC 7 (SDHI)",
             FracClass::Frac11 => "FRAC 11 (Strobilurins)",
             FracClass::Frac12 => "FRAC 12 (Phenylpyrroles)",
             FracClass::Frac14 => "FRAC 14 (Aromatics)",
+            FracClass::Frac21 => "FRAC 21 (QiI)",
+            FracClass::Frac28 => "FRAC 28 (Carbamates)",
+            FracClass::FracP07 => "FRAC P07 (Phosphonates)",
             FracClass::FracM3 => "FRAC M3 (Chlorothalonil)",
             FracClass::FracM5 => "FRAC M5 (Mancozeb)",
         }
@@ -42,10 +54,14 @@ impl FracClass {
         match self {
             FracClass::Frac1 => &["thiophanate-methyl", "Cleary's 3336"],
             FracClass::Frac3 => &["propiconazole", "Banner MAXX", "myclobutanil", "Eagle"],
+            FracClass::Frac4 => &["mefenoxam", "Subdue MAXX"],
             FracClass::Frac7 => &["fluxapyroxad", "Xzemplar", "penthiopyrad", "Velista"],
             FracClass::Frac11 => &["azoxystrobin", "Heritage", "pyraclostrobin", "Insignia"],
             FracClass::Frac12 => &["fludioxonil", "Medallion"],
             FracClass::Frac14 => &["PCNB", "Turfcide"],
+            FracClass::Frac21 => &["cyazofamid", "Segway"],
+            FracClass::Frac28 => &["propamocarb", "Banol"],
+            FracClass::FracP07 => &["fosetyl-Al", "Signature", "phosphite"],
             FracClass::FracM3 => &["chlorothalonil", "Daconil"],
             FracClass::FracM5 => &["mancozeb"],
         }
@@ -81,6 +97,26 @@ pub fn frac_class_for_product(name: &str) -> Option<FracClass> {
         || lower.contains("eagle")
     {
         return Some(FracClass::Frac3);
+    }
+
+    // FRAC 4
+    if lower.contains("mefenoxam") || lower.contains("metalaxyl") || lower.contains("subdue") {
+        return Some(FracClass::Frac4);
+    }
+
+    // FRAC 21
+    if lower.contains("cyazofamid") || lower.contains("segway") {
+        return Some(FracClass::Frac21);
+    }
+
+    // FRAC 28
+    if lower.contains("propamocarb") || lower.contains("banol") {
+        return Some(FracClass::Frac28);
+    }
+
+    // FRAC P07
+    if lower.contains("fosetyl") || lower.contains("phosphite") || lower.contains("signature") {
+        return Some(FracClass::FracP07);
     }
 
     // FRAC 7
@@ -129,9 +165,11 @@ pub fn frac_class_for_product(name: &str) -> Option<FracClass> {
 pub struct FungicideRotationAdvice {
     #[allow(dead_code)] // read in tests; clippy doesn't count test reads
     pub total_apps_this_season: usize,
+    #[allow(dead_code)] // read in tests; clippy doesn't count test reads
     pub last_class: Option<FracClass>,
     #[allow(dead_code)] // read in tests; clippy doesn't count test reads
     pub consecutive_same_class: usize,
+    #[allow(dead_code)] // read in tests; clippy doesn't count test reads
     pub recommended_next: Option<FracClass>,
     pub rotation_warning: Option<String>,
 }

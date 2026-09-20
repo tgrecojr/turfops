@@ -1,9 +1,10 @@
 //! Pythium blight — daily threshold score built on the Nutter et al. (1983) forecasting
 //! criteria (max > 30°C followed by ≥14 h of RH > 90% with min > 20°C).
 
-use super::{fmt_temp_f, score_window};
+use super::{fmt_temp_f, management, score_window};
 use crate::models::{
-    DailyWeather, Disease, DiseaseRisk, FactorStatus, Methodology, RiskFactor, RiskScale, RiskTier,
+    DailyWeather, Disease, DiseaseContext, DiseaseRisk, FactorStatus, Methodology, RiskFactor,
+    RiskScale, RiskTier,
 };
 use chrono::NaiveDate;
 
@@ -52,7 +53,11 @@ fn scale() -> RiskScale {
     }
 }
 
-pub(super) fn assess(series: &[DailyWeather], today: NaiveDate) -> Option<DiseaseRisk> {
+pub(super) fn assess(
+    series: &[DailyWeather],
+    today: NaiveDate,
+    ctx: &DiseaseContext,
+) -> Option<DiseaseRisk> {
     let scale = scale();
     let scored = score_window(series, today, &scale, |i| Some(daily_score(&series[i])))?;
     let day = &series[scored.headline_idx];
@@ -60,12 +65,14 @@ pub(super) fn assess(series: &[DailyWeather], today: NaiveDate) -> Option<Diseas
     let tier = scale.tier_for(score);
 
     let disease = Disease::PythiumBlight;
+    let management = management::plan(disease, tier, &scored.daily, today, ctx);
     Some(DiseaseRisk {
         disease,
         slug: disease.slug().into(),
         name: disease.name().into(),
         pathogen: disease.pathogen().into(),
         tier,
+        tier_note: None,
         score,
         score_label: format!("{score:.0} / 5"),
         as_of: day.date,
@@ -74,6 +81,7 @@ pub(super) fn assess(series: &[DailyWeather], today: NaiveDate) -> Option<Diseas
         factors: factors(day),
         summary: summary(tier, score),
         methodology: methodology(),
+        management,
     })
 }
 
@@ -231,7 +239,7 @@ mod tests {
     fn tier_follows_headline_day() {
         let today = date(7, 20);
         let series = run_of(today, 3, |d| wet(day(d, 27.0, 22.0, 33.0, 92.0), 15.0));
-        let risk = assess(&series, today).unwrap();
+        let risk = assess(&series, today, &DiseaseContext::default()).unwrap();
         assert_eq!(risk.tier, RiskTier::Severe);
         assert_eq!(risk.score_label, "5 / 5");
     }
