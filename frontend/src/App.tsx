@@ -3,6 +3,7 @@ import { BrowserRouter, Link, Route, Routes } from "react-router";
 import Layout from "./components/Layout";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
+const DiseaseRisk = lazy(() => import("./pages/DiseaseRisk"));
 const Applications = lazy(() => import("./pages/Applications"));
 const Calendar = lazy(() => import("./pages/Calendar"));
 const Environmental = lazy(() => import("./pages/Environmental"));
@@ -87,6 +88,8 @@ export default function App() {
 							<Route path="calendar" element={<Calendar />} />
 							<Route path="environmental" element={<Environmental />} />
 							<Route path="recommendations" element={<Recommendations />} />
+							<Route path="disease-risk" element={<DiseaseRisk />} />
+							<Route path="disease-risk/:slug" element={<DiseaseRisk />} />
 							<Route path="soil-tests" element={<SoilTests />} />
 							<Route path="seasonal-plan" element={<SeasonalPlan />} />
 							<Route path="settings" element={<Settings />} />

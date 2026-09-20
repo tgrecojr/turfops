@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	getDashboard,
+	getDiseaseRisk,
 	getGdd,
 	getNitrogenBudget,
 	getSoilTempForecast,
 } from "../api/client";
 import AlertCard from "../components/AlertCard";
+import DiseaseRiskWidget from "../components/disease/DiseaseRiskWidget";
 import Gauge from "../components/Gauge";
 import GddWidget from "../components/GddWidget";
 import {
@@ -24,6 +26,7 @@ import type {
 	SoilTempForecast,
 } from "../types";
 import { APPLICATION_TYPE_LABELS } from "../types";
+import type { DiseaseRiskResponse } from "../types/disease";
 import { formatInches } from "../utils/units";
 
 const POLL_INTERVAL = 30_000; // 30 seconds
@@ -35,6 +38,9 @@ export default function Dashboard() {
 	const [soilForecast, setSoilForecast] = useState<SoilTempForecast | null>(
 		null,
 	);
+	const [diseaseRisk, setDiseaseRisk] = useState<DiseaseRiskResponse | null>(
+		null,
+	);
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 	const abortRef = useRef<AbortController | null>(null);
@@ -44,17 +50,19 @@ export default function Dashboard() {
 		const controller = new AbortController();
 		abortRef.current = controller;
 		try {
-			const [d, gdd, nb, sf] = await Promise.all([
+			const [d, gdd, nb, sf, dr] = await Promise.all([
 				getDashboard(),
 				getGdd().catch(() => null),
 				getNitrogenBudget().catch(() => null),
 				getSoilTempForecast().catch(() => null),
+				getDiseaseRisk().catch(() => null),
 			]);
 			if (!controller.signal.aborted) {
 				setData(d);
 				setGddData(gdd);
 				setNBudget(nb);
 				setSoilForecast(sf);
+				setDiseaseRisk(dr);
 				setError(null);
 			}
 		} catch (e) {
@@ -203,10 +211,11 @@ export default function Dashboard() {
 				</div>
 			</div>
 
-			{/* GDD, Nitrogen Budget & Soil Temp Forecast widgets */}
-			{(gddData || nBudget || soilForecast) && (
+			{/* GDD, Disease Risk, Nitrogen Budget & Soil Temp Forecast widgets */}
+			{(gddData || nBudget || soilForecast || diseaseRisk) && (
 				<div style={styles.widgetGrid}>
 					{gddData && <GddWidget data={gddData} />}
+					{diseaseRisk && <DiseaseRiskWidget data={diseaseRisk} />}
 					{nBudget && <NitrogenBudgetWidget data={nBudget} />}
 					{soilForecast && (
 						<SoilTempForecastWidget

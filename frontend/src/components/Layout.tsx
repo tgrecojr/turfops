@@ -7,6 +7,7 @@ const NAV_ITEMS = [
 	{ to: "/calendar", label: "Calendar" },
 	{ to: "/environmental", label: "Environmental" },
 	{ to: "/recommendations", label: "Recommendations" },
+	{ to: "/disease-risk", label: "Disease Risk" },
 	{ to: "/soil-tests", label: "Soil Tests" },
 	{ to: "/seasonal-plan", label: "Seasonal Plan" },
 	{ to: "/settings", label: "Settings" },
