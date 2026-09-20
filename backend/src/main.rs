@@ -118,6 +118,10 @@ async fn main() -> anyhow::Result<()> {
             get(api::seasonal_plan::get_seasonal_plan),
         )
         .route(
+            "/api/v1/timing-windows",
+            get(api::timing::get_timing_windows),
+        )
+        .route(
             "/api/v1/plants",
             get(api::plants::list_plants).post(api::plants::create_plant),
         )

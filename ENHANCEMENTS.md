@@ -11,7 +11,7 @@
 | 5 | Historical Trends & Year-over-Year Analytics | 1 | Done | 6 trend charts on Environmental page (7d/30d/90d), threshold reference lines |
 | 6 | Product Database & Rate Calculator | 2 | Not Started | Common products with N-P-K, rate math |
 | 7 | Mowing Log & 1/3 Rule Enforcement | 2 | Partial | Mowing log via ApplicationType; 1/3 rule enforcement deferred |
-| 8 | Frost Date Integration & Season Boundaries | 2 | Not Started | First/last frost, deadline anchoring |
+| 8 | Frost Date Integration & Season Boundaries | 2 | Partial | First/last freeze derived from the lake's daily minimums (median + spread) and used to anchor the last safe seeding date (#21); winterizer / spring-nitrogen anchoring not done |
 | 9 | Proactive Seasonal Plan / Program Builder | 2 | Done | Historical NOAA analysis, threshold crossings, 10 activities, timeline UI |
 | 10 | Multi-Zone Support | 2 | Not Started | Multiple lawn profiles with independent recs |
 | 11 | Soil Temperature Prediction Model | 3 | Done | Air-to-soil regression with lag selection, threshold-crossing predictions, dashboard widget + proactive rule |
@@ -24,6 +24,8 @@
 | 18 | Same-Day Weather for Disease Risk | 2 | Not Started | Lake lags ~1 day; evaluate Open-Meteo (modeled hourly) or NWS API (measured obs) to fill today + outlook |
 | 19 | Pre-Season DMI Window | 3 | Not Started | GDD-based (140–175 base 50°F from Feb 15) early-season dollar spot fungicide window in the seasonal plan |
 | 20 | Improved Leaf Wetness Estimate | 3 | Not Started | Use the lake's unused solar radiation + surface temperature columns instead of the RH ≥ 90% proxy |
+| 21 | Seeding & Pre-Emergent Timing Windows | 1 | In Progress | Backend + `/api/v1/timing-windows` done (5 cm soil crossings, freeze climatology, GDD, log conflicts); page/widget and seasonal-plan + rules integration pending. See `docs/timing-windows.md` |
+| 22 | Longer Soil Forecast for Timing Windows | 3 | Not Started | Soil outlook is limited to OWM's 5 days; Open-Meteo's 16-day soil forecast would extend "opening soon" (new external dependency) |
 
 ## Feature Details
 
@@ -70,6 +72,8 @@ Track mowing date and cut height. Enforce the 1/3 rule (never cut more than 1/3 
 #### 8. Frost Date Integration & Season Boundaries
 Configure first/last frost dates. Anchor critical deadlines: last safe overseed date, winterizer deadline, spring nitrogen start.
 
+**Partial:** freeze dates are derived rather than configured — last spring / first fall day with a minimum ≤ 32°F per year from the lake's gold layer, summarized as median, 10th/90th percentile and range (`logic/timing/climatology.rs`, exposed as `freeze` on `/api/v1/timing-windows`). They anchor the last safe seeding date (#21). Still open: winterizer deadline and spring nitrogen start.
+
 #### 9. Proactive Seasonal Plan / Program Builder
 Generate personalized annual roadmap from rules engine knowledge projected forward using historical GDD/soil temp data.
 
@@ -111,3 +115,13 @@ As described by the r/LawnAnswers Turf Tools "Pre-Season DMI Window" page, which
 
 #### 20. Improved Leaf Wetness Estimate
 The silver layer carries `solar_rad_wm2` and `surface_temp_c`, which nothing reads today. Leaf wetness (dew) forms when the surface cools to the dew point at night and burns off with morning sun, so these could replace the crude RH ≥ 90% proxy used by the gray leaf spot and red thread indices.
+
+#### 21. Seeding & Pre-Emergent Timing Windows
+Modeled on the r/LawnAnswers Turf Tools seeding, spring pre-emergent and fall pre-emergent pages, but computed from the lake: measured 5 cm soil temperature (silver hourly → daily mean → 5-day trailing mean, crossings held 5 days), freeze dates from the station's daily minimums, and running GDD. Each boundary is located in every historical year and reported as median + spread, then resolved for this season as observed / tentative / forecast / typical. The application log makes seed and pre-emergent mutually exclusive within a season. Method, thresholds and the deliberate departures from the reference site are in `docs/timing-windows.md`.
+
+**Done:** `logic/timing/`, `datasources/weather/climatology.rs`, `GET /api/v1/timing-windows`.
+**Pending:** `/timing` page + dashboard widget; seasonal-plan `pre_emergent` / `fall_overseeding` activities and the two matching rules switched to these windows (they still use 10 cm soil and a hardcoded Aug 15 – Oct 31 seeding window, which runs weeks late); a `fall_pre_emergent` activity and rule; `CrabgrassModel.estimated_germination_date`.
+
+#### 22. Longer Soil Forecast for Timing Windows
+The "opening soon" signal only sees as far as OpenWeatherMap's 5-day forecast pushed through the air→soil regression. Open-Meteo publishes a 16-day modeled soil-temperature forecast (0–7 cm) that would extend it. It is a new external dependency, so it needs sign-off — see also #18.
+

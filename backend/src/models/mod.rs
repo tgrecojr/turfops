@@ -13,6 +13,7 @@ pub mod recommendation;
 pub mod seasonal_plan;
 pub mod soil_temp_prediction;
 pub mod soil_test;
+pub mod timing;
 
 pub use application::*;
 pub use disease::*;

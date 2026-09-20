@@ -8,6 +8,7 @@ A containerized web application for tracking lawn care activities and providing 
 - **Environmental Data**: Real-time soil temperature, moisture, and ambient conditions from multiple sources
 - **Smart Recommendations**: 14 agronomic rules provide data-driven alerts for optimal treatment timing
 - **Disease Risk**: Per-disease risk from published models (brown patch, dollar spot, Pythium blight, gray leaf spot, red thread) — each with a Low/Moderate/High/Severe tier, an 11-day trend and outlook, contributing factors, a "how this is calculated" breakdown, and preventative/curative guidance that knows what you've already sprayed
+- **Seeding & Pre-Emergent Timing**: Fall/spring/dormant seeding and spring/fall pre-emergent windows from the station's measured 5 cm soil temperature, its own freeze dates and GDD — typical dates with their year-to-year spread, where this season actually stands, and seed-vs-pre-emergent conflicts from your application log (API in place; page coming). See [Seeding & Pre-Emergent Timing](#seeding--pre-emergent-timing).
 - **Calendar View**: Visualize application history and seasonal plan activity windows with colored indicators
 - **Seasonal Plan Integration**: Calendar overlays predicted activity windows from the seasonal plan alongside actual applications
 - **Landscape Maintenance** *(optional)*: Track shrubs, trees, and perennials alongside turf. Enter a plant by common or scientific name and get a homeowner-level care plan (pruning windows, fertilizing, mulching) that overlays Calendar, Seasonal Plan, and Recommendations. Powered by an LLM through OpenRouter and cached per plant.
@@ -303,6 +304,7 @@ RUST_LOG=info
 | `GET` | `/api/v1/recommendations` | Active recommendations: rules engine + disease risk (High/Severe) + plant maintenance, follow-ups, soil tests |
 | `PATCH` | `/api/v1/recommendations/:id` | Mark recommendation addressed/dismissed |
 | `GET` | `/api/v1/disease-risk` | Per-disease risk: tier, score, 11-day series, contributing factors, methodology, management plan |
+| `GET` | `/api/v1/timing-windows` | Seeding and pre-emergent windows: typical dates, this season's status, freeze dates, soil chart series |
 | `GET` | `/api/v1/gdd?year=Y` | GDD accumulation + crabgrass germination model |
 | `GET` | `/api/v1/historical?range=7d\|30d\|90d` | Time-series environmental data for trend charts |
 | `GET` | `/api/v1/nitrogen-budget` | Annual nitrogen applied vs. grass-type target |
@@ -532,6 +534,24 @@ Identifies the best days for chemical applications based on forecast (dry weathe
 
 #### Soil Temperature Forecast
 Proactive heads-up when the soil-temperature prediction model (air-to-soil regression on recent lake data plus the forecast) expects an agronomic threshold crossing soon, e.g. the pre-emergent window approaching.
+
+## Seeding & Pre-Emergent Timing
+
+`GET /api/v1/timing-windows` times the start- and end-of-season jobs from the station's record instead of the calendar. Soil thresholds are 5-day means of the **measured 5 cm** soil temperature (the lake's hourly silver layer), and a crossing only counts once it has held for 5 days.
+
+| Window | Opens | Ideal | Closes |
+|--------|-------|-------|--------|
+| **Fall seeding / overseeding** | Soil cools to 75°F (from Aug 15) | until 45 days before the typical first fall freeze | 30 days before that freeze, or soil at 55°F — whichever is first |
+| **Spring pre-emergent** | Soil warms to 45°F | from 50°F | Soil at 55°F sustained, or 200 GDD — whichever is first |
+| **Fall pre-emergent** | Soil cools to 70°F | until 65°F | Soil cools to 55°F |
+| **Spring seeding** *(secondary)* | Soil warms to 50°F | — | Soil warms to 65°F |
+| **Dormant seeding** *(optional)* | Soil cools to 40°F | — | Soil warms back to 45°F in spring |
+
+Each boundary is found in every historical year (up to 15) and reported as a median with its earliest/latest spread, then resolved for this season as **observed**, **tentative** (held fewer than 5 days), **forecast** (5-day soil outlook) or **typical**. A trigger that is past its usual date but has not happened is reported as running late — it is never given an invented date. First and last freeze dates come from the station's own daily minimums (≤ 32°F).
+
+Seed and pre-emergent never share a season: a logged `Overseed` blocks that season's pre-emergent and a logged `PreEmergent` blocks seeding. Establishment buffers depend on grass type (Kentucky bluegrass 60/45 days, fescues 45/30, perennial ryegrass 35/21). No application rates are given — the label governs.
+
+Full method, thresholds and how it differs from the lawn-answers.com tools it was modeled on: [docs/timing-windows.md](docs/timing-windows.md).
 
 ## Disease Risk
 

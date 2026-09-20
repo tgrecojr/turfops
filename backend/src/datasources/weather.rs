@@ -6,7 +6,10 @@ use crate::models::{
 use chrono::{DateTime, Duration, NaiveDate, NaiveDateTime, Utc};
 use duckdb::Connection;
 
+mod climatology;
 mod disease;
+
+pub use climatology::ClimateDay;
 
 /// Reads NOAA USCRN weather data from the Dagster data lake (parquet on a mounted
 /// filesystem) using an embedded DuckDB engine.
