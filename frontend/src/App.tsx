@@ -12,6 +12,7 @@ const Recommendations = lazy(() => import("./pages/Recommendations"));
 const SoilTests = lazy(() => import("./pages/SoilTests"));
 const SeasonalPlan = lazy(() => import("./pages/SeasonalPlan"));
 const Settings = lazy(() => import("./pages/Settings"));
+const Timing = lazy(() => import("./pages/Timing"));
 
 class ErrorBoundary extends Component<
 	{ children: ReactNode },
@@ -90,6 +91,7 @@ export default function App() {
 							<Route path="recommendations" element={<Recommendations />} />
 							<Route path="disease-risk" element={<DiseaseRisk />} />
 							<Route path="disease-risk/:slug" element={<DiseaseRisk />} />
+							<Route path="timing" element={<Timing />} />
 							<Route path="soil-tests" element={<SoilTests />} />
 							<Route path="seasonal-plan" element={<SeasonalPlan />} />
 							<Route path="settings" element={<Settings />} />

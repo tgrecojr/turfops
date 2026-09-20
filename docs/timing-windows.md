@@ -10,6 +10,8 @@ station's own record rather than from calendar dates:
 Code: `backend/src/logic/timing/` (pure logic), `backend/src/api/timing.rs` (handler),
 `backend/src/datasources/weather/climatology.rs` (lake query),
 `backend/src/models/timing.rs` (response types).
+UI: `frontend/src/pages/Timing.tsx` (`/timing`), `frontend/src/components/timing/`,
+`frontend/src/types/timing.ts`; the dashboard shows `TimingWidget`.
 
 ## Inputs
 
@@ -101,6 +103,26 @@ including its reseeding interval.
 - **Forecast alerts:** any forecast low ≤ 32°F; count of forecast highs ≥ 90°F.
 - **Chart series:** every day of the current year with this year (observed, then
   forecast), last year, and the mean of the history years, all smoothed.
+
+## Page
+
+`/timing` shows, top to bottom: data notes; tiles for the current 5 cm soil mean and the
+typical last-spring / first-fall freeze; the season context and forecast alerts; a card
+per **primary** window sorted most-actionable first (Closing → Ideal → Open → Opening
+soon → …); the soil chart; the secondary/optional seeding windows; and a collapsible
+"How this is calculated".
+
+- **Card:** state badge (status color + symbol + label, never color alone), headline,
+  the deciding-trigger sentence, a conflict box when blocked, a timeline (earliest–latest
+  on record → typical window → ideal stretch, one blue ramp, with a Today marker), a
+  trigger table (Trigger · Typical median with range and years · This season with its
+  source) and guidance.
+- A boundary with no date (overdue) reads "Later than usual — not yet seen".
+- **Chart:** this year solid blue, forecast the same blue dashed, last year orange, the
+  typical year a neutral dotted reference; the blue/orange pair was checked for
+  color-vision-deficiency separation. Thresholds shown are the fall set from July and
+  the spring set before. Defaults to −75/+60 days around today with a full-year toggle,
+  and has a table view.
 
 ## How this differs from lawn-answers.com
 

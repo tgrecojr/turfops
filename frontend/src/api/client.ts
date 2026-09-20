@@ -17,6 +17,7 @@ import type {
 	SoilTestSummary,
 } from "../types";
 import type { DiseaseRiskResponse } from "../types/disease";
+import type { TimingResponse } from "../types/timing";
 
 const BASE = "/api/v1";
 const DEFAULT_TIMEOUT_MS = 15_000;
@@ -158,6 +159,9 @@ export const patchRecommendation = (
 // GDD
 export const getDiseaseRisk = () =>
 	fetchJson<DiseaseRiskResponse>(`${BASE}/disease-risk`);
+
+export const getTimingWindows = () =>
+	fetchJson<TimingResponse>(`${BASE}/timing-windows`);
 
 export const getGdd = (year?: number) => {
 	const params = year ? `?year=${year}` : "";

@@ -5,6 +5,7 @@ import {
 	getGdd,
 	getNitrogenBudget,
 	getSoilTempForecast,
+	getTimingWindows,
 } from "../api/client";
 import AlertCard from "../components/AlertCard";
 import DiseaseRiskWidget from "../components/disease/DiseaseRiskWidget";
@@ -18,6 +19,7 @@ import {
 } from "../components/gaugeConfigs";
 import NitrogenBudgetWidget from "../components/NitrogenBudgetWidget";
 import SoilTempForecastWidget from "../components/SoilTempForecastWidget";
+import TimingWidget from "../components/timing/TimingWidget";
 import { appTypeBadgeStyle, sharedStyles } from "../styles/shared";
 import type {
 	DashboardResponse,
@@ -27,6 +29,7 @@ import type {
 } from "../types";
 import { APPLICATION_TYPE_LABELS } from "../types";
 import type { DiseaseRiskResponse } from "../types/disease";
+import type { TimingResponse } from "../types/timing";
 import { formatInches } from "../utils/units";
 
 const POLL_INTERVAL = 30_000; // 30 seconds
@@ -41,6 +44,7 @@ export default function Dashboard() {
 	const [diseaseRisk, setDiseaseRisk] = useState<DiseaseRiskResponse | null>(
 		null,
 	);
+	const [timing, setTiming] = useState<TimingResponse | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 	const abortRef = useRef<AbortController | null>(null);
@@ -50,12 +54,13 @@ export default function Dashboard() {
 		const controller = new AbortController();
 		abortRef.current = controller;
 		try {
-			const [d, gdd, nb, sf, dr] = await Promise.all([
+			const [d, gdd, nb, sf, dr, tw] = await Promise.all([
 				getDashboard(),
 				getGdd().catch(() => null),
 				getNitrogenBudget().catch(() => null),
 				getSoilTempForecast().catch(() => null),
 				getDiseaseRisk().catch(() => null),
+				getTimingWindows().catch(() => null),
 			]);
 			if (!controller.signal.aborted) {
 				setData(d);
@@ -63,6 +68,7 @@ export default function Dashboard() {
 				setNBudget(nb);
 				setSoilForecast(sf);
 				setDiseaseRisk(dr);
+				setTiming(tw);
 				setError(null);
 			}
 		} catch (e) {
@@ -211,11 +217,12 @@ export default function Dashboard() {
 				</div>
 			</div>
 
-			{/* GDD, Disease Risk, Nitrogen Budget & Soil Temp Forecast widgets */}
-			{(gddData || nBudget || soilForecast || diseaseRisk) && (
+			{/* GDD, Disease Risk, Timing, Nitrogen Budget & Soil Temp Forecast widgets */}
+			{(gddData || nBudget || soilForecast || diseaseRisk || timing) && (
 				<div style={styles.widgetGrid}>
 					{gddData && <GddWidget data={gddData} />}
 					{diseaseRisk && <DiseaseRiskWidget data={diseaseRisk} />}
+					{timing && <TimingWidget data={timing} />}
 					{nBudget && <NitrogenBudgetWidget data={nBudget} />}
 					{soilForecast && (
 						<SoilTempForecastWidget
