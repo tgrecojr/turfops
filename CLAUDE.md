@@ -17,7 +17,7 @@ Containerized web application for tracking lawn care activities with data-driven
 
 ### Backend
 - `cd backend && cargo build` — Build backend
-- `cd backend && cargo test` — Run tests (200 tests)
+- `cd backend && cargo test` — Run tests (203 tests)
 - `cd backend && cargo fmt` — Format code
 - `cd backend && cargo clippy` — Run linter
 - `cd backend && cargo run` — Run API server (needs PostgreSQL)
@@ -48,7 +48,7 @@ turfops/
 │       ├── api/                 # Route handlers (18 endpoints)
 │       ├── db/                  # PostgreSQL pool, queries, migrations
 │       ├── models/              # Data structures (shared with rules)
-│       ├── logic/               # Data sync + 14 agronomic rules + GDD accumulation + seasonal plan + disease risk models + seeding/pre-emergent timing windows
+│       ├── logic/               # Data sync + 12 agronomic rules + GDD accumulation + seasonal plan + disease risk models + seeding/pre-emergent timing windows
 │       └── datasources/         # WeatherLake (DuckDB/parquet), HomeAssistant, OpenWeatherMap
 ├── frontend/
 │   └── src/
@@ -98,9 +98,10 @@ turfops/
 - Disease management (`logic/disease/management/`): tier → action (Low none · Moderate monitor · High/Severe apply preventative, or `Protected` when a logged fungicide that is ≥ Good on that disease is within its residual window: 21 d systemic / 14 d contact, −7 d under Severe). Each disease has cultural practices plus preventative and curative programs from a static FRAC efficacy matrix (`programs.rs`); the suggested class is the best non-restricted option that isn't the class used last. The matrix was checked against Univ. of Kentucky PPA-1 2024 (1–4 ratings: 4/3.5 → Excellent, 3/2.5 → Good, 2/1.5 → Fair; each option's source rating is in a comment) — re-check against the current edition before changing a rating. `protects_at_severe: false` marks chemistry that counts as protection at High but not Severe (strobilurins on Pythium). Ratings are per FRAC class even though actives within a class differ; a split class is omitted from that disease rather than averaged. Multi-site codes: mancozeb = M3, chlorothalonil = M5. No application rates are ever given — label governs. There is deliberately no "I see symptoms" toggle: the curative program is always shown for the user to apply on their own judgment. Red thread's remedy is nitrogen, never a spray.
 - Disease recommendations: the five old heuristic disease rules were replaced by `disease::recommendations::to_recommendations` (High/Severe only; `Protected` → Info, red thread → Advisory), appended in the dashboard and recommendations handlers so the feed always agrees with the Disease Risk page. A lake/forecast outage degrades to no disease alerts.
 - Timing windows (`logic/timing/`, full method in `docs/timing-windows.md`): fall/spring/dormant seeding + spring/fall pre-emergent. A window is boundaries (`windows.rs`: `Soil` crossing · `BeforeFirstFreeze(days)` · `Gdd` · `Earliest([..])`) on the 5-day mean **5 cm** soil temp; a crossing must hold 5 days (`series::detect`, state-based, gaps reset the run). Each boundary is located per historical year (≤15 complete years with ≥300 soil days) → median/p10/p90/earliest/latest (`climatology::date_stat`, offsets from Jan 1 of the season year so dormant seeding survives the new year), then resolved for this season as Observed / Tentative (<5 days held) / Forecast (air→soil regression refit on 5 cm) / Typical. A typical date that has passed while station data is fresh is **overdue and gets no date** — never invent one; stale data (>5 d) or an ended scan range falls back to the calendar. Freeze dates come from gold `air_temp_min_f` ≤ 32; freeze-anchored boundaries always use the *typical* first freeze (a forecast freeze is already too late to seed). Seed and pre-emergent never share a season (`log.rs`): logged `Overseed` blocks that season's pre-emergent and vice versa — user rule, no toggle. No rates — label governs. The 15-year lake read is memoized 1 h in `AppState::climate_cache`; nothing is cached in Postgres so the current season is always live. Deliberate departures from lawn-answers.com (per-year crossings not one averaged curve; seeding never closes on a forecast freeze; spring pre-em closes at 55°F/200 GDD not 50°F) are tabled in the doc.
+- Timing recommendations + plan: the old 10 cm `pre_emergent` and `fall_overseeding` rules were replaced by `timing::recommendations::to_recommendations` (Primary windows only; OpeningSoon → Info, Open/Ideal → Advisory, Closing → Warning, spring pre-em Closed ≤21 d → Warning; fall pre-em capped at Info/Advisory since it is the alternative to seeding), appended in the dashboard and recommendations handlers next to disease risk. Ids are `timing_<window>_<season_year>` (e.g. `timing_fall_seeding_2026`). `timing::plan::activities` builds the seasonal plan's `pre_emergent`, `fall_pre_emergent`, `fall_overseeding` and `core_aeration` (same window as seeding) from the windows' typical dates; `api/seasonal_plan.rs` swaps them in **by id**, so a lake outage or a warm-season lawn keeps the legacy 10 cm activity. A window blocked by the log is omitted from the plan. A lake outage degrades the feed to no timing recommendations.
 - Timing UI (`/timing`): window-state colors are the status palette + neutrals in `types/timing.ts`, always with symbol + label (`StateBadge`). `WindowTimeline` is one blue ramp (spread → typical → ideal). `SoilSeasonChart` uses a CVD-validated categorical pair (this year `#2a78d6`, forecast = same hue dashed; last year `#eb6834`) with the typical year as a neutral dotted reference, 10°F ticks, the current season's thresholds (fall set from July), and a table view. A boundary with `date: null` renders as "Later than usual — not yet seen", never a date. The dashboard `TimingWidget` lists Primary windows sorted by `byUrgency`.
 - Disease Risk UI (`/disease-risk`, `/disease-risk/:slug`): tier colors are the status palette in `types/disease.ts` and are never used alone — always symbol + label, with text in ink colors. Forecast bars are faded, today is outlined, and every chart has a table view.
-- 14 agronomic rules are pure functions — no IO, no UI dependencies. 5 rules (pre-emergent, grub control, spring nitrogen, fall overseeding, broadleaf herbicide) use GDD for enhanced timing/urgency.
+- 12 agronomic rules are pure functions — no IO, no UI dependencies. 3 rules (grub control, spring nitrogen, broadleaf herbicide) use GDD for enhanced timing/urgency. Pre-emergent and fall overseeding are no longer rules (see timing recommendations below).
 - Rules gracefully degrade when GDD data is `None` — all GDD-enhanced logic is additive
 - Recommendation state (addressed/dismissed) is persisted in Postgres (`recommendation_states`, keyed by recommendation id). Disease recommendation ids are `disease_<slug>` (e.g. `disease_brown_patch`)
 - All temperatures stored in Fahrenheit (convert from Celsius at ingestion)
@@ -123,7 +124,6 @@ See `backend/.env.example` for full list:
 
 | Metric | Threshold | Meaning |
 |--------|-----------|---------|
-| Soil temp 10cm | 50-60°F | Pre-emergent window |
 | Soil temp 10cm | 60-75°F | Grub control window |
 | Ambient temp | >85°F | Fertilizer stress risk |
 | Soil moisture | <0.10 | Irrigation needed |

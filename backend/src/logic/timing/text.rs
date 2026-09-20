@@ -3,7 +3,7 @@ use super::series::SUSTAIN_DAYS;
 use crate::models::timing::{BoundaryView, DateSource, WindowId, WindowState};
 use chrono::NaiveDate;
 
-fn short(date: NaiveDate) -> String {
+pub fn short(date: NaiveDate) -> String {
     date.format("%b %-d").to_string()
 }
 

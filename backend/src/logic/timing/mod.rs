@@ -11,6 +11,8 @@ pub mod climatology;
 pub mod context;
 pub mod evaluate;
 pub mod log;
+pub mod plan;
+pub mod recommendations;
 pub mod series;
 pub mod text;
 pub mod windows;
@@ -134,32 +136,55 @@ fn evaluate_window(
     }
 }
 
+/// The smoothed soil series and climatology that every evaluation shares.
+pub struct SeasonData {
+    pub smoothed: Vec<SoilPoint>,
+    pub history_years: Vec<i32>,
+    pub spring_freezes: Vec<(i32, NaiveDate)>,
+    pub fall_freezes: Vec<(i32, NaiveDate)>,
+    last_observed: Option<NaiveDate>,
+}
+
+impl SeasonData {
+    pub fn build(days: &[ClimateDay], forecast: &[DailyForecast], current_year: i32) -> Self {
+        let mut points = observed_points(days);
+        let last_observed = points.last().map(|p| p.date);
+        points.extend(forecast_points(days, forecast));
+        let history_years = climatology::history_years(days, current_year);
+        Self {
+            smoothed: series::smooth(&points),
+            spring_freezes: climatology::spring_freeze_history(days, &history_years),
+            fall_freezes: climatology::fall_freeze_history(days, &history_years),
+            history_years,
+            last_observed,
+        }
+    }
+
+    pub fn season<'a>(&'a self, days: &'a [ClimateDay], today: NaiveDate) -> Season<'a> {
+        Season {
+            today,
+            days,
+            smoothed: &self.smoothed,
+            history_years: &self.history_years,
+            fall_freezes: &self.fall_freezes,
+            data_fresh: self
+                .last_observed
+                .is_some_and(|d| (today - d).num_days() <= STALE_AFTER_DAYS),
+        }
+    }
+}
+
 pub fn assess(inputs: &Inputs) -> Assessment {
     let today = inputs.today;
-    let mut points = observed_points(inputs.days);
-    let last_observed = points.last().map(|p| p.date);
-    points.extend(forecast_points(inputs.days, inputs.forecast));
-    let smoothed = series::smooth(&points);
-
-    let history_years = climatology::history_years(inputs.days, today.year());
-    let spring_freezes = climatology::spring_freeze_history(inputs.days, &history_years);
-    let fall_freezes = climatology::fall_freeze_history(inputs.days, &history_years);
-    let data_fresh = last_observed.is_some_and(|d| (today - d).num_days() <= STALE_AFTER_DAYS);
-
-    let season = Season {
-        today,
-        days: inputs.days,
-        smoothed: &smoothed,
-        history_years: &history_years,
-        fall_freezes: &fall_freezes,
-        data_fresh,
-    };
+    let data = SeasonData::build(inputs.days, inputs.forecast, today.year());
+    let season = data.season(inputs.days, today);
+    let data_fresh = season.data_fresh;
     let windows = windows::specs_for(inputs.grass)
         .iter()
         .map(|spec| evaluate_window(spec, &season, inputs.history))
         .collect();
 
-    let latest = smoothed.iter().rev().find(|p| !p.is_forecast);
+    let latest = data.smoothed.iter().rev().find(|p| !p.is_forecast);
     Assessment {
         windows,
         soil: SoilNow {
@@ -168,14 +193,14 @@ pub fn assess(inputs: &Inputs) -> Assessment {
             depth_cm: SOIL_DEPTH_CM,
         },
         freeze: FreezeDates {
-            last_spring: climatology::date_stat(&spring_freezes, today.year()),
-            first_fall: climatology::date_stat(&fall_freezes, today.year()),
+            last_spring: climatology::date_stat(&data.spring_freezes, today.year()),
+            first_fall: climatology::date_stat(&data.fall_freezes, today.year()),
             last_spring_this_year: climatology::last_spring_freeze(inputs.days, today.year())
                 .filter(|_| today.month() >= 6),
             first_fall_this_year: climatology::first_fall_freeze(inputs.days, today.year()),
         },
-        history_years,
-        smoothed,
+        history_years: data.history_years,
+        smoothed: data.smoothed,
         data_fresh,
     }
 }

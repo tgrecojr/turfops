@@ -6,7 +6,7 @@ A containerized web application for tracking lawn care activities and providing 
 
 - **Application Tracking**: Log fertilizer, pre-emergent, fungicide, mowing, and other lawn treatments
 - **Environmental Data**: Real-time soil temperature, moisture, and ambient conditions from multiple sources
-- **Smart Recommendations**: 14 agronomic rules provide data-driven alerts for optimal treatment timing
+- **Smart Recommendations**: 12 agronomic rules, plus the disease-risk models and the seeding/pre-emergent timing windows, provide data-driven alerts for optimal treatment timing
 - **Disease Risk**: Per-disease risk from published models (brown patch, dollar spot, Pythium blight, gray leaf spot, red thread) — each with a Low/Moderate/High/Severe tier, an 11-day trend and outlook, contributing factors, a "how this is calculated" breakdown, and preventative/curative guidance that knows what you've already sprayed
 - **Seeding & Pre-Emergent Timing**: Fall/spring/dormant seeding and spring/fall pre-emergent windows from the station's measured 5 cm soil temperature, its own freeze dates and GDD — typical dates with their year-to-year spread, where this season actually stands, and seed-vs-pre-emergent conflicts from your application log. See [Seeding & Pre-Emergent Timing](#seeding--pre-emergent-timing).
 - **Calendar View**: Visualize application history and seasonal plan activity windows with colored indicators
@@ -26,7 +26,7 @@ A containerized web application for tracking lawn care activities and providing 
 │  │  ┌─────────────┐   ┌────────────────────────┐  │  │
 │  │  │ React SPA   │   │ Axum API Server        │  │  │
 │  │  │ (static)    │◄──│  /api/v1/* endpoints   │  │  │
-│  │  └─────────────┘   │  14 rules + disease    │  │  │
+│  │  └─────────────┘   │  12 rules + disease    │  │  │
 │  │                     │  3 datasource clients  │  │  │
 │  │                     └───────────┬────────────┘  │  │
 │  └─────────────────────────────────┼───────────────┘  │
@@ -301,7 +301,7 @@ RUST_LOG=info
 | `GET` | `/api/v1/applications/calendar?year=Y&month=M` | Applications grouped by date |
 | `GET` | `/api/v1/environmental` | Environmental data with demand-driven refresh |
 | `POST` | `/api/v1/environmental/refresh` | Force immediate data refresh |
-| `GET` | `/api/v1/recommendations` | Active recommendations: rules engine + disease risk (High/Severe) + plant maintenance, follow-ups, soil tests |
+| `GET` | `/api/v1/recommendations` | Active recommendations: rules engine + disease risk (High/Severe) + timing windows (pre-emergent, seeding) + plant maintenance, follow-ups, soil tests |
 | `PATCH` | `/api/v1/recommendations/:id` | Mark recommendation addressed/dismissed |
 | `GET` | `/api/v1/disease-risk` | Per-disease risk: tier, score, 11-day series, contributing factors, methodology, management plan |
 | `GET` | `/api/v1/timing-windows` | Seeding and pre-emergent windows: typical dates, this season's status, freeze dates, soil chart series |
@@ -395,22 +395,12 @@ The Dockerfile uses a multi-stage build:
 
 ## Agronomic Rules
 
-TurfOps includes 14 rules that evaluate environmental conditions and generate actionable recommendations. Rules are divided into current-condition rules (using real-time sensor data) and forecast-based rules (using OpenWeatherMap data). Turf diseases are not handled by rules — see [Disease Risk](#disease-risk).
+TurfOps includes 12 rules that evaluate environmental conditions and generate actionable recommendations. Rules are divided into current-condition rules (using real-time sensor data) and forecast-based rules (using OpenWeatherMap data). Turf diseases are not handled by rules — see [Disease Risk](#disease-risk). Neither are pre-emergent and seeding timing: those recommendations come from the timing windows — see [Seeding & Pre-Emergent Timing](#seeding--pre-emergent-timing).
 
 ### Current-Condition Rules
 
 #### Pre-Emergent Timing
-**Purpose**: Prevent crabgrass before it germinates
-
-Crabgrass seeds germinate when soil temperature at 2-4" depth reaches 55°F for 3+ consecutive days. Pre-emergent herbicides must be applied *before* germination begins.
-
-| Condition | Severity | Action |
-|-----------|----------|--------|
-| 7-day soil avg 50-55°F | Advisory | Optimal window - apply pre-emergent |
-| 7-day soil avg 55-60°F | Warning | Window narrowing - apply soon |
-| 7-day soil avg 60-70°F | Critical | Window closing - apply immediately |
-
-**Active**: February through May | **Products**: Prodiamine, dithiopyr, or pendimethalin at label rate. Water in within 24 hours.
+No longer a rule. Spring and fall pre-emergent recommendations come from the timing windows (measured 5 cm soil, 5-day sustained crossings, GDD) — see [Seeding & Pre-Emergent Timing](#seeding--pre-emergent-timing).
 
 #### Spring Nitrogen Timing
 **Purpose**: Prevent damage from fertilizing too early in spring
@@ -480,15 +470,7 @@ Never remove more than 1/3 of the blade at once.
 ### Fall Program Rules
 
 #### Fall Overseeding
-**Purpose**: Thicken the lawn during optimal germination conditions
-
-| Condition | Severity | Action |
-|-----------|----------|--------|
-| Aug 15 - Oct 31, soil 50-65°F | Advisory | Optimal overseeding window |
-| Soil 55-62°F | Advisory (Peak) | Best germination temps |
-| <21 days remaining, optimal temps | Warning | Seed soon - window closing |
-
-**Seeding Rate**: 4 lbs per 1000 sqft for overseeding (8 lbs for bare soil).
+No longer a rule. The seeding recommendation comes from the fall seeding window, which is anchored to the station's first-freeze climatology rather than a fixed Aug 15 – Oct 31 — see [Seeding & Pre-Emergent Timing](#seeding--pre-emergent-timing). The recommendation still sizes the seed needed at 4 lbs per 1000 sqft for overseeding.
 
 #### Fall Fertilization Program
 **Purpose**: Build root reserves for winter survival and spring green-up
@@ -551,6 +533,8 @@ Proactive heads-up when the soil-temperature prediction model (air-to-soil regre
 Each boundary is found in every historical year (up to 15) and reported as a median with its earliest/latest spread, then resolved for this season as **observed**, **tentative** (held fewer than 5 days), **forecast** (5-day soil outlook) or **typical**. A trigger that is past its usual date but has not happened is reported as running late — it is never given an invented date. First and last freeze dates come from the station's own daily minimums (≤ 32°F).
 
 Seed and pre-emergent never share a season: a logged `Overseed` blocks that season's pre-emergent and a logged `PreEmergent` blocks seeding. Establishment buffers depend on grass type (Kentucky bluegrass 60/45 days, fescues 45/30, perennial ryegrass 35/21). No application rates are given — the label governs.
+
+**In the feed, plan and calendar.** The same windows drive the pre-emergent and seeding recommendations (Opening soon → Info; Open/Ideal → Advisory; Closing → Warning; a just-missed spring pre-emergent → Warning for 3 weeks; fall pre-emergent stays at Info/Advisory because it is the alternative to seeding) and the Seasonal Plan's Spring Pre-Emergent, Fall Pre-Emergent, Fall Seeding and Core Aeration activities, which the Calendar overlays. A window ruled out by your log is left off the plan. If the lake is unavailable the plan falls back to its 10 cm soil windows and the feed simply has no timing recommendations.
 
 Full method, thresholds and how it differs from the lawn-answers.com tools it was modeled on: [docs/timing-windows.md](docs/timing-windows.md).
 
@@ -622,7 +606,9 @@ TurfOps tracks fungicide application history and provides rotation-aware recomme
 
 | Metric | Threshold | Meaning |
 |--------|-----------|---------|
-| Soil temp 10cm | 50-60°F | Pre-emergent window |
+| Soil temp 5cm (5-day mean, held 5 days) | 45 / 50 / 55°F rising | Spring pre-emergent: worthwhile / ideal / closed (or 200 GDD) |
+| Soil temp 5cm (5-day mean, held 5 days) | 70 / 65 / 55°F falling | Fall pre-emergent: opens / late / closed |
+| Soil temp 5cm + first fall freeze | ≤75°F from Aug 15 → 30 days before the typical freeze (or 55°F) | Fall seeding window; ideal until 45 days before the freeze |
 | Soil temp 10cm | 60-75°F | Grub control window |
 | Ambient temp | >85°F | Fertilizer stress risk |
 | Soil moisture | <0.10 | Irrigation needed |
