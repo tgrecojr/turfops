@@ -26,9 +26,9 @@ pub enum FracClass {
     Frac28,
     /// FRAC P07 — Phosphonates (fosetyl-Al, phosphites) — Pythium preventative
     FracP07,
-    /// FRAC M3 — Chlorothalonil (Daconil) — multi-site
+    /// FRAC M3 — Dithiocarbamates (mancozeb) — multi-site
     FracM3,
-    /// FRAC M5 — Dithiocarbamates (mancozeb) — multi-site
+    /// FRAC M5 — Chloronitriles (chlorothalonil, Daconil) — multi-site
     FracM5,
 }
 
@@ -44,9 +44,9 @@ impl FracClass {
             FracClass::Frac14 => "FRAC 14 (Aromatics)",
             FracClass::Frac21 => "FRAC 21 (QiI)",
             FracClass::Frac28 => "FRAC 28 (Carbamates)",
-            FracClass::FracP07 => "FRAC P07 (Phosphonates)",
-            FracClass::FracM3 => "FRAC M3 (Chlorothalonil)",
-            FracClass::FracM5 => "FRAC M5 (Mancozeb)",
+            FracClass::FracP07 => "FRAC P07 (Phosphonates, formerly 33)",
+            FracClass::FracM3 => "FRAC M3 (Mancozeb)",
+            FracClass::FracM5 => "FRAC M5 (Chlorothalonil)",
         }
     }
 
@@ -62,8 +62,8 @@ impl FracClass {
             FracClass::Frac21 => &["cyazofamid", "Segway"],
             FracClass::Frac28 => &["propamocarb", "Banol"],
             FracClass::FracP07 => &["fosetyl-Al", "Signature", "phosphite"],
-            FracClass::FracM3 => &["chlorothalonil", "Daconil"],
-            FracClass::FracM5 => &["mancozeb"],
+            FracClass::FracM3 => &["mancozeb"],
+            FracClass::FracM5 => &["chlorothalonil", "Daconil"],
         }
     }
 
@@ -148,12 +148,12 @@ pub fn frac_class_for_product(name: &str) -> Option<FracClass> {
     }
 
     // FRAC M3
-    if lower.contains("chlorothalonil") || lower.contains("daconil") {
+    if lower.contains("mancozeb") {
         return Some(FracClass::FracM3);
     }
 
     // FRAC M5
-    if lower.contains("mancozeb") {
+    if lower.contains("chlorothalonil") || lower.contains("daconil") {
         return Some(FracClass::FracM5);
     }
 
@@ -298,6 +298,10 @@ mod tests {
         );
         assert_eq!(
             frac_class_for_product("Daconil Action"),
+            Some(FracClass::FracM5)
+        );
+        assert_eq!(
+            frac_class_for_product("Mancozeb DG"),
             Some(FracClass::FracM3)
         );
         assert_eq!(
@@ -407,7 +411,7 @@ mod tests {
         // Multi-site fungicides should not count for rotation
         let apps = vec![
             make_fungicide_app(Some("Heritage TL"), 30),    // FRAC 11
-            make_fungicide_app(Some("Daconil Action"), 14), // FRAC M3 (multi-site)
+            make_fungicide_app(Some("Daconil Action"), 14), // FRAC M5 (multi-site)
         ];
         let advice = analyze_fungicide_rotation(&apps);
         assert_eq!(advice.total_apps_this_season, 2);

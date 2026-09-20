@@ -64,7 +64,7 @@ fn exactly_one_pick_per_program_and_never_a_restricted_class() {
         for program in [&m.preventative, &m.curative] {
             let picks = recommended(program);
             assert_eq!(picks.len(), 1, "{disease:?}");
-            assert_ne!(picks[0], FracClass::FracM3, "{disease:?}");
+            assert_ne!(picks[0], FracClass::FracM5, "{disease:?}");
         }
         assert!(m.curative.options.len() <= m.preventative.options.len());
     }
@@ -121,15 +121,84 @@ fn severe_pressure_shortens_the_protection_window() {
 }
 
 #[test]
-fn a_brown_patch_spray_does_not_protect_against_dollar_spot_or_pythium() {
+fn azoxystrobin_is_not_dollar_spot_protection() {
+    // PPA-1 does not list azoxystrobin for dollar spot and notes it can enhance it.
     let today = date(7, 20);
     let ctx = ctx_with(vec![app(7, 15, "azoxystrobin")]);
     let dollar = plan(Disease::DollarSpot, RiskTier::High, &[], today, &ctx);
     assert_eq!(dollar.action, ManagementAction::ApplyPreventative);
-    // Azoxystrobin is only Fair (suppression) on Pythium — not counted as protection.
-    let pythium = plan(Disease::PythiumBlight, RiskTier::Severe, &[], today, &ctx);
-    assert_eq!(pythium.action, ManagementAction::ApplyPreventative);
-    assert_eq!(recommended(&pythium.preventative), vec![FracClass::Frac4]);
+    assert!(dollar.protection.is_none());
+}
+
+#[test]
+fn strobilurin_covers_pythium_at_high_but_not_at_severe() {
+    // PPA-1 rates azoxystrobin 3 on Pythium blight, but says cyazofamid, mefenoxam and
+    // propamocarb are the most efficacious under high pressure.
+    let today = date(7, 20);
+    let ctx = ctx_with(vec![app(7, 15, "azoxystrobin")]);
+    let high = plan(Disease::PythiumBlight, RiskTier::High, &[], today, &ctx);
+    assert_eq!(high.action, ManagementAction::Protected);
+
+    let severe = plan(Disease::PythiumBlight, RiskTier::Severe, &[], today, &ctx);
+    assert_eq!(severe.action, ManagementAction::ApplyPreventative);
+    assert!(severe.protection.is_none());
+}
+
+#[test]
+fn pythium_specific_chemistry_still_protects_at_severe() {
+    let today = date(7, 20);
+    let ctx = ctx_with(vec![app(7, 15, "Segway")]);
+    let severe = plan(Disease::PythiumBlight, RiskTier::Severe, &[], today, &ctx);
+    assert_eq!(severe.action, ManagementAction::Protected);
+}
+
+#[test]
+fn pythium_pick_is_cyazofamid_not_mefenoxam() {
+    // PPA-1: cyazofamid 3.5 and propamocarb 3.5 outrank mefenoxam 3 (resistance risk).
+    let today = date(7, 20);
+    let fresh = plan(
+        Disease::PythiumBlight,
+        RiskTier::Severe,
+        &[],
+        today,
+        &DiseaseContext::default(),
+    );
+    assert_eq!(recommended(&fresh.preventative), vec![FracClass::Frac21]);
+    assert_eq!(recommended(&fresh.curative), vec![FracClass::Frac21]);
+
+    let after_segway = ctx_with(vec![app(6, 1, "Segway")]);
+    let rotated = plan(
+        Disease::PythiumBlight,
+        RiskTier::Severe,
+        &[],
+        today,
+        &after_segway,
+    );
+    assert_eq!(recommended(&rotated.preventative), vec![FracClass::Frac28]);
+}
+
+#[test]
+fn thiophanate_methyl_counts_as_brown_patch_protection() {
+    // PPA-1 rates thiophanate-methyl 2.5 on brown patch → Good.
+    let today = date(7, 20);
+    let ctx = ctx_with(vec![app(7, 12, "Cleary's 3336")]);
+    let m = plan(Disease::BrownPatch, RiskTier::High, &[], today, &ctx);
+    assert_eq!(m.action, ManagementAction::Protected);
+}
+
+#[test]
+fn chlorothalonil_is_frac_m5_and_counts_toward_protection_only() {
+    let today = date(7, 20);
+    let ctx = ctx_with(vec![app(7, 14, "Daconil Ultrex")]);
+    assert_eq!(ctx.fungicide_apps[0].class, Some(FracClass::FracM5));
+    let m = plan(Disease::BrownPatch, RiskTier::High, &[], today, &ctx);
+    assert_eq!(m.action, ManagementAction::Protected);
+    assert_eq!(m.protection.unwrap().protected_through, date(7, 28)); // 14-day contact window
+    assert!(m
+        .preventative
+        .options
+        .iter()
+        .all(|o| !(o.frac_class == FracClass::FracM5 && o.recommended)));
 }
 
 #[test]
