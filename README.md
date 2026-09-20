@@ -6,11 +6,12 @@ A containerized web application for tracking lawn care activities and providing 
 
 - **Application Tracking**: Log fertilizer, pre-emergent, fungicide, mowing, and other lawn treatments
 - **Environmental Data**: Real-time soil temperature, moisture, and ambient conditions from multiple sources
-- **Smart Recommendations**: 18 agronomic rules provide data-driven alerts for optimal treatment timing
+- **Smart Recommendations**: 14 agronomic rules provide data-driven alerts for optimal treatment timing
+- **Disease Risk**: Per-disease risk from published models (brown patch, dollar spot, Pythium blight, gray leaf spot, red thread) — each with a Low/Moderate/High/Severe tier, an 11-day trend and outlook, contributing factors, a "how this is calculated" breakdown, and preventative/curative guidance that knows what you've already sprayed
 - **Calendar View**: Visualize application history and seasonal plan activity windows with colored indicators
 - **Seasonal Plan Integration**: Calendar overlays predicted activity windows from the seasonal plan alongside actual applications
 - **Landscape Maintenance** *(optional)*: Track shrubs, trees, and perennials alongside turf. Enter a plant by common or scientific name and get a homeowner-level care plan (pruning windows, fertilizing, mulching) that overlays Calendar, Seasonal Plan, and Recommendations. Powered by an LLM through OpenRouter and cached per plant.
-- **FRAC Rotation**: Fungicide resistance management with automatic class rotation recommendations
+- **FRAC Rotation**: Fungicide resistance management — the suggested class for each disease avoids the one you used last, and a logged application counts as protection for its residual window
 - **Demand-Driven Refresh**: Sensor data refreshes only when viewed (5-min staleness for sensors, 30-min for forecasts)
 
 ## Architecture
@@ -24,7 +25,7 @@ A containerized web application for tracking lawn care activities and providing 
 │  │  ┌─────────────┐   ┌────────────────────────┐  │  │
 │  │  │ React SPA   │   │ Axum API Server        │  │  │
 │  │  │ (static)    │◄──│  /api/v1/* endpoints   │  │  │
-│  │  └─────────────┘   │  18 agronomic rules    │  │  │
+│  │  └─────────────┘   │  14 rules + disease    │  │  │
 │  │                     │  3 datasource clients  │  │  │
 │  │                     └───────────┬────────────┘  │  │
 │  └─────────────────────────────────┼───────────────┘  │
@@ -35,8 +36,8 @@ A containerized web application for tracking lawn care activities and providing 
 │  └─────────────────┘                                   │
 └───────────────────────────────────────────────────────┘
         │                    │                │
-   SoilData PG         Home Assistant    OpenWeatherMap
-   (NOAA USCRN)        (patio sensors)    (forecast)
+  Weather data lake    Home Assistant    OpenWeatherMap
+  (NOAA USCRN parquet) (patio sensors)    (forecast)
 ```
 
 ## Tech Stack
@@ -44,6 +45,7 @@ A containerized web application for tracking lawn care activities and providing 
 - **Backend**: Rust + Axum + sqlx (PostgreSQL)
 - **Frontend**: React 19 + TypeScript + Vite
 - **Database**: PostgreSQL 16 (app data)
+- **Weather data**: NOAA USCRN data lake (parquet) read in-process with embedded DuckDB
 - **Deployment**: Docker Compose
 
 ## Docker Image
@@ -61,9 +63,9 @@ Tagged releases are also available by version (e.g., `ghcr.io/tgrecojr/turfops:1
 ### Prerequisites
 
 - Docker and Docker Compose
-- (Optional) [SoilData](https://github.com/tgrecojr/soildata) PostgreSQL database for NOAA soil data
+- (Optional) NOAA USCRN weather data lake (silver/gold parquet) mounted read-only — soil data, GDD, seasonal plan, and disease risk all depend on it
 - (Optional) Home Assistant instance with temperature/humidity sensors
-- (Optional) OpenWeatherMap API key for forecast-based rules
+- (Optional) OpenWeatherMap API key for forecast-based rules and the disease-risk outlook
 - (Optional) [OpenRouter](https://openrouter.ai) API key to enable the Landscape Maintenance feature
 
 ### 1. Configure
@@ -158,20 +160,22 @@ Valid soil types: `Clay`, `ClayLoam`, `Loam`, `SandyLoam`, `Sand`
 
 Valid irrigation types: `InGround`, `Hose`, `Manual`, `None`
 
-### SoilData (NOAA USCRN)
+### Weather Data Lake (NOAA USCRN)
 
-Connection to an external PostgreSQL database running [SoilData](https://github.com/tgrecojr/soildata), which provides hourly NOAA USCRN soil temperature and moisture data.
+NOAA USCRN observations are read from a Dagster-built data lake: parquet files on a filesystem mounted read-only into the container and queried in-process with embedded DuckDB. There is no database connection to configure.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `SOILDATA_DB_HOST` | SoilData PostgreSQL host | `host.docker.internal` |
-| `SOILDATA_DB_PORT` | SoilData PostgreSQL port | `5432` |
-| `SOILDATA_DB_NAME` | SoilData database name | `uscrn` |
-| `SOILDATA_DB_USER` | SoilData database user | `postgres` |
-| `SOILDATA_DB_PASSWORD` | SoilData database password | *(empty)* |
+| `DATALAKE_HOST_PATH` | Host path of the lake, bind-mounted to `/data` (read-only) by Docker Compose | `/data` |
+| `DATALAKE_ROOT` | Lake mount point inside the container; the silver/gold paths derive beneath it | `/data` |
+| `WEATHER_SILVER_PATH` | Override for the hourly silver parquet | `$DATALAKE_ROOT/silver/weather/silver_weather.parquet` |
+| `WEATHER_GOLD_PATH` | Override for the daily gold parquet | `$DATALAKE_ROOT/gold/weather/daily_weather.parquet` |
 | `NOAA_STATION_WBANNO` | NOAA USCRN station ID | `3761` (PA Avondale) |
 
-> **Tip**: When running Docker Compose on macOS/Windows, `host.docker.internal` resolves to the host machine, so a locally-running SoilData PostgreSQL is reachable at the default.
+- **Silver** (hourly, °C / mm / % RH) backs the live soil reading, 7-day summary, trend charts, and the **disease risk models** (air temp, relative humidity, precipitation).
+- **Gold** (daily, °F, precomputed `gdd50`) backs GDD, the seasonal plan, and the soil-temperature forecast.
+
+> **Note**: The container runs as uid 65532 and needs read access to the mounted files. The lake is loaded about once a day, so station data trails real time by up to a day — see [Disease Risk](#disease-risk).
 
 ### Home Assistant
 
@@ -189,7 +193,7 @@ To generate a long-lived access token: Home Assistant → Profile → Long-Lived
 
 ### OpenWeatherMap (Optional)
 
-Enables forecast-based rules (rain delay, heat stress warnings, optimal application windows, disease pressure forecast).
+Enables forecast-based rules (rain delay, heat stress warnings, optimal application windows) and supplies today's remaining hours plus the 4-day outlook for disease risk.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -248,12 +252,9 @@ LAWN_IRRIGATION_TYPE=InGround
 # NOAA station
 NOAA_STATION_WBANNO=3761
 
-# SoilData PostgreSQL (running on host machine)
-SOILDATA_DB_HOST=host.docker.internal
-SOILDATA_DB_PORT=5432
-SOILDATA_DB_NAME=uscrn
-SOILDATA_DB_USER=postgres
-SOILDATA_DB_PASSWORD=
+# Weather data lake (host path mounted read-only at /data)
+DATALAKE_HOST_PATH=/path/to/datalake
+DATALAKE_ROOT=/data
 
 # Home Assistant
 HA_URL=http://192.168.1.50:8123
@@ -280,13 +281,9 @@ RUST_LOG=info
 
 | Source | Data Provided | Connection |
 |--------|--------------|------------|
-| **SoilData PostgreSQL** | Soil temperature (5/10/20/50/100cm), soil moisture, precipitation | External PostgreSQL via `SOILDATA_DB_*` vars |
+| **Weather data lake** | NOAA USCRN hourly soil temperature (5/10/20/50/100cm), soil moisture, air temperature, relative humidity, precipitation; daily aggregates + GDD | Parquet on a read-only mount via `DATALAKE_ROOT`, read with embedded DuckDB |
 | **Home Assistant** | Ambient temperature, humidity (patio sensor) | REST API via `HA_URL` + `HA_TOKEN` |
-| **OpenWeatherMap** | 5-day/3-hour forecast (temp, rain, humidity, wind) | REST API via `OWM_API_KEY` |
-
-### Related Projects
-
-- **[SoilData](https://github.com/tgrecojr/soildata)**: Processes and stores NOAA USCRN hourly soil temperature and moisture data in PostgreSQL. TurfOps queries this database for authoritative soil conditions used in agronomic rule evaluation.
+| **OpenWeatherMap** | 5-day/3-hour forecast (temp, rain, humidity, wind) — also fills in today and the outlook for disease risk | REST API via `OWM_API_KEY` |
 
 ## API Endpoints
 
@@ -298,13 +295,24 @@ RUST_LOG=info
 | `PUT` | `/api/v1/profile` | Update lawn profile |
 | `GET` | `/api/v1/applications?type=X` | List applications (optional type filter) |
 | `POST` | `/api/v1/applications` | Create new application |
+| `PUT` | `/api/v1/applications/:id` | Update application |
 | `DELETE` | `/api/v1/applications/:id` | Delete application |
 | `GET` | `/api/v1/applications/calendar?year=Y&month=M` | Applications grouped by date |
 | `GET` | `/api/v1/environmental` | Environmental data with demand-driven refresh |
 | `POST` | `/api/v1/environmental/refresh` | Force immediate data refresh |
-| `GET` | `/api/v1/recommendations` | Active recommendations from rules engine |
+| `GET` | `/api/v1/recommendations` | Active recommendations: rules engine + disease risk (High/Severe) + plant maintenance, follow-ups, soil tests |
 | `PATCH` | `/api/v1/recommendations/:id` | Mark recommendation addressed/dismissed |
+| `GET` | `/api/v1/disease-risk` | Per-disease risk: tier, score, 11-day series, contributing factors, methodology, management plan |
+| `GET` | `/api/v1/gdd?year=Y` | GDD accumulation + crabgrass germination model |
+| `GET` | `/api/v1/historical?range=7d\|30d\|90d` | Time-series environmental data for trend charts |
+| `GET` | `/api/v1/nitrogen-budget` | Annual nitrogen applied vs. grass-type target |
+| `GET` | `/api/v1/soil-temp-forecast` | Predicted soil temperatures and threshold crossings |
 | `GET` | `/api/v1/seasonal-plan?year=Y` | Full year of predicted activity windows (turf + plants) |
+| `GET` | `/api/v1/soil-tests` | List soil tests |
+| `POST` | `/api/v1/soil-tests` | Record a soil test |
+| `PUT` | `/api/v1/soil-tests/:id` | Update a soil test |
+| `DELETE` | `/api/v1/soil-tests/:id` | Delete a soil test |
+| `GET` | `/api/v1/soil-tests/recommendations` | pH and nutrient recommendations from the latest test |
 | `GET` | `/api/v1/plants` | List plants for the active profile |
 | `POST` | `/api/v1/plants` | Add a plant — backend calls OpenRouter and caches the plan |
 | `GET` | `/api/v1/plants/:id` | Single plant with cached maintenance plan |
@@ -316,12 +324,14 @@ RUST_LOG=info
 
 | Page | Description |
 |------|-------------|
-| **Dashboard** | Gauges for soil temp, ambient temp, humidity, and soil moisture. Active alerts and recent applications. Auto-refreshes every 30 seconds. |
+| **Dashboard** | Gauges for soil temp, ambient temp, humidity, and soil moisture. GDD, disease risk, nitrogen budget, and soil-temp forecast widgets. Active alerts and recent applications. Auto-refreshes every 30 seconds. |
 | **Applications** | Filterable table of all lawn treatments including mowing. Add new applications with type, product, rate, and notes. |
 | **Calendar** | Month grid view with colored dots for applications and status-colored bars for seasonal plan activity windows. Plant-maintenance windows render as outlined bars (distinct from filled turf bars). Click any date to see details grouped into Applications, Turf Activities, and Plant Maintenance. |
 | **Landscape** | Add plants by common or scientific name to get a homeowner-level care plan (pruning, fertilizing, mulching, etc.) per plant. Each card shows the plan summary, task windows, warnings, and a "Regenerate plan" button. **Requires `OPENROUTER_API_KEY`** — see [OpenRouter](#openrouter-optional--landscape-maintenance). |
 | **Environmental** | Detailed sensor data, soil depth readings, 7-day trends and averages. |
-| **Recommendations** | Active recommendations from the rules engine, including a new **Plant Maintenance** category when a plant's care window is open. Mark as addressed or dismiss. |
+| **Recommendations** | Active recommendations from the rules engine, including a new **Plant Maintenance** category when a plant's care window is open. Diseases at High or Severe risk appear here too. Mark as addressed or dismiss. |
+| **Disease Risk** | One row per disease with its score, tier meter, and Low/Moderate/High/Severe badge. Select a disease for its 11-day chart (observed + forecast), what to do now, cultural practices, preventative and curative fungicide programs, contributing factors, and how the score is calculated. See [Disease Risk](#disease-risk). |
+| **Soil Tests** | Record lab results and get pH (lime/sulfur) and nutrient recommendations. |
 | **Seasonal Plan** | Full-year timeline of predicted activity windows. When plants are configured, a **All / Turf / Plants** filter appears so you can view them separately. |
 | **Settings** | Edit lawn profile (grass type, zone, soil type, size, irrigation). |
 
@@ -348,7 +358,7 @@ cargo run  # migrations run automatically on startup
 
 # Development commands
 cargo build          # Build
-cargo test           # Run tests (30 tests)
+cargo test           # Run tests (154 tests)
 cargo fmt            # Format code
 cargo clippy         # Lint
 RUST_LOG=debug cargo run  # Run with debug logging
@@ -376,13 +386,13 @@ docker compose logs -f app  # Follow app logs
 ```
 
 The Dockerfile uses a multi-stage build:
-1. **Node 20 Alpine** — builds the React frontend
-2. **Rust 1.88** — compiles the backend binary
-3. **Debian Bookworm slim** — minimal runtime image
+1. **Node (Alpine)** — builds the React frontend
+2. **Rust (slim)** — compiles the backend binary, statically linking the C++ runtime that embedded DuckDB needs
+3. **Chainguard `glibc-dynamic`** — minimal distroless runtime image, runs as non-root
 
 ## Agronomic Rules
 
-TurfOps includes 18 rules that evaluate environmental conditions and generate actionable recommendations. Rules are divided into current-condition rules (using real-time sensor data) and forecast-based rules (using OpenWeatherMap data).
+TurfOps includes 14 rules that evaluate environmental conditions and generate actionable recommendations. Rules are divided into current-condition rules (using real-time sensor data) and forecast-based rules (using OpenWeatherMap data). Turf diseases are not handled by rules — see [Disease Risk](#disease-risk).
 
 ### Current-Condition Rules
 
@@ -432,17 +442,6 @@ Crabgrass seeds germinate when soil temperature at 2-4" depth reaches 55°F for 
 | Soil moisture <0.10 | Warning | Drought stress - irrigate first |
 | Soil moisture <0.05 | Critical | Severe drought - delay fertilizer |
 | Soil moisture >0.40 | Warning | Saturated - fertilizer will leach |
-
-#### Fungicide Disease Risk
-**Purpose**: Alert when conditions favor brown patch and other fungal diseases
-
-| Condition | Severity | Action |
-|-----------|----------|--------|
-| Humidity >80% + temp >70°F, night >60°F | Advisory | Monitor for symptoms |
-| Night temp >65°F or humidity >90% + sustained | Warning | Consider preventative fungicide |
-| Night >70°F + day >90°F + sustained humidity | Critical | Apply fungicide immediately |
-
-Recommendations are FRAC-aware — see [FRAC Rotation System](#frac-rotation-system).
 
 #### Broadleaf Herbicide Timing
 **Purpose**: Target broadleaf weeds during optimal control windows
@@ -531,17 +530,44 @@ Prepares for upcoming heat stress conditions.
 #### Optimal Application Window
 Identifies the best days for chemical applications based on forecast (dry weather, moderate temps, low wind).
 
-#### Disease Pressure Forecast
-Predicts elevated fungal disease risk from upcoming weather patterns.
+#### Soil Temperature Forecast
+Proactive heads-up when the soil-temperature prediction model (air-to-soil regression on recent lake data plus the forecast) expects an agronomic threshold crossing soon, e.g. the pre-emergent window approaching.
 
-#### Gray Leaf Spot
-Alerts when conditions favor this destructive TTTF disease. **Active**: July-September. FRAC-aware — rotates away from FRAC 11 if recently used.
+## Disease Risk
 
-#### Pythium Blight
-Alerts when conditions favor this fast-moving disease. **Active**: June-September. **Products**: Mefenoxam (FRAC 4) or fosetyl-Al (FRAC P07).
+Each disease is scored independently by its own model and then read off on a common **Low / Moderate / High / Severe** scale. The native scores (a probability, an index, a point score) are not comparable to each other, so there is deliberately no single blended "disease pressure" number.
 
-#### Red Thread
-Identifies nitrogen deficiency through red thread symptoms. **Active**: March-May and September-November. Managed by fertilizing, not fungicide.
+| Disease | Model | Inputs | Tiers (Moderate / High / Severe) |
+|---------|-------|--------|----------------------------------|
+| **Brown patch** | Fidanza-Dernoeden E-index — `E = −21.5 + 0.15·RH + 1.4·Tmin − 0.033·Tmin²` (Phytopathology 86:385–390, 1996) | Daily min air temp (°C), daily mean RH | E ≥ 0 / ≥ 5 / ≥ 6 |
+| **Dollar spot** | Smith-Kerns logistic — `logit = −11.4041 + 0.0894·MEANRH + 0.1932·MEANAT`, inactive outside 10–35°C (PLOS ONE 13(3):e0194216, 2018) | 5-day moving averages of daily mean air temp and RH | ≥ 10% / ≥ 20% (published action threshold) / ≥ 40% |
+| **Pythium blight** | 0–5 score on the Nutter et al. criteria (Plant Disease 67:1126–1128, 1983): +1 max ≥ 86°F, +1 min ≥ 68°F, +1 each at 6 / 10 / 14 h of RH ≥ 90%; capped at 1 without a heat criterion | Daily max/min air temp, hours RH ≥ 90% | 2 / 3 / 4 |
+| **Gray leaf spot** *(experimental)* | 0–100 suitability = temperature × leaf wetness, 3-day mean, July–October only (drivers per Uddin et al., Phytopathology 93:336–343, 2003) | Daily mean air temp, estimated leaf wetness | 25 / 50 / 75 |
+| **Red thread** *(experimental)* | 0–100 suitability = cool temperature × leaf wetness, 5-day mean | Daily mean air temp, estimated leaf wetness, rainfall | 25 / 50 / 75 |
+
+Brown patch and dollar spot are peer-reviewed, field-validated models. Pythium uses published thresholds combined into a heuristic score. Gray leaf spot and red thread have no validated turf forecasting model, so they are composite indices and are labeled **experimental** in the UI — use them alongside scouting.
+
+**Lawn history modifies risk.** Overseeding within 60 days raises gray leaf spot one tier (seedlings are highly susceptible); no fertilizer in 60 days raises red thread one tier (it is a low-nitrogen disease). Only the headline tier is raised, never from Low, and the page says why. The daily chart stays weather-only.
+
+**Where the data comes from.** Observed days are aggregated per local day from the lake's hourly silver layer (air temp, RH, precipitation). Leaf wetness is estimated as hours with RH ≥ 90% or measurable precipitation; dew point uses the Magnus formula. The lake trails real time by up to a day, so today's remaining hours and the 4-day outlook come from the OpenWeatherMap forecast. When too little of today is covered (under 12 hours), the headline reflects the most recent complete day and the page shows a note saying so. Without an OpenWeatherMap key there is no outlook.
+
+### What to do: preventative and curative guidance
+
+Every disease page turns its tier into an action:
+
+| Tier | Action |
+|------|--------|
+| Low | No action |
+| Moderate | Monitor — cultural practices only, with a heads-up if the 3-day outlook reaches High or Severe |
+| High / Severe | Apply a preventative — or **Protected** if a logged fungicide still covers this disease |
+
+- **Cultural practices** come first for every disease (nitrogen, irrigation timing, mowing, airflow).
+- A **preventative program** and a **curative program** ("if you see symptoms") list FRAC classes with example products, efficacy, and interval. TurfOps cannot see your lawn, so the curative program is always shown for you to apply on your own judgment.
+- **Protection window**: a logged fungicide that is at least *Good* on a disease counts as protection for 21 days (single-site systemic) or 14 days (contact / phosphonate), shortened by 7 days under Severe pressure. Efficacy is per disease — a strobilurin applied for brown patch does not count as dollar spot or Pythium protection.
+- **Red thread** is treated with nitrogen, not fungicide.
+- **No application rates are given.** Rates are product-specific; always read and follow the product label. Efficacy ratings summarize university extension guidance and are a starting point, not a prescription.
+
+Diseases at High or Severe also appear as recommendations on the Dashboard and Recommendations page, generated from the same model output so the two always agree.
 
 ### FRAC Rotation System
 
@@ -551,14 +577,18 @@ TurfOps tracks fungicide application history and provides rotation-aware recomme
 |------------|------|-----------------|
 | FRAC 1 | Thiophanates | thiophanate-methyl, Cleary's 3336 |
 | FRAC 3 | DMIs/Triazoles | propiconazole, Banner MAXX, myclobutanil, Eagle |
+| FRAC 4 | Phenylamides (Pythium) | mefenoxam, Subdue MAXX |
 | FRAC 7 | SDHI | fluxapyroxad, Xzemplar, penthiopyrad, Velista |
 | FRAC 11 | Strobilurins | azoxystrobin, Heritage, pyraclostrobin, Insignia |
 | FRAC 12 | Phenylpyrroles | fludioxonil, Medallion |
 | FRAC 14 | Aromatics | PCNB, Turfcide |
-| FRAC M3 | Multi-site | chlorothalonil, Daconil |
+| FRAC 21 | QiI (Pythium) | cyazofamid, Segway |
+| FRAC 28 | Carbamates (Pythium) | propamocarb, Banol |
+| FRAC P07 | Phosphonates (Pythium, preventative only) | fosetyl-Al, Signature, phosphite |
+| FRAC M3 | Multi-site | chlorothalonil, Daconil — not labeled for residential lawns in the US; tracked for protection, never suggested |
 | FRAC M5 | Multi-site | mancozeb |
 
-**Rotation order**: FRAC 11 → FRAC 3 → FRAC 1 → FRAC 7. Multi-site fungicides (M3, M5) are excluded from rotation calculations (low resistance risk).
+**Rotation**: for each disease, the suggested class is the most effective option for *that disease* that is not the single-site class you used last; the last-used class is tagged "rotate". A season-level warning appears after two consecutive applications of the same single-site class or three or more fungicide applications in a year. Multi-site fungicides (M3, M5) are excluded from rotation calculations (low resistance risk). FRAC classes are inferred from the product name on the logged application, so use a recognizable product or active-ingredient name.
 
 ## Lawn Profile Defaults
 
@@ -575,7 +605,9 @@ TurfOps tracks fungicide application history and provides rotation-aware recomme
 | Ambient temp | >85°F | Fertilizer stress risk |
 | Soil moisture | <0.10 | Irrigation needed |
 | Soil moisture | >0.40 | Saturated - avoid fertilizer |
-| Humidity | >80% | Disease risk |
+| Humidity | >80% | Reference line on the Environmental humidity chart |
+| Brown patch E-index | ≥5 | Brown patch warning (High) |
+| Dollar spot probability | ≥20% | Smith-Kerns action threshold (High) |
 
 ## License
 
