@@ -104,6 +104,10 @@ async fn main() -> anyhow::Result<()> {
             patch(api::recommendations::patch_recommendation),
         )
         .route("/api/v1/gdd", get(api::gdd::get_gdd))
+        .route(
+            "/api/v1/disease-risk",
+            get(api::disease_risk::get_disease_risk),
+        )
         .route("/api/v1/historical", get(api::historical::get_historical))
         .route(
             "/api/v1/nitrogen-budget",

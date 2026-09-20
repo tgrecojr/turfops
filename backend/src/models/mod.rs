@@ -1,4 +1,5 @@
 pub mod application;
+pub mod disease;
 pub mod environmental;
 pub mod forecast;
 pub mod frac_class;
@@ -13,6 +14,7 @@ pub mod soil_temp_prediction;
 pub mod soil_test;
 
 pub use application::*;
+pub use disease::*;
 pub use environmental::*;
 pub use forecast::*;
 pub use frac_class::*;
