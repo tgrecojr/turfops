@@ -54,9 +54,9 @@ turfops/
 │   └── src/
 │       ├── App.tsx              # React Router, 11 routes
 │       ├── api/client.ts        # Fetch wrapper for all API endpoints
-│       ├── types/index.ts       # TypeScript interfaces matching Rust models
-│       ├── pages/               # Dashboard, Calendar, Applications, Environmental, Recommendations, DiseaseRisk, SeasonalPlan, Settings
-│       └── components/          # Layout, Gauge, AlertCard, TrendChart, GddWidget, NitrogenBudgetWidget, disease/ (TierBadge, RiskMeter, DailyRiskChart, DiseaseDetail, DiseaseRiskWidget)
+│       ├── types/               # TypeScript interfaces matching Rust models (index.ts; disease.ts for disease risk)
+│       ├── pages/               # Dashboard, Applications, Landscape, Calendar, Environmental, Recommendations, DiseaseRisk, SoilTests, SeasonalPlan, Settings
+│       └── components/          # Layout, Gauge, AlertCard, TrendChart, GddWidget, NitrogenBudgetWidget, SoilTempForecastWidget, PredictionChart, disease/ (TierBadge, RiskMeter, DailyRiskChart, DiseaseDetail, ManagementPanel, DiseaseRiskWidget)
 ├── Dockerfile                   # Multi-stage: Node → Rust → slim runtime
 └── docker-compose.yml           # app + PostgreSQL 16
 ```
@@ -99,7 +99,7 @@ turfops/
 - Disease Risk UI (`/disease-risk`, `/disease-risk/:slug`): tier colors are the status palette in `types/disease.ts` and are never used alone — always symbol + label, with text in ink colors. Forecast bars are faded, today is outlined, and every chart has a table view.
 - 14 agronomic rules are pure functions — no IO, no UI dependencies. 5 rules (pre-emergent, grub control, spring nitrogen, fall overseeding, broadleaf herbicide) use GDD for enhanced timing/urgency.
 - Rules gracefully degrade when GDD data is `None` — all GDD-enhanced logic is additive
-- Recommendation state (addressed/dismissed) tracked in-memory (resets on restart)
+- Recommendation state (addressed/dismissed) is persisted in Postgres (`recommendation_states`, keyed by recommendation id). Disease recommendation ids are `disease_<slug>` (e.g. `disease_brown_patch`)
 - All temperatures stored in Fahrenheit (convert from Celsius at ingestion)
 - Axum serves React SPA static files with fallback to index.html for client-side routing
 - Seasonal plan uses historical NOAA soil temp data (up to 10 years) to predict activity windows via threshold crossing analysis; crossings cached in DB for fast subsequent loads
@@ -125,7 +125,10 @@ See `backend/.env.example` for full list:
 | Ambient temp | >85°F | Fertilizer stress risk |
 | Soil moisture | <0.10 | Irrigation needed |
 | Soil moisture | >0.40 | Saturated - avoid fertilizer |
-| Humidity | >80% | Disease risk |
+| Humidity | >80% | Reference line on the Environmental humidity chart (disease risk now comes from the per-disease models) |
+| Brown patch E-index | ≥5 / ≥6 | High / Severe |
+| Dollar spot probability (Smith-Kerns) | ≥20% / ≥40% | High (published action threshold) / Severe |
+| Pythium score (0–5) | ≥3 / ≥4 | High / Severe |
 | GDD (base 50°F) | 500-700 | Grub control (egg-laying → peak hatch) |
 | GDD (base 50°F) | 50-150 | Spring nitrogen readiness / broadleaf herbicide spring window |
 | GDD (base 50°F) | 2500-3000 | Fall overseeding season maturity |
