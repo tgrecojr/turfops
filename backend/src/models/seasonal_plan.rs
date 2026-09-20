@@ -33,7 +33,7 @@ pub struct DateWindow {
 }
 
 /// How confident we are in the predicted window based on data availability.
-#[derive(Debug, Clone, Copy, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum WindowConfidence {
     High,
     Medium,

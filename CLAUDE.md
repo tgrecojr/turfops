@@ -17,7 +17,7 @@ Containerized web application for tracking lawn care activities with data-driven
 
 ### Backend
 - `cd backend && cargo build` — Build backend
-- `cd backend && cargo test` — Run tests (159 tests)
+- `cd backend && cargo test` — Run tests (200 tests)
 - `cd backend && cargo fmt` — Format code
 - `cd backend && cargo clippy` — Run linter
 - `cd backend && cargo run` — Run API server (needs PostgreSQL)
@@ -44,11 +44,11 @@ turfops/
 │       ├── main.rs              # Axum server, static file serving
 │       ├── config.rs            # Env-var-based configuration
 │       ├── error.rs             # Error types with HTTP responses
-│       ├── state.rs             # AppState (pool, sync, rules engine)
-│       ├── api/                 # Route handlers (17 endpoints)
+│       ├── state.rs             # AppState (pool, sync, rules engine, 1 h climate-record memo)
+│       ├── api/                 # Route handlers (18 endpoints)
 │       ├── db/                  # PostgreSQL pool, queries, migrations
 │       ├── models/              # Data structures (shared with rules)
-│       ├── logic/               # Data sync + 14 agronomic rules + GDD accumulation + seasonal plan + disease risk models
+│       ├── logic/               # Data sync + 14 agronomic rules + GDD accumulation + seasonal plan + disease risk models + seeding/pre-emergent timing windows
 │       └── datasources/         # WeatherLake (DuckDB/parquet), HomeAssistant, OpenWeatherMap
 ├── frontend/
 │   └── src/
@@ -75,6 +75,7 @@ turfops/
 | POST | /api/v1/environmental/refresh | Force data refresh |
 | GET | /api/v1/recommendations | Active recommendations |
 | PATCH | /api/v1/recommendations/:id | Mark addressed/dismissed |
+| GET | /api/v1/timing-windows | Seeding + spring/fall pre-emergent windows: typical dates, this season's status, freeze dates, soil chart series |
 | GET | /api/v1/gdd | GDD accumulation + crabgrass germination model |
 | GET | /api/v1/historical | Time-series environmental data (7d/30d/90d) |
 | GET | /api/v1/nitrogen-budget | Annual nitrogen budget vs grass-type target |
@@ -87,7 +88,7 @@ turfops/
 - **Soil (temp/moisture)**: Weather data lake silver hourly parquet → NOAA USCRN PA Avondale (WBANNO 3761)
 - **Precipitation**: Weather data lake silver hourly parquet → NOAA measured values
 - **Forecast**: OpenWeatherMap API (5-day forecast)
-- Lake layers: **silver** (`silver_weather.parquet`, hourly cleaned/deduped, °C/mm/% native units) backs the live reading, 7-day summary, trend, and `/historical`; **gold** (`daily_weather.parquet`, daily means already in °F + precomputed `gdd50`) backs the seasonal plan, soil-temp regression, and GDD. Read in-process via embedded DuckDB (`datasources/weather.rs`).
+- Lake layers: **silver** (`silver_weather.parquet`, hourly cleaned/deduped, °C/mm/% native units) backs the live reading, 7-day summary, trend, and `/historical`; **gold** (`daily_weather.parquet`, daily means already in °F + precomputed `gdd50`) backs the seasonal plan, soil-temp regression, and GDD. The timing windows read both: daily **5 cm** soil means aggregated from silver (gold only has 10 cm) plus gold's daily air min/mean + `gdd50` (`datasources/weather/climatology.rs`). Read in-process via embedded DuckDB (`datasources/weather.rs`).
 
 ## Key Patterns
 
@@ -96,6 +97,7 @@ turfops/
 - Disease risk (`logic/disease/`): one pure model per disease over a daily weather series — brown patch (Fidanza E-index), dollar spot (Smith-Kerns), Pythium blight (Nutter-criteria score), gray leaf spot + red thread (experimental suitability indices, `validated: false`). Each keeps its native score; only the Low/Moderate/High/Severe tier is comparable, so there is no blended score. Observed days come from silver hourly aggregated per local day in DuckDB (`datasources/weather/disease.rs`); the lake lags ~1 day, so today's remainder + the outlook come from the OWM 3-hourly forecast (`weather_days::build_series`). The headline falls back to the last complete day when today has <12 h of data. Overseeding (≤60 d) amplifies gray leaf spot; no fertilizer in 60 d amplifies red thread — only the headline tier is raised (`tier_note` explains it); the daily series stays weather-only.
 - Disease management (`logic/disease/management/`): tier → action (Low none · Moderate monitor · High/Severe apply preventative, or `Protected` when a logged fungicide that is ≥ Good on that disease is within its residual window: 21 d systemic / 14 d contact, −7 d under Severe). Each disease has cultural practices plus preventative and curative programs from a static FRAC efficacy matrix (`programs.rs`); the suggested class is the best non-restricted option that isn't the class used last. The matrix was checked against Univ. of Kentucky PPA-1 2024 (1–4 ratings: 4/3.5 → Excellent, 3/2.5 → Good, 2/1.5 → Fair; each option's source rating is in a comment) — re-check against the current edition before changing a rating. `protects_at_severe: false` marks chemistry that counts as protection at High but not Severe (strobilurins on Pythium). Ratings are per FRAC class even though actives within a class differ; a split class is omitted from that disease rather than averaged. Multi-site codes: mancozeb = M3, chlorothalonil = M5. No application rates are ever given — label governs. There is deliberately no "I see symptoms" toggle: the curative program is always shown for the user to apply on their own judgment. Red thread's remedy is nitrogen, never a spray.
 - Disease recommendations: the five old heuristic disease rules were replaced by `disease::recommendations::to_recommendations` (High/Severe only; `Protected` → Info, red thread → Advisory), appended in the dashboard and recommendations handlers so the feed always agrees with the Disease Risk page. A lake/forecast outage degrades to no disease alerts.
+- Timing windows (`logic/timing/`, full method in `docs/timing-windows.md`): fall/spring/dormant seeding + spring/fall pre-emergent. A window is boundaries (`windows.rs`: `Soil` crossing · `BeforeFirstFreeze(days)` · `Gdd` · `Earliest([..])`) on the 5-day mean **5 cm** soil temp; a crossing must hold 5 days (`series::detect`, state-based, gaps reset the run). Each boundary is located per historical year (≤15 complete years with ≥300 soil days) → median/p10/p90/earliest/latest (`climatology::date_stat`, offsets from Jan 1 of the season year so dormant seeding survives the new year), then resolved for this season as Observed / Tentative (<5 days held) / Forecast (air→soil regression refit on 5 cm) / Typical. A typical date that has passed while station data is fresh is **overdue and gets no date** — never invent one; stale data (>5 d) or an ended scan range falls back to the calendar. Freeze dates come from gold `air_temp_min_f` ≤ 32; freeze-anchored boundaries always use the *typical* first freeze (a forecast freeze is already too late to seed). Seed and pre-emergent never share a season (`log.rs`): logged `Overseed` blocks that season's pre-emergent and vice versa — user rule, no toggle. No rates — label governs. The 15-year lake read is memoized 1 h in `AppState::climate_cache`; nothing is cached in Postgres so the current season is always live. Deliberate departures from lawn-answers.com (per-year crossings not one averaged curve; seeding never closes on a forecast freeze; spring pre-em closes at 55°F/200 GDD not 50°F) are tabled in the doc.
 - Disease Risk UI (`/disease-risk`, `/disease-risk/:slug`): tier colors are the status palette in `types/disease.ts` and are never used alone — always symbol + label, with text in ink colors. Forecast bars are faded, today is outlined, and every chart has a table view.
 - 14 agronomic rules are pure functions — no IO, no UI dependencies. 5 rules (pre-emergent, grub control, spring nitrogen, fall overseeding, broadleaf herbicide) use GDD for enhanced timing/urgency.
 - Rules gracefully degrade when GDD data is `None` — all GDD-enhanced logic is additive
@@ -129,6 +131,10 @@ See `backend/.env.example` for full list:
 | Brown patch E-index | ≥5 / ≥6 | High / Severe |
 | Dollar spot probability (Smith-Kerns) | ≥20% / ≥40% | High (published action threshold) / Severe |
 | Pythium score (0–5) | ≥3 / ≥4 | High / Severe |
+| Soil temp 5cm (5-day mean, held 5 d) | 45 / 50 / 55°F rising | Spring pre-emergent: early / ideal / closed (or 200 GDD) |
+| Soil temp 5cm (5-day mean, held 5 d) | 70 / 65 / 55°F falling | Fall pre-emergent: opens / late / closed |
+| Soil temp 5cm (5-day mean, held 5 d) | ≤75°F from Aug 15 → 55°F | Fall seeding opens → soil-side close |
+| First fall freeze (median, air min ≤32°F) | −45 d / −30 d (KBG 60/45, PRG 35/21) | Fall seeding: end of ideal / last chance |
 | GDD (base 50°F) | 500-700 | Grub control (egg-laying → peak hatch) |
 | GDD (base 50°F) | 50-150 | Spring nitrogen readiness / broadleaf herbicide spring window |
 | GDD (base 50°F) | 2500-3000 | Fall overseeding season maturity |

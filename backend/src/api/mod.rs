@@ -13,3 +13,4 @@ pub mod recommendations;
 pub mod seasonal_plan;
 pub mod soil_temp_prediction;
 pub mod soil_tests;
+pub mod timing;
