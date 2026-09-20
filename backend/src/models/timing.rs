@@ -60,6 +60,19 @@ pub enum WindowId {
     DormantSeeding,
 }
 
+impl WindowId {
+    /// Stable identifier used in recommendation ids; matches the serialized form.
+    pub fn slug(&self) -> &'static str {
+        match self {
+            WindowId::FallSeeding => "fall_seeding",
+            WindowId::SpringPreEmergent => "spring_pre_emergent",
+            WindowId::FallPreEmergent => "fall_pre_emergent",
+            WindowId::SpringSeeding => "spring_seeding",
+            WindowId::DormantSeeding => "dormant_seeding",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum WindowPriority {
     Primary,

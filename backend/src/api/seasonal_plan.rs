@@ -119,6 +119,14 @@ pub async fn get_seasonal_plan(
 
     let mut plan = build_seasonal_plan(year, &all_crossings, &applications, data_years);
 
+    // Pre-emergent, seeding and aeration come from the timing windows (5 cm soil +
+    // freeze dates) so the plan agrees with the Timing page. Each replaces the plan's own
+    // 10 cm version by id; with the lake unavailable the originals stay.
+    let timing = super::timing::plan_activities(&state, &profile, year).await;
+    plan.activities
+        .retain(|a| !timing.iter().any(|t| t.id == a.id));
+    plan.activities.extend(timing);
+
     // Overlay plant-maintenance activities from the landscape feature.
     let plants = plant_queries::list_plants_for_profile(&state.pool, profile_id).await?;
     let today = Local::now().date_naive();

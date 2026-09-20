@@ -3,8 +3,9 @@ use crate::datasources::WeatherLakeClient;
 use crate::db::queries;
 use crate::error::TurfOpsError;
 use crate::logic::timing::{self, context, Assessment};
+use crate::models::seasonal_plan::PlannedActivity;
 use crate::models::timing::TimingResponse;
-use crate::models::LawnProfile;
+use crate::models::{LawnProfile, Recommendation};
 use crate::state::AppState;
 use axum::extract::State;
 use axum::Json;
@@ -99,6 +100,85 @@ async fn compute(state: &AppState, profile: &LawnProfile) -> Result<TimingRespon
         history_years: assessment.history_years,
         data_notes,
     })
+}
+
+/// Pre-emergent and seeding recommendations for the feed/dashboard. Like disease risk,
+/// these are additive: a lake outage degrades to none rather than failing the feed.
+pub(crate) async fn recommendations(
+    state: &AppState,
+    profile: &LawnProfile,
+) -> Vec<Recommendation> {
+    match compute(state, profile).await {
+        Ok(response) => timing::recommendations::to_recommendations(
+            &response.windows,
+            &response.soil,
+            profile,
+            response.today,
+        ),
+        Err(e) => {
+            tracing::warn!("Timing windows unavailable for recommendations: {}", e);
+            Vec::new()
+        }
+    }
+}
+
+/// Seasonal-plan activities for `year` from the timing windows. Empty (so the plan
+/// keeps its own versions) when the lake is unavailable.
+pub(crate) async fn plan_activities(
+    state: &AppState,
+    profile: &LawnProfile,
+    year: i32,
+) -> Vec<PlannedActivity> {
+    match plan_for(state, profile, year).await {
+        Ok(activities) => activities,
+        Err(e) => {
+            tracing::warn!("Timing windows unavailable for the seasonal plan: {}", e);
+            Vec::new()
+        }
+    }
+}
+
+async fn plan_for(
+    state: &AppState,
+    profile: &LawnProfile,
+    year: i32,
+) -> Result<Vec<PlannedActivity>, TurfOpsError> {
+    let client = state
+        .sync_service
+        .read()
+        .await
+        .weather_client()
+        .cloned()
+        .ok_or_else(|| {
+            TurfOpsError::DataSourceUnavailable("weather data lake not configured".into())
+        })?;
+    let today = Local::now().date_naive();
+    let start = NaiveDate::from_ymd_opt(today.year() - timing::HISTORY_YEARS, 1, 1)
+        .ok_or_else(|| TurfOpsError::InvalidData("Invalid history start".into()))?;
+    let days = climate_days(state, &client, start).await?;
+
+    // The log spans that decide done/blocked reach from the previous mid-November
+    // (dormant seeding) into the following February.
+    let profile_id = profile
+        .id
+        .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
+    let invalid_year = || TurfOpsError::InvalidData(format!("Invalid year: {year}"));
+    let applications = queries::get_applications_for_profile_in_range(
+        &state.pool,
+        profile_id,
+        NaiveDate::from_ymd_opt(year - 1, 11, 1).ok_or_else(invalid_year)?,
+        NaiveDate::from_ymd_opt(year + 1, 3, 1).ok_or_else(invalid_year)?,
+    )
+    .await?;
+
+    let data = timing::SeasonData::build(&days, &[], today.year());
+    let season = data.season(&days, today);
+    Ok(timing::plan::activities(
+        &season,
+        profile.grass_type,
+        &applications,
+        year,
+    ))
 }
 
 /// Plain-language caveats about the inputs behind this response.

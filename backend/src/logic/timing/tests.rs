@@ -8,7 +8,7 @@ use super::*;
 use crate::models::timing::{DateSource, TimingWindow, WindowId};
 use crate::models::ApplicationType;
 
-fn date(year: i32, month: u32, day: u32) -> NaiveDate {
+pub(super) fn date(year: i32, month: u32, day: u32) -> NaiveDate {
     NaiveDate::from_ymd_opt(year, month, day).unwrap()
 }
 
@@ -18,7 +18,7 @@ fn soil_curve(d: NaiveDate) -> f64 {
 }
 
 /// Daily record from 2020 through `through`; 2026 runs `bias_2026` °F off the curve.
-fn station(through: NaiveDate, bias_2026: f64) -> Vec<ClimateDay> {
+pub(super) fn station(through: NaiveDate, bias_2026: f64) -> Vec<ClimateDay> {
     date(2020, 1, 1)
         .iter_days()
         .take_while(|d| *d <= through)
@@ -50,7 +50,7 @@ fn window(assessment: &Assessment, id: WindowId) -> &TimingWindow {
     assessment.windows.iter().find(|w| w.id == id).unwrap()
 }
 
-fn applied(kind: ApplicationType, on: NaiveDate) -> Application {
+pub(super) fn applied(kind: ApplicationType, on: NaiveDate) -> Application {
     Application {
         id: None,
         lawn_profile_id: 1,
@@ -70,7 +70,7 @@ fn applied(kind: ApplicationType, on: NaiveDate) -> Application {
     }
 }
 
-fn within(actual: Option<NaiveDate>, expected: NaiveDate, days: i64) -> bool {
+pub(super) fn within(actual: Option<NaiveDate>, expected: NaiveDate, days: i64) -> bool {
     actual.is_some_and(|d| (d - expected).num_days().abs() <= days)
 }
 

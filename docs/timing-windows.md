@@ -104,6 +104,28 @@ including its reseeding interval.
 - **Chart series:** every day of the current year with this year (observed, then
   forecast), last year, and the mean of the history years, all smoothed.
 
+## Recommendations and the seasonal plan
+
+The windows are the single source for pre-emergent and seeding timing everywhere:
+
+- **Feed** (`logic/timing/recommendations.rs`, appended in the dashboard and
+  recommendations handlers). Primary windows only. Opening soon → Info; Open / Ideal →
+  Advisory; Closing → Warning; a spring pre-emergent that closed within the last 21 days
+  → Warning (post-emergent advice). Fall pre-emergent is capped at Info / Advisory — it
+  is the alternative to seeding, not something to push. Done, Blocked, Not yet and
+  Closed produce nothing. Ids: `timing_<window>_<season_year>`. The fall seeding
+  recommendation sizes the seed needed from the lawn size at 4 lbs/1000 sqft. These
+  replaced the 10 cm `pre_emergent` and `fall_overseeding` rules (12 rules remain).
+- **Seasonal plan / calendar** (`logic/timing/plan.rs`). Spring Pre-Emergent, Fall
+  Pre-Emergent (new), Fall Seeding & Overseeding and Core Aeration (same window as
+  seeding) use the windows' typical opens → closes medians, with earliest/latest as the
+  historical range. The handler swaps each in for the plan's own activity **by id**, so
+  when the lake is unavailable — or for a warm-season lawn, which has no seeding window —
+  the legacy 10 cm activity remains. A window ruled out by the log is left off the plan;
+  a fall `PreEmergent` no longer marks the *spring* application complete.
+
+A lake outage degrades the feed to no timing recommendations rather than an error.
+
 ## Page
 
 `/timing` shows, top to bottom: data notes; tiles for the current 5 cm soil mean and the

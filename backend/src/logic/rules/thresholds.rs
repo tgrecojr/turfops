@@ -28,14 +28,8 @@ pub const COOL_SEASON_IDEAL_HIGH_F: f64 = 75.0;
 /// Pre-emergent application window — lower bound (°F, 7-day avg).
 pub const PRE_EMERGENT_SOIL_LOW_F: f64 = 50.0;
 
-/// Pre-emergent application window — upper bound (°F, 7-day avg).
-pub const PRE_EMERGENT_SOIL_HIGH_F: f64 = 60.0;
-
 /// Crabgrass germination risk threshold — urgency increases above this.
 pub const PRE_EMERGENT_URGENCY_SOIL_F: f64 = 55.0;
-
-/// Pre-emergent late window — efficacy drops significantly above this.
-pub const PRE_EMERGENT_LATE_SOIL_F: f64 = 70.0;
 
 /// Grub control application window — lower bound (°F, 7-day avg).
 pub const GRUB_CONTROL_SOIL_LOW_F: f64 = 60.0;
@@ -48,21 +42,6 @@ pub const AERATION_SOIL_LOW_F: f64 = 50.0;
 
 /// Core aeration window — upper bound (°F, 7-day avg).
 pub const AERATION_SOIL_HIGH_F: f64 = 65.0;
-
-/// Fall overseeding optimal soil temp — lower bound (°F).
-pub const OVERSEED_SOIL_LOW_F: f64 = 50.0;
-
-/// Fall overseeding optimal soil temp — upper bound (°F).
-pub const OVERSEED_SOIL_HIGH_F: f64 = 65.0;
-
-/// Fall overseeding peak germination — lower bound (°F).
-pub const OVERSEED_PEAK_LOW_F: f64 = 55.0;
-
-/// Fall overseeding peak germination — upper bound (°F).
-pub const OVERSEED_PEAK_HIGH_F: f64 = 62.0;
-
-/// Fall overseeding — soil too warm, wait for cooler (°F).
-pub const OVERSEED_WARM_LIMIT_F: f64 = 75.0;
 
 /// Fall fertilization — soil temp OK range lower bound (°F).
 pub const FALL_FERT_SOIL_LOW_F: f64 = 45.0;
@@ -118,9 +97,6 @@ pub const APP_WINDOW_IDEAL_HIGH_F: f64 = 75.0;
 
 /// Application window — minimum avg temp (°F).
 pub const APP_WINDOW_MIN_AVG_F: f64 = 50.0;
-
-/// Forecast average high above which overseeding seedlings are stressed.
-pub const OVERSEED_FORECAST_HOT_F: f64 = 85.0;
 
 // =============================================================================
 // Soil moisture thresholds (volumetric fraction, 0.0–1.0)
@@ -193,12 +169,6 @@ pub const WIND_CALM_MPH: f64 = 5.0;
 /// Days remaining in grub control window before severity escalates.
 pub const GRUB_URGENCY_DAYS: i64 = 14;
 
-/// Overseeding — days remaining that triggers "running low on time" escalation.
-pub const OVERSEED_LOW_TIME_DAYS: i64 = 21;
-
-/// Overseeding — days remaining for secondary urgency check.
-pub const OVERSEED_URGENT_DAYS: i64 = 14;
-
 /// Days between fall fertilizer applications.
 pub const FALL_FERT_MIN_INTERVAL_DAYS: i64 = 21;
 
@@ -260,12 +230,6 @@ pub const SPRING_N_GDD_READY: f64 = 50.0;
 
 /// Spring nitrogen — growth well established (GDD base 50).
 pub const SPRING_N_GDD_ESTABLISHED: f64 = 150.0;
-
-/// Fall overseeding — season maturity, fall window approaching (GDD base 50).
-pub const OVERSEED_GDD_SEASON_MATURE: f64 = 2500.0;
-
-/// Fall overseeding — season fully mature (GDD base 50).
-pub const OVERSEED_GDD_SEASON_LATE: f64 = 3000.0;
 
 /// Broadleaf herbicide spring — winter annuals actively growing (GDD base 50).
 pub const SPRING_HERBICIDE_GDD_LOW: f64 = 50.0;

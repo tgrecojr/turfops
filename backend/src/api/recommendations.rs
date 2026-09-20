@@ -37,6 +37,7 @@ pub async fn list_recommendations(
 
     // Append per-disease risk recommendations (High/Severe tiers).
     recommendations.extend(super::disease_risk::recommendations(&state, &profile).await);
+    recommendations.extend(super::timing::recommendations(&state, &profile).await);
 
     // Append plant maintenance recommendations for landscape plants.
     let plants = plant_queries::list_plants_for_profile(&state.pool, profile_id).await?;

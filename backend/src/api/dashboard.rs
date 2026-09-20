@@ -45,6 +45,7 @@ pub async fn get_dashboard(
     // Evaluate rules for recommendations
     let mut recommendations = state.rules_engine.evaluate(&summary, &profile, &apps);
     recommendations.extend(super::disease_risk::recommendations(&state, &profile).await);
+    recommendations.extend(super::timing::recommendations(&state, &profile).await);
 
     // Apply dismissed/addressed state from database
     let rec_states = queries::get_recommendation_states(&state.pool).await?;
