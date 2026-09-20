@@ -25,7 +25,7 @@ Containerized web application for tracking lawn care activities with data-driven
 ### Frontend
 - `cd frontend && npm install` — Install dependencies
 - `cd frontend && npm run dev` — Dev server with API proxy (port 5173)
-- `cd frontend && npm run build` — Production build to dist/
+- `cd frontend && npm run build` — Production build to dist/ (if `npm` is wrapped by Socket and rolldown fails with "loading addons is disabled", run `tsc -b && node node_modules/vite/bin/vite.js build`)
 - `cd frontend && npx tsc --noEmit` — Type check
 - `cd frontend && npm run lint` — Biome lint + format check
 - `cd frontend && npm run format` — Biome auto-format
@@ -52,11 +52,11 @@ turfops/
 │       └── datasources/         # WeatherLake (DuckDB/parquet), HomeAssistant, OpenWeatherMap
 ├── frontend/
 │   └── src/
-│       ├── App.tsx              # React Router, 7 routes
+│       ├── App.tsx              # React Router, 11 routes
 │       ├── api/client.ts        # Fetch wrapper for all API endpoints
 │       ├── types/index.ts       # TypeScript interfaces matching Rust models
-│       ├── pages/               # Dashboard, Calendar, Applications, Environmental, Recommendations, SeasonalPlan, Settings
-│       └── components/          # Layout, Gauge, AlertCard, TrendChart, GddWidget, NitrogenBudgetWidget
+│       ├── pages/               # Dashboard, Calendar, Applications, Environmental, Recommendations, DiseaseRisk, SeasonalPlan, Settings
+│       └── components/          # Layout, Gauge, AlertCard, TrendChart, GddWidget, NitrogenBudgetWidget, disease/ (TierBadge, RiskMeter, DailyRiskChart, DiseaseDetail, DiseaseRiskWidget)
 ├── Dockerfile                   # Multi-stage: Node → Rust → slim runtime
 └── docker-compose.yml           # app + PostgreSQL 16
 ```
@@ -94,6 +94,7 @@ turfops/
 - Demand-driven data refresh: sensors stale after 5min, forecast after 30min. Zero external calls when idle. (Lake parquet reads are local + fast, so soil/weather is re-read on each refresh rather than cached in Postgres.)
 - GDD (Growing Degree Days, base 50°F): the gold layer precomputes daily `gdd50` (verified identical to the app's own `((max+min)/2 - 50).max(0)` formula); the app sums it to a YTD running total on demand (`gdd::accumulate_daily_gdd`) and passes it to rules via `EnvironmentalSummary.gdd_base50_ytd`. No `gdd_daily` cache table.
 - Disease risk (`logic/disease/`): one pure model per disease over a daily weather series — brown patch (Fidanza E-index), dollar spot (Smith-Kerns), Pythium blight (Nutter-criteria score), gray leaf spot + red thread (experimental suitability indices, `validated: false`). Each keeps its native score; only the Low/Moderate/High/Severe tier is comparable, so there is no blended score. Observed days come from silver hourly aggregated per local day in DuckDB (`datasources/weather/disease.rs`); the lake lags ~1 day, so today's remainder + the outlook come from the OWM 3-hourly forecast (`weather_days::build_series`). The headline falls back to the last complete day when today has <12 h of data. Overseeding (≤60 d) amplifies gray leaf spot; no fertilizer in 60 d amplifies red thread.
+- Disease Risk UI (`/disease-risk`, `/disease-risk/:slug`): tier colors are the status palette in `types/disease.ts` and are never used alone — always symbol + label, with text in ink colors. Forecast bars are faded, today is outlined, and every chart has a table view.
 - 18 agronomic rules are pure functions — no IO, no UI dependencies. 5 rules (pre-emergent, grub control, spring nitrogen, fall overseeding, broadleaf herbicide) use GDD for enhanced timing/urgency.
 - Rules gracefully degrade when GDD data is `None` — all GDD-enhanced logic is additive
 - Recommendation state (addressed/dismissed) tracked in-memory (resets on restart)
