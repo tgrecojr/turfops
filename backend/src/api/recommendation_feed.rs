@@ -46,7 +46,7 @@ pub async fn all(
 
     // Per-disease risk (High/Severe tiers) and the seeding / pre-emergent windows.
     recommendations.extend(super::disease_risk::recommendations(state, profile).await);
-    recommendations.extend(super::timing::recommendations(state, profile).await);
+    super::timing::apply_to_feed(state, profile, &apps, &mut recommendations).await;
 
     // Plant maintenance for landscape plants.
     let plants = plant_queries::list_plants_for_profile(&state.pool, profile_id).await?;

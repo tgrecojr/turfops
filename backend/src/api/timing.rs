@@ -5,7 +5,7 @@ use crate::error::TurfOpsError;
 use crate::logic::timing::{self, context, Assessment};
 use crate::models::seasonal_plan::PlannedActivity;
 use crate::models::timing::TimingResponse;
-use crate::models::{LawnProfile, Recommendation};
+use crate::models::{Application, LawnProfile, Recommendation};
 use crate::state::AppState;
 use axum::extract::State;
 use axum::Json;
@@ -105,24 +105,36 @@ async fn compute(state: &AppState, profile: &LawnProfile) -> Result<TimingRespon
     })
 }
 
-/// Pre-emergent and seeding recommendations for the feed/dashboard. Like disease risk,
-/// these are additive: a lake outage degrades to none rather than failing the feed.
-pub(crate) async fn recommendations(
+/// What the timing windows contribute to the feed/dashboard: one recommendation per
+/// actionable window, core aeration (same window as seeding), and the fall herbicide
+/// reconciled with the seeding decision. Like disease risk this is additive: a lake
+/// outage leaves the feed as the rules produced it rather than failing it.
+pub(crate) async fn apply_to_feed(
     state: &AppState,
     profile: &LawnProfile,
-) -> Vec<Recommendation> {
-    match compute(state, profile).await {
-        Ok(response) => timing::recommendations::to_recommendations(
-            &response.windows,
-            &response.soil,
-            profile,
-            response.today,
-        ),
+    history: &[Application],
+    recommendations: &mut Vec<Recommendation>,
+) {
+    let response = match compute(state, profile).await {
+        Ok(response) => response,
         Err(e) => {
             tracing::warn!("Timing windows unavailable for recommendations: {}", e);
-            Vec::new()
+            return;
         }
-    }
+    };
+    recommendations.extend(timing::recommendations::to_recommendations(
+        &response.windows,
+        &response.soil,
+        profile,
+        response.today,
+    ));
+    recommendations.extend(timing::companions::aeration(
+        &response.windows,
+        profile,
+        history,
+        response.today,
+    ));
+    timing::companions::reconcile_fall_herbicide(recommendations, &response.windows);
 }
 
 /// Seasonal-plan activities for `year` from the timing windows. Empty (so the plan

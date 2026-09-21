@@ -47,20 +47,27 @@ impl Rule for FallFertilizationRule {
         // Get soil temperature
         let soil_temp_avg = env.soil_temp_7day_avg_f?;
 
-        // Count fall fertilizer applications this year
-        let fall_apps: Vec<&Application> = history
+        // A feeding is a lawn fertilizer that carried nitrogen (or whose analysis wasn't
+        // recorded) — not shrub fertilizer, and not 0-0-50 potash.
+        let feedings: Vec<&Application> = history
             .iter()
             .filter(|app| {
                 app.application_type == ApplicationType::Fertilizer
+                    && app.is_turf()
+                    && app.nitrogen_pct.is_none_or(|n| n > 0.0)
                     && app.application_date.year() == current_year
-                    && app.application_date >= window_start
+                    && app.application_date <= today
             })
             .collect();
 
-        let app_count = fall_apps.len();
+        // Count fall feedings this year
+        let app_count = feedings
+            .iter()
+            .filter(|a| a.application_date >= window_start)
+            .count();
 
-        // Find most recent fall application
-        let last_app_date = fall_apps.iter().map(|a| a.application_date).max();
+        // Most recent feeding of any season: an Aug 30 application still spaces Sept's.
+        let last_app_date = feedings.iter().map(|a| a.application_date).max();
         let days_since_last = last_app_date.map(|d| (today - d).num_days()).unwrap_or(999);
 
         // Determine which phase of fall fertilization we're in
@@ -73,7 +80,8 @@ impl Rule for FallFertilizationRule {
         match phase {
             FallPhase::Early => {
                 // September - recovery feeding
-                if app_count == 0 && soil_temp_ok {
+                if app_count == 0 && days_since_last >= FALL_FERT_MIN_INTERVAL_DAYS && soil_temp_ok
+                {
                     Some(build_early_fall_rec(soil_temp_avg, profile, env))
                 } else {
                     None

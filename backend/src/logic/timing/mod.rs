@@ -8,6 +8,7 @@
 //! `api/timing.rs` supplies the data.
 
 pub mod climatology;
+pub mod companions;
 pub mod context;
 pub mod evaluate;
 pub mod log;
