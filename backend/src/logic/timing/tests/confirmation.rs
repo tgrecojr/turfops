@@ -58,3 +58,21 @@ fn a_run_in_progress_when_the_station_went_quiet_is_not_trusted() {
     assert!(!pre_em.opens.passed);
     assert_ne!(pre_em.state, WindowState::Open);
 }
+
+#[test]
+fn a_typical_date_inside_the_lake_lag_is_not_overdue_yet() {
+    // A fall running 3°F warm: 70°F is late. The typical date is about Sep 7; on Sep 8
+    // the station has only reported through Sep 6, so it cannot have shown an on-time
+    // crossing yet — keep the estimate rather than declaring the season behind.
+    let days = station(date(2026, 9, 6), 3.0);
+    let result = run(date(2026, 9, 8), &days, &[]);
+    let pre_em = window(&result, WindowId::FallPreEmergent);
+    assert_eq!(pre_em.opens.source, DateSource::Typical);
+    assert!(pre_em.opens.date.is_some(), "still an estimate");
+    assert!(!pre_em.opens.passed);
+
+    // Once the station has reported past the typical date with no crossing, it is overdue.
+    let days = station(date(2026, 9, 12), 3.0);
+    let later = run(date(2026, 9, 13), &days, &[]);
+    assert_eq!(window(&later, WindowId::FallPreEmergent).opens.date, None);
+}
