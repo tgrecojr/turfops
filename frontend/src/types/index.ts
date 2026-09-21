@@ -683,5 +683,5 @@ export const GRASS_TYPE_LABELS: Record<GrassType, string> = {
 	Bermuda: "Bermuda",
 	Zoysia: "Zoysia",
 	StAugustine: "St. Augustine",
-	Mixed: "Mixed",
+	Mixed: "Mixed (cool-season blend)",
 };

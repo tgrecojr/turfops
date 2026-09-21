@@ -1,5 +1,5 @@
 use crate::models::seasonal_plan::*;
-use crate::models::{Application, ApplicationType};
+use crate::models::{Application, ApplicationType, GrassType};
 use chrono::{Datelike, NaiveDate};
 
 /// Soil temperature thresholds (°F, 7-day rolling average) that trigger activities.
@@ -131,14 +131,32 @@ pub struct AggregatedWindow {
 }
 
 /// Build the full seasonal plan from aggregated threshold data and application history.
+/// Activities that only make sense on cool-season turf: fall seeding and aeration, and the
+/// spring / fall / winterizer feeding program. A warm-season lawn is fed in summer and goes
+/// dormant in fall; showing it this program put "Fall Overseeding — TTTF blend" on a Bermuda
+/// lawn's calendar next to pages that correctly refuse cool-season advice. Weed and grub
+/// control stay.
+const COOL_SEASON_ONLY: [&str; 6] = [
+    "spring_nitrogen",
+    "core_aeration",
+    "fall_overseeding",
+    "early_fall_fert",
+    "mid_fall_fert",
+    "winterizer",
+];
+
 pub fn build_seasonal_plan(
     year: i32,
     crossings: &[ThresholdCrossing],
     applications: &[Application],
     data_years: i32,
+    grass: GrassType,
 ) -> SeasonalPlan {
     let today = chrono::Local::now().date_naive();
-    let activities = build_activities(year, crossings, applications, today);
+    let mut activities = build_activities(year, crossings, applications, today);
+    if !grass.is_cool_season() {
+        activities.retain(|a| !COOL_SEASON_ONLY.contains(&a.id.as_str()));
+    }
 
     SeasonalPlan {
         year,
@@ -698,5 +716,41 @@ mod tests {
             compute_status(false, start, end, today),
             ActivityStatus::Missed
         ));
+    }
+
+    #[test]
+    fn warm_season_lawns_get_no_cool_season_program() {
+        // Every threshold the plan looks for, on a plausible date, for three past years.
+        let crossings: Vec<ThresholdCrossing> = [
+            ("soil_50f_rising", 4, 1),
+            ("soil_55f_rising", 4, 20),
+            ("soil_60f_rising", 5, 10),
+            ("soil_65f_rising", 5, 25),
+            ("soil_75f_rising", 6, 25),
+            ("soil_65f_falling", 9, 25),
+            ("soil_55f_falling", 10, 25),
+            ("soil_50f_falling", 11, 5),
+            ("soil_45f_falling", 11, 20),
+        ]
+        .iter()
+        .flat_map(|(name, month, day)| {
+            (2023..=2025).map(move |year| ThresholdCrossing {
+                year,
+                threshold_name: name.to_string(),
+                crossing_date: NaiveDate::from_ymd_opt(year, *month, *day).unwrap(),
+                avg_soil_temp_f: 0.0,
+            })
+        })
+        .collect();
+        let cool = build_seasonal_plan(2026, &crossings, &[], 3, GrassType::TallFescue);
+        let warm = build_seasonal_plan(2026, &crossings, &[], 3, GrassType::Bermuda);
+        let has = |plan: &SeasonalPlan, id: &str| plan.activities.iter().any(|a| a.id == id);
+        for id in COOL_SEASON_ONLY {
+            assert!(has(&cool, id), "cool-season plan lost {id}");
+            assert!(!has(&warm, id), "warm-season plan kept {id}");
+        }
+        // Weed and grub control apply to any turf.
+        assert!(has(&warm, "pre_emergent"));
+        assert!(has(&warm, "grub_preventative"));
     }
 }

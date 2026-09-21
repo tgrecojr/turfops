@@ -34,6 +34,10 @@ impl GrassType {
                 | GrassType::TallFescue
                 | GrassType::PerennialRyegrass
                 | GrassType::FineFescue
+                // A "mixed" lawn here is a cool-season blend (fescue / bluegrass / rye) —
+                // the usual seed mix. Treating it as neither silenced seven rules, the
+                // seeding windows and the disease models for the most common lawn there is.
+                | GrassType::Mixed
         )
     }
 }
@@ -239,6 +243,7 @@ mod tests {
         assert!(GrassType::KentuckyBluegrass.is_cool_season());
         assert!(GrassType::PerennialRyegrass.is_cool_season());
         assert!(GrassType::FineFescue.is_cool_season());
+        assert!(GrassType::Mixed.is_cool_season());
         assert!(!GrassType::Bermuda.is_cool_season());
         assert!(!GrassType::Zoysia.is_cool_season());
         assert!(!GrassType::StAugustine.is_cool_season());
