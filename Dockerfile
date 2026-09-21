@@ -11,8 +11,9 @@ FROM rust:1.98-slim-trixie@sha256:f47a8de237dcbb0b0ce1099901e60a89728e3d51f24e66
 WORKDIR /app
 
 # g++ is required to compile DuckDB's bundled C++ amalgamation (duckdb crate, `bundled`).
+# tzdata is only here to be copied into the runtime stage (see below).
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends g++ \
+    && apt-get install -y --no-install-recommends g++ tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 # Statically link the C++ runtime (libstdc++) and libgcc into the binary so it only
@@ -40,6 +41,9 @@ WORKDIR /app
 
 COPY --from=backend-build --chown=65532:65532 /app/target/release/turfops-backend ./turfops-backend
 COPY --from=frontend-build --chown=65532:65532 /app/frontend/dist ./static
+# The distroless runtime has no timezone database; without it chrono's `Local` silently
+# stays on UTC whatever TZ says, and every date-gated rule flips a day early each evening.
+COPY --from=backend-build /usr/share/zoneinfo /usr/share/zoneinfo
 
 ENV STATIC_DIR=/app/static
 

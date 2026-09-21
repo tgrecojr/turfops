@@ -85,10 +85,6 @@ export default function Dashboard() {
 	useEffect(() => {
 		fetchData();
 
-		const handleVisibility = () => {
-			if (!document.hidden) fetchData();
-		};
-
 		let intervalId: ReturnType<typeof setInterval> | null = null;
 
 		const startPolling = () => {
@@ -105,11 +101,18 @@ export default function Dashboard() {
 			}
 		};
 
+		// One named handler, so the cleanup below really removes it. (An anonymous second
+		// listener used to survive unmount and restart polling from every other page.)
+		const handleVisibility = () => {
+			if (document.hidden) {
+				stopPolling();
+			} else {
+				fetchData();
+				startPolling();
+			}
+		};
+
 		document.addEventListener("visibilitychange", handleVisibility);
-		document.addEventListener("visibilitychange", () => {
-			if (document.hidden) stopPolling();
-			else startPolling();
-		});
 		startPolling();
 
 		return () => {

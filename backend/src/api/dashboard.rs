@@ -29,7 +29,8 @@ pub async fn get_dashboard(
     let profile_id = profile
         .id
         .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
-    let apps = queries::get_applications_for_profile(&state.pool, profile_id, 10, 0).await?;
+    let recent_applications: Vec<Application> =
+        queries::get_applications_for_profile(&state.pool, profile_id, 5, 0).await?;
 
     // Get environmental data (refreshes if stale)
     let summary = {
@@ -42,27 +43,13 @@ pub async fn get_dashboard(
         service.check_connections().await
     };
 
-    // Evaluate rules for recommendations
-    let mut recommendations = state.rules_engine.evaluate(&summary, &profile, &apps);
-    recommendations.extend(super::disease_risk::recommendations(&state, &profile).await);
-    recommendations.extend(super::timing::recommendations(&state, &profile).await);
-
-    // Apply dismissed/addressed state from database
-    let rec_states = queries::get_recommendation_states(&state.pool).await?;
-    for rec in &mut recommendations {
-        if let Some((dismissed, addressed)) = rec_states.get(&rec.id) {
-            rec.dismissed = *dismissed;
-            rec.addressed = *addressed;
-        }
-    }
-    recommendations.retain(|r| r.is_active());
+    // The same feed as the Recommendations page, so the two can never disagree.
+    let mut recommendations =
+        super::recommendation_feed::active(&state, &profile, &summary).await?;
 
     // Top 3 recommendations by severity
     recommendations.sort_by_key(|r| std::cmp::Reverse(r.severity));
     recommendations.truncate(3);
-
-    // 5 most recent applications
-    let recent_applications: Vec<Application> = apps.into_iter().take(5).collect();
 
     Ok(Json(DashboardResponse {
         profile,

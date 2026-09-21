@@ -11,8 +11,10 @@ use chrono::{Datelike, Local, NaiveDate};
 /// Japanese beetle and other grub larvae are most vulnerable to
 /// preventative treatments when actively feeding near the soil surface.
 ///
-/// Window: GDD >= 500 (as early as Apr 1) OR May 15 - July 4, soil temp 60-75°F
+/// Window: GDD 500-1000 (as early as Apr 1) OR May 15 - July 4, soil temp 60-75°F
 /// GDD >= 700 = peak egg-hatch, severity escalation
+/// GDD >= 1000 closes the GDD-extended window (YTD GDD only grows, so without the
+/// upper bound the rule would stay open until Dec 31)
 /// Product: Chlorantraniliprole (GrubEx), Imidacloprid, or similar
 pub struct GrubControlRule;
 
@@ -23,7 +25,17 @@ impl Rule for GrubControlRule {
         _profile: &LawnProfile,
         history: &[Application],
     ) -> Option<Recommendation> {
-        let today = Local::now().date_naive();
+        self.evaluate_on(Local::now().date_naive(), env, history)
+    }
+}
+
+impl GrubControlRule {
+    fn evaluate_on(
+        &self,
+        today: NaiveDate,
+        env: &EnvironmentalSummary,
+        history: &[Application],
+    ) -> Option<Recommendation> {
         let current_year = today.year();
 
         // Define the calendar application window
@@ -31,11 +43,12 @@ impl Rule for GrubControlRule {
         let window_end = NaiveDate::from_ymd_opt(current_year, 7, 4)?;
         let gdd_early_start = NaiveDate::from_ymd_opt(current_year, 4, 1)?;
 
-        // GDD-based early window: GDD >= 500 opens as early as Apr 1
+        // GDD-based window: GDD 500-1000, as early as Apr 1
         let gdd_ytd = env.gdd_base50_ytd;
-        let gdd_opens_window = gdd_ytd
-            .map(|gdd| gdd >= GRUB_GDD_WINDOW_OPEN && today >= gdd_early_start)
-            .unwrap_or(false);
+        let gdd_opens_window = gdd_ytd.is_some_and(|gdd| {
+            (GRUB_GDD_WINDOW_OPEN..GRUB_GDD_WINDOW_CLOSING).contains(&gdd)
+                && today >= gdd_early_start
+        });
 
         // Only relevant during the window (GDD-extended or calendar)
         let in_window = gdd_opens_window || (today >= window_start && today <= window_end);
@@ -71,8 +84,17 @@ impl Rule for GrubControlRule {
         });
 
         if (GRUB_CONTROL_SOIL_LOW_F..=GRUB_CONTROL_SOIL_HIGH_F).contains(&soil_temp_avg) {
-            // Calculate days remaining in window
+            // Days remaining in the calendar window (negative when only GDD keeps it open)
             let days_remaining = (window_end - today).num_days();
+            let window_note = if days_remaining >= 0 {
+                format!("{} days remaining in window.", days_remaining)
+            } else {
+                format!(
+                    "Past the usual {} close, but GDD is still under {:.0} — apply soon.",
+                    window_end.format("%B %-d"),
+                    GRUB_GDD_WINDOW_CLOSING
+                )
+            };
 
             let severity = if gdd_urgency.unwrap_or(0) >= 2 || days_remaining <= GRUB_URGENCY_DAYS {
                 Severity::Warning
@@ -102,9 +124,8 @@ impl Rule for GrubControlRule {
                 severity,
                 "Grub Preventative Window",
                 format!(
-                    "Conditions are optimal for preventative grub control application. \
-                     {} days remaining in window.",
-                    days_remaining
+                    "Conditions are optimal for preventative grub control application. {}",
+                    window_note
                 ),
             )
             .with_explanation(format!(
@@ -272,5 +293,45 @@ mod tests {
                 "Should include GDD data point"
             );
         }
+    }
+
+    fn day(month: u32, day: u32) -> NaiveDate {
+        NaiveDate::from_ymd_opt(2026, month, day).unwrap()
+    }
+
+    #[test]
+    fn gdd_window_closes_at_1000() {
+        // Sep 20 with ~3000 GDD and soil back in range: long past the window.
+        let mut env = base_env(68.0, 67.0);
+        env.gdd_base50_ytd = Some(3000.0);
+        assert!(GrubControlRule.evaluate_on(day(9, 20), &env, &[]).is_none());
+    }
+
+    #[test]
+    fn warm_soil_note_stops_after_the_window() {
+        let mut env = base_env(80.0, 81.0);
+        env.gdd_base50_ytd = Some(1800.0);
+        assert!(GrubControlRule.evaluate_on(day(8, 1), &env, &[]).is_none());
+    }
+
+    #[test]
+    fn cool_year_keeps_window_open_past_july_4() {
+        let mut env = base_env(68.0, 67.0);
+        env.gdd_base50_ytd = Some(900.0);
+        let rec = GrubControlRule
+            .evaluate_on(day(7, 10), &env, &[])
+            .expect("GDD under 1000 keeps the window open");
+        assert_eq!(rec.severity, Severity::Warning);
+        assert!(!rec.description.contains("-6 days"));
+        assert!(rec.description.contains("apply soon"));
+    }
+
+    #[test]
+    fn gdd_opens_window_before_may_15() {
+        let mut env = base_env(62.0, 62.0);
+        env.gdd_base50_ytd = Some(520.0);
+        assert!(GrubControlRule.evaluate_on(day(5, 1), &env, &[]).is_some());
+        env.gdd_base50_ytd = Some(300.0);
+        assert!(GrubControlRule.evaluate_on(day(5, 1), &env, &[]).is_none());
     }
 }

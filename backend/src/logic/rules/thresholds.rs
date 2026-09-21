@@ -137,8 +137,9 @@ pub const PRECIP_TRACE_MM: f64 = 2.5;
 /// Heavy 7-day precipitation (mm) — approximately 1 inch.
 pub const PRECIP_HEAVY_7DAY_MM: f64 = 25.0;
 
-/// Minimum rain amount for forecast rain check (inches).
-pub const PRECIP_FORECAST_MIN_INCHES: f64 = 0.1;
+/// Pre-filter for the rain-delay checks (mm): any measurable rain. Each severity level
+/// then applies its own amount/probability test.
+pub const PRECIP_FORECAST_MIN_MM: f64 = 0.1;
 
 /// Precipitation probability threshold for application window / rain delay.
 pub const PRECIP_PROB_LIKELY: f64 = 0.5;
@@ -174,9 +175,6 @@ pub const FALL_FERT_MIN_INTERVAL_DAYS: i64 = 21;
 
 /// Broadleaf herbicide — suppression window after overseeding (days).
 pub const HERBICIDE_OVERSEED_BUFFER_DAYS: i64 = 60;
-
-/// Forecast rain check window for irrigation (hours).
-pub const IRRIGATION_FORECAST_HOURS: u32 = 120;
 
 /// Rain delay — critical window (hours).
 pub const RAIN_DELAY_CRITICAL_HOURS: u32 = 12;
@@ -222,7 +220,6 @@ pub const GRUB_GDD_WINDOW_OPEN: f64 = 500.0;
 pub const GRUB_GDD_PEAK_HATCH: f64 = 700.0;
 
 /// Grub control — window closing (GDD base 50).
-#[allow(dead_code)]
 pub const GRUB_GDD_WINDOW_CLOSING: f64 = 1000.0;
 
 /// Spring nitrogen — active growth begins, grass can metabolize N (GDD base 50).

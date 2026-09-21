@@ -32,6 +32,12 @@ pub enum TurfOpsError {
     NotFound(String),
 }
 
+/// What a unique-index violation means to the user. The only unique indexes writable
+/// through the API are the application-log duplicate guards.
+const DUPLICATE_MESSAGE: &str =
+    "An identical entry (same type, product and date) is already logged. \
+     Edit the existing entry, or change the product name if this was a different product.";
+
 pub type Result<T> = std::result::Result<T, TurfOpsError>;
 
 impl IntoResponse for TurfOpsError {
@@ -48,6 +54,9 @@ impl IntoResponse for TurfOpsError {
             }
             TurfOpsError::DataSourceUnavailable(msg) => {
                 (StatusCode::SERVICE_UNAVAILABLE, msg.clone())
+            }
+            TurfOpsError::Database(sqlx::Error::Database(db)) if db.is_unique_violation() => {
+                (StatusCode::CONFLICT, DUPLICATE_MESSAGE.to_string())
             }
             other => {
                 tracing::error!("Internal error: {}", other);

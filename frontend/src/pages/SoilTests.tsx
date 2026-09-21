@@ -9,6 +9,7 @@ import {
 import { sharedStyles } from "../styles/shared";
 import type { NutrientLevel, SoilTest, SoilTestSummary } from "../types";
 import { NUTRIENT_LEVEL_COLORS } from "../types";
+import { todayLocalISO } from "../utils/dates";
 
 export default function SoilTests() {
 	const [tests, setTests] = useState<SoilTest[]>([]);
@@ -20,9 +21,7 @@ export default function SoilTests() {
 	const [submitting, setSubmitting] = useState(false);
 
 	// Form fields
-	const [testDate, setTestDate] = useState(
-		new Date().toISOString().slice(0, 10),
-	);
+	const [testDate, setTestDate] = useState(todayLocalISO());
 	const [labName, setLabName] = useState("");
 	const [ph, setPh] = useState("");
 	const [bufferPh, setBufferPh] = useState("");
@@ -64,7 +63,7 @@ export default function SoilTests() {
 
 	const resetForm = () => {
 		setEditingId(null);
-		setTestDate(new Date().toISOString().slice(0, 10));
+		setTestDate(todayLocalISO());
 		setLabName("");
 		setPh("");
 		setBufferPh("");

@@ -29,14 +29,15 @@ impl Rule for FertilizerRule {
 
         let current = env.current.as_ref()?;
 
-        let ambient_temp = current.ambient_temp_f?;
+        // Ambient comes from Home Assistant only; without it the soil checks still apply.
+        let ambient_temp = current.ambient_temp_f;
         let soil_moisture = current.primary_soil_moisture();
 
         let mut warnings: Vec<String> = Vec::new();
         let mut data_points: Vec<(&str, String, &str)> = Vec::new();
 
         // Check heat stress
-        if ambient_temp > HEAT_STRESS_TEMP_F {
+        if let Some(ambient_temp) = ambient_temp.filter(|t| *t > HEAT_STRESS_TEMP_F) {
             warnings.push(format!(
                 "Ambient temperature ({:.1}°F) exceeds {:.0}°F heat stress threshold",
                 ambient_temp, HEAT_STRESS_TEMP_F
@@ -77,7 +78,7 @@ impl Rule for FertilizerRule {
             return None;
         }
 
-        let severity = if ambient_temp > HEAT_STRESS_WARNING_TEMP_F
+        let severity = if ambient_temp.is_some_and(|t| t > HEAT_STRESS_WARNING_TEMP_F)
             || soil_moisture.is_some_and(|m| m < SOIL_MOISTURE_SEVERE_DROUGHT)
         {
             Severity::Critical
@@ -118,5 +119,54 @@ impl Rule for FertilizerRule {
         ));
 
         Some(rec)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::{EnvironmentalReading, GrassType};
+
+    fn profile() -> LawnProfile {
+        LawnProfile {
+            id: Some(1),
+            name: "Test".into(),
+            grass_type: GrassType::TallFescue,
+            usda_zone: "7a".into(),
+            soil_type: None,
+            lawn_size_sqft: Some(5000.0),
+            irrigation_type: None,
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        }
+    }
+
+    fn env(ambient: Option<f64>, moisture: f64) -> EnvironmentalSummary {
+        let mut reading = EnvironmentalReading::new(DataSource::SoilData);
+        reading.ambient_temp_f = ambient;
+        reading.soil_moisture_10 = Some(moisture);
+        EnvironmentalSummary {
+            current: Some(reading),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn saturated_soil_blocks_without_an_ambient_reading() {
+        // Home Assistant down: the soil checks must still fire.
+        let rec = FertilizerRule
+            .evaluate(&env(None, 0.45), &profile(), &[])
+            .expect("saturated soil blocks fertilizer");
+        assert_eq!(rec.severity, Severity::Warning);
+    }
+
+    #[test]
+    fn nothing_to_report_in_good_conditions() {
+        assert!(FertilizerRule
+            .evaluate(&env(Some(72.0), 0.25), &profile(), &[])
+            .is_none());
+        assert!(FertilizerRule
+            .evaluate(&env(None, 0.25), &profile(), &[])
+            .is_none());
     }
 }

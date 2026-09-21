@@ -38,16 +38,21 @@ pub async fn list_applications(
         .clamp(1, MAX_PAGE_LIMIT);
     let offset = params.offset.unwrap_or(0).max(0);
 
-    let mut apps =
-        queries::get_applications_for_profile(&state.pool, profile_id, limit, offset).await?;
-
     // Optional filter by application type
-    if let Some(type_filter) = params.app_type {
-        let app_type = ApplicationType::from_str(&type_filter).map_err(|_| {
-            TurfOpsError::InvalidData(format!("Unknown application type filter: {}", type_filter))
-        })?;
-        apps.retain(|a| a.application_type == app_type);
-    }
+    let app_type = params
+        .app_type
+        .map(|type_filter| {
+            ApplicationType::from_str(&type_filter).map_err(|_| {
+                TurfOpsError::InvalidData(format!(
+                    "Unknown application type filter: {}",
+                    type_filter
+                ))
+            })
+        })
+        .transpose()?;
+
+    let apps =
+        queries::get_applications_page(&state.pool, profile_id, app_type, limit, offset).await?;
 
     Ok(Json(apps))
 }

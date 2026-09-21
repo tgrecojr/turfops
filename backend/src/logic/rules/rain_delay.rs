@@ -27,7 +27,7 @@ impl Rule for RainDelayRule {
 
         // Check for rain in next 12 hours (critical)
         if let Some(rain_12h) =
-            forecast.rain_expected_within(RAIN_DELAY_CRITICAL_HOURS, PRECIP_FORECAST_MIN_INCHES)
+            forecast.rain_expected_within(RAIN_DELAY_CRITICAL_HOURS, PRECIP_FORECAST_MIN_MM)
         {
             if rain_12h.max_probability >= RAIN_DELAY_CRITICAL_PROB
                 || rain_12h.expected_mm >= PRECIP_TRACE_MM
@@ -43,7 +43,7 @@ impl Rule for RainDelayRule {
 
         // Check for rain in next 24 hours (warning)
         if let Some(rain_24h) =
-            forecast.rain_expected_within(RAIN_DELAY_WARNING_HOURS, PRECIP_FORECAST_MIN_INCHES)
+            forecast.rain_expected_within(RAIN_DELAY_WARNING_HOURS, PRECIP_FORECAST_MIN_MM)
         {
             if rain_24h.max_probability >= PRECIP_PROB_LIKELY
                 || rain_24h.expected_mm >= PRECIP_TRACE_MM
@@ -59,7 +59,7 @@ impl Rule for RainDelayRule {
 
         // Check for rain in next 48 hours (advisory)
         if let Some(rain_48h) =
-            forecast.rain_expected_within(RAIN_DELAY_ADVISORY_HOURS, PRECIP_FORECAST_MIN_INCHES)
+            forecast.rain_expected_within(RAIN_DELAY_ADVISORY_HOURS, PRECIP_FORECAST_MIN_MM)
         {
             if rain_48h.max_probability >= RAIN_DELAY_ADVISORY_PROB
                 || rain_48h.expected_mm >= RAIN_DELAY_ADVISORY_MM
