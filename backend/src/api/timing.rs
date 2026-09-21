@@ -137,18 +137,19 @@ pub(crate) async fn apply_to_feed(
     timing::companions::reconcile_fall_herbicide(recommendations, &response.windows);
 }
 
-/// Seasonal-plan activities for `year` from the timing windows. Empty (so the plan
-/// keeps its own versions) when the lake is unavailable.
+/// Seasonal-plan activities for `year` from the timing windows. `None` (so the plan keeps
+/// its own versions) when the lake is unavailable or has no usable history.
 pub(crate) async fn plan_activities(
     state: &AppState,
     profile: &LawnProfile,
     year: i32,
-) -> Vec<PlannedActivity> {
+) -> Option<Vec<PlannedActivity>> {
     match plan_for(state, profile, year).await {
-        Ok(activities) => activities,
+        Ok(activities) if !activities.is_empty() => Some(activities),
+        Ok(_) => None,
         Err(e) => {
             tracing::warn!("Timing windows unavailable for the seasonal plan: {}", e);
-            Vec::new()
+            None
         }
     }
 }

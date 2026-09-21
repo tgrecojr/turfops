@@ -117,12 +117,15 @@ pub async fn get_seasonal_plan(
     let mut plan = build_seasonal_plan(year, &all_crossings, &applications, data_years);
 
     // Pre-emergent, seeding and aeration come from the timing windows (5 cm soil +
-    // freeze dates) so the plan agrees with the Timing page. Each replaces the plan's own
-    // 10 cm version by id; with the lake unavailable the originals stay.
-    let timing = super::timing::plan_activities(&state, &profile, year).await;
-    plan.activities
-        .retain(|a| !timing.iter().any(|t| t.id == a.id));
-    plan.activities.extend(timing);
+    // freeze dates) so the plan agrees with the Timing page. The plan's own 10 cm version
+    // of every activity the windows answer for is dropped — also one the log has ruled out
+    // (seed vs. pre-emergent), which must not come back. With the lake unavailable the
+    // originals stay.
+    if let Some(timing) = super::timing::plan_activities(&state, &profile, year).await {
+        let owned = crate::logic::timing::plan::owned_ids(profile.grass_type);
+        plan.activities.retain(|a| !owned.contains(&a.id.as_str()));
+        plan.activities.extend(timing);
+    }
 
     // Overlay plant-maintenance activities from the landscape feature.
     let plants = plant_queries::list_plants_for_profile(&state.pool, profile_id).await?;

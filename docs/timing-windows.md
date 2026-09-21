@@ -45,13 +45,19 @@ is cached in Postgres, so the current season is always evaluated on current data
    | Source | Meaning | Counts as passed? |
    |--------|---------|-------------------|
    | `Observed` | Seen in station data and held 5 days | yes |
-   | `Tentative` | Seen in station data, run still in progress (< 5 days) | yes — the detail text says "held N of 5 days" |
-   | `Forecast` | Only the soil forecast crosses it | no → `OpeningSoon` |
+   | `Tentative` | Seen in station data, run still in progress (< 5 days) | yes — the detail text says "held N of 5 days". On a **closing** boundary it makes the window `Closing`, never `Closed` (see State) |
+   | `Forecast` | Only the soil forecast crosses it. The outlook starts the day after the last station day, so a crossing inside the lake's lag is dated *today*, never in the past | no → `OpeningSoon` |
    | `Typical` | Not seen: the historical median is used | only when the median is still ahead it is an estimate; if the median has passed while station data is current, the boundary is **overdue** and carries *no date* ("later than usual") |
 
    When station soil data is more than 5 days old, or a boundary's scan range has
    ended, typical dates are trusted by the calendar instead, and a data note says so.
-5. **State.** `Closed` once the closing boundary passed; `NotYet`/`OpeningSoon` (within
+   With stale data only a *confirmed* crossing still counts: a run that was in progress
+   when the station went quiet, or one seen only in the forecast, falls back to the
+   calendar as well — nobody knows whether it held.
+5. **State.** `Closed` once the closing boundary passed *and held* — a tentative close
+   reads `Closing` ("threshold reached, held N of 5 days"), so one warm day cannot
+   declare spring pre-emergent missed and then reopen it after the next front;
+   `NotYet`/`OpeningSoon` (within
    7 days or in the forecast) before opening; inside the window `Open`, `Ideal` or
    `Closing` depending on the ideal stretch. The application log then overrides:
    `Done` if the window's own application is logged, else `Blocked` on a conflict.
@@ -123,10 +129,16 @@ The windows are the single source for pre-emergent and seeding timing everywhere
 - **Seasonal plan / calendar** (`logic/timing/plan.rs`). Spring Pre-Emergent, Fall
   Pre-Emergent (new), Fall Seeding & Overseeding and Core Aeration (same window as
   seeding) use the windows' typical opens → closes medians, with earliest/latest as the
-  historical range. The handler swaps each in for the plan's own activity **by id**, so
-  when the lake is unavailable — or for a warm-season lawn, which has no seeding window —
-  the legacy 10 cm activity remains. A window ruled out by the log is left off the plan;
-  a fall `PreEmergent` no longer marks the *spring* application complete.
+  historical range. For the season being lived now, the **status** comes from the
+  window's resolved state (NotYet/OpeningSoon → Upcoming, Open/Ideal/Closing → Active,
+  Closed → Missed), so a cold spring keeps pre-emergent Active past its typical close
+  exactly as the Timing page does; other years use the typical dates. The handler drops
+  the plan's own 10 cm version of every activity the windows answer for on that lawn
+  (`plan::owned_ids`) and adds the timing ones, so when the lake is unavailable — or for
+  a warm-season lawn, which has no seeding window — the legacy 10 cm activity remains. A
+  window ruled out by the log is left off the plan, and because removal goes by
+  `owned_ids` rather than by what came back, its legacy twin cannot reappear; a fall
+  `PreEmergent` no longer marks the *spring* application complete.
 
 A lake outage degrades the feed to no timing recommendations rather than an error.
 
