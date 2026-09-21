@@ -1,4 +1,4 @@
-use crate::datasources::weather::ClimateDay;
+use crate::datasources::weather::ClimateRecord;
 use crate::datasources::WeatherLakeClient;
 use crate::db::queries;
 use crate::error::TurfOpsError;
@@ -9,7 +9,7 @@ use crate::models::{LawnProfile, Recommendation};
 use crate::state::AppState;
 use axum::extract::State;
 use axum::Json;
-use chrono::{Datelike, Duration, Local, NaiveDate, Utc};
+use chrono::{Datelike, Duration, NaiveDate, Utc};
 use std::sync::Arc;
 use std::time::{Duration as StdDuration, Instant};
 
@@ -34,19 +34,21 @@ pub async fn get_timing_windows(
     Ok(Json(compute(&state, &profile).await?))
 }
 
-async fn climate_days(
+/// The memoized climate record, read from the lake when missing or older than the TTL.
+async fn climate_record(
     state: &AppState,
     client: &WeatherLakeClient,
-    start: NaiveDate,
-) -> Result<Arc<Vec<ClimateDay>>, TurfOpsError> {
-    if let Some((read_at, days)) = state.climate_cache.read().await.as_ref() {
+) -> Result<Arc<ClimateRecord>, TurfOpsError> {
+    if let Some((read_at, record)) = state.climate_cache.read().await.as_ref() {
         if read_at.elapsed() < CLIMATE_CACHE_TTL {
-            return Ok(days.clone());
+            return Ok(record.clone());
         }
     }
-    let days = Arc::new(client.fetch_climate_days(start).await?);
-    *state.climate_cache.write().await = Some((Instant::now(), days.clone()));
-    Ok(days)
+    let start = NaiveDate::from_ymd_opt(Utc::now().year() - timing::HISTORY_YEARS, 1, 1)
+        .ok_or_else(|| TurfOpsError::InvalidData("Invalid history start".into()))?;
+    let record = Arc::new(client.fetch_climate_record(start).await?);
+    *state.climate_cache.write().await = Some((Instant::now(), record.clone()));
+    Ok(record)
 }
 
 async fn compute(state: &AppState, profile: &LawnProfile) -> Result<TimingResponse, TurfOpsError> {
@@ -59,10 +61,11 @@ async fn compute(state: &AppState, profile: &LawnProfile) -> Result<TimingRespon
         TurfOpsError::DataSourceUnavailable("weather data lake not configured".into())
     })?;
 
-    let today = Local::now().date_naive();
-    let start = NaiveDate::from_ymd_opt(today.year() - timing::HISTORY_YEARS, 1, 1)
-        .ok_or_else(|| TurfOpsError::InvalidData("Invalid history start".into()))?;
-    let days = climate_days(state, &client, start).await?;
+    // The station's date, not the server's: the container clock is usually UTC, which
+    // runs a day ahead of the lawn every evening.
+    let record = climate_record(state, &client).await?;
+    let today = record.local_today();
+    let days = &record.days;
 
     let profile_id = profile
         .id
@@ -81,7 +84,7 @@ async fn compute(state: &AppState, profile: &LawnProfile) -> Result<TimingRespon
         .unwrap_or_default();
     let assessment = timing::assess(&timing::Inputs {
         today,
-        days: &days,
+        days,
         forecast: daily_forecast,
         grass: profile.grass_type,
         history: &history,
@@ -92,7 +95,7 @@ async fn compute(state: &AppState, profile: &LawnProfile) -> Result<TimingRespon
         generated_at: Utc::now(),
         today,
         station: format!("NOAA USCRN station {}", client.station_wbanno()),
-        context: context::build_context(&days, &assessment.history_years, daily_forecast),
+        context: context::build_context(days, &assessment.history_years, daily_forecast),
         series: context::build_series(&assessment.smoothed, today, &assessment.history_years),
         soil: assessment.soil,
         freeze: assessment.freeze,
@@ -152,10 +155,11 @@ async fn plan_for(
         .ok_or_else(|| {
             TurfOpsError::DataSourceUnavailable("weather data lake not configured".into())
         })?;
-    let today = Local::now().date_naive();
-    let start = NaiveDate::from_ymd_opt(today.year() - timing::HISTORY_YEARS, 1, 1)
-        .ok_or_else(|| TurfOpsError::InvalidData("Invalid history start".into()))?;
-    let days = climate_days(state, &client, start).await?;
+    // The station's date, not the server's: the container clock is usually UTC, which
+    // runs a day ahead of the lawn every evening.
+    let record = climate_record(state, &client).await?;
+    let today = record.local_today();
+    let days = &record.days;
 
     // The log spans that decide done/blocked reach from the previous mid-November
     // (dormant seeding) into the following February.
@@ -171,8 +175,8 @@ async fn plan_for(
     )
     .await?;
 
-    let data = timing::SeasonData::build(&days, &[], today.year());
-    let season = data.season(&days, today);
+    let data = timing::SeasonData::build(days, &[], today.year());
+    let season = data.season(days, today);
     Ok(timing::plan::activities(
         &season,
         profile.grass_type,

@@ -9,7 +9,7 @@ use duckdb::Connection;
 mod climatology;
 mod disease;
 
-pub use climatology::ClimateDay;
+pub use climatology::{ClimateDay, ClimateRecord};
 
 /// Reads NOAA USCRN weather data from the Dagster data lake (parquet on a mounted
 /// filesystem) using an embedded DuckDB engine.

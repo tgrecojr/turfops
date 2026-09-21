@@ -71,6 +71,10 @@ pub struct Detected {
     pub date: NaiveDate,
     /// Observed (non-forecast) days in the run.
     pub days_held: u32,
+    /// The run starts on the first day of data after a gap, so the real crossing
+    /// happened somewhere inside the gap. Fine for "has it happened yet?", but not a
+    /// date to put into the historical record.
+    pub after_gap: bool,
 }
 
 impl Detected {
@@ -116,7 +120,10 @@ pub fn detect(smoothed: &[SoilPoint], season_year: i32, crossing: &Crossing) -> 
     let last_date = smoothed.last()?.date;
 
     let mut run: Option<(Detected, NaiveDate)> = None; // (run so far, date of its last day)
-    for point in smoothed.iter().filter(|p| p.date >= from && p.date <= to) {
+    for (i, point) in smoothed.iter().enumerate() {
+        if point.date < from || point.date > to {
+            continue;
+        }
         if !crossing.is_met(point.temp_f) {
             run = None;
             continue;
@@ -127,10 +134,16 @@ pub fn detect(smoothed: &[SoilPoint], season_year: i32, crossing: &Crossing) -> 
                 days_held: detected.days_held + observed,
                 ..detected
             },
-            _ => Detected {
-                date: point.date,
-                days_held: observed,
-            },
+            _ => {
+                let yesterday = point.date - Duration::days(1);
+                let follows_data = i > 0 && smoothed[i - 1].date == yesterday;
+                Detected {
+                    date: point.date,
+                    days_held: observed,
+                    // A season already past the threshold opens on the scan start.
+                    after_gap: point.date != from && !follows_data,
+                }
+            }
         };
         if current.confirmed() {
             return Some(current);
@@ -237,6 +250,22 @@ mod tests {
         let mut series = observed(date(9, 1), &[69.0; 9]);
         series.remove(3); // Sep 4 missing: run restarts on Sep 5
         assert_eq!(detect(&series, 2026, &FALL_70).unwrap().date, date(9, 5));
+    }
+
+    #[test]
+    fn run_starting_right_after_an_outage_is_flagged() {
+        // Sensor down from Aug 20; back on Oct 16 with the soil long since below 70°F.
+        let mut series = observed(date(8, 10), &[76.0; 10]);
+        series.extend(observed(date(10, 16), &[58.0; 8]));
+        let detected = detect(&series, 2026, &FALL_70).unwrap();
+        assert_eq!(detected.date, date(10, 16));
+        assert!(detected.after_gap);
+
+        // A crossing seen in continuous data, or a season open at scan start, is not.
+        let continuous = observed(date(9, 1), &[72.0, 69.0, 68.0, 67.0, 66.0, 65.0]);
+        assert!(!detect(&continuous, 2026, &FALL_70).unwrap().after_gap);
+        let open_at_start = observed(date(8, 1), &[68.0; 6]);
+        assert!(!detect(&open_at_start, 2026, &FALL_70).unwrap().after_gap);
     }
 
     #[test]
