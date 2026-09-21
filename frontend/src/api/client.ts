@@ -3,6 +3,7 @@ import type {
 	CalendarResponse,
 	DashboardResponse,
 	EnvironmentalSummary,
+	FracClassLookup,
 	GddSummary,
 	HealthResponse,
 	HistoricalData,
@@ -98,6 +99,7 @@ export const createApplication = (data: {
 	potassium_pct?: number;
 	plant_id?: number | null;
 	follow_up_date?: string | null;
+	frac_classes?: string[];
 }) =>
 	fetchJson<Application>(`${BASE}/applications`, {
 		method: "POST",
@@ -118,6 +120,7 @@ export const updateApplication = (
 		potassium_pct?: number;
 		plant_id?: number | null;
 		follow_up_date?: string | null;
+		frac_classes?: string[];
 	},
 ) =>
 	fetchJson<Application>(`${BASE}/applications/${id}`, {
@@ -147,6 +150,11 @@ export const refreshEnvironmental = () =>
 	fetchJson<EnvironmentalSummary>(`${BASE}/environmental/refresh`, {
 		method: "POST",
 	});
+
+export const getFracClasses = (product?: string) =>
+	fetchJson<FracClassLookup>(
+		`${BASE}/frac-classes${product ? `?product=${encodeURIComponent(product)}` : ""}`,
+	);
 
 // Recommendations
 /** `includeInactive` also returns the ones the user has dismissed / addressed. */

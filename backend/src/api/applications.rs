@@ -1,6 +1,6 @@
 use crate::db::queries;
 use crate::error::TurfOpsError;
-use crate::models::{Application, ApplicationScope, ApplicationType, WeatherSnapshot};
+use crate::models::{Application, ApplicationScope, ApplicationType, FracClass, WeatherSnapshot};
 use crate::state::AppState;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
@@ -71,6 +71,16 @@ pub struct CreateApplicationRequest {
     pub potassium_pct: Option<f64>,
     pub plant_id: Option<i64>,
     pub follow_up_date: Option<String>,
+    /// FRAC classes read off the label (fungicides only).
+    pub frac_classes: Option<Vec<FracClass>>,
+}
+
+/// Only a fungicide carries FRAC classes; an empty pick means "not recorded".
+fn fungicide_classes(
+    application_type: ApplicationType,
+    classes: Option<Vec<FracClass>>,
+) -> Option<Vec<FracClass>> {
+    classes.filter(|c| application_type == ApplicationType::Fungicide && !c.is_empty())
 }
 
 pub async fn create_application(
@@ -150,6 +160,7 @@ pub async fn create_application(
         potassium_pct: req.potassium_pct,
         plant_id: req.plant_id,
         follow_up_date,
+        frac_classes: fungicide_classes(application_type, req.frac_classes),
         created_at: Utc::now(),
     };
 
@@ -239,6 +250,7 @@ pub async fn update_application(
         potassium_pct: req.potassium_pct,
         plant_id: req.plant_id,
         follow_up_date,
+        frac_classes: fungicide_classes(application_type, req.frac_classes),
         created_at: existing.created_at,
     };
 

@@ -1,5 +1,4 @@
-use crate::models::{Application, ApplicationType};
-use chrono::{Datelike, NaiveDate};
+use crate::models::Application;
 use serde::{Deserialize, Serialize};
 
 /// FRAC (Fungicide Resistance Action Committee) class groupings
@@ -53,7 +52,7 @@ impl FracClass {
     pub fn common_products(&self) -> &'static [&'static str] {
         match self {
             FracClass::Frac1 => &["thiophanate-methyl", "Cleary's 3336"],
-            FracClass::Frac3 => &["propiconazole", "Banner MAXX", "myclobutanil", "Eagle"],
+            FracClass::Frac3 => &["propiconazole", "Banner MAXX", "myclobutanil", "Eagle 20EW"],
             FracClass::Frac4 => &["mefenoxam", "Subdue MAXX"],
             FracClass::Frac7 => &["fluxapyroxad", "Xzemplar", "penthiopyrad", "Velista"],
             FracClass::Frac11 => &["azoxystrobin", "Heritage", "pyraclostrobin", "Insignia"],
@@ -80,416 +79,111 @@ impl std::fmt::Display for FracClass {
     }
 }
 
-/// Attempt to identify a FRAC class from a product name string.
-/// Matches against known active ingredients and trade names (case-insensitive).
-pub fn frac_class_for_product(name: &str) -> Option<FracClass> {
-    let lower = name.to_lowercase();
-
+/// Name fragments (lower-case) → FRAC classes. Premixes list every class they contain and
+/// come first so their trade name wins over nothing; actives follow in the historical
+/// lookup order. Only products whose actives are certain belong here — an unknown product
+/// resolves to nothing and the form asks the user to pick the class from the label.
+const PRODUCT_PATTERNS: &[(&str, &[FracClass])] = &[
+    // Premixes
+    ("headway", &[FracClass::Frac11, FracClass::Frac3]), // azoxystrobin + propiconazole
+    ("pillar", &[FracClass::Frac11, FracClass::Frac3]),  // pyraclostrobin + triticonazole
+    ("armada", &[FracClass::Frac11, FracClass::Frac3]),  // trifloxystrobin + triadimefon
     // FRAC 1
-    if lower.contains("thiophanate") || lower.contains("3336") || lower.contains("cleary") {
-        return Some(FracClass::Frac1);
-    }
-
+    ("thiophanate", &[FracClass::Frac1]),
+    ("3336", &[FracClass::Frac1]),
+    ("cleary", &[FracClass::Frac1]),
     // FRAC 3
-    if lower.contains("propiconazole")
-        || lower.contains("banner maxx")
-        || lower.contains("myclobutanil")
-        || lower.contains("eagle")
-    {
-        return Some(FracClass::Frac3);
-    }
-
+    ("propiconazole", &[FracClass::Frac3]),
+    ("banner maxx", &[FracClass::Frac3]),
+    ("myclobutanil", &[FracClass::Frac3]),
+    ("eagle 20", &[FracClass::Frac3]),
+    ("immunox", &[FracClass::Frac3]),
+    ("tebuconazole", &[FracClass::Frac3]),
+    ("triticonazole", &[FracClass::Frac3]),
+    ("metconazole", &[FracClass::Frac3]),
+    ("triadimefon", &[FracClass::Frac3]),
+    ("bayleton", &[FracClass::Frac3]),
+    ("bioadvanced fungus", &[FracClass::Frac3]), // propiconazole
     // FRAC 4
-    if lower.contains("mefenoxam") || lower.contains("metalaxyl") || lower.contains("subdue") {
-        return Some(FracClass::Frac4);
-    }
-
+    ("mefenoxam", &[FracClass::Frac4]),
+    ("metalaxyl", &[FracClass::Frac4]),
+    ("subdue", &[FracClass::Frac4]),
     // FRAC 21
-    if lower.contains("cyazofamid") || lower.contains("segway") {
-        return Some(FracClass::Frac21);
-    }
-
+    ("cyazofamid", &[FracClass::Frac21]),
+    ("segway", &[FracClass::Frac21]),
     // FRAC 28
-    if lower.contains("propamocarb") || lower.contains("banol") {
-        return Some(FracClass::Frac28);
-    }
-
+    ("propamocarb", &[FracClass::Frac28]),
+    ("banol", &[FracClass::Frac28]),
     // FRAC P07
-    if lower.contains("fosetyl") || lower.contains("phosphite") || lower.contains("signature") {
-        return Some(FracClass::FracP07);
-    }
-
+    ("fosetyl", &[FracClass::FracP07]),
+    ("phosphite", &[FracClass::FracP07]),
+    ("signature", &[FracClass::FracP07]),
     // FRAC 7
-    if lower.contains("fluxapyroxad")
-        || lower.contains("xzemplar")
-        || lower.contains("penthiopyrad")
-        || lower.contains("velista")
-    {
-        return Some(FracClass::Frac7);
-    }
-
+    ("fluxapyroxad", &[FracClass::Frac7]),
+    ("xzemplar", &[FracClass::Frac7]),
+    ("penthiopyrad", &[FracClass::Frac7]),
+    ("velista", &[FracClass::Frac7]),
     // FRAC 11
-    if lower.contains("azoxystrobin")
-        || lower.contains("heritage")
-        || lower.contains("pyraclostrobin")
-        || lower.contains("insignia")
-    {
-        return Some(FracClass::Frac11);
-    }
-
+    ("azoxy", &[FracClass::Frac11]), // azoxystrobin, "Azoxy 2SC"
+    ("heritage", &[FracClass::Frac11]),
+    ("diseaseex", &[FracClass::Frac11]), // Scotts DiseaseEx = azoxystrobin
+    ("disease ex", &[FracClass::Frac11]),
+    ("pyraclostrobin", &[FracClass::Frac11]),
+    ("insignia", &[FracClass::Frac11]),
+    ("trifloxystrobin", &[FracClass::Frac11]),
+    ("fluoxastrobin", &[FracClass::Frac11]),
     // FRAC 12
-    if lower.contains("fludioxonil") || lower.contains("medallion") {
-        return Some(FracClass::Frac12);
-    }
-
+    ("fludioxonil", &[FracClass::Frac12]),
+    ("medallion", &[FracClass::Frac12]),
     // FRAC 14
-    if lower.contains("pcnb") || lower.contains("turfcide") {
-        return Some(FracClass::Frac14);
-    }
-
+    ("pcnb", &[FracClass::Frac14]),
+    ("turfcide", &[FracClass::Frac14]),
     // FRAC M3
-    if lower.contains("mancozeb") {
-        return Some(FracClass::FracM3);
-    }
-
+    ("mancozeb", &[FracClass::FracM3]),
     // FRAC M5
-    if lower.contains("chlorothalonil") || lower.contains("daconil") {
-        return Some(FracClass::FracM5);
-    }
+    ("chlorothalonil", &[FracClass::FracM5]),
+    ("daconil", &[FracClass::FracM5]),
+];
 
-    None
-}
-
-/// Result of analyzing a season's fungicide application history for rotation concerns.
-#[derive(Debug, Clone)]
-pub struct FungicideRotationAdvice {
-    #[allow(dead_code)] // read in tests; clippy doesn't count test reads
-    pub total_apps_this_season: usize,
-    #[allow(dead_code)] // read in tests; clippy doesn't count test reads
-    pub last_class: Option<FracClass>,
-    #[allow(dead_code)] // read in tests; clippy doesn't count test reads
-    pub consecutive_same_class: usize,
-    #[allow(dead_code)] // read in tests; clippy doesn't count test reads
-    pub recommended_next: Option<FracClass>,
-    pub rotation_warning: Option<String>,
-}
-
-/// Analyze fungicide application history for the current season and produce
-/// FRAC-class-aware rotation advice.
-///
-/// Filters to lawn fungicide apps in `today`'s year (future-dated entries ignored),
-/// orders them oldest → newest whatever order the caller's query used, resolves product
-/// names to FRAC classes, detects consecutive same-class usage (resistance risk at 2+),
-/// and recommends the next class to rotate to.
-pub fn analyze_fungicide_rotation(
-    history: &[Application],
-    today: NaiveDate,
-) -> FungicideRotationAdvice {
-    let mut season_apps: Vec<_> = history
-        .iter()
-        .filter(|app| {
-            app.application_type == ApplicationType::Fungicide
-                && app.is_turf()
-                && app.application_date.year() == today.year()
-                && app.application_date <= today
-        })
-        .collect();
-    season_apps.sort_by_key(|app| app.application_date);
-
-    let total_apps_this_season = season_apps.len();
-
-    if total_apps_this_season == 0 {
-        return FungicideRotationAdvice {
-            total_apps_this_season: 0,
-            last_class: None,
-            consecutive_same_class: 0,
-            recommended_next: None,
-            rotation_warning: None,
-        };
-    }
-
-    // Resolve each app's FRAC class (skip multi-site for rotation purposes)
-    let resolved: Vec<Option<FracClass>> = season_apps
-        .iter()
-        .map(|app| {
-            app.product_name
-                .as_deref()
-                .and_then(frac_class_for_product)
-                .filter(|c| !c.is_multisite())
-        })
-        .collect();
-
-    // Last single-site class used
-    let last_class = resolved.iter().rev().find_map(|c| *c);
-
-    // Count consecutive same-class from the end (most recent first),
-    // skipping unknown/multisite entries (None) so they don't break the chain
-    let consecutive_same_class = if let Some(last) = last_class {
-        resolved
-            .iter()
-            .rev()
-            .filter(|c| c.is_some())
-            .take_while(|c| **c == Some(last))
-            .count()
-    } else {
-        0
-    };
-
-    // Recommend a different class to rotate to
-    let recommended_next = last_class.and_then(recommend_rotation);
-
-    // Build warning if consecutive same-class >= 2
-    let rotation_warning = if consecutive_same_class >= 2 {
-        let last = last_class.unwrap(); // safe: consecutive >= 2 means last_class is Some
-        let mut warning = format!(
-            "Your last {} applications were {} — resistance risk increases with consecutive \
-             same-class use.",
-            consecutive_same_class, last
-        );
-        if let Some(next) = &recommended_next {
-            let products = next.common_products();
-            let product_example = products.first().copied().unwrap_or("(see label)");
-            warning.push_str(&format!(" Rotate to {} (e.g., {}).", next, product_example));
+/// Every FRAC class a product name resolves to (case-insensitive), in table order.
+/// A premix — by trade name or by listing both actives — yields more than one.
+pub fn frac_classes_for_product(name: &str) -> Vec<FracClass> {
+    let lower = name.to_lowercase();
+    let mut classes = Vec::new();
+    for (fragment, found) in PRODUCT_PATTERNS {
+        if lower.contains(fragment) {
+            for class in *found {
+                if !classes.contains(class) {
+                    classes.push(*class);
+                }
+            }
         }
-        Some(warning)
-    } else if total_apps_this_season >= 3 && last_class.is_some() {
-        // General heads-up at 3+ apps even without consecutive same-class
-        let last = last_class.unwrap();
-        Some(format!(
-            "You have applied fungicide {} times this season (last used: {}). \
-             Track FRAC classes to avoid resistance.",
-            total_apps_this_season, last
-        ))
-    } else {
-        None
-    };
+    }
+    classes
+}
 
-    FungicideRotationAdvice {
-        total_apps_this_season,
-        last_class,
-        consecutive_same_class,
-        recommended_next,
-        rotation_warning,
+/// The first FRAC class a product name resolves to.
+#[cfg(test)]
+pub fn frac_class_for_product(name: &str) -> Option<FracClass> {
+    frac_classes_for_product(name).into_iter().next()
+}
+
+/// FRAC classes of a logged fungicide: what the user recorded from the label, otherwise
+/// whatever the product name resolves to. Empty = unknown, and an unknown fungicide earns
+/// no protection and no rotation credit.
+pub fn classes_of(app: &Application) -> Vec<FracClass> {
+    match &app.frac_classes {
+        Some(recorded) if !recorded.is_empty() => recorded.clone(),
+        _ => app
+            .product_name
+            .as_deref()
+            .map(frac_classes_for_product)
+            .unwrap_or_default(),
     }
 }
 
-/// Recommend a single-site FRAC class to rotate to, given the last class used.
-/// Prioritizes the most common residential turf classes: 11, 3, 1, 7.
-fn recommend_rotation(last: FracClass) -> Option<FracClass> {
-    // Rotation order for common residential turf fungicides
-    let rotation_order = [
-        FracClass::Frac11,
-        FracClass::Frac3,
-        FracClass::Frac1,
-        FracClass::Frac7,
-    ];
-
-    rotation_order.iter().find(|c| **c != last).copied()
-}
+mod rotation;
+pub use rotation::*;
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn product_lookup() {
-        assert_eq!(
-            frac_class_for_product("Heritage TL"),
-            Some(FracClass::Frac11)
-        );
-        assert_eq!(
-            frac_class_for_product("Banner MAXX"),
-            Some(FracClass::Frac3)
-        );
-        assert_eq!(
-            frac_class_for_product("Daconil Action"),
-            Some(FracClass::FracM5)
-        );
-        assert_eq!(
-            frac_class_for_product("Mancozeb DG"),
-            Some(FracClass::FracM3)
-        );
-        assert_eq!(
-            frac_class_for_product("Cleary's 3336"),
-            Some(FracClass::Frac1)
-        );
-        assert_eq!(frac_class_for_product("random stuff"), None);
-    }
-
-    #[test]
-    fn multisite_identification() {
-        assert!(FracClass::FracM3.is_multisite());
-        assert!(FracClass::FracM5.is_multisite());
-        assert!(!FracClass::Frac1.is_multisite());
-        assert!(!FracClass::Frac11.is_multisite());
-    }
-
-    // --- analyze_fungicide_rotation tests ---
-
-    fn test_today() -> NaiveDate {
-        NaiveDate::from_ymd_opt(2026, 8, 1).unwrap()
-    }
-
-    fn make_fungicide_app(product: Option<&str>, days_ago: i64) -> Application {
-        use chrono::Utc;
-        let date = test_today() - chrono::Duration::days(days_ago);
-        Application {
-            id: None,
-            lawn_profile_id: 1,
-            application_type: ApplicationType::Fungicide,
-            product_name: product.map(|s| s.to_string()),
-            application_date: date,
-            rate_per_1000sqft: None,
-            coverage_sqft: None,
-            notes: None,
-            weather_snapshot: None,
-            nitrogen_pct: None,
-            phosphorus_pct: None,
-            potassium_pct: None,
-            plant_id: None,
-            follow_up_date: None,
-            created_at: Utc::now(),
-        }
-    }
-
-    #[test]
-    fn rotation_empty_history() {
-        let advice = analyze_fungicide_rotation(&[], test_today());
-        assert_eq!(advice.total_apps_this_season, 0);
-        assert!(advice.last_class.is_none());
-        assert_eq!(advice.consecutive_same_class, 0);
-        assert!(advice.recommended_next.is_none());
-        assert!(advice.rotation_warning.is_none());
-    }
-
-    #[test]
-    fn rotation_single_known_product() {
-        let apps = vec![make_fungicide_app(Some("Heritage TL"), 10)];
-        let advice = analyze_fungicide_rotation(&apps, test_today());
-        assert_eq!(advice.total_apps_this_season, 1);
-        assert_eq!(advice.last_class, Some(FracClass::Frac11));
-        assert_eq!(advice.consecutive_same_class, 1);
-        assert_eq!(advice.recommended_next, Some(FracClass::Frac3));
-        assert!(advice.rotation_warning.is_none()); // only 1 consecutive
-    }
-
-    #[test]
-    fn rotation_consecutive_same_class() {
-        let apps = vec![
-            make_fungicide_app(Some("Heritage TL"), 30),
-            make_fungicide_app(Some("Insignia"), 14),
-        ];
-        let advice = analyze_fungicide_rotation(&apps, test_today());
-        assert_eq!(advice.total_apps_this_season, 2);
-        assert_eq!(advice.last_class, Some(FracClass::Frac11));
-        assert_eq!(advice.consecutive_same_class, 2);
-        assert!(advice.rotation_warning.is_some());
-        let warning = advice.rotation_warning.unwrap();
-        assert!(warning.contains("FRAC 11"));
-        assert!(warning.contains("Rotate to"));
-    }
-
-    #[test]
-    fn rotation_mixed_classes_no_warning() {
-        let apps = vec![
-            make_fungicide_app(Some("Heritage TL"), 30), // FRAC 11
-            make_fungicide_app(Some("Banner MAXX"), 14), // FRAC 3
-        ];
-        let advice = analyze_fungicide_rotation(&apps, test_today());
-        assert_eq!(advice.total_apps_this_season, 2);
-        assert_eq!(advice.last_class, Some(FracClass::Frac3));
-        assert_eq!(advice.consecutive_same_class, 1);
-        assert!(advice.rotation_warning.is_none());
-    }
-
-    #[test]
-    fn rotation_unknown_products_handled() {
-        let apps = vec![
-            make_fungicide_app(Some("Mystery Spray"), 30),
-            make_fungicide_app(Some("Unknown Product"), 14),
-        ];
-        let advice = analyze_fungicide_rotation(&apps, test_today());
-        assert_eq!(advice.total_apps_this_season, 2);
-        assert!(advice.last_class.is_none()); // can't resolve either
-        assert_eq!(advice.consecutive_same_class, 0);
-        assert!(advice.rotation_warning.is_none());
-    }
-
-    #[test]
-    fn rotation_multisite_excluded() {
-        // Multi-site fungicides should not count for rotation
-        let apps = vec![
-            make_fungicide_app(Some("Heritage TL"), 30),    // FRAC 11
-            make_fungicide_app(Some("Daconil Action"), 14), // FRAC M5 (multi-site)
-        ];
-        let advice = analyze_fungicide_rotation(&apps, test_today());
-        assert_eq!(advice.total_apps_this_season, 2);
-        // Last single-site class should be FRAC 11 (Daconil is excluded)
-        assert_eq!(advice.last_class, Some(FracClass::Frac11));
-        assert_eq!(advice.consecutive_same_class, 1);
-    }
-
-    #[test]
-    fn rotation_three_apps_general_warning() {
-        let apps = vec![
-            make_fungicide_app(Some("Heritage TL"), 42),  // FRAC 11
-            make_fungicide_app(Some("Banner MAXX"), 21),  // FRAC 3
-            make_fungicide_app(Some("Cleary's 3336"), 7), // FRAC 1
-        ];
-        let advice = analyze_fungicide_rotation(&apps, test_today());
-        assert_eq!(advice.total_apps_this_season, 3);
-        assert_eq!(advice.last_class, Some(FracClass::Frac1));
-        assert_eq!(advice.consecutive_same_class, 1); // no consecutive same-class
-                                                      // Should still get a general warning at 3+ apps
-        assert!(advice.rotation_warning.is_some());
-        let warning = advice.rotation_warning.unwrap();
-        assert!(warning.contains("3 times this season"));
-    }
-
-    #[test]
-    fn rotation_recommend_avoids_last_class() {
-        // If last was FRAC 11, should recommend FRAC 3 (next in rotation order)
-        assert_eq!(
-            recommend_rotation(FracClass::Frac11),
-            Some(FracClass::Frac3)
-        );
-        // If last was FRAC 3, should recommend FRAC 11
-        assert_eq!(
-            recommend_rotation(FracClass::Frac3),
-            Some(FracClass::Frac11)
-        );
-        // If last was FRAC 1, should recommend FRAC 11
-        assert_eq!(
-            recommend_rotation(FracClass::Frac1),
-            Some(FracClass::Frac11)
-        );
-    }
-
-    #[test]
-    fn rotation_handles_newest_first_history() {
-        // The application queries return ORDER BY application_date DESC.
-        let apps = vec![
-            make_fungicide_app(Some("Banner MAXX"), 5),
-            make_fungicide_app(Some("Heritage TL"), 25),
-            make_fungicide_app(Some("Heritage TL"), 45),
-        ];
-        let advice = analyze_fungicide_rotation(&apps, test_today());
-        assert_eq!(advice.last_class, Some(FracClass::Frac3));
-        assert_eq!(advice.consecutive_same_class, 1);
-        // Three apps earn the general heads-up, which must name the class used *last*
-        // and must not be the consecutive-use warning.
-        let note = advice.rotation_warning.expect("3+ apps note");
-        assert!(note.contains(&FracClass::Frac3.to_string()), "{note}");
-        assert!(!note.contains("Rotate to"), "{note}");
-    }
-
-    #[test]
-    fn rotation_ignores_plant_applications() {
-        let mut shrub = make_fungicide_app(Some("Heritage TL"), 3);
-        shrub.plant_id = Some(4);
-        let apps = vec![make_fungicide_app(Some("Heritage TL"), 20), shrub];
-        let advice = analyze_fungicide_rotation(&apps, test_today());
-        assert_eq!(advice.total_apps_this_season, 1);
-        assert!(advice.rotation_warning.is_none());
-    }
-}
+mod tests;

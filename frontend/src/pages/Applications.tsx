@@ -6,6 +6,7 @@ import {
 	listPlants,
 	updateApplication,
 } from "../api/client";
+import FracClassPicker from "../components/FracClassPicker";
 import { appTypeBadgeStyle, sharedStyles } from "../styles/shared";
 import type { Application, ApplicationType, Plant } from "../types";
 import {
@@ -332,6 +333,9 @@ function ApplicationForm({
 		initial?.application_type ?? "Fertilizer",
 	);
 	const [productName, setProductName] = useState(initial?.product_name ?? "");
+	const [fracClasses, setFracClasses] = useState<string[]>(
+		initial?.frac_classes ?? [],
+	);
 	const [date, setDate] = useState(
 		initial?.application_date ?? todayLocalISO(),
 	);
@@ -404,6 +408,10 @@ function ApplicationForm({
 			plant_id: plantSelectable && plantId ? parseInt(plantId, 10) : undefined,
 			follow_up_date:
 				followUpEnabled && followUpDate ? followUpDate : undefined,
+			frac_classes:
+				appType === "Fungicide" && fracClasses.length > 0
+					? fracClasses
+					: undefined,
 		};
 		try {
 			if (isEdit && initial?.id != null) {
@@ -491,9 +499,19 @@ function ApplicationForm({
 						style={styles.input}
 						value={productName}
 						onChange={(e) => setProductName(e.target.value)}
-						placeholder="e.g. Milorganite"
+						placeholder={
+							appType === "Fungicide" ? "e.g. Heritage G" : "e.g. Milorganite"
+						}
 					/>
 				</div>
+				{appType === "Fungicide" && (
+					<FracClassPicker
+						productName={productName}
+						value={fracClasses}
+						onChange={setFracClasses}
+						recorded={(initial?.frac_classes?.length ?? 0) > 0}
+					/>
+				)}
 				<div>
 					<label htmlFor="app-rate" style={styles.formLabel}>
 						Rate / 1k sqft

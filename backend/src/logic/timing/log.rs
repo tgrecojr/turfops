@@ -100,6 +100,7 @@ mod tests {
             potassium_pct: None,
             plant_id: None,
             follow_up_date: None,
+            frac_classes: None,
             created_at: chrono::Utc::now(),
         }
     }
