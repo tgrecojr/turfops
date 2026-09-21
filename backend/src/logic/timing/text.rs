@@ -46,7 +46,7 @@ pub fn headline(state: WindowState, views: &WindowViews, done_on: Option<NaiveDa
 }
 
 /// A sentence on where the deciding trigger stands, for the states that hinge on one.
-pub fn detail(state: WindowState, views: &WindowViews) -> String {
+pub fn detail(state: WindowState, views: &WindowViews, today: NaiveDate) -> String {
     let deciding = match state {
         WindowState::NotYet | WindowState::OpeningSoon | WindowState::Open => &views.opens,
         WindowState::Ideal => views.ideal_from.as_ref().unwrap_or(&views.opens),
@@ -55,10 +55,10 @@ pub fn detail(state: WindowState, views: &WindowViews) -> String {
         WindowState::Closed => &views.closes,
         WindowState::Done | WindowState::Blocked => return String::new(),
     };
-    describe(deciding)
+    describe(deciding, today)
 }
 
-fn describe(boundary: &BoundaryView) -> String {
+fn describe(boundary: &BoundaryView, today: NaiveDate) -> String {
     let label = &boundary.label;
     match (boundary.date, boundary.source) {
         (Some(d), DateSource::Observed) => format!("Trigger met on {}: {label}.", short(d)),
@@ -77,12 +77,20 @@ fn describe(boundary: &BoundaryView) -> String {
         (Some(d), DateSource::Typical) => {
             format!("Waiting on: {label}. Typically {}.", short(d))
         }
+        // The median is passed in half of all years, so "behind" is reserved for a season
+        // later than nine in ten; before that it is simply not here yet.
         (None, _) => match &boundary.typical {
-            Some(stat) => format!(
+            Some(stat) if today > stat.p90 => format!(
                 "Waiting on: {label}. That is usually {} (as late as {}), so this season is \
                  running behind.",
                 short(stat.median),
                 short(stat.latest),
+            ),
+            Some(stat) => format!(
+                "Waiting on: {label}. Usually {}, but anywhere up to {} is normal — not seen \
+                 yet this season.",
+                short(stat.median),
+                short(stat.p90),
             ),
             None => format!("Waiting on: {label}. Not enough station history for a typical date."),
         },
@@ -153,6 +161,10 @@ mod tests {
         }
     }
 
+    fn today() -> NaiveDate {
+        NaiveDate::from_ymd_opt(2026, 9, 20).unwrap()
+    }
+
     fn views(opens: BoundaryView, closes: BoundaryView) -> WindowViews {
         WindowViews {
             opens,
@@ -174,7 +186,7 @@ mod tests {
             headline(WindowState::Open, &v, None),
             "Open — closes around Nov 1"
         );
-        assert!(detail(WindowState::Open, &v).starts_with("Trigger met on Sep 18"));
+        assert!(detail(WindowState::Open, &v, today()).starts_with("Trigger met on Sep 18"));
     }
 
     #[test]
@@ -184,7 +196,7 @@ mod tests {
             boundary(sep18, DateSource::Tentative, true),
             boundary(None, DateSource::Typical, false),
         );
-        assert!(detail(WindowState::Open, &v).contains("held 3 of 5 days"));
+        assert!(detail(WindowState::Open, &v, today()).contains("held 3 of 5 days"));
     }
 
     #[test]
@@ -197,6 +209,30 @@ mod tests {
             headline(WindowState::NotYet, &v, None),
             "Opens when conditions allow"
         );
+    }
+
+    #[test]
+    fn running_behind_is_reserved_for_a_genuinely_late_season() {
+        use crate::models::seasonal_plan::WindowConfidence;
+        use crate::models::timing::DateStat;
+        let d = |m, day| NaiveDate::from_ymd_opt(2026, m, day).unwrap();
+        let mut opens = boundary(None, DateSource::Typical, false);
+        opens.typical = Some(DateStat {
+            median: d(9, 16),
+            p10: d(8, 27),
+            p90: d(9, 25),
+            earliest: d(8, 24),
+            latest: d(9, 26),
+            sample_count: 13,
+            confidence: WindowConfidence::High,
+        });
+        let v = views(opens, boundary(None, DateSource::Typical, false));
+        // Sep 20: past the median, as in half of all years — not "behind".
+        let normal = detail(WindowState::NotYet, &v, d(9, 20));
+        assert!(normal.contains("up to Sep 25 is normal"), "{normal}");
+        assert!(!normal.contains("running behind"));
+        // Sep 28: later than nine years in ten.
+        assert!(detail(WindowState::NotYet, &v, d(9, 28)).contains("running behind"));
     }
 
     #[test]

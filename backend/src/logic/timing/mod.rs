@@ -182,7 +182,7 @@ fn evaluate_window(
         season_year,
         state,
         headline: text::headline(state, &views, logged.done_on),
-        detail: text::detail(state, &views),
+        detail: text::detail(state, &views, season.today),
         guidance: text::guidance(spec.id, state),
         opens: views.opens,
         ideal_from: views.ideal_from,
@@ -227,6 +227,7 @@ impl SeasonData {
             data_fresh: self
                 .last_observed
                 .is_some_and(|d| (today - d).num_days() <= STALE_AFTER_DAYS),
+            last_observed: self.last_observed,
         }
     }
 }
