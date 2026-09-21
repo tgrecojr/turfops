@@ -149,6 +149,7 @@ mod tests {
             potassium_pct: None,
             plant_id,
             follow_up_date: follow_up,
+            frac_classes: None,
             created_at: Utc::now(),
         }
     }

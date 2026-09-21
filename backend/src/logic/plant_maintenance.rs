@@ -288,6 +288,7 @@ mod tests {
             potassium_pct: None,
             plant_id: Some(plant_id),
             follow_up_date: None,
+            frac_classes: None,
             created_at: Utc::now(),
         }
     }

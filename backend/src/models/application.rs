@@ -149,6 +149,10 @@ pub struct Application {
     pub plant_id: Option<i64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub follow_up_date: Option<NaiveDate>,
+    /// FRAC classes the user recorded for a fungicide. `None` = not recorded; the disease
+    /// models then fall back to recognising the product name (`frac_class::classes_of`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub frac_classes: Option<Vec<super::FracClass>>,
     pub created_at: chrono::DateTime<Utc>,
 }
 
@@ -191,6 +195,7 @@ mod tests {
             potassium_pct: None,
             plant_id,
             follow_up_date: None,
+            frac_classes: None,
             created_at: Utc::now(),
         }
     }

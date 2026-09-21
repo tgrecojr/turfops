@@ -3,6 +3,7 @@ pub mod calendar;
 pub mod dashboard;
 pub mod disease_risk;
 pub mod environmental;
+pub mod frac_classes;
 pub mod gdd;
 pub mod health;
 pub mod historical;

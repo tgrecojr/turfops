@@ -1,7 +1,7 @@
 use crate::error::{Result, TurfOpsError};
 use crate::models::{
-    seasonal_plan::ThresholdCrossing, Application, ApplicationType, GrassType, IrrigationType,
-    LawnProfile, RecommendationState, Severity, SoilType, WeatherSnapshot,
+    seasonal_plan::ThresholdCrossing, Application, ApplicationType, FracClass, GrassType,
+    IrrigationType, LawnProfile, RecommendationState, Severity, SoilType, WeatherSnapshot,
 };
 use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::PgPool;
@@ -100,7 +100,7 @@ pub async fn get_applications_for_profile(
         r#"SELECT id, lawn_profile_id, application_type, product_name, application_date,
            rate_per_1000sqft, coverage_sqft, notes, soil_temp_10cm_f, ambient_temp_f,
            humidity_percent, soil_moisture, nitrogen_pct, phosphorus_pct, potassium_pct,
-           plant_id, follow_up_date, created_at
+           plant_id, follow_up_date, frac_classes, created_at
            FROM applications WHERE lawn_profile_id = $1 ORDER BY application_date DESC
            LIMIT $2 OFFSET $3"#,
     )
@@ -126,7 +126,7 @@ pub async fn get_applications_page(
         r#"SELECT id, lawn_profile_id, application_type, product_name, application_date,
            rate_per_1000sqft, coverage_sqft, notes, soil_temp_10cm_f, ambient_temp_f,
            humidity_percent, soil_moisture, nitrogen_pct, phosphorus_pct, potassium_pct,
-           plant_id, follow_up_date, created_at
+           plant_id, follow_up_date, frac_classes, created_at
            FROM applications
            WHERE lawn_profile_id = $1 AND ($2::text IS NULL OR application_type = $2)
            ORDER BY application_date DESC, id DESC
@@ -154,7 +154,7 @@ pub async fn get_applications_for_profile_in_range(
         r#"SELECT id, lawn_profile_id, application_type, product_name, application_date,
            rate_per_1000sqft, coverage_sqft, notes, soil_temp_10cm_f, ambient_temp_f,
            humidity_percent, soil_moisture, nitrogen_pct, phosphorus_pct, potassium_pct,
-           plant_id, follow_up_date, created_at
+           plant_id, follow_up_date, frac_classes, created_at
            FROM applications
            WHERE lawn_profile_id = $1
              AND application_date >= $2 AND application_date < $3
@@ -181,7 +181,7 @@ pub async fn get_applications_or_follow_ups_in_range(
         r#"SELECT id, lawn_profile_id, application_type, product_name, application_date,
            rate_per_1000sqft, coverage_sqft, notes, soil_temp_10cm_f, ambient_temp_f,
            humidity_percent, soil_moisture, nitrogen_pct, phosphorus_pct, potassium_pct,
-           plant_id, follow_up_date, created_at
+           plant_id, follow_up_date, frac_classes, created_at
            FROM applications
            WHERE lawn_profile_id = $1
              AND (
@@ -207,8 +207,9 @@ pub async fn create_application(pool: &PgPool, app: &Application) -> Result<i64>
             (lawn_profile_id, application_type, product_name, application_date,
              rate_per_1000sqft, coverage_sqft, notes,
              soil_temp_10cm_f, ambient_temp_f, humidity_percent, soil_moisture,
-             nitrogen_pct, phosphorus_pct, potassium_pct, plant_id, follow_up_date)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+             nitrogen_pct, phosphorus_pct, potassium_pct, plant_id, follow_up_date,
+             frac_classes)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
         RETURNING id
         "#,
     )
@@ -228,6 +229,7 @@ pub async fn create_application(pool: &PgPool, app: &Application) -> Result<i64>
     .bind(app.potassium_pct)
     .bind(app.plant_id)
     .bind(app.follow_up_date)
+    .bind(frac_classes_to_db(&app.frac_classes)?)
     .fetch_one(pool)
     .await?;
 
@@ -256,7 +258,8 @@ pub async fn update_application(pool: &PgPool, app: &Application) -> Result<u64>
                phosphorus_pct = $13,
                potassium_pct = $14,
                plant_id = $15,
-               follow_up_date = $16
+               follow_up_date = $16,
+               frac_classes = $17
          WHERE id = $1
         "#,
     )
@@ -276,6 +279,7 @@ pub async fn update_application(pool: &PgPool, app: &Application) -> Result<u64>
     .bind(app.potassium_pct)
     .bind(app.plant_id)
     .bind(app.follow_up_date)
+    .bind(frac_classes_to_db(&app.frac_classes)?)
     .execute(pool)
     .await?;
 
@@ -287,7 +291,7 @@ pub async fn get_application_by_id(pool: &PgPool, id: i64) -> Result<Option<Appl
         r#"SELECT id, lawn_profile_id, application_type, product_name, application_date,
                   rate_per_1000sqft, coverage_sqft, notes, soil_temp_10cm_f, ambient_temp_f,
                   humidity_percent, soil_moisture, nitrogen_pct, phosphorus_pct, potassium_pct,
-                  plant_id, follow_up_date, created_at
+                  plant_id, follow_up_date, frac_classes, created_at
            FROM applications WHERE id = $1"#,
     )
     .bind(id)
@@ -418,6 +422,29 @@ impl LawnProfileRow {
     }
 }
 
+fn frac_classes_to_db(classes: &Option<Vec<FracClass>>) -> Result<Option<Vec<String>>> {
+    classes
+        .as_ref()
+        .map(|list| list.iter().map(|c| enum_to_db_string(*c)).collect())
+        .transpose()
+}
+
+/// Unknown codes are dropped (with a warning) rather than failing the whole row.
+fn parse_frac_classes(stored: Option<Vec<String>>) -> Option<Vec<FracClass>> {
+    stored.map(|codes| {
+        codes
+            .into_iter()
+            .filter_map(|code| {
+                let parsed = serde_json::from_value(serde_json::Value::String(code.clone())).ok();
+                if parsed.is_none() {
+                    warn!(frac_class = %code, "Unknown frac_class in database, ignoring");
+                }
+                parsed
+            })
+            .collect()
+    })
+}
+
 #[derive(sqlx::FromRow)]
 struct ApplicationRow {
     id: i64,
@@ -437,6 +464,7 @@ struct ApplicationRow {
     potassium_pct: Option<f64>,
     plant_id: Option<i64>,
     follow_up_date: Option<NaiveDate>,
+    frac_classes: Option<Vec<String>>,
     created_at: DateTime<Utc>,
 }
 
@@ -481,6 +509,7 @@ impl ApplicationRow {
             potassium_pct: self.potassium_pct,
             plant_id: self.plant_id,
             follow_up_date: self.follow_up_date,
+            frac_classes: parse_frac_classes(self.frac_classes),
             created_at: self.created_at,
         }
     }

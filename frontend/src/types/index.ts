@@ -47,7 +47,21 @@ export interface Application {
 	potassium_pct: number | null;
 	plant_id?: number | null;
 	follow_up_date?: string | null;
+	/** FRAC classes recorded for a fungicide (e.g. ["Frac11", "Frac3"]). */
+	frac_classes?: string[] | null;
 	created_at: string;
+}
+
+export interface FracClassOption {
+	id: string;
+	label: string;
+	examples: string[];
+}
+
+export interface FracClassLookup {
+	options: FracClassOption[];
+	/** Classes the product name resolves to; empty = not recognized. */
+	matched: string[];
 }
 
 export type ApplicationType =
