@@ -113,7 +113,65 @@ pub async fn get_applications_for_profile(
     Ok(rows.into_iter().map(|r| r.into_application()).collect())
 }
 
+/// One page of the application log, newest first. The type filter runs in SQL so it
+/// applies *before* LIMIT/OFFSET — otherwise a rare type hides behind a season of mowing.
+pub async fn get_applications_page(
+    pool: &PgPool,
+    profile_id: i64,
+    application_type: Option<ApplicationType>,
+    limit: i64,
+    offset: i64,
+) -> Result<Vec<Application>> {
+    let rows = sqlx::query_as::<_, ApplicationRow>(
+        r#"SELECT id, lawn_profile_id, application_type, product_name, application_date,
+           rate_per_1000sqft, coverage_sqft, notes, soil_temp_10cm_f, ambient_temp_f,
+           humidity_percent, soil_moisture, nitrogen_pct, phosphorus_pct, potassium_pct,
+           plant_id, follow_up_date, created_at
+           FROM applications
+           WHERE lawn_profile_id = $1 AND ($2::text IS NULL OR application_type = $2)
+           ORDER BY application_date DESC, id DESC
+           LIMIT $3 OFFSET $4"#,
+    )
+    .bind(profile_id)
+    .bind(opt_enum_to_db_string(application_type)?)
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows.into_iter().map(|r| r.into_application()).collect())
+}
+
+/// Applications *applied* in `[start_date, end_date)`. Everything that reasons about what
+/// was done when (nitrogen budget, disease, timing, plan) uses this.
 pub async fn get_applications_for_profile_in_range(
+    pool: &PgPool,
+    profile_id: i64,
+    start_date: NaiveDate,
+    end_date: NaiveDate,
+) -> Result<Vec<Application>> {
+    let rows = sqlx::query_as::<_, ApplicationRow>(
+        r#"SELECT id, lawn_profile_id, application_type, product_name, application_date,
+           rate_per_1000sqft, coverage_sqft, notes, soil_temp_10cm_f, ambient_temp_f,
+           humidity_percent, soil_moisture, nitrogen_pct, phosphorus_pct, potassium_pct,
+           plant_id, follow_up_date, created_at
+           FROM applications
+           WHERE lawn_profile_id = $1
+             AND application_date >= $2 AND application_date < $3
+           ORDER BY application_date DESC"#,
+    )
+    .bind(profile_id)
+    .bind(start_date)
+    .bind(end_date)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows.into_iter().map(|r| r.into_application()).collect())
+}
+
+/// Applications applied in the range **or** with a follow-up due in it — the calendar
+/// shows both. Rows matched only by follow-up carry an `application_date` outside the range.
+pub async fn get_applications_or_follow_ups_in_range(
     pool: &PgPool,
     profile_id: i64,
     start_date: NaiveDate,

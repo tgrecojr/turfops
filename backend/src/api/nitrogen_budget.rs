@@ -43,23 +43,20 @@ pub async fn get_nitrogen_budget(
 
     let target = annual_n_target(profile.grass_type);
 
-    // Calculate N applied from applications that have both nitrogen_pct and rate_per_1000sqft
+    // Calculate N applied to the lawn (plant applications and rows without analysis + rate are skipped)
     let mut n_applications = Vec::new();
     let mut total_n_applied = 0.0;
 
     for app in &apps {
-        if let (Some(n_pct), Some(rate)) = (app.nitrogen_pct, app.rate_per_1000sqft) {
-            if n_pct > 0.0 && rate > 0.0 {
-                let n_lbs = n_pct / 100.0 * rate;
-                total_n_applied += n_lbs;
-                n_applications.push(NitrogenApplication {
-                    date: app.application_date,
-                    product_name: app.product_name.clone(),
-                    nitrogen_pct: n_pct,
-                    rate_per_1000sqft: rate,
-                    n_lbs_per_1000sqft: n_lbs,
-                });
-            }
+        if let Some(n_lbs) = app.turf_nitrogen_lbs() {
+            total_n_applied += n_lbs;
+            n_applications.push(NitrogenApplication {
+                date: app.application_date,
+                product_name: app.product_name.clone(),
+                nitrogen_pct: app.nitrogen_pct.unwrap_or_default(),
+                rate_per_1000sqft: app.rate_per_1000sqft.unwrap_or_default(),
+                n_lbs_per_1000sqft: n_lbs,
+            });
         }
     }
 

@@ -41,6 +41,8 @@ services:
       # Server
       SERVER_HOST: "0.0.0.0"
       SERVER_PORT: "3000"
+      # The lawn's timezone: "today" for the rules, nitrogen budget, plan and calendar.
+      TZ: ${TZ:-America/New_York}
 
       # Lawn profile defaults
       LAWN_NAME: ${LAWN_NAME:-Main Lawn}

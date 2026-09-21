@@ -50,17 +50,22 @@ pub fn assess_all(
 /// Derive the lawn-history modifiers from logged applications (future-dated entries
 /// are ignored).
 pub fn context_from_history(history: &[Application], today: NaiveDate) -> DiseaseContext {
+    // A fungicide or fertilizer logged against a landscape plant says nothing about the lawn.
     let days_since = |kind: ApplicationType| {
         history
             .iter()
-            .filter(|app| app.application_type == kind && app.application_date <= today)
+            .filter(|app| {
+                app.application_type == kind && app.is_turf() && app.application_date <= today
+            })
             .map(|app| (today - app.application_date).num_days())
             .min()
     };
     let mut fungicide_apps: Vec<FungicideRecord> = history
         .iter()
         .filter(|app| {
-            app.application_type == ApplicationType::Fungicide && app.application_date <= today
+            app.application_type == ApplicationType::Fungicide
+                && app.is_turf()
+                && app.application_date <= today
         })
         .map(|app| {
             let product = app.product_name.clone().unwrap_or_default();
@@ -77,7 +82,7 @@ pub fn context_from_history(history: &[Application], today: NaiveDate) -> Diseas
         days_since_overseed: days_since(ApplicationType::Overseed),
         days_since_fertilizer: days_since(ApplicationType::Fertilizer),
         fungicide_apps,
-        rotation_warning: analyze_fungicide_rotation(history).rotation_warning,
+        rotation_warning: analyze_fungicide_rotation(history, today).rotation_warning,
     }
 }
 

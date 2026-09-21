@@ -152,9 +152,60 @@ pub struct Application {
     pub created_at: chrono::DateTime<Utc>,
 }
 
+impl Application {
+    /// Applied to the lawn rather than a landscape plant. Lawn models (nitrogen budget,
+    /// disease protection, fertilizer history) must ignore everything else.
+    pub fn is_turf(&self) -> bool {
+        self.plant_id.is_none() && self.application_type.scope() != ApplicationScope::PlantRequired
+    }
+
+    /// Pounds of nitrogen per 1000 sq ft this put on the lawn. `None` for plant
+    /// applications or when the analysis or rate wasn't recorded.
+    pub fn turf_nitrogen_lbs(&self) -> Option<f64> {
+        match (self.nitrogen_pct, self.rate_per_1000sqft) {
+            (Some(n_pct), Some(rate)) if self.is_turf() && n_pct > 0.0 && rate > 0.0 => {
+                Some(n_pct / 100.0 * rate)
+            }
+            _ => None,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn fertilizer(application_type: ApplicationType, plant_id: Option<i64>) -> Application {
+        Application {
+            id: None,
+            lawn_profile_id: 1,
+            application_type,
+            product_name: None,
+            application_date: NaiveDate::from_ymd_opt(2026, 5, 1).unwrap(),
+            rate_per_1000sqft: Some(5.0),
+            coverage_sqft: None,
+            notes: None,
+            weather_snapshot: None,
+            nitrogen_pct: Some(20.0),
+            phosphorus_pct: None,
+            potassium_pct: None,
+            plant_id,
+            follow_up_date: None,
+            created_at: Utc::now(),
+        }
+    }
+
+    #[test]
+    fn plant_applications_put_no_nitrogen_on_the_lawn() {
+        let lawn = fertilizer(ApplicationType::Fertilizer, None);
+        assert_eq!(lawn.turf_nitrogen_lbs(), Some(1.0));
+        assert!(fertilizer(ApplicationType::Fertilizer, Some(7))
+            .turf_nitrogen_lbs()
+            .is_none());
+        assert!(fertilizer(ApplicationType::PlantFertilizer, Some(7))
+            .turf_nitrogen_lbs()
+            .is_none());
+    }
 
     #[test]
     fn application_type_from_str_valid() {

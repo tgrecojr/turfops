@@ -33,15 +33,7 @@ impl Rule for IrrigationForecastRule {
             return None;
         }
 
-        // Check for rain in next 5 days (120 hours)
-        let rain_5day =
-            forecast.rain_expected_within(IRRIGATION_FORECAST_HOURS, PRECIP_FORECAST_MIN_INCHES);
-
-        // If rain is expected, no irrigation recommendation
-        if rain_5day.is_some() {
-            return None;
-        }
-
+        // Only the forecast *amount* counts: a 50% chance of a trace won't relieve dry soil.
         // Calculate total precipitation expected in next 5 days
         let total_precip: f64 = forecast
             .next_days(5)
@@ -137,5 +129,75 @@ impl IrrigationForecastRule {
             DataSource::OpenWeatherMap.as_str(),
         )
         .with_action(action)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::{
+        EnvironmentalReading, ForecastLocation, ForecastPoint, GrassType, WeatherCondition,
+        WeatherForecast,
+    };
+    use chrono::{Duration, Utc};
+
+    fn profile() -> LawnProfile {
+        LawnProfile {
+            id: Some(1),
+            name: "Test".into(),
+            grass_type: GrassType::TallFescue,
+            usda_zone: "7a".into(),
+            soil_type: None,
+            lawn_size_sqft: Some(5000.0),
+            irrigation_type: None,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        }
+    }
+
+    /// Dry soil (8%) plus a forecast of one 3-hourly point per `(mm, probability)`.
+    fn env(points: &[(f64, f64)]) -> EnvironmentalSummary {
+        let mut reading = EnvironmentalReading::new(DataSource::SoilData);
+        reading.soil_moisture_10 = Some(0.08);
+        let hourly = points
+            .iter()
+            .enumerate()
+            .map(|(i, (mm, prob))| ForecastPoint {
+                timestamp: Utc::now() + Duration::hours(3 * (i as i64 + 1)),
+                temp_f: 80.0,
+                feels_like_f: 80.0,
+                humidity_percent: 50.0,
+                precipitation_mm: *mm,
+                precipitation_prob: *prob,
+                wind_speed_mph: 5.0,
+                wind_gust_mph: None,
+                cloud_cover_percent: 20.0,
+                weather_condition: WeatherCondition::default(),
+            })
+            .collect();
+        EnvironmentalSummary {
+            current: Some(reading),
+            forecast: Some(WeatherForecast {
+                fetched_at: Utc::now(),
+                location: ForecastLocation {
+                    city: "Test".into(),
+                    country: "US".into(),
+                    latitude: 0.0,
+                    longitude: 0.0,
+                },
+                hourly,
+                daily_summary: Vec::new(),
+            }),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn a_trace_or_a_coin_flip_does_not_cancel_a_drought_alert() {
+        // 0.3 mm of drizzle and one 50% slot with no accumulation: still bone dry.
+        let rec = IrrigationForecastRule
+            .evaluate(&env(&[(0.3, 0.2), (0.0, 0.5)]), &profile(), &[])
+            .expect("dry soil with no meaningful rain needs irrigation");
+        assert_eq!(rec.severity, Severity::Critical);
     }
 }

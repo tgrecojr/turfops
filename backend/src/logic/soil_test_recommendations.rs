@@ -104,13 +104,7 @@ pub fn calculate_npk_recommendation(
 
     // Calculate remaining N budget
     let n_target = annual_n_target(profile.grass_type);
-    let ytd_n_applied: f64 = apps
-        .iter()
-        .filter_map(|a| match (a.nitrogen_pct, a.rate_per_1000sqft) {
-            (Some(n_pct), Some(rate)) if n_pct > 0.0 && rate > 0.0 => Some(n_pct / 100.0 * rate),
-            _ => None,
-        })
-        .sum();
+    let ytd_n_applied: f64 = apps.iter().filter_map(Application::turf_nitrogen_lbs).sum();
 
     let remaining_n = (n_target.recommended_lbs_per_1000sqft - ytd_n_applied).max(0.0);
 

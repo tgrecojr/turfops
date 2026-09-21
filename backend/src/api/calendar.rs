@@ -47,7 +47,7 @@ pub async fn get_calendar(
     }
     .unwrap_or(month_start);
 
-    let apps = queries::get_applications_for_profile_in_range(
+    let apps = queries::get_applications_or_follow_ups_in_range(
         &state.pool,
         profile_id,
         month_start,

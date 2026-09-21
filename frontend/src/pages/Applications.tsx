@@ -14,14 +14,11 @@ import {
 	isPlantRequiredApplicationType,
 	isTurfOnlyApplicationType,
 } from "../types";
+import { addDaysISO, todayLocalISO } from "../utils/dates";
 
 type ScopeFilter = "all" | "turf" | "landscape";
 
-function addDaysISO(dateStr: string, days: number): string {
-	const d = new Date(`${dateStr}T00:00:00`);
-	d.setDate(d.getDate() + days);
-	return d.toISOString().split("T")[0];
-}
+const PAGE_SIZE = 50;
 
 const APP_TYPES: ApplicationType[] = [
 	"PreEmergent",
@@ -55,11 +52,14 @@ export default function Applications() {
 	const [editing, setEditing] = useState<Application | null>(null);
 	const [deletingId, setDeletingId] = useState<number | null>(null);
 	const [plants, setPlants] = useState<Plant[]>([]);
+	const [hasMore, setHasMore] = useState(false);
+	const [loadingMore, setLoadingMore] = useState(false);
 
 	const fetchApps = useCallback(async () => {
 		try {
-			const data = await getApplications(filter || undefined);
+			const data = await getApplications(filter || undefined, PAGE_SIZE, 0);
 			setApps(data);
+			setHasMore(data.length === PAGE_SIZE);
 			setError(null);
 		} catch (e) {
 			setError(e instanceof Error ? e.message : "Failed to load");
@@ -71,6 +71,23 @@ export default function Applications() {
 	useEffect(() => {
 		fetchApps();
 	}, [fetchApps]);
+
+	const loadMore = async () => {
+		setLoadingMore(true);
+		try {
+			const data = await getApplications(
+				filter || undefined,
+				PAGE_SIZE,
+				apps.length,
+			);
+			setApps((prev) => [...prev, ...data]);
+			setHasMore(data.length === PAGE_SIZE);
+		} catch (e) {
+			setError(e instanceof Error ? e.message : "Failed to load");
+		} finally {
+			setLoadingMore(false);
+		}
+	};
 
 	useEffect(() => {
 		listPlants()
@@ -283,6 +300,16 @@ export default function Applications() {
 					</tbody>
 				</table>
 			)}
+			{!loading && hasMore && (
+				<button
+					type="button"
+					style={styles.cancelBtn}
+					onClick={loadMore}
+					disabled={loadingMore}
+				>
+					{loadingMore ? "Loading..." : "Load older entries"}
+				</button>
+			)}
 		</div>
 	);
 }
@@ -306,7 +333,7 @@ function ApplicationForm({
 	);
 	const [productName, setProductName] = useState(initial?.product_name ?? "");
 	const [date, setDate] = useState(
-		initial?.application_date ?? new Date().toISOString().split("T")[0],
+		initial?.application_date ?? todayLocalISO(),
 	);
 	const [rate, setRate] = useState(
 		initial?.rate_per_1000sqft != null ? String(initial.rate_per_1000sqft) : "",

@@ -76,9 +76,13 @@ export const updateProfile = (data: Partial<LawnProfile>) =>
 	});
 
 // Applications
-export const getApplications = (type?: string) => {
-	const params = type ? `?type=${encodeURIComponent(type)}` : "";
-	return fetchJson<Application[]>(`${BASE}/applications${params}`);
+export const getApplications = (type?: string, limit = 50, offset = 0) => {
+	const params = new URLSearchParams({
+		limit: String(limit),
+		offset: String(offset),
+	});
+	if (type) params.set("type", type);
+	return fetchJson<Application[]>(`${BASE}/applications?${params}`);
 };
 
 export const createApplication = (data: {

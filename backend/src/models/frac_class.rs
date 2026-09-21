@@ -1,5 +1,5 @@
 use crate::models::{Application, ApplicationType};
-use chrono::{Datelike, Local};
+use chrono::{Datelike, NaiveDate};
 use serde::{Deserialize, Serialize};
 
 /// FRAC (Fungicide Resistance Action Committee) class groupings
@@ -177,19 +177,24 @@ pub struct FungicideRotationAdvice {
 /// Analyze fungicide application history for the current season and produce
 /// FRAC-class-aware rotation advice.
 ///
-/// Filters to fungicide apps in the current year, resolves product names to
-/// FRAC classes, detects consecutive same-class usage (resistance risk at 2+),
+/// Filters to lawn fungicide apps in `today`'s year (future-dated entries ignored),
+/// orders them oldest → newest whatever order the caller's query used, resolves product
+/// names to FRAC classes, detects consecutive same-class usage (resistance risk at 2+),
 /// and recommends the next class to rotate to.
-pub fn analyze_fungicide_rotation(history: &[Application]) -> FungicideRotationAdvice {
-    let current_year = Local::now().date_naive().year();
-
-    let season_apps: Vec<_> = history
+pub fn analyze_fungicide_rotation(
+    history: &[Application],
+    today: NaiveDate,
+) -> FungicideRotationAdvice {
+    let mut season_apps: Vec<_> = history
         .iter()
         .filter(|app| {
             app.application_type == ApplicationType::Fungicide
-                && app.application_date.year() == current_year
+                && app.is_turf()
+                && app.application_date.year() == today.year()
+                && app.application_date <= today
         })
         .collect();
+    season_apps.sort_by_key(|app| app.application_date);
 
     let total_apps_this_season = season_apps.len();
 
@@ -321,9 +326,13 @@ mod tests {
 
     // --- analyze_fungicide_rotation tests ---
 
+    fn test_today() -> NaiveDate {
+        NaiveDate::from_ymd_opt(2026, 8, 1).unwrap()
+    }
+
     fn make_fungicide_app(product: Option<&str>, days_ago: i64) -> Application {
         use chrono::Utc;
-        let date = Local::now().date_naive() - chrono::Duration::days(days_ago);
+        let date = test_today() - chrono::Duration::days(days_ago);
         Application {
             id: None,
             lawn_profile_id: 1,
@@ -345,7 +354,7 @@ mod tests {
 
     #[test]
     fn rotation_empty_history() {
-        let advice = analyze_fungicide_rotation(&[]);
+        let advice = analyze_fungicide_rotation(&[], test_today());
         assert_eq!(advice.total_apps_this_season, 0);
         assert!(advice.last_class.is_none());
         assert_eq!(advice.consecutive_same_class, 0);
@@ -356,7 +365,7 @@ mod tests {
     #[test]
     fn rotation_single_known_product() {
         let apps = vec![make_fungicide_app(Some("Heritage TL"), 10)];
-        let advice = analyze_fungicide_rotation(&apps);
+        let advice = analyze_fungicide_rotation(&apps, test_today());
         assert_eq!(advice.total_apps_this_season, 1);
         assert_eq!(advice.last_class, Some(FracClass::Frac11));
         assert_eq!(advice.consecutive_same_class, 1);
@@ -370,7 +379,7 @@ mod tests {
             make_fungicide_app(Some("Heritage TL"), 30),
             make_fungicide_app(Some("Insignia"), 14),
         ];
-        let advice = analyze_fungicide_rotation(&apps);
+        let advice = analyze_fungicide_rotation(&apps, test_today());
         assert_eq!(advice.total_apps_this_season, 2);
         assert_eq!(advice.last_class, Some(FracClass::Frac11));
         assert_eq!(advice.consecutive_same_class, 2);
@@ -386,7 +395,7 @@ mod tests {
             make_fungicide_app(Some("Heritage TL"), 30), // FRAC 11
             make_fungicide_app(Some("Banner MAXX"), 14), // FRAC 3
         ];
-        let advice = analyze_fungicide_rotation(&apps);
+        let advice = analyze_fungicide_rotation(&apps, test_today());
         assert_eq!(advice.total_apps_this_season, 2);
         assert_eq!(advice.last_class, Some(FracClass::Frac3));
         assert_eq!(advice.consecutive_same_class, 1);
@@ -399,7 +408,7 @@ mod tests {
             make_fungicide_app(Some("Mystery Spray"), 30),
             make_fungicide_app(Some("Unknown Product"), 14),
         ];
-        let advice = analyze_fungicide_rotation(&apps);
+        let advice = analyze_fungicide_rotation(&apps, test_today());
         assert_eq!(advice.total_apps_this_season, 2);
         assert!(advice.last_class.is_none()); // can't resolve either
         assert_eq!(advice.consecutive_same_class, 0);
@@ -413,7 +422,7 @@ mod tests {
             make_fungicide_app(Some("Heritage TL"), 30),    // FRAC 11
             make_fungicide_app(Some("Daconil Action"), 14), // FRAC M5 (multi-site)
         ];
-        let advice = analyze_fungicide_rotation(&apps);
+        let advice = analyze_fungicide_rotation(&apps, test_today());
         assert_eq!(advice.total_apps_this_season, 2);
         // Last single-site class should be FRAC 11 (Daconil is excluded)
         assert_eq!(advice.last_class, Some(FracClass::Frac11));
@@ -427,7 +436,7 @@ mod tests {
             make_fungicide_app(Some("Banner MAXX"), 21),  // FRAC 3
             make_fungicide_app(Some("Cleary's 3336"), 7), // FRAC 1
         ];
-        let advice = analyze_fungicide_rotation(&apps);
+        let advice = analyze_fungicide_rotation(&apps, test_today());
         assert_eq!(advice.total_apps_this_season, 3);
         assert_eq!(advice.last_class, Some(FracClass::Frac1));
         assert_eq!(advice.consecutive_same_class, 1); // no consecutive same-class
@@ -454,5 +463,33 @@ mod tests {
             recommend_rotation(FracClass::Frac1),
             Some(FracClass::Frac11)
         );
+    }
+
+    #[test]
+    fn rotation_handles_newest_first_history() {
+        // The application queries return ORDER BY application_date DESC.
+        let apps = vec![
+            make_fungicide_app(Some("Banner MAXX"), 5),
+            make_fungicide_app(Some("Heritage TL"), 25),
+            make_fungicide_app(Some("Heritage TL"), 45),
+        ];
+        let advice = analyze_fungicide_rotation(&apps, test_today());
+        assert_eq!(advice.last_class, Some(FracClass::Frac3));
+        assert_eq!(advice.consecutive_same_class, 1);
+        // Three apps earn the general heads-up, which must name the class used *last*
+        // and must not be the consecutive-use warning.
+        let note = advice.rotation_warning.expect("3+ apps note");
+        assert!(note.contains(&FracClass::Frac3.to_string()), "{note}");
+        assert!(!note.contains("Rotate to"), "{note}");
+    }
+
+    #[test]
+    fn rotation_ignores_plant_applications() {
+        let mut shrub = make_fungicide_app(Some("Heritage TL"), 3);
+        shrub.plant_id = Some(4);
+        let apps = vec![make_fungicide_app(Some("Heritage TL"), 20), shrub];
+        let advice = analyze_fungicide_rotation(&apps, test_today());
+        assert_eq!(advice.total_apps_this_season, 1);
+        assert!(advice.rotation_warning.is_none());
     }
 }
