@@ -103,10 +103,12 @@ fn from_typical(
     }
 }
 
-fn from_detected(detected: Detected) -> Resolved {
+fn from_detected(detected: Detected, today: NaiveDate) -> Resolved {
     if detected.forecast_only() {
+        // The outlook starts the day after the last station day, which trails today by a
+        // day or two — a forecast crossing in that gap means "about now", not a past date.
         return Resolved {
-            date: Some(detected.date),
+            date: Some(detected.date.max(today)),
             source: DateSource::Forecast,
             passed: false,
             days_held: None,
@@ -128,9 +130,14 @@ fn from_detected(detected: Detected) -> Resolved {
 pub fn resolve(boundary: &Boundary, season: &Season, season_year: i32) -> Resolved {
     let median = || typical(boundary, season, season_year).map(|s| s.median);
     match boundary {
+        // With stale station data only a confirmed crossing is trusted. A run still in
+        // progress when the data stopped, or one seen only in a forecast that no longer
+        // connects to the station series, falls back to the calendar like no run at all.
         Boundary::Soil(crossing) => match detect(season.smoothed, season_year, crossing) {
-            Some(detected) => from_detected(detected),
-            None => from_typical(median(), crossing.scan_to, season, season_year),
+            Some(detected) if season.data_fresh || detected.confirmed() => {
+                from_detected(detected, season.today)
+            }
+            _ => from_typical(median(), crossing.scan_to, season, season_year),
         },
         Boundary::BeforeFirstFreeze(_) => {
             let date = median();
@@ -203,9 +210,16 @@ impl WindowViews {
         }
     }
 
+    /// The closing threshold has been reached but has not yet held long enough to be the
+    /// seasonal shift. One warm (or cold) day must not declare the window over — and then
+    /// reopen it after the next front — so this reads as Closing, not Closed.
+    pub fn closing_tentatively(&self) -> bool {
+        self.closes.passed && self.closes.source == DateSource::Tentative
+    }
+
     /// State from weather and climatology alone, before the application log is considered.
     pub fn weather_state(&self, today: NaiveDate) -> WindowState {
-        if self.closes.passed {
+        if self.closes.passed && !self.closing_tentatively() {
             return WindowState::Closed;
         }
         if !self.opens.passed {
@@ -220,7 +234,9 @@ impl WindowViews {
                 WindowState::NotYet
             };
         }
-        if self.ideal_from.as_ref().is_some_and(|b| !b.passed) {
+        if self.closing_tentatively() {
+            WindowState::Closing
+        } else if self.ideal_from.as_ref().is_some_and(|b| !b.passed) {
             WindowState::Open
         } else if self.ideal_until.as_ref().is_some_and(|b| b.passed) {
             WindowState::Closing
@@ -229,5 +245,25 @@ impl WindowViews {
         } else {
             WindowState::Open
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn forecast_crossing_in_the_lake_lag_is_dated_today_not_in_the_past() {
+        // Last station day Sep 18, today Sep 20: the outlook's first day is Sep 19.
+        let today = NaiveDate::from_ymd_opt(2026, 9, 20).unwrap();
+        let seen = Detected {
+            date: NaiveDate::from_ymd_opt(2026, 9, 19).unwrap(),
+            days_held: 0,
+            after_gap: false,
+        };
+        let resolved = from_detected(seen, today);
+        assert_eq!(resolved.source, DateSource::Forecast);
+        assert_eq!(resolved.date, Some(today));
+        assert!(!resolved.passed);
     }
 }

@@ -36,6 +36,10 @@ pub fn headline(state: WindowState, views: &WindowViews, done_on: Option<NaiveDa
             let until = views.ideal_until.as_ref().unwrap_or(&views.closes);
             format!("Ideal now — through {}", when(until))
         }
+        WindowState::Closing if views.closing_tentatively() => format!(
+            "Closing now — threshold reached, held {} of {SUSTAIN_DAYS} days",
+            views.closes.days_held.unwrap_or(0)
+        ),
         WindowState::Closing => format!("Closing — last chance {}", when(&views.closes)),
         WindowState::Closed => "Closed for the season".to_string(),
     }
@@ -46,6 +50,7 @@ pub fn detail(state: WindowState, views: &WindowViews) -> String {
     let deciding = match state {
         WindowState::NotYet | WindowState::OpeningSoon | WindowState::Open => &views.opens,
         WindowState::Ideal => views.ideal_from.as_ref().unwrap_or(&views.opens),
+        WindowState::Closing if views.closing_tentatively() => &views.closes,
         WindowState::Closing => views.ideal_until.as_ref().unwrap_or(&views.closes),
         WindowState::Closed => &views.closes,
         WindowState::Done | WindowState::Blocked => return String::new(),

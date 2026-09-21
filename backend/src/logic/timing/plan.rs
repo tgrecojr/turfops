@@ -2,11 +2,11 @@
 //! show the same pre-emergent and seeding dates as the Timing page. The handler swaps
 //! each one in for the plan's own 10 cm activity with the same id.
 
-use super::evaluate::{typical, Season};
+use super::evaluate::{typical, Season, WindowViews};
 use super::log;
-use super::windows::{specs_for, WindowSpec};
+use super::windows::{season_year, specs_for, WindowSpec};
 use crate::models::seasonal_plan::{ActivityDetails, ActivityStatus, DateWindow, PlannedActivity};
-use crate::models::timing::WindowId;
+use crate::models::timing::{WindowId, WindowState};
 use crate::models::{Application, ApplicationType, GrassType};
 use chrono::{Datelike, NaiveDate};
 
@@ -78,6 +78,27 @@ fn status(done: bool, start: NaiveDate, end: NaiveDate, today: NaiveDate) -> Act
     }
 }
 
+/// Status for the season being lived right now: what the Timing page says, so the two
+/// never disagree (a cold spring keeps pre-emergent Active past its typical close; a warm
+/// one ends it early). Other years only have the typical dates to go on.
+fn current_status(
+    spec: &WindowSpec,
+    season: &Season,
+    year: i32,
+    done: bool,
+) -> Option<ActivityStatus> {
+    if done || season_year(spec.id, season.today) != year {
+        return None;
+    }
+    let state = WindowViews::build(spec, season, year).weather_state(season.today);
+    Some(match state {
+        WindowState::NotYet | WindowState::OpeningSoon => ActivityStatus::Upcoming,
+        WindowState::Open | WindowState::Ideal | WindowState::Closing => ActivityStatus::Active,
+        WindowState::Closed => ActivityStatus::Missed,
+        WindowState::Done | WindowState::Blocked => return None,
+    })
+}
+
 fn activity(
     spec: &WindowSpec,
     copy: &ActivityCopy,
@@ -99,7 +120,8 @@ fn activity(
             latest_historical: Some(closes.latest),
             confidence: opens.confidence,
         },
-        status: status(done, opens.median, closes.median, season.today),
+        status: current_status(spec, season, year, done)
+            .unwrap_or_else(|| status(done, opens.median, closes.median, season.today)),
         details: ActivityDetails {
             soil_temp_trigger: Some(copy.trigger.into()),
             product_suggestions: copy.products.iter().map(|p| p.to_string()).collect(),
@@ -139,6 +161,22 @@ fn aeration(seeding: &PlannedActivity, applications: &[Application], year: i32) 
     }
 }
 
+/// Ids of the plan activities the timing windows answer for on this lawn. The handler
+/// removes the plan's own 10 cm version of every one of them — including a window the log
+/// has ruled out, which [`activities`] omits and nothing may resurrect.
+pub fn owned_ids(grass: GrassType) -> Vec<&'static str> {
+    let mut ids = Vec::new();
+    for spec in specs_for(grass) {
+        if let Some(copy) = copy_for(spec.id) {
+            ids.push(copy.id);
+            if spec.id == WindowId::FallSeeding {
+                ids.push("core_aeration");
+            }
+        }
+    }
+    ids
+}
+
 /// Plan activities for `year`. A window ruled out by the application log (seed vs.
 /// pre-emergent) is left off the plan. Empty when there is no station history.
 pub fn activities(
@@ -168,82 +206,4 @@ pub fn activities(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::super::tests::{applied, date, station, within};
-    use super::super::SeasonData;
-    use super::*;
-
-    fn plan(history: &[Application]) -> Vec<PlannedActivity> {
-        let today = date(2026, 9, 20);
-        let days = station(date(2026, 9, 19), 0.0);
-        let data = SeasonData::build(&days, &[], today.year());
-        activities(
-            &data.season(&days, today),
-            GrassType::TallFescue,
-            history,
-            2026,
-        )
-    }
-
-    fn find<'a>(plan: &'a [PlannedActivity], id: &str) -> Option<&'a PlannedActivity> {
-        plan.iter().find(|a| a.id == id)
-    }
-
-    #[test]
-    fn plan_uses_the_timing_windows_for_seeding_aeration_and_pre_emergent() {
-        let plan = plan(&[]);
-        let seeding = find(&plan, "fall_overseeding").unwrap();
-        assert_eq!(seeding.date_window.predicted_start, date(2026, 8, 15));
-        assert!(within(
-            Some(seeding.date_window.predicted_end),
-            date(2026, 10, 6),
-            2
-        ));
-        assert!(matches!(seeding.status, ActivityStatus::Active));
-
-        let aeration = find(&plan, "core_aeration").unwrap();
-        assert_eq!(
-            aeration.date_window.predicted_start,
-            seeding.date_window.predicted_start
-        );
-
-        let spring = find(&plan, "pre_emergent").unwrap();
-        assert!(within(
-            Some(spring.date_window.predicted_start),
-            date(2026, 3, 24),
-            2
-        ));
-        assert!(matches!(spring.status, ActivityStatus::Missed));
-        assert!(find(&plan, "fall_pre_emergent").is_some());
-    }
-
-    #[test]
-    fn overseeding_drops_fall_pre_emergent_from_the_plan() {
-        let plan = plan(&[applied(ApplicationType::Overseed, date(2026, 9, 12))]);
-        assert!(find(&plan, "fall_pre_emergent").is_none());
-        let seeding = find(&plan, "fall_overseeding").unwrap();
-        assert!(matches!(seeding.status, ActivityStatus::Completed));
-    }
-
-    #[test]
-    fn fall_pre_emergent_does_not_complete_the_spring_application() {
-        let plan = plan(&[applied(ApplicationType::PreEmergent, date(2026, 9, 5))]);
-        let spring = find(&plan, "pre_emergent").unwrap();
-        assert!(matches!(spring.status, ActivityStatus::Missed));
-        let fall = find(&plan, "fall_pre_emergent").unwrap();
-        assert!(matches!(fall.status, ActivityStatus::Completed));
-        // Seeding is ruled out, and aeration goes with it.
-        assert!(find(&plan, "fall_overseeding").is_none());
-        assert!(find(&plan, "core_aeration").is_none());
-    }
-
-    #[test]
-    fn warm_season_lawns_only_get_the_pre_emergent_activities() {
-        let today = date(2026, 9, 20);
-        let days = station(date(2026, 9, 19), 0.0);
-        let data = SeasonData::build(&days, &[], today.year());
-        let plan = activities(&data.season(&days, today), GrassType::Bermuda, &[], 2026);
-        let ids: Vec<&str> = plan.iter().map(|a| a.id.as_str()).collect();
-        assert_eq!(ids, vec!["pre_emergent", "fall_pre_emergent"]);
-    }
-}
+mod tests;
