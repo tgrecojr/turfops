@@ -17,7 +17,9 @@ export default function DiseaseRiskWidget({ data }: DiseaseRiskWidgetProps) {
 				</Link>
 			</div>
 			{data.diseases.length === 0 && (
-				<div style={styles.empty}>Not enough recent weather data.</div>
+				<div style={styles.empty}>
+					{data.data_notes[0] ?? "Not enough recent weather data."}
+				</div>
 			)}
 			{data.diseases.map((risk) => (
 				<Link

@@ -81,7 +81,8 @@ export default function DiseaseRisk() {
 					</p>
 					{data.diseases.length === 0 && (
 						<div style={sharedStyles.empty}>
-							Not enough recent weather data to score disease risk.
+							{data.data_notes[0] ??
+								"Not enough recent weather data to score disease risk."}
 						</div>
 					)}
 					<div style={styles.list}>

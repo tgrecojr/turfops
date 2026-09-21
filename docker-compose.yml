@@ -5,7 +5,8 @@ services:
     environment:
       POSTGRES_DB: turfops
       POSTGRES_USER: turfops
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      # Required: compose refuses to start when DB_PASSWORD is unset (set it in .env).
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?}
     ports:
       - "5433:5432"
     volumes:
@@ -36,7 +37,7 @@ services:
       DATABASE_PORT: ${DATABASE_PORT:-5432}
       DATABASE_NAME: ${DATABASE_NAME:-turfops}
       DATABASE_USER: ${DATABASE_USER:-turfops}
-      DATABASE_PASSWORD: ${DB_PASSWORD}
+      DATABASE_PASSWORD: ${DB_PASSWORD:?}
 
       # Server
       SERVER_HOST: "0.0.0.0"
@@ -73,6 +74,15 @@ services:
       OWM_LATITUDE: ${OWM_LATITUDE:-0}
       OWM_LONGITUDE: ${OWM_LONGITUDE:-0}
       OWM_ENABLED: ${OWM_ENABLED:-true}
+
+      # OpenRouter (optional) — generates landscape-plant care plans. Without a key the
+      # plant add / refresh-plan endpoints answer 503.
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-anthropic/claude-haiku-4-5}
+      OPENROUTER_ENABLED: ${OPENROUTER_ENABLED:-true}
+
+      # Only needed when the SPA is served from another origin (e.g. the Vite dev server)
+      CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN:-}
 
       # Static files
       STATIC_DIR: /app/static

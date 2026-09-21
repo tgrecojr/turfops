@@ -25,61 +25,58 @@ pub async fn get_seasonal_plan(
 ) -> Result<Json<SeasonalPlan>, TurfOpsError> {
     let year = params.year.unwrap_or_else(|| Local::now().year());
 
-    // Load cached crossings
-    let cached_years = queries::get_threshold_crossings_years(&state.pool).await?;
-
-    // Determine which years need backfilling from the data lake
+    // Backfill threshold crossings from the data lake. Past years are computed once; the
+    // year in progress (and last year, until it has been recomputed after it ended) is
+    // recomputed on each load — a local parquet read — so its later crossings appear.
     let current_year = Local::now().year();
     let earliest_desired = current_year - 10; // Up to 10 years of history
-    let years_to_fill: Vec<i32> = (earliest_desired..=current_year)
-        .filter(|y| !cached_years.contains(y))
-        .collect();
-
-    // Backfill from the data lake if needed
-    if !years_to_fill.is_empty() {
+    {
         let sync = state.sync_service.read().await;
         if let Some(client) = sync.weather_client() {
-            for fill_year in &years_to_fill {
+            let station = client.station_wbanno();
+            queries::delete_crossings_for_other_stations(&state.pool, station).await?;
+            let settled = queries::get_settled_crossing_years(&state.pool, station).await?;
+            for fill_year in (earliest_desired..=current_year).filter(|y| !settled.contains(y)) {
                 let start = Utc
-                    .with_ymd_and_hms(*fill_year, 1, 1, 0, 0, 0)
+                    .with_ymd_and_hms(fill_year, 1, 1, 0, 0, 0)
                     .single()
                     .unwrap_or_default();
                 let end = Utc
-                    .with_ymd_and_hms(*fill_year, 12, 31, 23, 59, 59)
+                    .with_ymd_and_hms(fill_year, 12, 31, 23, 59, 59)
                     .single()
                     .unwrap_or_default();
 
                 match client.fetch_daily_soil_temp_averages(start, end).await {
-                    Ok(daily_temps) => {
-                        if daily_temps.len() >= 30 {
-                            let crossings = find_threshold_crossings(*fill_year, &daily_temps);
-                            for crossing in &crossings {
-                                if let Err(e) =
-                                    queries::upsert_threshold_crossing(&state.pool, crossing).await
-                                {
-                                    tracing::warn!(
-                                        year = fill_year,
-                                        "Failed to cache threshold crossing: {}",
-                                        e
-                                    );
-                                }
-                            }
-                            tracing::info!(
+                    Ok(daily_temps) if daily_temps.len() >= 30 => {
+                        let crossings = find_threshold_crossings(fill_year, &daily_temps);
+                        if let Err(e) = queries::replace_threshold_crossings(
+                            &state.pool,
+                            fill_year,
+                            station,
+                            &crossings,
+                        )
+                        .await
+                        {
+                            tracing::warn!(
                                 year = fill_year,
-                                crossings = crossings.len(),
-                                daily_points = daily_temps.len(),
-                                "Cached threshold crossings for year"
-                            );
-                        } else {
-                            tracing::debug!(
-                                year = fill_year,
-                                points = daily_temps.len(),
-                                "Insufficient data for threshold analysis"
+                                "Failed to cache threshold crossings: {}",
+                                e
                             );
                         }
                     }
+                    Ok(daily_temps) => {
+                        tracing::debug!(
+                            year = fill_year,
+                            points = daily_temps.len(),
+                            "Insufficient data for threshold analysis"
+                        );
+                    }
                     Err(e) => {
-                        tracing::warn!(year = fill_year, "Failed to fetch soil data: {}", e);
+                        tracing::warn!(
+                            year = fill_year,
+                            "Failed to fetch soil temps for threshold analysis: {}",
+                            e
+                        );
                     }
                 }
             }

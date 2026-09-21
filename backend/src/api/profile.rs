@@ -43,20 +43,28 @@ pub async fn update_profile(
     if let Some(zone) = req.usda_zone {
         profile.usda_zone = zone;
     }
-    if let Some(st) = req.soil_type {
-        profile.soil_type = Some(
-            SoilType::from_str(&st)
-                .map_err(|_| TurfOpsError::InvalidData(format!("Unknown soil type: {}", st)))?,
-        );
+    // Optional fields: absent = leave alone, empty (or a non-positive size) = clear.
+    match req.soil_type.as_deref() {
+        None => {}
+        Some("") => profile.soil_type = None,
+        Some(st) => {
+            profile.soil_type =
+                Some(SoilType::from_str(st).map_err(|_| {
+                    TurfOpsError::InvalidData(format!("Unknown soil type: {}", st))
+                })?);
+        }
     }
     if let Some(sqft) = req.lawn_size_sqft {
-        profile.lawn_size_sqft = Some(sqft);
+        profile.lawn_size_sqft = Some(sqft).filter(|s| *s > 0.0);
     }
-    if let Some(it) = req.irrigation_type {
-        profile.irrigation_type =
-            Some(IrrigationType::from_str(&it).map_err(|_| {
+    match req.irrigation_type.as_deref() {
+        None => {}
+        Some("") => profile.irrigation_type = None,
+        Some(it) => {
+            profile.irrigation_type = Some(IrrigationType::from_str(it).map_err(|_| {
                 TurfOpsError::InvalidData(format!("Unknown irrigation type: {}", it))
             })?);
+        }
     }
 
     queries::update_lawn_profile(&state.pool, &profile).await?;

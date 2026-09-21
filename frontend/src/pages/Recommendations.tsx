@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { getRecommendations, patchRecommendation } from "../api/client";
 import { sharedStyles } from "../styles/shared";
 import type { Recommendation } from "../types";
-import { SEVERITY_COLORS, SEVERITY_SYMBOLS } from "../types";
+import { categoryLabel, SEVERITY_COLORS, SEVERITY_SYMBOLS } from "../types";
 
 export default function Recommendations() {
 	const [allRecs, setAllRecs] = useState<Recommendation[]>([]);
@@ -122,7 +122,9 @@ export default function Recommendations() {
 										>
 											{symbol} {rec.severity}
 										</span>
-										<span style={styles.category}>{rec.category}</span>
+										<span style={styles.category}>
+											{categoryLabel(rec.category)}
+										</span>
 									</div>
 									<div style={styles.listTitle}>{rec.title}</div>
 									<div style={styles.listDesc}>{rec.description}</div>
@@ -172,7 +174,7 @@ export default function Recommendations() {
 								{SEVERITY_SYMBOLS[selectedRec.severity]} {selectedRec.severity}
 							</span>
 							<span style={{ ...styles.category, marginLeft: 8 }}>
-								{selectedRec.category}
+								{categoryLabel(selectedRec.category)}
 							</span>
 
 							<p style={styles.detailDesc}>{selectedRec.description}</p>

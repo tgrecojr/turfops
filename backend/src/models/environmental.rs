@@ -107,6 +107,10 @@ pub struct EnvironmentalSummary {
     pub precipitation_7day_total_mm: Option<f64>,
     pub soil_temp_trend: Trend,
     pub last_updated: Option<DateTime<Utc>>,
+    /// When the station actually measured the soil values in `current`. The lake normally
+    /// trails by about a day; `last_updated` only says when the app last looked.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub soil_observed_at: Option<DateTime<Utc>>,
     /// Weather forecast data (5-day/3-hour) from OpenWeatherMap
     #[serde(skip_serializing_if = "Option::is_none")]
     pub forecast: Option<WeatherForecast>,
