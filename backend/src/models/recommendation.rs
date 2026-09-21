@@ -71,6 +71,20 @@ impl Severity {
     }
 }
 
+impl std::str::FromStr for Severity {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Info" => Ok(Severity::Info),
+            "Advisory" => Ok(Severity::Advisory),
+            "Warning" => Ok(Severity::Warning),
+            "Critical" => Ok(Severity::Critical),
+            other => Err(format!("Unknown severity: {}", other)),
+        }
+    }
+}
+
 impl std::fmt::Display for Severity {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.as_str())

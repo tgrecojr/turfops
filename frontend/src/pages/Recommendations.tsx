@@ -5,7 +5,8 @@ import type { Recommendation } from "../types";
 import { SEVERITY_COLORS, SEVERITY_SYMBOLS } from "../types";
 
 export default function Recommendations() {
-	const [recs, setRecs] = useState<Recommendation[]>([]);
+	const [allRecs, setAllRecs] = useState<Recommendation[]>([]);
+	const [showAnswered, setShowAnswered] = useState(false);
 	const [selected, setSelected] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -13,8 +14,8 @@ export default function Recommendations() {
 
 	const fetchRecs = useCallback(async () => {
 		try {
-			const data = await getRecommendations();
-			setRecs(data);
+			const data = await getRecommendations(true);
+			setAllRecs(data);
 			setError(null);
 		} catch (e) {
 			setError(e instanceof Error ? e.message : "Failed to load");
@@ -27,15 +28,39 @@ export default function Recommendations() {
 		fetchRecs();
 	}, [fetchRecs]);
 
+	const recs = allRecs.filter((r) => !r.dismissed && !r.addressed);
+	const answered = allRecs.filter((r) => r.dismissed || r.addressed);
+
 	const handleAction = async (
-		id: string,
+		rec: Recommendation,
 		action: "addressed" | "dismissed",
 	) => {
+		setActionInFlight(rec.id);
+		try {
+			await patchRecommendation(rec.id, {
+				[action]: true,
+				severity: rec.severity,
+			});
+			setAllRecs((prev) =>
+				prev.map((r) => (r.id === rec.id ? { ...r, [action]: true } : r)),
+			);
+			if (selected === rec.id) setSelected(null);
+		} catch (e) {
+			setError(e instanceof Error ? e.message : "Failed to update");
+		} finally {
+			setActionInFlight(null);
+		}
+	};
+
+	const handleRestore = async (id: string) => {
 		setActionInFlight(id);
 		try {
-			await patchRecommendation(id, { [action]: true });
-			setRecs((prev) => prev.filter((r) => r.id !== id));
-			if (selected === id) setSelected(null);
+			await patchRecommendation(id, { dismissed: false, addressed: false });
+			setAllRecs((prev) =>
+				prev.map((r) =>
+					r.id === id ? { ...r, dismissed: false, addressed: false } : r,
+				),
+			);
 		} catch (e) {
 			setError(e instanceof Error ? e.message : "Failed to update");
 		} finally {
@@ -108,7 +133,7 @@ export default function Recommendations() {
 											disabled={isActioning}
 											onClick={(e) => {
 												e.stopPropagation();
-												handleAction(rec.id, "addressed");
+												handleAction(rec, "addressed");
 											}}
 										>
 											{isActioning ? "Updating..." : "Mark Addressed"}
@@ -119,7 +144,7 @@ export default function Recommendations() {
 											disabled={isActioning}
 											onClick={(e) => {
 												e.stopPropagation();
-												handleAction(rec.id, "dismissed");
+												handleAction(rec, "dismissed");
 											}}
 										>
 											Dismiss
@@ -188,6 +213,49 @@ export default function Recommendations() {
 					)}
 				</div>
 			)}
+
+			{answered.length > 0 && (
+				<div style={styles.answered}>
+					<button
+						type="button"
+						style={styles.dismissBtn}
+						aria-expanded={showAnswered}
+						onClick={() => setShowAnswered((v) => !v)}
+					>
+						{showAnswered ? "Hide" : "Show"} dismissed / addressed (
+						{answered.length})
+					</button>
+					{showAnswered && (
+						<>
+							<p style={styles.answeredNote}>
+								These still apply but are hidden. One comes back on its own if
+								it gets more severe, or once the episode it belonged to is over.
+							</p>
+							{answered.map((rec) => (
+								<div key={rec.id} style={styles.answeredItem}>
+									<div>
+										<div style={styles.listTitle}>
+											{SEVERITY_SYMBOLS[rec.severity]} {rec.title}
+										</div>
+										<div style={styles.category}>
+											{rec.severity} ·{" "}
+											{rec.addressed ? "Addressed" : "Dismissed"}
+										</div>
+									</div>
+									<button
+										type="button"
+										style={styles.dismissBtn}
+										disabled={actionInFlight === rec.id}
+										onClick={() => handleRestore(rec.id)}
+									>
+										{actionInFlight === rec.id ? "Updating..." : "Restore"}
+									</button>
+								</div>
+							))}
+						</>
+					)}
+				</div>
+			)}
 		</div>
 	);
 }
@@ -246,6 +314,19 @@ const styles: Record<string, React.CSSProperties> = {
 		borderRadius: 4,
 		cursor: "pointer",
 		fontSize: "0.75rem",
+	},
+	answered: { marginTop: "1.5rem" },
+	answeredNote: { fontSize: "0.8rem", color: "#718096", margin: "8px 0" },
+	answeredItem: {
+		display: "flex",
+		justifyContent: "space-between",
+		alignItems: "center",
+		gap: 12,
+		backgroundColor: "#fff",
+		borderRadius: 8,
+		padding: "0.6rem 1rem",
+		marginBottom: "0.4rem",
+		boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
 	},
 	detail: {
 		flex: 1,
