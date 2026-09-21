@@ -22,6 +22,9 @@ pub struct Season<'a> {
     /// Station soil data reaches close enough to today to judge what has happened.
     /// When false, boundaries fall back to the calendar.
     pub data_fresh: bool,
+    /// Last day of station soil data. The lake trails today by a day or two, and a
+    /// crossing cannot be "late" on days the station has not reported yet.
+    pub last_observed: Option<NaiveDate>,
 }
 
 /// A boundary's standing in the evaluated season.
@@ -90,8 +93,12 @@ fn from_typical(
     let scan_over = scan_to
         .in_season(year)
         .is_some_and(|end| season.today > end);
+    // Overdue means the station has data *past* the typical date and still shows no
+    // crossing. Until fresh data gets there, the typical date remains the estimate. (With
+    // stale data the calendar decides instead: a typical date in the past has passed.)
+    let seen_through = season.last_observed.unwrap_or(season.today);
     let (date, passed) = match median {
-        Some(m) if m > season.today => (Some(m), false),
+        Some(m) if m > season.today || (season.data_fresh && m > seen_through) => (Some(m), false),
         Some(m) if scan_over || !season.data_fresh => (Some(m), true),
         _ => (None, false),
     };

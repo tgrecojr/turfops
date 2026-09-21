@@ -5,8 +5,9 @@ use chrono::{Datelike, Duration, NaiveDate};
 
 /// A day counts as a freeze when the minimum air temperature is at or below this (°F).
 pub const FREEZE_F: f64 = 32.0;
-/// Days with data required in Mar–May / Oct–Dec for that year's freeze date to be trusted.
-const MIN_FREEZE_SEASON_DAYS: usize = 80;
+/// Share of days with data required between a freeze and the edge of its season (after a
+/// last spring freeze, before a first fall freeze) for that date to be trusted.
+const MIN_FREEZE_COVERAGE: f64 = 0.9;
 /// Days of 5 cm soil data a calendar year needs to count toward the typical dates.
 const MIN_SOIL_DAYS_PER_YEAR: usize = 300;
 /// Share of elapsed days that need a GDD value for the year's running total to be trusted.
@@ -35,19 +36,38 @@ pub fn first_fall_freeze(days: &[ClimateDay], year: i32) -> Option<NaiveDate> {
         .map(|d| d.date)
 }
 
-fn has_air_coverage(days: &[ClimateDay], year: i32, months: std::ops::RangeInclusive<u32>) -> bool {
-    year_days(days, year)
-        .filter(|d| months.contains(&d.date.month()) && d.air_min_f.is_some())
-        .count()
-        >= MIN_FREEZE_SEASON_DAYS
+/// Share of days in `[from, to]` with an air minimum on record.
+fn air_coverage(days: &[ClimateDay], from: NaiveDate, to: NaiveDate) -> f64 {
+    let span = (to - from).num_days() + 1;
+    if span <= 0 {
+        return 1.0;
+    }
+    let present = days
+        .iter()
+        .filter(|d| d.date >= from && d.date <= to && d.air_min_f.is_some())
+        .count();
+    present as f64 / span as f64
 }
 
-/// `(year, date)` of each historical last spring freeze with enough Mar–May data.
+/// A first fall freeze is only as good as the record *before* it: a hole there could be
+/// hiding an earlier one. What happens afterwards is irrelevant — a December outage must
+/// not throw away an October freeze that was plainly observed.
+fn fall_freeze_is_sound(days: &[ClimateDay], freeze: NaiveDate) -> bool {
+    NaiveDate::from_ymd_opt(freeze.year(), 9, 15)
+        .is_some_and(|from| air_coverage(days, from, freeze) >= MIN_FREEZE_COVERAGE)
+}
+
+/// Likewise a last spring freeze needs the record *after* it, through May.
+fn spring_freeze_is_sound(days: &[ClimateDay], freeze: NaiveDate) -> bool {
+    NaiveDate::from_ymd_opt(freeze.year(), 5, 31)
+        .is_some_and(|to| air_coverage(days, freeze, to) >= MIN_FREEZE_COVERAGE)
+}
+
 pub fn spring_freeze_history(days: &[ClimateDay], years: &[i32]) -> Vec<(i32, NaiveDate)> {
     years
         .iter()
-        .filter(|&&y| has_air_coverage(days, y, 3..=5))
         .filter_map(|&y| last_spring_freeze(days, y).map(|d| (y, d)))
+        .filter(|(_, freeze)| spring_freeze_is_sound(days, *freeze))
         .collect()
 }
 
@@ -55,8 +75,8 @@ pub fn spring_freeze_history(days: &[ClimateDay], years: &[i32]) -> Vec<(i32, Na
 pub fn fall_freeze_history(days: &[ClimateDay], years: &[i32]) -> Vec<(i32, NaiveDate)> {
     years
         .iter()
-        .filter(|&&y| has_air_coverage(days, y, 10..=12))
         .filter_map(|&y| first_fall_freeze(days, y).map(|d| (y, d)))
+        .filter(|(_, freeze)| fall_freeze_is_sound(days, *freeze))
         .collect()
 }
 
@@ -194,6 +214,26 @@ mod tests {
             fall_freeze_history(&days, &[2023, 2024]),
             vec![(2023, date(2023, 11, 8))]
         );
+    }
+
+    #[test]
+    fn an_outage_after_the_first_freeze_does_not_discard_it() {
+        // The real station, 2018: first freeze Oct 22, then most of December missing.
+        let days: Vec<ClimateDay> = year_of(2023, typical_min)
+            .into_iter()
+            .filter(|d| d.date.month() != 12)
+            .collect();
+        assert_eq!(
+            fall_freeze_history(&days, &[2023]),
+            vec![(2023, date(2023, 11, 8))]
+        );
+
+        // A hole *before* the freeze could hide an earlier one: not trusted.
+        let holed: Vec<ClimateDay> = year_of(2023, typical_min)
+            .into_iter()
+            .filter(|d| d.date.month() != 10)
+            .collect();
+        assert!(fall_freeze_history(&holed, &[2023]).is_empty());
     }
 
     #[test]

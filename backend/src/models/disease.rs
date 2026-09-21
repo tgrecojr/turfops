@@ -94,7 +94,16 @@ pub struct DailyWeather {
     pub hours_covered: f64,
     /// True when any part of the day comes from the forecast rather than observations.
     pub is_forecast: bool,
+    /// The data includes the pre-dawn hours, where the day's low and its dew live.
+    pub covers_dawn: bool,
+    /// The data includes the afternoon, where the day's high lives.
+    pub covers_afternoon: bool,
 }
+
+/// Local hours that must be represented for a day's minimum / maximum to be real. Both
+/// spans are wider than the forecast's 3-hour step, so a covered span always has a point.
+pub const DAWN_HOURS: std::ops::RangeInclusive<u32> = 3..=8;
+pub const AFTERNOON_HOURS: std::ops::RangeInclusive<u32> = 13..=17;
 
 /// Lawn-history context that modifies weather-driven risk.
 #[derive(Debug, Clone, Default)]

@@ -47,7 +47,7 @@ is cached in Postgres, so the current season is always evaluated on current data
    | `Observed` | Seen in station data and held 5 days | yes |
    | `Tentative` | Seen in station data, run still in progress (< 5 days) | yes — the detail text says "held N of 5 days". On a **closing** boundary it makes the window `Closing`, never `Closed` (see State) |
    | `Forecast` | Only the soil forecast crosses it. The outlook starts the day after the last station day, so a crossing inside the lake's lag is dated *today*, never in the past | no → `OpeningSoon` |
-   | `Typical` | Not seen: the historical median is used | only when the median is still ahead it is an estimate; if the median has passed while station data is current, the boundary is **overdue** and carries *no date* ("later than usual") |
+   | `Typical` | Not seen: the historical median is used | only when the median is still ahead it is an estimate; if the median has passed **and the station has reported past it** with no crossing, the boundary is **overdue** and carries *no date* ("later than usual"). Inside the lake's 1–2 day lag the median stays the estimate. The detail text only says "running behind" past the 90th percentile — the median alone is passed in half of all years |
 
    When station soil data is more than 5 days old, or a boundary's scan range has
    ended, typical dates are trusted by the calendar instead, and a data note says so.
@@ -63,8 +63,11 @@ is cached in Postgres, so the current season is always evaluated on current data
    `Done` if the window's own application is logged, else `Blocked` on a conflict.
 
 Freeze dates are the last day before July / first day from August with a minimum air
-temperature ≤ 32°F. A year's freeze date only counts when Mar–May (spring) or Oct–Dec
-(fall) has ≥ 80 days of data. Freeze-anchored boundaries always use the *typical*
+temperature ≤ 32°F. A year's freeze date only counts when the record *around* it is
+sound: ≥ 90 % of days present from Sep 15 up to a first fall freeze (a hole there could
+hide an earlier one), or from a last spring freeze through May 31. What happens on the far
+side is irrelevant — the real station lost most of December 2018, which must not discard
+the Oct 22 freeze it plainly recorded. Freeze-anchored boundaries always use the *typical*
 (median) first freeze, never the current year's actual or forecast freeze — by the time
 a freeze is in the forecast it is far too late to seed.
 

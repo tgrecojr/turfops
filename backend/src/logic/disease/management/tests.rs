@@ -1,6 +1,8 @@
 use super::*;
 use crate::logic::disease::test_support::date;
 
+mod outlook;
+
 fn app(m: u32, d: u32, product: &str) -> FungicideRecord {
     FungicideRecord {
         date: date(m, d),
