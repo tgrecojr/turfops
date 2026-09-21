@@ -184,6 +184,7 @@ mod tests {
                     country: "US".into(),
                     latitude: 0.0,
                     longitude: 0.0,
+                    utc_offset_seconds: 0,
                 },
                 hourly,
                 daily_summary: Vec::new(),

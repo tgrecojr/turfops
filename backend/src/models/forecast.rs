@@ -20,9 +20,22 @@ impl WeatherForecast {
             .collect()
     }
 
+    /// Today's date at the forecast location (the daily summaries are local days).
+    pub fn local_today(&self) -> NaiveDate {
+        (Utc::now() + chrono::Duration::seconds(self.location.utc_offset_seconds as i64))
+            .date_naive()
+    }
+
+    /// Daily summaries that cover enough of the day for their high/low (and the mean
+    /// derived from them) to mean something. The 5-day feed starts and ends mid-day, so
+    /// its first and last buckets are usually an evening or a few night hours.
+    pub fn full_days(&self) -> impl Iterator<Item = &DailyForecast> {
+        self.daily_summary.iter().filter(|d| d.is_full_day())
+    }
+
     /// Get forecast points for the next N days
     pub fn next_days(&self, days: u32) -> Vec<&DailyForecast> {
-        let today = Utc::now().date_naive();
+        let today = self.local_today();
         let cutoff = today + chrono::Duration::days(days as i64);
         self.daily_summary
             .iter()
@@ -74,6 +87,9 @@ pub struct ForecastLocation {
     pub country: String,
     pub latitude: f64,
     pub longitude: f64,
+    /// Offset of the location's wall clock from UTC (OpenWeatherMap `city.timezone`).
+    #[serde(default)]
+    pub utc_offset_seconds: i32,
 }
 
 /// A single 3-hour forecast point
@@ -103,6 +119,18 @@ pub struct DailyForecast {
     pub dominant_condition: WeatherCondition,
     pub avg_wind_speed_mph: f64,
     pub max_wind_gust_mph: Option<f64>,
+    /// Hours of this local day the 3-hourly feed covers (3 per point).
+    #[serde(default)]
+    pub hours_covered: u32,
+}
+
+/// A day needs this much coverage before its high/low describe the day.
+const FULL_DAY_HOURS: u32 = 18;
+
+impl DailyForecast {
+    pub fn is_full_day(&self) -> bool {
+        self.hours_covered >= FULL_DAY_HOURS
+    }
 }
 
 /// Weather condition categories from OpenWeatherMap

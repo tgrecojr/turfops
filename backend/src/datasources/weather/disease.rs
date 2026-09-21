@@ -1,6 +1,6 @@
 use super::WeatherLakeClient;
 use crate::error::Result;
-use crate::models::DailyWeather;
+use crate::models::{DailyWeather, AFTERNOON_HOURS, DAWN_HOURS};
 use chrono::NaiveDate;
 
 /// Daily disease-model inputs from the lake plus the station's current UTC offset,
@@ -30,6 +30,8 @@ impl WeatherLakeClient {
         let station = self.station_wbanno;
         let start_s = start.to_string();
         Self::run(move |conn| {
+            let (dawn_from, dawn_to) = (DAWN_HOURS.start(), DAWN_HOURS.end());
+            let (noon_from, noon_to) = (AFTERNOON_HOURS.start(), AFTERNOON_HOURS.end());
             let sql = format!(
                 "SELECT obs_date_local, \
                         CAST(count(*) AS DOUBLE), \
@@ -40,7 +42,9 @@ impl WeatherLakeClient {
                         CAST(sum(CASE WHEN rh_pct >= 90 THEN 1 ELSE 0 END) AS DOUBLE), \
                         CAST(sum(CASE WHEN rh_pct >= 90 OR precip_mm > 0 THEN 1 ELSE 0 END) AS DOUBLE), \
                         CAST(coalesce(sum(precip_mm), 0) AS DOUBLE), \
-                        max({DEW_POINT_SQL}) \
+                        max({DEW_POINT_SQL}), \
+                        bool_or(hour(obs_ts_local) BETWEEN {dawn_from} AND {dawn_to}), \
+                        bool_or(hour(obs_ts_local) BETWEEN {noon_from} AND {noon_to}) \
                  FROM {src} \
                  WHERE CAST(wbanno AS INTEGER) = ? AND obs_date_local >= ?::DATE \
                    AND air_temp_c IS NOT NULL AND rh_pct > 0 \
@@ -62,6 +66,8 @@ impl WeatherLakeClient {
                     precip_mm: row.get(8)?,
                     dew_point_max_c: row.get(9)?,
                     is_forecast: false,
+                    covers_dawn: row.get(10)?,
+                    covers_afternoon: row.get(11)?,
                 });
             }
 

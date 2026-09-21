@@ -31,6 +31,8 @@ impl Rule for ApplicationWindowRule {
             .daily_summary
             .iter()
             .take(5)
+            // A day seen only through its last few hours can't be judged (or acted on).
+            .filter(|day| day.is_full_day())
             .filter_map(|day| {
                 let quality = self.assess_day_quality(day, env, forecast);
                 if quality.is_good() {
