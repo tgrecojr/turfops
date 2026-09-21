@@ -51,8 +51,8 @@ pub async fn get_soil_temp_forecast(
         .forecast
         .as_ref()
         .map(|f| {
-            f.daily_summary
-                .iter()
+            // Partial first/last days would enter the regression as a full-day mean.
+            f.full_days()
                 .map(|d| {
                     let avg_temp = (d.high_temp_f + d.low_temp_f) / 2.0;
                     (d.date, avg_temp)

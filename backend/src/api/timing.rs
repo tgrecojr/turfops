@@ -5,7 +5,7 @@ use crate::error::TurfOpsError;
 use crate::logic::timing::{self, context, Assessment};
 use crate::models::seasonal_plan::PlannedActivity;
 use crate::models::timing::TimingResponse;
-use crate::models::{Application, LawnProfile, Recommendation};
+use crate::models::{Application, DailyForecast, LawnProfile, Recommendation};
 use crate::state::AppState;
 use axum::extract::State;
 use axum::Json;
@@ -78,10 +78,12 @@ async fn compute(state: &AppState, profile: &LawnProfile) -> Result<TimingRespon
     )
     .await?;
 
-    let daily_forecast = forecast
+    // Only full days: a partial day's (high + low) / 2 is an evening or a night, not a mean.
+    let full_days: Vec<DailyForecast> = forecast
         .as_ref()
-        .map(|f| f.daily_summary.as_slice())
+        .map(|f| f.full_days().cloned().collect())
         .unwrap_or_default();
+    let daily_forecast = full_days.as_slice();
     let assessment = timing::assess(&timing::Inputs {
         today,
         days,

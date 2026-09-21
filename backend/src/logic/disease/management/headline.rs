@@ -8,8 +8,17 @@ use chrono::{Duration, NaiveDate};
 /// How far ahead a forecast High/Severe day triggers a heads-up.
 const OUTLOOK_DAYS: i64 = 3;
 
+/// A forecast High/Severe day, and whether a logged fungicide will still cover the lawn
+/// *on that day at that tier* — Severe pressure shortens the residual window and rules
+/// out some chemistry, so today's (lower-tier) protection status says nothing about it.
+pub(super) struct Outlook {
+    pub tier: RiskTier,
+    pub date: NaiveDate,
+    pub protection: Option<ProtectionStatus>,
+}
+
 /// First forecast day within the outlook window at High or above.
-fn outlook_escalation(daily: &[DailyRisk], today: NaiveDate) -> Option<&DailyRisk> {
+pub(super) fn outlook_escalation(daily: &[DailyRisk], today: NaiveDate) -> Option<&DailyRisk> {
     daily.iter().find(|d| {
         d.date > today && d.date <= today + Duration::days(OUTLOOK_DAYS) && d.tier >= RiskTier::High
     })
@@ -34,39 +43,47 @@ pub(super) fn headline(
     disease: Disease,
     tier: RiskTier,
     action: ManagementAction,
-    daily: &[DailyRisk],
-    today: NaiveDate,
     ctx: &DiseaseContext,
     recommended: Option<FracClass>,
     protection: &Option<ProtectionStatus>,
+    outlook: &Option<Outlook>,
 ) -> String {
     let name = disease.name().to_lowercase();
-    match action {
-        ManagementAction::NoAction => {
-            format!("No action needed — conditions don't favor {name}.")
-        }
-        ManagementAction::Monitor => match (outlook_escalation(daily, today), protection) {
-            (Some(day), Some(p)) => format!(
+    // What a forecast High/Severe day means for someone who needs nothing today.
+    let heads_up = |lead: &str| {
+        outlook.as_ref().map(|o| match &o.protection {
+            Some(p) => format!(
                 "Risk is forecast to reach {} on {}, but {} ({}) applied {} covers {name} \
                  through about {}. No action needed until then.",
-                day.tier.as_str(),
-                day.date.format("%-m/%-d"),
+                o.tier.as_str(),
+                o.date.format("%-m/%-d"),
                 p.product,
                 p.class_label,
                 p.applied_on.format("%-m/%-d"),
                 p.protected_through.format("%-m/%-d")
             ),
-            (Some(day), None) => format!(
-                "No fungicide needed yet, but risk is forecast to reach {} on {}. Tighten up \
-                 cultural practices and have a preventative on hand: {}.",
-                day.tier.as_str(),
-                day.date.format("%-m/%-d"),
+            None => format!(
+                "{lead}, but risk is forecast to reach {} on {}. Tighten up cultural practices \
+                 and have a preventative on hand: {}.",
+                o.tier.as_str(),
+                o.date.format("%-m/%-d"),
                 pick_text(recommended)
             ),
-            (None, _) => "No fungicide needed. Tighten up cultural practices and keep an eye on \
-                          the outlook."
-                .into(),
-        },
+        })
+    };
+    match action {
+        // Red thread's remedy is nitrogen, so a forecast never calls for a fungicide.
+        ManagementAction::NoAction if disease != Disease::RedThread => {
+            heads_up("No action needed today")
+                .unwrap_or_else(|| format!("No action needed — conditions don't favor {name}."))
+        }
+        ManagementAction::NoAction => {
+            format!("No action needed — conditions don't favor {name}.")
+        }
+        ManagementAction::Monitor => heads_up("No fungicide needed yet").unwrap_or_else(|| {
+            "No fungicide needed. Tighten up cultural practices and keep an eye on the outlook."
+                .into()
+        }),
         ManagementAction::Cultural => {
             let fed_recently = ctx.days_since_fertilizer.is_some_and(|d| d <= 60);
             if fed_recently {

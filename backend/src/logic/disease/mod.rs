@@ -49,8 +49,11 @@ pub fn assess_all(
     .collect()
 }
 
+/// Enough hours — and the right ones. Twelve hours of afternoon and evening (all a
+/// forecast-only "today" has left by late morning) carry no dawn low and none of the humid
+/// night, which is most of what these models score; a day that ends at noon has no high.
 fn is_usable(day: &DailyWeather) -> bool {
-    day.hours_covered >= MIN_USABLE_HOURS
+    day.hours_covered >= MIN_USABLE_HOURS && day.covers_dawn && day.covers_afternoon
 }
 
 /// Mean of `field` over the usable days in the `window`-day span ending at `idx`
@@ -184,6 +187,8 @@ pub(crate) mod test_support {
             dew_point_max_c: weather_days::dew_point_c(mean_c, rh),
             hours_covered: 24.0,
             is_forecast: false,
+            covers_dawn: true,
+            covers_afternoon: true,
         }
     }
 
@@ -246,6 +251,33 @@ mod tests {
         assert_eq!(scored.headline_idx, 1);
         assert_eq!(scored.daily.len(), 3);
         assert!(scored.daily[2].partial);
+    }
+
+    #[test]
+    fn an_afternoon_only_today_is_not_the_headline() {
+        // 10:30 am: the lake has nothing for today yet and the forecast has 13:00-22:00
+        // left — 12 hours, but no dawn low and none of the humid night.
+        let today = date(9, 20);
+        let mut series = run_of(today, 3, |d| day(d, 20.0, 15.0, 25.0, 80.0));
+        series[2].hours_covered = 12.0;
+        series[2].covers_dawn = false;
+        let scale = RiskScale {
+            min: 0.0,
+            max: 100.0,
+            unit: "%".into(),
+            moderate_at: 25.0,
+            high_at: 50.0,
+            severe_at: 75.0,
+        };
+        let scored = score_window(&series, today, &scale, |i| Some(i as f64)).unwrap();
+        assert_eq!(scored.headline_idx, 1);
+        assert!(scored.daily[2].partial);
+
+        // Same for a yesterday that stopped landing at noon: no afternoon high.
+        series[2].covers_dawn = true;
+        series[2].covers_afternoon = false;
+        let scored = score_window(&series, today, &scale, |i| Some(i as f64)).unwrap();
+        assert_eq!(scored.headline_idx, 1);
     }
 
     #[test]

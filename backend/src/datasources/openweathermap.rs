@@ -78,6 +78,9 @@ struct OwmCity {
     name: String,
     country: String,
     coord: OwmCoord,
+    /// Shift in seconds from UTC.
+    #[serde(default)]
+    timezone: i32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -148,6 +151,7 @@ impl OpenWeatherMapClient {
             country: response.city.country,
             latitude: response.city.coord.lat,
             longitude: response.city.coord.lon,
+            utc_offset_seconds: response.city.timezone,
         };
 
         let hourly: Vec<ForecastPoint> = response
@@ -156,7 +160,7 @@ impl OpenWeatherMapClient {
             .map(|item| self.convert_forecast_item(item))
             .collect();
 
-        let daily_summary = self.aggregate_daily(&hourly);
+        let daily_summary = self.aggregate_daily(&hourly, location.utc_offset_seconds);
 
         WeatherForecast {
             fetched_at: Utc::now(),
@@ -194,11 +198,17 @@ impl OpenWeatherMapClient {
         }
     }
 
-    fn aggregate_daily(&self, hourly: &[ForecastPoint]) -> Vec<DailyForecast> {
-        // Group by date
+    fn aggregate_daily(
+        &self,
+        hourly: &[ForecastPoint],
+        utc_offset_seconds: i32,
+    ) -> Vec<DailyForecast> {
+        // Group by the location's local date. UTC dates run 8 pm–8 pm Eastern, which put a
+        // day's afternoon high and the following dawn low into different "days".
+        let offset = chrono::Duration::seconds(utc_offset_seconds as i64);
         let mut by_date: HashMap<NaiveDate, Vec<&ForecastPoint>> = HashMap::new();
         for point in hourly {
-            let date = point.timestamp.date_naive();
+            let date = (point.timestamp + offset).date_naive();
             by_date.entry(date).or_default().push(point);
         }
 
@@ -265,26 +275,10 @@ impl OpenWeatherMapClient {
             dominant_condition,
             avg_wind_speed_mph,
             max_wind_gust_mph,
+            hours_covered: 3 * points.len() as u32,
         }
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn sample_config() -> OpenWeatherMapConfig {
-        OpenWeatherMapConfig {
-            api_key: "test_key".to_string(),
-            latitude: 39.8561,
-            longitude: -75.7872,
-            enabled: true,
-        }
-    }
-
-    #[test]
-    fn client_creation() {
-        let client = OpenWeatherMapClient::new(sample_config());
-        assert!(client.config.enabled);
-    }
-}
+mod tests;

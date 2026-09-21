@@ -272,6 +272,8 @@ export interface DailyForecast {
 	dominant_condition: string;
 	avg_wind_speed_mph: number;
 	max_wind_gust_mph: number | null;
+	/** Hours of the local day the 3-hourly feed covers; under 18 = a partial day. */
+	hours_covered?: number;
 }
 
 export interface Recommendation {
