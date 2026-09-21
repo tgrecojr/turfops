@@ -117,6 +117,8 @@ turfops/
 - Axum serves React SPA static files with fallback to index.html for client-side routing
 - Seasonal plan uses historical NOAA soil temp data (up to 10 years) to predict activity windows via threshold crossing analysis; crossings cached in DB per station (`seasonal_threshold_crossings.station_wbanno`); a year is only "settled" once recomputed after it ended, so the year in progress is recomputed on each load instead of freezing at its first crossing
 - Calendar view overlays seasonal plan activity windows (status-colored bars) alongside application dots; detail panel shows both when a date is selected
+- `GrassType::Mixed` is a **cool-season** blend (fescue / bluegrass / rye) — it gets the rules, seeding windows and disease models. Warm-season lawns get no cool-season plan activities (`seasonal_plan::COOL_SEASON_ONLY`: spring N, fall feedings, winterizer, fall seeding + aeration); weed and grub control stay.
+- Landscape-plant tasks use the window in force *today* (`plant_maintenance::window_on`), so one that wraps the new year (Dec → Feb) stays open in January with the same recommendation id; completion is scoped to that window (from 30 d before it opens), so April's feeding does not complete September's.
 - Mowing is tracked as an ApplicationType (no cut height field); shows on calendar and applications list like any other type
 
 ## Environment Variables

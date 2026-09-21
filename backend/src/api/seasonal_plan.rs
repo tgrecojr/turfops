@@ -114,7 +114,13 @@ pub async fn get_seasonal_plan(
     )
     .await?;
 
-    let mut plan = build_seasonal_plan(year, &all_crossings, &applications, data_years);
+    let mut plan = build_seasonal_plan(
+        year,
+        &all_crossings,
+        &applications,
+        data_years,
+        profile.grass_type,
+    );
 
     // Pre-emergent, seeding and aeration come from the timing windows (5 cm soil +
     // freeze dates) so the plan agrees with the Timing page. The plan's own 10 cm version
@@ -130,8 +136,23 @@ pub async fn get_seasonal_plan(
     // Overlay plant-maintenance activities from the landscape feature.
     let plants = plant_queries::list_plants_for_profile(&state.pool, profile_id).await?;
     let today = Local::now().date_naive();
-    plan.activities
-        .extend(build_plant_activities(&plants, &applications, year, today));
+    // A plant window can open late in the previous year (dormant pruning, Dec → Feb), and
+    // the job may have been done back then — look that far for its completion.
+    let plant_log_start = NaiveDate::from_ymd_opt(year - 1, 10, 1)
+        .ok_or_else(|| TurfOpsError::InvalidData(format!("Invalid year: {}", year)))?;
+    let plant_applications = queries::get_applications_for_profile_in_range(
+        &state.pool,
+        profile_id,
+        plant_log_start,
+        end_date,
+    )
+    .await?;
+    plan.activities.extend(build_plant_activities(
+        &plants,
+        &plant_applications,
+        year,
+        today,
+    ));
     plan.activities
         .sort_by_key(|a| a.date_window.predicted_start);
 

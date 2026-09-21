@@ -45,13 +45,26 @@ fn resolve_window(task: &MaintenanceTask, year: i32) -> Option<(NaiveDate, Naive
     Some((start, end))
 }
 
-/// Is there a completion application for this task within `days_back` of `today`?
+/// The task's window as it matters on `today`: a window that started last year and is still
+/// open (dormant pruning, Dec 1 → Feb 28, seen from January) wins over this year's, which
+/// would otherwise make the task vanish on Jan 1 with two months of its window left.
+fn window_on(task: &MaintenanceTask, today: NaiveDate) -> Option<(NaiveDate, NaiveDate)> {
+    resolve_window(task, today.year() - 1)
+        .filter(|(_, end)| today <= *end)
+        .or_else(|| resolve_window(task, today.year()))
+}
+
+/// Doing the job a little ahead of its window still counts for that window.
+const EARLY_COMPLETION_DAYS: i64 = 30;
+
+/// Was this task logged for *this* window? Scoped to the window rather than "sometime in
+/// the last year", so April's feeding doesn't complete September's.
 fn task_completed(
     plant: &Plant,
     task: &MaintenanceTask,
     applications: &[Application],
     today: NaiveDate,
-    days_back: i64,
+    window: (NaiveDate, NaiveDate),
 ) -> bool {
     let Some(plant_id) = plant.id else {
         return false;
@@ -60,11 +73,12 @@ fn task_completed(
     if allowed_types.is_empty() {
         return false;
     }
-    let earliest = today - chrono::Duration::days(days_back);
+    let earliest = window.0 - chrono::Duration::days(EARLY_COMPLETION_DAYS);
     applications.iter().any(|app| {
         app.plant_id == Some(plant_id)
             && allowed_types.contains(&app.application_type)
             && app.application_date >= earliest
+            && app.application_date <= window.1
             && app.application_date <= today
     })
 }
@@ -81,18 +95,19 @@ pub fn generate_plant_maintenance_recommendations(
     today: NaiveDate,
 ) -> Vec<Recommendation> {
     let mut recs = Vec::new();
-    let year = today.year();
 
     for plant in plants {
         for (idx, task) in plant.maintenance_plan.tasks.iter().enumerate() {
-            let Some((start, end)) = resolve_window(task, year) else {
+            let Some((start, end)) = window_on(task, today) else {
                 continue;
             };
+            // The id carries the year the window opened in, so it is stable across Jan 1.
+            let year = start.year();
             let lead_in = start - chrono::Duration::days(WINDOW_LEAD_DAYS);
             if today < lead_in || today > end {
                 continue;
             }
-            if task_completed(plant, task, applications, today, 300) {
+            if task_completed(plant, task, applications, today, (start, end)) {
                 continue;
             }
 
@@ -172,11 +187,18 @@ pub fn build_plant_activities(
 
     for plant in plants {
         for (idx, task) in plant.maintenance_plan.tasks.iter().enumerate() {
-            let Some((start, end)) = resolve_window(task, year) else {
+            // For the current year show the window as it stands today (possibly one that
+            // opened last December); other years show the window that opens in them.
+            let window = if year == today.year() {
+                window_on(task, today)
+            } else {
+                resolve_window(task, year)
+            };
+            let Some((start, end)) = window else {
                 continue;
             };
 
-            let completed = task_completed(plant, task, applications, today, 365);
+            let completed = task_completed(plant, task, applications, today, (start, end));
             let status = if completed {
                 ActivityStatus::Completed
             } else if today > end {
@@ -222,166 +244,4 @@ pub fn build_plant_activities(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::models::plant::{
-        IdentificationConfidence, MaintenanceTask, PlantMaintenancePlan, PlantType, TaskFrequency,
-    };
-    use crate::models::Severity;
-    use chrono::Utc;
-
-    fn make_task(
-        task_type: TaskType,
-        start_mmdd: &str,
-        end_mmdd: &str,
-        severity: Severity,
-    ) -> MaintenanceTask {
-        MaintenanceTask {
-            task_type,
-            window_start_month_day: start_mmdd.into(),
-            window_end_month_day: end_mmdd.into(),
-            frequency: TaskFrequency::Once,
-            description: "Test task".into(),
-            severity,
-            zone_note: None,
-        }
-    }
-
-    fn make_plant(id: i64, tasks: Vec<MaintenanceTask>) -> Plant {
-        Plant {
-            id: Some(id),
-            lawn_profile_id: 1,
-            common_name: "Test Hydrangea".into(),
-            scientific_name: Some("Hydrangea paniculata".into()),
-            plant_type: PlantType::Shrub,
-            location: None,
-            planting_date: None,
-            notes: None,
-            maintenance_plan: PlantMaintenancePlan {
-                identified_name: "Test Hydrangea".into(),
-                scientific_name: Some("Hydrangea paniculata".into()),
-                identification_confidence: IdentificationConfidence::High,
-                summary: "Test plan".into(),
-                tasks,
-                warnings: vec![],
-            },
-            plan_generated_at: Utc::now(),
-            plan_model: "test-model".into(),
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
-        }
-    }
-
-    fn pruning_app(plant_id: i64, date: NaiveDate) -> Application {
-        Application {
-            id: Some(1),
-            lawn_profile_id: 1,
-            application_type: ApplicationType::Pruning,
-            product_name: None,
-            application_date: date,
-            rate_per_1000sqft: None,
-            coverage_sqft: None,
-            notes: None,
-            weather_snapshot: None,
-            nitrogen_pct: None,
-            phosphorus_pct: None,
-            potassium_pct: None,
-            plant_id: Some(plant_id),
-            follow_up_date: None,
-            frac_classes: None,
-            created_at: Utc::now(),
-        }
-    }
-
-    #[test]
-    fn parse_month_day_clamps_invalid_day() {
-        assert_eq!(
-            parse_month_day("02-30", 2026),
-            Some(NaiveDate::from_ymd_opt(2026, 2, 28).unwrap())
-        );
-    }
-
-    #[test]
-    fn resolve_window_handles_wrap() {
-        let task = make_task(TaskType::WinterProtection, "11-15", "02-15", Severity::Info);
-        let (start, end) = resolve_window(&task, 2026).unwrap();
-        assert_eq!(start.year(), 2026);
-        assert_eq!(end.year(), 2027);
-    }
-
-    #[test]
-    fn recommendation_emitted_in_window() {
-        let task = make_task(TaskType::Pruning, "03-01", "03-31", Severity::Advisory);
-        let plant = make_plant(42, vec![task]);
-        let today = NaiveDate::from_ymd_opt(2026, 3, 15).unwrap();
-        let recs = generate_plant_maintenance_recommendations(&[plant], &[], today);
-        assert_eq!(recs.len(), 1);
-        assert_eq!(recs[0].category, RecommendationCategory::PlantMaintenance);
-        assert!(recs[0].title.contains("Test Hydrangea"));
-    }
-
-    #[test]
-    fn recommendation_suppressed_when_completed() {
-        let task = make_task(TaskType::Pruning, "03-01", "03-31", Severity::Advisory);
-        let plant = make_plant(42, vec![task]);
-        let today = NaiveDate::from_ymd_opt(2026, 3, 15).unwrap();
-        let apps = vec![pruning_app(
-            42,
-            NaiveDate::from_ymd_opt(2026, 3, 10).unwrap(),
-        )];
-        let recs = generate_plant_maintenance_recommendations(&[plant], &apps, today);
-        assert!(recs.is_empty(), "Should suppress after pruning was logged");
-    }
-
-    #[test]
-    fn recommendation_not_emitted_before_lead_in() {
-        let task = make_task(TaskType::Pruning, "03-01", "03-31", Severity::Advisory);
-        let plant = make_plant(42, vec![task]);
-        // Well before lead-in window.
-        let today = NaiveDate::from_ymd_opt(2026, 2, 1).unwrap();
-        let recs = generate_plant_maintenance_recommendations(&[plant], &[], today);
-        assert!(recs.is_empty());
-    }
-
-    #[test]
-    fn recommendation_not_emitted_after_end() {
-        let task = make_task(TaskType::Pruning, "03-01", "03-31", Severity::Advisory);
-        let plant = make_plant(42, vec![task]);
-        let today = NaiveDate::from_ymd_opt(2026, 4, 15).unwrap();
-        let recs = generate_plant_maintenance_recommendations(&[plant], &[], today);
-        assert!(recs.is_empty());
-    }
-
-    #[test]
-    fn build_plant_activities_status_active() {
-        let task = make_task(TaskType::Pruning, "03-01", "03-31", Severity::Advisory);
-        let plant = make_plant(42, vec![task]);
-        let today = NaiveDate::from_ymd_opt(2026, 3, 15).unwrap();
-        let acts = build_plant_activities(&[plant], &[], 2026, today);
-        assert_eq!(acts.len(), 1);
-        assert!(matches!(acts[0].status, ActivityStatus::Active));
-        assert_eq!(acts[0].category, "Plant Maintenance");
-    }
-
-    #[test]
-    fn build_plant_activities_status_completed_with_app() {
-        let task = make_task(TaskType::Pruning, "03-01", "03-31", Severity::Advisory);
-        let plant = make_plant(42, vec![task]);
-        let today = NaiveDate::from_ymd_opt(2026, 4, 5).unwrap();
-        let apps = vec![pruning_app(
-            42,
-            NaiveDate::from_ymd_opt(2026, 3, 10).unwrap(),
-        )];
-        let acts = build_plant_activities(&[plant], &apps, 2026, today);
-        assert!(matches!(acts[0].status, ActivityStatus::Completed));
-    }
-
-    #[test]
-    fn build_plant_activities_status_missed() {
-        let task = make_task(TaskType::Pruning, "03-01", "03-31", Severity::Advisory);
-        let plant = make_plant(42, vec![task]);
-        let today = NaiveDate::from_ymd_opt(2026, 5, 1).unwrap();
-        let acts = build_plant_activities(&[plant], &[], 2026, today);
-        assert!(matches!(acts[0].status, ActivityStatus::Missed));
-    }
-}
+mod tests;
