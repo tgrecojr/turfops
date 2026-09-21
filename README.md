@@ -363,7 +363,7 @@ cargo run  # migrations run automatically on startup
 
 # Development commands
 cargo build          # Build
-cargo test           # Run tests (241 tests)
+cargo test           # Run tests (246 tests)
 cargo fmt            # Format code
 cargo clippy         # Lint
 RUST_LOG=debug cargo run  # Run with debug logging

@@ -224,6 +224,7 @@ fn forecast_cooling_flags_the_window_as_opening_soon() {
             dominant_condition: crate::models::WeatherCondition::Clear,
             avg_wind_speed_mph: 5.0,
             max_wind_gust_mph: None,
+            hours_covered: 24,
         })
         .collect();
     let result = assess(&Inputs {
@@ -252,6 +253,7 @@ fn forecast_day(date: NaiveDate, avg_f: f64) -> DailyForecast {
         dominant_condition: crate::models::WeatherCondition::Clear,
         avg_wind_speed_mph: 5.0,
         max_wind_gust_mph: None,
+        hours_covered: 24,
     }
 }
 

@@ -35,6 +35,11 @@ pub(super) fn plan(
     let curative_pick = recommended_class(spec, last_used, true);
     let protection = active_protection(spec, &ctx.fungicide_apps, tier, today);
     let action = action_for(disease, tier, protection.is_some());
+    let outlook = headline::outlook_escalation(daily, today).map(|day| headline::Outlook {
+        tier: day.tier,
+        date: day.date,
+        protection: active_protection(spec, &ctx.fungicide_apps, day.tier, day.date),
+    });
 
     let mut notes: Vec<String> = spec.notes.iter().map(|n| n.to_string()).collect();
     if let Some(warning) = &ctx.rotation_warning {
@@ -48,11 +53,10 @@ pub(super) fn plan(
             disease,
             tier,
             action,
-            daily,
-            today,
             ctx,
             recommended,
             &protection,
+            &outlook,
         ),
         cultural: spec.cultural.iter().map(|c| c.to_string()).collect(),
         preventative: FungicideProgram {

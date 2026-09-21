@@ -1,8 +1,8 @@
 //! Builds the daily weather series the disease models run on: observed lake days,
 //! with today's remainder and the coming days filled in from the 3-hourly forecast.
 
-use crate::models::{DailyWeather, ForecastPoint};
-use chrono::{Duration, NaiveDate};
+use crate::models::{DailyWeather, ForecastPoint, AFTERNOON_HOURS, DAWN_HOURS};
+use chrono::{Duration, NaiveDate, Timelike};
 use std::collections::BTreeMap;
 
 /// Hours each OpenWeatherMap forecast point stands for.
@@ -29,6 +29,7 @@ pub fn forecast_days(points: &[ForecastPoint], utc_offset_minutes: i32) -> Vec<D
         by_day.entry(local_date).or_default().push(point);
     }
 
+    let local_hour = |p: &&ForecastPoint| (p.timestamp.naive_utc() + offset).hour();
     by_day
         .into_iter()
         .map(|(date, pts)| {
@@ -58,6 +59,8 @@ pub fn forecast_days(points: &[ForecastPoint], utc_offset_minutes: i32) -> Vec<D
                     .fold(f64::NEG_INFINITY, f64::max),
                 hours_covered: n * FORECAST_STEP_HOURS,
                 is_forecast: true,
+                covers_dawn: pts.iter().any(|p| DAWN_HOURS.contains(&local_hour(p))),
+                covers_afternoon: pts.iter().any(|p| AFTERNOON_HOURS.contains(&local_hour(p))),
             }
         })
         .collect()
@@ -79,6 +82,8 @@ fn merge_day(a: &DailyWeather, b: &DailyWeather) -> DailyWeather {
         dew_point_max_c: a.dew_point_max_c.max(b.dew_point_max_c),
         hours_covered: total.min(24.0),
         is_forecast: a.is_forecast || b.is_forecast,
+        covers_dawn: a.covers_dawn || b.covers_dawn,
+        covers_afternoon: a.covers_afternoon || b.covers_afternoon,
     }
 }
 
@@ -145,6 +150,9 @@ mod tests {
         assert_eq!(days[1].hours_rh90, 0.0);
         assert_eq!(days[1].leaf_wetness_hours, 3.0);
         assert!(days[1].is_forecast);
+        // 22:00 local is neither dawn nor afternoon; 08:00 local (12:00 UTC) is dawn.
+        assert!(!days[0].covers_dawn && !days[0].covers_afternoon);
+        assert!(days[1].covers_dawn && !days[1].covers_afternoon);
     }
 
     #[test]

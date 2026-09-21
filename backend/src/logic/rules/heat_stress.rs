@@ -44,6 +44,8 @@ impl Rule for HeatStressRule {
         let hot_days: usize = forecast
             .next_days(5)
             .iter()
+            // Tonight's leftover hours are not a cool day that ends the streak.
+            .filter(|d| d.is_full_day() || d.high_temp_f >= HEAT_STRESS_TEMP_F)
             .take_while(|d| d.high_temp_f >= HEAT_STRESS_TEMP_F)
             .count();
 
