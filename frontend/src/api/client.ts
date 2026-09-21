@@ -12,6 +12,7 @@ import type {
 	PlantType,
 	Recommendation,
 	SeasonalPlan,
+	Severity,
 	SoilTempForecast,
 	SoilTest,
 	SoilTestSummary,
@@ -148,12 +149,19 @@ export const refreshEnvironmental = () =>
 	});
 
 // Recommendations
-export const getRecommendations = () =>
-	fetchJson<Recommendation[]>(`${BASE}/recommendations`);
+/** `includeInactive` also returns the ones the user has dismissed / addressed. */
+export const getRecommendations = (includeInactive = false) =>
+	fetchJson<Recommendation[]>(
+		`${BASE}/recommendations${includeInactive ? "?include_inactive=true" : ""}`,
+	);
 
+/**
+ * `severity` is what the recommendation showed when the user clicked, so an escalation
+ * past it brings the alert back. Clearing both flags restores the recommendation.
+ */
 export const patchRecommendation = (
 	id: string,
-	data: { dismissed?: boolean; addressed?: boolean },
+	data: { dismissed?: boolean; addressed?: boolean; severity?: Severity },
 ) =>
 	fetchJson<{ id: string; dismissed: boolean; addressed: boolean }>(
 		`${BASE}/recommendations/${encodeURIComponent(id)}`,

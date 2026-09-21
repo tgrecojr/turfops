@@ -11,14 +11,26 @@ use crate::models::{
     RecommendationCategory, Severity, SoilTest,
 };
 use crate::state::AppState;
-use chrono::{Datelike, Local};
+use chrono::{Datelike, Local, Utc};
 
 /// How much application history the rules see. Mowing is an application, so a short window
 /// (the dashboard once used 10 rows) drops this season's treatments within weeks.
 const RULE_HISTORY_LIMIT: i64 = 1000;
 
-/// Every active (not dismissed/addressed) recommendation, in source order.
+/// Every active recommendation, in source order.
 pub async fn active(
+    state: &AppState,
+    profile: &LawnProfile,
+    summary: &EnvironmentalSummary,
+) -> Result<Vec<Recommendation>, TurfOpsError> {
+    let mut recommendations = all(state, profile, summary).await?;
+    recommendations.retain(|r| r.is_active());
+    Ok(recommendations)
+}
+
+/// Every current recommendation. One the user has answered carries `dismissed` /
+/// `addressed` — but only while that answer still holds (see `RecommendationState`).
+pub async fn all(
     state: &AppState,
     profile: &LawnProfile,
     summary: &EnvironmentalSummary,
@@ -65,15 +77,15 @@ pub async fn active(
         recommendations.extend(soil_test_recommendations(&test, profile, &this_year));
     }
 
-    // Apply dismissed/addressed state from database
+    // Apply the user's answers that still hold (not escalated past, not expired)
     let rec_states = queries::get_recommendation_states(&state.pool).await?;
+    let now = Utc::now();
     for rec in &mut recommendations {
-        if let Some((dismissed, addressed)) = rec_states.get(&rec.id) {
-            rec.dismissed = *dismissed;
-            rec.addressed = *addressed;
+        if let Some(answer) = rec_states.get(&rec.id).filter(|a| a.suppresses(rec, now)) {
+            rec.dismissed = answer.dismissed;
+            rec.addressed = answer.addressed;
         }
     }
-    recommendations.retain(|r| r.is_active());
 
     Ok(recommendations)
 }

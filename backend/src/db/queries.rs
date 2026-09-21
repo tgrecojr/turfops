@@ -1,7 +1,7 @@
 use crate::error::{Result, TurfOpsError};
 use crate::models::{
     seasonal_plan::ThresholdCrossing, Application, ApplicationType, GrassType, IrrigationType,
-    LawnProfile, SoilType, WeatherSnapshot,
+    LawnProfile, RecommendationState, Severity, SoilType, WeatherSnapshot,
 };
 use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::PgPool;
@@ -308,38 +308,62 @@ pub async fn delete_application(pool: &PgPool, id: i64) -> Result<()> {
 
 pub async fn get_recommendation_states(
     pool: &PgPool,
-) -> Result<std::collections::HashMap<String, (bool, bool)>> {
-    let rows = sqlx::query_as::<_, (String, bool, bool)>(
-        "SELECT id, dismissed, addressed FROM recommendation_states",
+) -> Result<std::collections::HashMap<String, RecommendationState>> {
+    let rows = sqlx::query_as::<_, (String, bool, bool, Option<String>, DateTime<Utc>)>(
+        "SELECT id, dismissed, addressed, severity, updated_at FROM recommendation_states",
     )
     .fetch_all(pool)
     .await?;
 
-    Ok(rows.into_iter().map(|(id, d, a)| (id, (d, a))).collect())
+    Ok(rows
+        .into_iter()
+        .map(|(id, dismissed, addressed, severity, updated_at)| {
+            let state = RecommendationState {
+                dismissed,
+                addressed,
+                severity: severity.and_then(|s| Severity::from_str(&s).ok()),
+                updated_at,
+            };
+            (id, state)
+        })
+        .collect())
 }
 
+/// Record an answer. `severity` is what the recommendation showed when the user clicked.
 pub async fn upsert_recommendation_state(
     pool: &PgPool,
     id: &str,
     dismissed: bool,
     addressed: bool,
+    severity: Option<Severity>,
 ) -> Result<()> {
     sqlx::query(
         r#"
-        INSERT INTO recommendation_states (id, dismissed, addressed, updated_at)
-        VALUES ($1, $2, $3, NOW())
+        INSERT INTO recommendation_states (id, dismissed, addressed, severity, updated_at)
+        VALUES ($1, $2, $3, $4, NOW())
         ON CONFLICT (id) DO UPDATE SET
             dismissed = $2,
             addressed = $3,
+            severity = $4,
             updated_at = NOW()
         "#,
     )
     .bind(id)
     .bind(dismissed)
     .bind(addressed)
+    .bind(severity.map(|s| s.as_str()))
     .execute(pool)
     .await?;
 
+    Ok(())
+}
+
+/// Forget an answer (the "Restore" action).
+pub async fn delete_recommendation_state(pool: &PgPool, id: &str) -> Result<()> {
+    sqlx::query("DELETE FROM recommendation_states WHERE id = $1")
+        .bind(id)
+        .execute(pool)
+        .await?;
     Ok(())
 }
 
