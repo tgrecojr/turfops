@@ -27,6 +27,7 @@ use crate::models::{Application, DailyForecast, GrassType};
 use chrono::{Datelike, Duration, NaiveDate};
 use evaluate::{Season, WindowViews};
 use series::SoilPoint;
+use std::collections::BTreeMap;
 
 /// Years of station history requested for the typical dates.
 pub const HISTORY_YEARS: i32 = 15;
@@ -34,6 +35,8 @@ pub const HISTORY_YEARS: i32 = 15;
 pub const SOIL_DEPTH_CM: u32 = 5;
 /// Days of paired air/soil data used to fit the soil forecast.
 const FORECAST_TRAINING_DAYS: i64 = 30;
+/// Longest hole in the air series that is bridged by interpolation.
+const MAX_AIR_GAP_DAYS: i64 = 7;
 /// Station soil data older than this cannot tell us what has happened this season.
 const STALE_AFTER_DAYS: i64 = 5;
 
@@ -68,35 +71,88 @@ fn observed_points(days: &[ClimateDay]) -> Vec<SoilPoint> {
         .collect()
 }
 
-/// Estimate 5 cm soil for the forecast days with the lagged air→soil regression, fit on
-/// the most recent month. Empty when the fit is too weak or the forecast is missing.
+/// Daily mean air temperature from `from` on: station values, then the forecast, with
+/// any short hole between or inside them filled by linear interpolation. The lake trails
+/// real time by a day or more while the forecast starts today, and the soil model reads
+/// air from `lag` days back — without the fill, the outlook loses every day whose driver
+/// falls in that hole.
+fn continuous_air(
+    days: &[ClimateDay],
+    forecast: &[DailyForecast],
+    from: NaiveDate,
+) -> Vec<(NaiveDate, f64)> {
+    let mut known: BTreeMap<NaiveDate, f64> = forecast
+        .iter()
+        .map(|f| (f.date, (f.high_temp_f + f.low_temp_f) / 2.0))
+        .collect();
+    // Station measurements win over the forecast for the same day.
+    known.extend(
+        days.iter()
+            .filter(|d| d.date >= from)
+            .filter_map(|d| Some((d.date, d.air_avg_f?))),
+    );
+
+    let mut filled = Vec::with_capacity(known.len());
+    let mut previous: Option<(NaiveDate, f64)> = None;
+    for (&date, &temp) in &known {
+        if let Some((prev_date, prev_temp)) = previous {
+            let gap = (date - prev_date).num_days();
+            if gap > 1 && gap <= MAX_AIR_GAP_DAYS {
+                filled.extend((1..gap).map(|step| {
+                    let share = step as f64 / gap as f64;
+                    (
+                        prev_date + Duration::days(step),
+                        prev_temp + (temp - prev_temp) * share,
+                    )
+                }));
+            }
+        }
+        filled.push((date, temp));
+        previous = Some((date, temp));
+    }
+    filled
+}
+
+/// Estimate 5 cm soil for each day after the last observation through the end of the
+/// forecast, using the lagged air→soil regression fit on the most recent month. The
+/// estimates are shifted by the model's error on the last observed day so the outlook
+/// continues from the measured soil temperature instead of jumping to the fitted line.
+/// Empty when the fit is too weak or there is no forecast.
 fn forecast_points(days: &[ClimateDay], forecast: &[DailyForecast]) -> Vec<SoilPoint> {
     let Some(last_soil) = days.iter().rev().find(|d| d.soil_temp_5_f.is_some()) else {
         return Vec::new();
     };
+    if forecast.is_empty() {
+        return Vec::new();
+    }
     let training_start = last_soil.date - Duration::days(FORECAST_TRAINING_DAYS);
-    let recent = days.iter().filter(|d| d.date >= training_start);
-    let pairs: Vec<(NaiveDate, f64, f64)> = recent
-        .clone()
+    let pairs: Vec<(NaiveDate, f64, f64)> = days
+        .iter()
+        .filter(|d| d.date >= training_start)
         .filter_map(|d| Some((d.date, d.air_avg_f?, d.soil_temp_5_f?)))
         .collect();
     let Some(model) = fit_model(&pairs) else {
         return Vec::new();
     };
 
-    let recent_air: Vec<(NaiveDate, f64)> = recent
-        .filter_map(|d| Some((d.date, d.air_avg_f?)))
-        .collect();
-    let forecast_air: Vec<(NaiveDate, f64)> = forecast
+    let air = continuous_air(days, forecast, training_start);
+    let (history, outlook): (Vec<_>, Vec<_>) = air.iter().partition(|(d, _)| *d < last_soil.date);
+    // `outlook` starts on the last observed day so the model's error there is known.
+    let predictions = predict_soil_temps(&model, &history, &outlook);
+    let anchor = predictions
         .iter()
-        .filter(|f| f.date > last_soil.date)
-        .map(|f| (f.date, (f.high_temp_f + f.low_temp_f) / 2.0))
-        .collect();
-    predict_soil_temps(&model, &recent_air, &forecast_air)
+        .find(|p| p.date == last_soil.date)
+        .zip(last_soil.soil_temp_5_f)
+        .map_or(0.0, |(fitted, observed)| {
+            observed - fitted.predicted_soil_temp_f
+        });
+
+    predictions
         .into_iter()
+        .filter(|p| p.date > last_soil.date)
         .map(|p| SoilPoint {
             date: p.date,
-            temp_f: p.predicted_soil_temp_f,
+            temp_f: p.predicted_soil_temp_f + anchor,
             is_forecast: true,
         })
         .collect()

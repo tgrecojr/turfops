@@ -19,7 +19,7 @@ UI: `frontend/src/pages/Timing.tsx` (`/timing`), `frontend/src/components/timing
 |-------|--------|-------|
 | Daily mean soil temperature at **5 cm** | Lake silver hourly `soil_temp_5`, grouped by `obs_date_local`; days with < 12 hourly readings are dropped | Germination thresholds are defined at ~2 in. The gold layer only aggregates the 10 cm probe, which lags 5 cm by roughly a week in both spring and fall. |
 | Daily min / mean air temperature, `gdd50` | Lake gold `daily_weather.parquet` (`hours_observed >= 12`) | Min air temp drives freeze dates; mean air temp drives the soil forecast and the 30-day anomaly. |
-| 5-day forecast | OpenWeatherMap daily summary | Converted to 5 cm soil estimates with the existing lagged air→soil regression (`logic/soil_temp_prediction`), refit on the last 30 days of 5 cm data. |
+| 5-day forecast | OpenWeatherMap daily summary | Converted to 5 cm soil estimates with the existing lagged air→soil regression (`logic/soil_temp_prediction`), refit on the last 30 days of 5 cm data. Station air and forecast air are joined into one daily series, with the hole between them (the lake trails by a day or more; the forecast starts today) linearly interpolated up to 7 days — otherwise every outlook day whose lagged driver falls in the hole is lost. The outlook is shifted by the model's error on the last observed day so it continues from the measured value. |
 | Application log | Postgres | `Overseed` and `PreEmergent` entries mark windows done or blocked. |
 
 Up to **15 calendar years** are read (`HISTORY_YEARS`). A year counts toward the typical
@@ -35,7 +35,9 @@ is cached in Postgres, so the current season is always evaluated on current data
    threshold for **5 consecutive days**. A data gap or a day back across the threshold
    resets the run. The test is state-based, so a season that starts already past the
    threshold opens on the first day of the scan range.
-3. **Typical dates.** Each boundary is located in every historical year, then
+3. **Typical dates.** Each boundary is located in every historical year (a crossing
+   whose first day comes straight after a gap in the data is skipped for that year — it
+   dates the sensor outage, not the soil), then
    summarized as median, 10th/90th percentile (nearest rank), earliest and latest.
    Confidence: High ≥ 8 years, Medium ≥ 4, else Low.
 4. **This season.** Each boundary is resolved to one of:
@@ -170,4 +172,5 @@ tools (reviewed 2026-09-20). Deliberate differences:
   are rough. Percentiles equal earliest/latest until there are ~10 years.
 - The soil forecast reaches only as far as OpenWeatherMap's 5-day forecast and is
   omitted when the 30-day air→soil fit is weak (R² < 0.3).
-- `today` is the server's local date.
+- `today` is the **station-local** date, from the lake's UTC offset (read with the climate
+  record). The container clock is usually UTC, which runs a day ahead every evening.

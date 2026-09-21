@@ -1,7 +1,7 @@
 use super::WeatherLakeClient;
 use crate::error::Result;
 use crate::models::celsius_to_fahrenheit;
-use chrono::NaiveDate;
+use chrono::{Duration, NaiveDate, Utc};
 use std::collections::BTreeMap;
 
 /// Minimum hourly soil observations for a day's 5 cm mean to count.
@@ -20,6 +20,22 @@ pub struct ClimateDay {
     pub gdd50: Option<f64>,
 }
 
+/// The climate record plus the station's current UTC offset, which callers need to work
+/// out the station-local date (the server clock is usually UTC).
+#[derive(Debug, Clone)]
+pub struct ClimateRecord {
+    /// Ascending by date.
+    pub days: Vec<ClimateDay>,
+    pub utc_offset_minutes: i32,
+}
+
+impl ClimateRecord {
+    /// Today's date at the station.
+    pub fn local_today(&self) -> NaiveDate {
+        (Utc::now().naive_utc() + Duration::minutes(self.utc_offset_minutes as i64)).date()
+    }
+}
+
 impl ClimateDay {
     fn empty(date: NaiveDate) -> Self {
         Self {
@@ -33,12 +49,12 @@ impl ClimateDay {
 }
 
 impl WeatherLakeClient {
-    /// Daily climate record from `start` onward, ascending by date.
+    /// Daily climate record from `start` onward, with the station's UTC offset.
     ///
     /// Soil comes from the silver hourly layer because gold only aggregates the 10 cm
     /// probe, and germination thresholds are defined at ~2 in (5 cm). Air temperature
     /// and `gdd50` come from gold, which already carries them per local day.
-    pub async fn fetch_climate_days(&self, start: NaiveDate) -> Result<Vec<ClimateDay>> {
+    pub async fn fetch_climate_record(&self, start: NaiveDate) -> Result<ClimateRecord> {
         let silver = Self::parquet(&self.silver_weather_path);
         let gold = Self::parquet(&self.gold_weather_path);
         let station = self.station_wbanno;
@@ -81,7 +97,22 @@ impl WeatherLakeClient {
                 day.gdd50 = row.get(3)?;
             }
 
-            Ok(days.into_values().collect())
+            let offset_sql = format!(
+                "SELECT CAST(date_diff('minute', obs_ts_utc, obs_ts_local) AS INTEGER) \
+                 FROM {silver} WHERE CAST(wbanno AS INTEGER) = ? \
+                 ORDER BY obs_ts_utc DESC LIMIT 1"
+            );
+            let mut stmt = conn.prepare(&offset_sql)?;
+            let mut rows = stmt.query(duckdb::params![station])?;
+            let utc_offset_minutes = match rows.next()? {
+                Some(row) => row.get::<_, Option<i32>>(0)?.unwrap_or(0),
+                None => 0,
+            };
+
+            Ok(ClimateRecord {
+                days: days.into_values().collect(),
+                utc_offset_minutes,
+            })
         })
         .await
     }
@@ -100,6 +131,8 @@ mod tests {
         conn.execute_batch(&format!(
             "COPY (
                 SELECT '03761' AS wbanno,
+                       TIMESTAMP '2026-03-01 05:00:00' + h * INTERVAL 1 HOUR AS obs_ts_utc,
+                       TIMESTAMP '2026-03-01 00:00:00' + h * INTERVAL 1 HOUR AS obs_ts_local,
                        CAST(TIMESTAMP '2026-03-01 00:00:00' + h * INTERVAL 1 HOUR AS DATE)
                            AS obs_date_local,
                        CASE WHEN h = 3 THEN -9999.0 WHEN h < 24 THEN 10.0 ELSE 20.0 END
@@ -140,9 +173,12 @@ mod tests {
         );
 
         let start = NaiveDate::from_ymd_opt(2026, 1, 1).unwrap();
-        let days = client.fetch_climate_days(start).await.unwrap();
+        let record = client.fetch_climate_record(start).await.unwrap();
+        let days = record.days;
         std::fs::remove_file(&silver).ok();
         std::fs::remove_file(&gold).ok();
+
+        assert_eq!(record.utc_offset_minutes, -300);
 
         // Mar 1, 2, 4 — Mar 3 is sparse in both layers.
         assert_eq!(days.len(), 3);

@@ -49,8 +49,9 @@ fn shift(stat: DateStat, days: i64) -> DateStat {
 /// freeze rather than that year's actual one, which nobody could have known in advance.
 fn historical_date(boundary: &Boundary, season: &Season, year: i32) -> Option<NaiveDate> {
     match boundary {
+        // A run that begins right after a sensor outage dates the outage, not the crossing.
         Boundary::Soil(crossing) => detect(season.smoothed, year, crossing)
-            .filter(Detected::confirmed)
+            .filter(|d| d.confirmed() && !d.after_gap)
             .map(|d| d.date),
         Boundary::BeforeFirstFreeze(days) => {
             date_stat(season.fall_freezes, year).map(|s| s.median - Duration::days(*days))

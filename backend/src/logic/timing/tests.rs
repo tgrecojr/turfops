@@ -237,3 +237,52 @@ fn forecast_cooling_flags_the_window_as_opening_soon() {
     assert_eq!(pre_em.state, WindowState::OpeningSoon);
     assert!(result.smoothed.iter().any(|p| p.is_forecast));
 }
+
+fn forecast_day(date: NaiveDate, avg_f: f64) -> DailyForecast {
+    DailyForecast {
+        date,
+        high_temp_f: avg_f + 8.0,
+        low_temp_f: avg_f - 8.0,
+        avg_humidity: 60.0,
+        total_precipitation_mm: 0.0,
+        max_precipitation_prob: 0.0,
+        dominant_condition: crate::models::WeatherCondition::Clear,
+        avg_wind_speed_mph: 5.0,
+        max_wind_gust_mph: None,
+    }
+}
+
+#[test]
+fn soil_outlook_is_continuous_across_the_hole_between_station_air_and_forecast() {
+    // Soil follows air from 4 days earlier. Station soil ends Sep 19 but its air ends
+    // Sep 16, and the forecast only starts Sep 21 — so the drivers for most outlook days
+    // sit in a hole that has to be bridged.
+    let mut days = station(date(2026, 9, 19), 0.0);
+    for day in days.iter_mut() {
+        day.air_avg_f = Some(soil_curve(day.date + Duration::days(4)) - 5.0);
+    }
+    for day in days.iter_mut().filter(|d| d.date > date(2026, 9, 16)) {
+        day.air_avg_f = None;
+    }
+    let forecast: Vec<DailyForecast> = (21..=26)
+        .map(|d| forecast_day(date(2026, 9, d), soil_curve(date(2026, 9, d + 4)) - 5.0))
+        .collect();
+
+    let result = assess(&Inputs {
+        today: date(2026, 9, 21),
+        days: &days,
+        forecast: &forecast,
+        grass: GrassType::TallFescue,
+        history: &[],
+    });
+
+    let outlook: Vec<&SoilPoint> = result.smoothed.iter().filter(|p| p.is_forecast).collect();
+    let dates: Vec<NaiveDate> = outlook.iter().map(|p| p.date).collect();
+    let expected: Vec<NaiveDate> = (20..=26).map(|d| date(2026, 9, d)).collect();
+    assert_eq!(dates, expected);
+
+    // It continues from the last observation rather than jumping, and keeps cooling.
+    let last_observed = result.smoothed.iter().rfind(|p| !p.is_forecast).unwrap();
+    assert!((outlook[0].temp_f - last_observed.temp_f).abs() < 1.0);
+    assert!(outlook.last().unwrap().temp_f < last_observed.temp_f);
+}
