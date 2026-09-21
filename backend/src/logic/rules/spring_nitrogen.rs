@@ -137,7 +137,8 @@ fn build_too_early_warning(soil_temp: f64) -> Recommendation {
     .with_action(format!(
         "Avoid additional nitrogen applications until soil consistently reaches {:.0}°F. \
          Focus on other spring tasks: clean up debris, sharpen mower blades, \
-         check irrigation system. The pre-emergent window comes before fertilization.",
+         check irrigation system. Pre-emergent comes before fertilization — see the \
+         Seed & Pre-Em Timing page for this season's window.",
         SPRING_N_MIN_SOIL_F
     ))
 }
@@ -174,7 +175,8 @@ fn build_patience_advisory(soil_temp: f64) -> Recommendation {
     )
     .with_action(
         "Focus on spring prep: rake leaves/debris, check for disease damage, \
-         plan pre-emergent timing (that window comes first!). \
+         and check the Seed & Pre-Em Timing page — pre-emergent comes first, unless you \
+         seeded (then skip it). \
          First fertilization should wait until after 2-3 mowings.",
     )
 }
@@ -195,8 +197,9 @@ fn build_almost_ready(soil_temp: f64, gdd_ytd: Option<f64>) -> Recommendation {
         "You're close to the right conditions for spring nitrogen. Wait for soil \
          to consistently reach {:.0}°F and ensure you've completed 2-3 mowing cycles. \
          This confirms the grass is actively growing and roots are ready for nutrients. \
-         Remember: pre-emergent timing ({:.0}-{:.0}°F soil) comes before fertilization.",
-        SPRING_N_MIN_SOIL_F, PRE_EMERGENT_SOIL_LOW_F, PRE_EMERGENT_URGENCY_SOIL_F
+         Pre-emergent comes before fertilization; its window is on the Seed & Pre-Em \
+         Timing page.",
+        SPRING_N_MIN_SOIL_F
     ))
     .with_data_point(
         "Current Soil Temp",

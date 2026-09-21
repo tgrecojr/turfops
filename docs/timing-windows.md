@@ -117,7 +117,9 @@ The windows are the single source for pre-emergent and seeding timing everywhere
   is the alternative to seeding, not something to push. Done, Blocked, Not yet and
   Closed produce nothing. Ids: `timing_<window>_<season_year>`. The fall seeding
   recommendation sizes the seed needed from the lawn size at 4 lbs/1000 sqft. These
-  replaced the 10 cm `pre_emergent` and `fall_overseeding` rules (12 rules remain).
+  replaced the 10 cm `pre_emergent` and `fall_overseeding` rules. Core aeration and the fall-herbicide caveat also hang off the fall seeding
+  window (`logic/timing/companions.rs`), and the never-firing 10 cm `SoilTempForecastRule`
+  is gone (10 rules remain).
 - **Seasonal plan / calendar** (`logic/timing/plan.rs`). Spring Pre-Emergent, Fall
   Pre-Emergent (new), Fall Seeding & Overseeding and Core Aeration (same window as
   seeding) use the windows' typical opens → closes medians, with earliest/latest as the

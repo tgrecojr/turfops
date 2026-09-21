@@ -17,9 +17,9 @@ interface PredictionChartProps {
 	height?: number;
 }
 
+// 10 cm reference lines. Pre-emergent / crabgrass / seeding are judged at 5 cm on the
+// Seed & Pre-Em Timing page, so they are deliberately not drawn here.
 const THRESHOLDS = [
-	{ temp: 50, label: "Pre-Emergent", color: "#eab308" },
-	{ temp: 55, label: "Crabgrass", color: "#f97316" },
 	{ temp: 60, label: "Grub Control", color: "#ef4444" },
 	{ temp: 75, label: "Heat Stress", color: "#dc2626" },
 ];

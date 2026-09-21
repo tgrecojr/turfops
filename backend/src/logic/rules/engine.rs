@@ -1,10 +1,9 @@
 use super::{
-    aeration::AerationRule, application_window::ApplicationWindowRule,
-    broadleaf_herbicide::BroadleafHerbicideRule, fall_fertilization::FallFertilizationRule,
-    fertilizer::FertilizerRule, grub_control::GrubControlRule, heat_stress::HeatStressRule,
+    application_window::ApplicationWindowRule, broadleaf_herbicide::BroadleafHerbicideRule,
+    fall_fertilization::FallFertilizationRule, fertilizer::FertilizerRule,
+    grub_control::GrubControlRule, heat_stress::HeatStressRule,
     irrigation_forecast::IrrigationForecastRule, mowing_height::MowingHeightRule,
-    rain_delay::RainDelayRule, soil_temp_forecast::SoilTempForecastRule,
-    spring_nitrogen::SpringNitrogenRule, Rule,
+    rain_delay::RainDelayRule, spring_nitrogen::SpringNitrogenRule, Rule,
 };
 use crate::models::{Application, EnvironmentalSummary, LawnProfile, Recommendation};
 
@@ -22,16 +21,14 @@ impl RulesEngine {
             Box::new(GrubControlRule),
             Box::new(FertilizerRule),
             // Fall rules
+            // (Core aeration follows the fall seeding window: logic/timing/companions.rs)
             Box::new(FallFertilizationRule),
-            Box::new(AerationRule),
             // Forecast-based rules (year-round)
             Box::new(RainDelayRule),
             Box::new(IrrigationForecastRule),
             Box::new(HeatStressRule),
             Box::new(ApplicationWindowRule),
             Box::new(MowingHeightRule),
-            // Proactive forecast-based rules
-            Box::new(SoilTempForecastRule),
         ];
 
         Self { rules }
@@ -43,10 +40,19 @@ impl RulesEngine {
         profile: &LawnProfile,
         history: &[Application],
     ) -> Vec<Recommendation> {
-        self.rules
+        let mut recommendations: Vec<Recommendation> = self
+            .rules
             .iter()
             .filter_map(|rule| rule.evaluate(env, profile, history))
-            .collect()
+            .collect();
+        // No "feed the lawn" next to "avoid fertilizer", and none past the annual budget.
+        super::nitrogen_guard::apply(
+            &mut recommendations,
+            profile,
+            history,
+            chrono::Local::now().date_naive(),
+        );
+        recommendations
     }
 }
 

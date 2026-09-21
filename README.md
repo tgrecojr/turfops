@@ -6,7 +6,7 @@ A containerized web application for tracking lawn care activities and providing 
 
 - **Application Tracking**: Log fertilizer, pre-emergent, fungicide, mowing, and other lawn treatments
 - **Environmental Data**: Real-time soil temperature, moisture, and ambient conditions from multiple sources
-- **Smart Recommendations**: 12 agronomic rules, plus the disease-risk models and the seeding/pre-emergent timing windows, provide data-driven alerts for optimal treatment timing
+- **Smart Recommendations**: 10 agronomic rules, plus the disease-risk models and the seeding/pre-emergent timing windows, provide data-driven alerts for optimal treatment timing
 - **Disease Risk**: Per-disease risk from published models (brown patch, dollar spot, Pythium blight, gray leaf spot, red thread) — each with a Low/Moderate/High/Severe tier, an 11-day trend and outlook, contributing factors, a "how this is calculated" breakdown, and preventative/curative guidance that knows what you've already sprayed
 - **Seeding & Pre-Emergent Timing**: Fall/spring/dormant seeding and spring/fall pre-emergent windows from the station's measured 5 cm soil temperature, its own freeze dates and GDD — typical dates with their year-to-year spread, where this season actually stands, and seed-vs-pre-emergent conflicts from your application log. See [Seeding & Pre-Emergent Timing](#seeding--pre-emergent-timing).
 - **Calendar View**: Visualize application history and seasonal plan activity windows with colored indicators
@@ -26,7 +26,7 @@ A containerized web application for tracking lawn care activities and providing 
 │  │  ┌─────────────┐   ┌────────────────────────┐  │  │
 │  │  │ React SPA   │   │ Axum API Server        │  │  │
 │  │  │ (static)    │◄──│  /api/v1/* endpoints   │  │  │
-│  │  └─────────────┘   │  12 rules + disease    │  │  │
+│  │  └─────────────┘   │  10 rules + disease    │  │  │
 │  │                     │  3 datasource clients  │  │  │
 │  │                     └───────────┬────────────┘  │  │
 │  └─────────────────────────────────┼───────────────┘  │
@@ -395,7 +395,7 @@ The Dockerfile uses a multi-stage build:
 
 ## Agronomic Rules
 
-TurfOps includes 12 rules that evaluate environmental conditions and generate actionable recommendations. Rules are divided into current-condition rules (using real-time sensor data) and forecast-based rules (using OpenWeatherMap data). Turf diseases are not handled by rules — see [Disease Risk](#disease-risk). Neither are pre-emergent and seeding timing: those recommendations come from the timing windows — see [Seeding & Pre-Emergent Timing](#seeding--pre-emergent-timing).
+TurfOps includes 10 rules that evaluate environmental conditions and generate actionable recommendations. Rules are divided into current-condition rules (using real-time sensor data) and forecast-based rules (using OpenWeatherMap data). Turf diseases are not handled by rules — see [Disease Risk](#disease-risk). Neither are pre-emergent and seeding timing: those recommendations come from the timing windows — see [Seeding & Pre-Emergent Timing](#seeding--pre-emergent-timing).
 
 ### Current-Condition Rules
 
@@ -458,14 +458,15 @@ No longer a rule. Spring and fall pre-emergent recommendations come from the tim
 Never remove more than 1/3 of the blade at once.
 
 #### Core Aeration
-**Purpose**: Relieve soil compaction during peak recovery season
+No longer a rule. Aeration shares the **fall seeding window** (cores are pulled right before seed goes down), so the recommendation is derived from that window — see [Seeding & Pre-Emergent Timing](#seeding--pre-emergent-timing) — instead of its own Aug 15 – Oct 15 / 50–65°F (10 cm) gate, which opened weeks after seeding did and stayed open after it closed.
 
-| Condition | Severity | Action |
-|-----------|----------|--------|
-| Aug 15 - Oct 15, soil 50-65°F, not aerated in 12+ months | Advisory | Aerate this fall |
-| Clay/Clay Loam soil, not aerated in 12+ months | Warning | Annual aeration important |
+| Condition | Severity |
+|-----------|----------|
+| Fall seeding window Open / Ideal / Closing, not aerated in 12+ months | Advisory |
+| …and Clay / Clay Loam soil | Warning |
+| Aerated within 12 months | Info |
 
-**Active**: August 15 through October 15. Best combined with fall overseeding.
+Silent once you have aerated or **seeded** this fall, and when a **fall pre-emergent** is logged (coring breaks the barrier).
 
 ### Fall Program Rules
 
@@ -515,8 +516,10 @@ Prepares for upcoming heat stress conditions.
 #### Optimal Application Window
 Identifies the best days for chemical applications based on forecast (dry weather, moderate temps, low wind).
 
-#### Soil Temperature Forecast
-Proactive heads-up when the soil-temperature prediction model (air-to-soil regression on recent lake data plus the forecast) expects an agronomic threshold crossing soon, e.g. the pre-emergent window approaching.
+### Cross-rule checks
+
+- **Nitrogen guard.** After the rules run, any "apply nitrogen" recommendation (fall feedings, spring nitrogen) is checked against the rest: it is put **on hold** (Info) while *Fertilizer Stress Block* or a Warning-level heat-stress forecast is active, it shows the **remaining annual nitrogen budget** for your grass type, is capped to that remainder when less than a full feeding is left, and turns into "annual nitrogen target reached" when none is.
+- **Fall broadleaf herbicide follows the seeding decision.** Overseed logged this fall → no herbicide recommendation. Fall pre-emergent logged (so you are not seeding) or the seeding window over → unchanged. Undecided while the seeding window is still usable → Advisory, prefixed "Only if you are NOT seeding this fall".
 
 ## Seeding & Pre-Emergent Timing
 

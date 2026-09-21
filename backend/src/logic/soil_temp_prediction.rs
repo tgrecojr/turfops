@@ -162,36 +162,38 @@ fn compute_confidence(r_squared: f64, days_out: i64) -> PredictionConfidence {
     }
 }
 
-/// Agronomic thresholds to watch for
+/// A 10 cm threshold worth announcing, and the direction in which it means something.
+/// Pre-emergent, crabgrass and seeding are deliberately absent: those are judged on the
+/// 5 cm timing windows (logic/timing), and a second, 10 cm answer next to the Timing
+/// widget — labelled "Pre-Emergent Window" while soil *falls* through 50°F in October —
+/// only contradicted it.
 pub struct AgronomicThreshold {
     pub name: &'static str,
     pub temp_f: f64,
+    /// `None` = meaningful both ways.
+    pub direction: Option<CrossingDirection>,
 }
 
 pub const THRESHOLDS: &[AgronomicThreshold] = &[
     AgronomicThreshold {
         name: "Winterizer / Dormancy",
         temp_f: 45.0,
-    },
-    AgronomicThreshold {
-        name: "Pre-Emergent Window",
-        temp_f: 50.0,
-    },
-    AgronomicThreshold {
-        name: "Crabgrass Germination",
-        temp_f: 55.0,
+        direction: Some(CrossingDirection::Falling),
     },
     AgronomicThreshold {
         name: "Grub Control Window",
         temp_f: 60.0,
+        direction: Some(CrossingDirection::Rising),
     },
     AgronomicThreshold {
         name: "Active Growth Peak",
         temp_f: 65.0,
+        direction: None,
     },
     AgronomicThreshold {
         name: "Heat Stress Risk",
         temp_f: 75.0,
+        direction: Some(CrossingDirection::Rising),
     },
 ];
 
@@ -220,6 +222,12 @@ pub fn predict_threshold_crossings(
                 } else {
                     CrossingDirection::Falling
                 };
+                if threshold
+                    .direction
+                    .is_some_and(|wanted| wanted != direction)
+                {
+                    break; // crossed the wrong way: nothing to announce
+                }
 
                 let days_until = (pred.date - today).num_days();
 
@@ -242,6 +250,7 @@ pub fn predict_threshold_crossings(
         }
         let last_pred = predictions.last().unwrap();
         let approaching = currently_below
+            && threshold.direction != Some(CrossingDirection::Falling)
             && last_pred.predicted_soil_temp_f > current_soil_temp_f
             && (threshold.temp_f - current_soil_temp_f) < 5.0
             && !crossings
@@ -459,12 +468,35 @@ mod tests {
         let today = NaiveDate::from_ymd_opt(2026, 3, 16).unwrap();
         let crossings = predict_threshold_crossings(46.0, &predictions, today);
 
-        // Should detect crossing 50°F (Pre-Emergent Window)
-        let pre_emergent = crossings.iter().find(|c| c.threshold_temp_f == 50.0);
-        assert!(pre_emergent.is_some());
-        let c = pre_emergent.unwrap();
-        assert_eq!(c.direction, CrossingDirection::Rising);
-        assert_eq!(c.days_until_crossing, 2); // March 18
+        // Pre-emergent / crabgrass are the timing windows' business, not this model's.
+        assert!(crossings.iter().all(|c| c.threshold_temp_f != 50.0));
+        assert!(crossings.iter().all(|c| c.threshold_temp_f != 55.0));
+    }
+
+    #[test]
+    fn thresholds_are_only_announced_in_their_direction() {
+        let day = |d: u32, temp: f64| SoilTempPrediction {
+            date: NaiveDate::from_ymd_opt(2026, 10, d).unwrap(),
+            predicted_soil_temp_f: temp,
+            confidence: PredictionConfidence::High,
+            air_temp_used_f: temp - 5.0,
+            source_description: "test".to_string(),
+        };
+        let today = NaiveDate::from_ymd_opt(2026, 10, 1).unwrap();
+
+        // Cooling through 60°F in October is not a grub-control window.
+        let cooling = predict_threshold_crossings(62.0, &[day(2, 61.0), day(3, 58.0)], today);
+        assert!(cooling
+            .iter()
+            .all(|c| c.threshold_name != "Grub Control Window"));
+
+        // Warming through it is.
+        let warming = predict_threshold_crossings(58.0, &[day(2, 59.0), day(3, 61.0)], today);
+        let grub = warming
+            .iter()
+            .find(|c| c.threshold_name == "Grub Control Window")
+            .expect("rising through 60°F");
+        assert_eq!(grub.direction, CrossingDirection::Rising);
     }
 
     #[test]

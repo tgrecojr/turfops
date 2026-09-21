@@ -197,8 +197,6 @@ export interface EnvironmentalSummary {
 	last_updated: string | null;
 	forecast: WeatherForecast | null;
 	gdd_base50_ytd: number | null;
-	soil_temp_predictions?: SoilTempPrediction[];
-	predicted_threshold_crossings?: ThresholdPrediction[];
 }
 
 export interface EnvironmentalReading {

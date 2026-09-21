@@ -1,4 +1,3 @@
-pub mod aeration;
 pub mod application_window;
 pub mod broadleaf_herbicide;
 pub mod engine;
@@ -8,8 +7,8 @@ pub mod grub_control;
 pub mod heat_stress;
 pub mod irrigation_forecast;
 pub mod mowing_height;
+pub mod nitrogen_guard;
 pub mod rain_delay;
-pub mod soil_temp_forecast;
 pub mod spring_nitrogen;
 pub mod thresholds;
 

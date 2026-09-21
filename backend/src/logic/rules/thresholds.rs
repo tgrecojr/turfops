@@ -25,23 +25,14 @@ pub const COOL_SEASON_IDEAL_HIGH_F: f64 = 75.0;
 
 // -- Soil temperature windows --
 
-/// Pre-emergent application window — lower bound (°F, 7-day avg).
-pub const PRE_EMERGENT_SOIL_LOW_F: f64 = 50.0;
-
-/// Crabgrass germination risk threshold — urgency increases above this.
-pub const PRE_EMERGENT_URGENCY_SOIL_F: f64 = 55.0;
+// Pre-emergent, seeding and aeration timing are not here: they come from the 5 cm timing
+// windows (logic/timing/windows.rs), never from these 10 cm rule thresholds.
 
 /// Grub control application window — lower bound (°F, 7-day avg).
 pub const GRUB_CONTROL_SOIL_LOW_F: f64 = 60.0;
 
 /// Grub control application window — upper bound (°F, 7-day avg).
 pub const GRUB_CONTROL_SOIL_HIGH_F: f64 = 75.0;
-
-/// Core aeration window — lower bound (°F, 7-day avg).
-pub const AERATION_SOIL_LOW_F: f64 = 50.0;
-
-/// Core aeration window — upper bound (°F, 7-day avg).
-pub const AERATION_SOIL_HIGH_F: f64 = 65.0;
 
 /// Fall fertilization — soil temp OK range lower bound (°F).
 pub const FALL_FERT_SOIL_LOW_F: f64 = 45.0;
