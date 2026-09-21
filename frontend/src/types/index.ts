@@ -209,6 +209,8 @@ export interface EnvironmentalSummary {
 	precipitation_7day_total_mm: number | null;
 	soil_temp_trend: Trend;
 	last_updated: string | null;
+	/** When the station measured the soil values; the lake normally trails by ~1 day. */
+	soil_observed_at?: string | null;
 	forecast: WeatherForecast | null;
 	gdd_base50_ytd: number | null;
 }
@@ -665,6 +667,11 @@ export const SEVERITY_SYMBOLS: Record<Severity, string> = {
 	Warning: "⚠",
 	Critical: "!",
 };
+
+/** "DiseasePressure" → "Disease Pressure" — serde sends the enum variant name. */
+export function categoryLabel(category: string): string {
+	return category.replace(/([a-z])([A-Z])/g, "$1 $2");
+}
 
 export const GRASS_TYPE_LABELS: Record<GrassType, string> = {
 	KentuckyBluegrass: "Kentucky Bluegrass",

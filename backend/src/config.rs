@@ -227,8 +227,10 @@ impl Config {
                     TemperatureUnit::Fahrenheit
                 },
             },
+            // docker-compose passes unset optional keys as empty strings; empty = not configured.
             openweathermap: std::env::var("OWM_API_KEY")
                 .ok()
+                .filter(|key| !key.trim().is_empty())
                 .map(|api_key| OpenWeatherMapConfig {
                     api_key,
                     latitude: env_or("OWM_LATITUDE", "0").parse().unwrap_or(0.0),
@@ -237,6 +239,7 @@ impl Config {
                 }),
             openrouter: std::env::var("OPENROUTER_API_KEY")
                 .ok()
+                .filter(|key| !key.trim().is_empty())
                 .map(|api_key| OpenRouterConfig {
                     api_key,
                     model: env_or("OPENROUTER_MODEL", "anthropic/claude-haiku-4-5"),
@@ -252,7 +255,9 @@ impl Config {
                         3000
                     })
                 },
-                cors_allowed_origin: std::env::var("CORS_ALLOWED_ORIGIN").ok(),
+                cors_allowed_origin: std::env::var("CORS_ALLOWED_ORIGIN")
+                    .ok()
+                    .filter(|origin| !origin.trim().is_empty()),
             },
             database: DatabaseConfig {
                 host: env_or("DATABASE_HOST", "localhost"),

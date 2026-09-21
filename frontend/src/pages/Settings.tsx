@@ -92,12 +92,12 @@ export default function Settings() {
 			const validSoilType =
 				soilType && SOIL_TYPES.includes(soilType as SoilType)
 					? (soilType as SoilType)
-					: undefined;
+					: ""; // "Not specified" clears it
 			const validIrrigationType =
 				irrigationType &&
 				IRRIGATION_TYPES.includes(irrigationType as IrrigationType)
 					? (irrigationType as IrrigationType)
-					: undefined;
+					: "";
 
 			if (!validGrassType) {
 				setError("Please select a valid grass type");
@@ -110,7 +110,7 @@ export default function Settings() {
 				grass_type: validGrassType,
 				usda_zone: zone,
 				soil_type: validSoilType,
-				lawn_size_sqft: size ? parseFloat(size) : undefined,
+				lawn_size_sqft: size ? parseFloat(size) : 0, // 0 clears it
 				irrigation_type: validIrrigationType,
 			});
 			setProfile(updated);

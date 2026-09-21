@@ -1,5 +1,5 @@
 import type { Recommendation } from "../types";
-import { SEVERITY_COLORS, SEVERITY_SYMBOLS } from "../types";
+import { categoryLabel, SEVERITY_COLORS, SEVERITY_SYMBOLS } from "../types";
 
 interface AlertCardProps {
 	rec: Recommendation;
@@ -15,7 +15,7 @@ export default function AlertCard({ rec }: AlertCardProps) {
 				<span style={{ ...styles.badge, backgroundColor: color }}>
 					{symbol} {rec.severity}
 				</span>
-				<span style={styles.category}>{rec.category}</span>
+				<span style={styles.category}>{categoryLabel(rec.category)}</span>
 			</div>
 			<div style={styles.title}>{rec.title}</div>
 			<div style={styles.description}>{rec.description}</div>

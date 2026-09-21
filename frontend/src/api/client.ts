@@ -71,7 +71,13 @@ export const getDashboard = () =>
 // Profile
 export const getProfile = () => fetchJson<LawnProfile>(`${BASE}/profile`);
 
-export const updateProfile = (data: Partial<LawnProfile>) =>
+/** An empty `soil_type` / `irrigation_type`, or a `lawn_size_sqft` of 0, clears the field. */
+export const updateProfile = (
+	data: Partial<Omit<LawnProfile, "soil_type" | "irrigation_type">> & {
+		soil_type?: LawnProfile["soil_type"] | "";
+		irrigation_type?: LawnProfile["irrigation_type"] | "";
+	},
+) =>
 	fetchJson<LawnProfile>(`${BASE}/profile`, {
 		method: "PUT",
 		body: JSON.stringify(data),

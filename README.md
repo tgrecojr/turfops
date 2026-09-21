@@ -32,7 +32,7 @@ A containerized web application for tracking lawn care activities and providing 
 │  └─────────────────────────────────┼───────────────┘  │
 │                                    │                   │
 │  ┌─────────────────┐               │                   │
-│  │ PostgreSQL 16   │◄──────────────┘                   │
+│  │ PostgreSQL 18   │◄──────────────┘                   │
 │  │ (app data)      │                                   │
 │  └─────────────────┘                                   │
 └───────────────────────────────────────────────────────┘
@@ -45,7 +45,7 @@ A containerized web application for tracking lawn care activities and providing 
 
 - **Backend**: Rust + Axum + sqlx (PostgreSQL)
 - **Frontend**: React 19 + TypeScript + Vite
-- **Database**: PostgreSQL 16 (app data)
+- **Database**: PostgreSQL 18 (app data)
 - **Weather data**: NOAA USCRN data lake (parquet) read in-process with embedded DuckDB
 - **Deployment**: Docker Compose
 
@@ -106,7 +106,7 @@ docker compose up -d
 
 This starts two containers:
 - **app** — TurfOps web application on port 3000
-- **db** — PostgreSQL 16 database with persistent volume
+- **db** — PostgreSQL 18 database with persistent volume
 
 ### 3. Open in Browser
 
@@ -137,7 +137,8 @@ All configuration is done through environment variables. When running with Docke
 | `DATABASE_NAME` | App database name | `turfops` |
 | `DATABASE_USER` | App database user | `turfops` |
 | `DATABASE_PASSWORD` | App database password | **required** |
-| `DB_PASSWORD` | Password used by the PostgreSQL container (Docker Compose) | `turfops_dev` |
+| `DB_PASSWORD` | Password used by the PostgreSQL container (Docker Compose). **Required** — compose refuses to start without it | — |
+| `TZ` | The lawn's timezone; "today" for the rules, nitrogen budget, plan and calendar | `America/New_York` |
 | `DB_MAX_CONNECTIONS` | Maximum database connection pool size | `10` |
 
 > **Note**: When using Docker Compose, `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_NAME`, and `DATABASE_USER` are pre-configured in `docker-compose.yml`. You only need to set `DB_PASSWORD` in your `.env` to change the database password (it flows to both the PostgreSQL container and the app's `DATABASE_PASSWORD`).
@@ -344,7 +345,7 @@ RUST_LOG=info
 
 - Rust 1.88+
 - Node.js 20+
-- PostgreSQL 16 (or use `docker compose up db` for just the database)
+- PostgreSQL 18 (or use `docker compose up db` for just the database)
 
 ### Backend
 
@@ -355,13 +356,14 @@ cd backend
 cp .env.example ../.env
 source ../.env  # or use dotenvy
 
-# Run database migrations
-export DATABASE_URL=postgres://turfops:turfops_dev@localhost:5433/turfops
+# The app reads DATABASE_HOST / DATABASE_PORT / DATABASE_NAME / DATABASE_USER /
+# DATABASE_PASSWORD (not DATABASE_URL). With `docker compose up db`:
+export DATABASE_HOST=localhost DATABASE_PORT=5433 DATABASE_PASSWORD="$DB_PASSWORD"
 cargo run  # migrations run automatically on startup
 
 # Development commands
 cargo build          # Build
-cargo test           # Run tests (159 tests)
+cargo test           # Run tests (236 tests)
 cargo fmt            # Format code
 cargo clippy         # Lint
 RUST_LOG=debug cargo run  # Run with debug logging

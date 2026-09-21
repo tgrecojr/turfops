@@ -537,30 +537,61 @@ pub async fn get_threshold_crossings(pool: &PgPool) -> Result<Vec<ThresholdCross
         .collect())
 }
 
-pub async fn get_threshold_crossings_years(pool: &PgPool) -> Result<Vec<i32>> {
+/// Years whose cached crossings are final for `station`: computed after the year ended.
+/// A year still in progress (or computed mid-year) is never settled, so its later
+/// crossings are picked up on the next load.
+pub async fn get_settled_crossing_years(pool: &PgPool, station: i32) -> Result<Vec<i32>> {
     let rows = sqlx::query_scalar::<_, i32>(
-        "SELECT DISTINCT year FROM seasonal_threshold_crossings ORDER BY year ASC",
+        r#"SELECT year FROM seasonal_threshold_crossings
+           WHERE station_wbanno = $1
+           GROUP BY year
+           HAVING MIN(computed_at) >= make_date(year + 1, 1, 1)
+           ORDER BY year ASC"#,
     )
+    .bind(station)
     .fetch_all(pool)
     .await?;
     Ok(rows)
 }
 
-pub async fn upsert_threshold_crossing(pool: &PgPool, crossing: &ThresholdCrossing) -> Result<()> {
+/// Drop crossings computed for a different station (or before the station was recorded).
+pub async fn delete_crossings_for_other_stations(pool: &PgPool, station: i32) -> Result<()> {
     sqlx::query(
-        r#"
-        INSERT INTO seasonal_threshold_crossings (year, threshold_name, crossing_date, avg_soil_temp_f, computed_at)
-        VALUES ($1, $2, $3, $4, NOW())
-        ON CONFLICT (year, threshold_name) DO UPDATE SET
-            crossing_date = $3, avg_soil_temp_f = $4, computed_at = NOW()
-        "#,
+        "DELETE FROM seasonal_threshold_crossings WHERE station_wbanno IS DISTINCT FROM $1",
     )
-    .bind(crossing.year)
-    .bind(&crossing.threshold_name)
-    .bind(crossing.crossing_date)
-    .bind(crossing.avg_soil_temp_f)
+    .bind(station)
     .execute(pool)
     .await?;
+    Ok(())
+}
+
+/// Replace a year's cached crossings, so a threshold that no longer crosses disappears.
+pub async fn replace_threshold_crossings(
+    pool: &PgPool,
+    year: i32,
+    station: i32,
+    crossings: &[ThresholdCrossing],
+) -> Result<()> {
+    let mut tx = pool.begin().await?;
+    sqlx::query("DELETE FROM seasonal_threshold_crossings WHERE year = $1")
+        .bind(year)
+        .execute(&mut *tx)
+        .await?;
+    for crossing in crossings {
+        sqlx::query(
+            r#"INSERT INTO seasonal_threshold_crossings
+                   (year, threshold_name, crossing_date, avg_soil_temp_f, station_wbanno, computed_at)
+               VALUES ($1, $2, $3, $4, $5, NOW())"#,
+        )
+        .bind(crossing.year)
+        .bind(&crossing.threshold_name)
+        .bind(crossing.crossing_date)
+        .bind(crossing.avg_soil_temp_f)
+        .bind(station)
+        .execute(&mut *tx)
+        .await?;
+    }
+    tx.commit().await?;
     Ok(())
 }
 

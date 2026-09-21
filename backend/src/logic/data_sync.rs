@@ -1,12 +1,19 @@
 use crate::config::Config;
 use crate::datasources::{HomeAssistantClient, OpenWeatherMapClient, WeatherLakeClient};
 use crate::models::{DataSource, EnvironmentalReading, EnvironmentalSummary, WeatherForecast};
-use chrono::{Datelike, Utc};
+use chrono::{Datelike, Duration, Utc};
 use sqlx::PgPool;
 use tokio::time::Instant;
 
 /// How long before sensor data (weather lake + Home Assistant) is considered stale.
 const SENSOR_STALENESS_SECS: u64 = 5 * 60; // 5 minutes
+
+/// The lake trails the station by about a day. Past this, the newest reading no longer
+/// describes today's soil and is not used as the current value.
+const SOIL_MAX_AGE_HOURS: i64 = 72;
+
+/// A forecast older than this is dropped rather than reused after failed refreshes.
+const FORECAST_MAX_AGE_HOURS: i64 = 6;
 
 /// How long before forecast data (OpenWeatherMap) is considered stale.
 const FORECAST_STALENESS_SECS: u64 = 30 * 60; // 30 minutes
@@ -141,9 +148,31 @@ impl DataSyncService {
         if refresh_sensors {
             // Fetch soil/weather data from the data lake (silver hourly)
             if let Some(ref client) = self.weather_client {
-                match client.fetch_summary().await {
+                summary.soil_observed_at = match client.fetch_summary().await {
                     Ok(soil_summary) => {
                         summary = soil_summary;
+                        summary.current.as_ref().map(|c| c.timestamp)
+                    }
+                    Err(e) => {
+                        // A failed read must not wipe good soil data for the next
+                        // 5 minutes (every soil rule would go quiet without a word).
+                        tracing::warn!("Failed to fetch soil data, keeping the last read: {}", e);
+                        summary = EnvironmentalSummary {
+                            forecast: None,
+                            ..self.current_summary.clone()
+                        };
+                        summary.soil_observed_at
+                    }
+                };
+                match summary.soil_observed_at {
+                    // The station feed has stopped: a weeks-old reading stamped "now"
+                    // would drive today's advice. Show nothing rather than that.
+                    Some(observed)
+                        if Utc::now() - observed > Duration::hours(SOIL_MAX_AGE_HOURS) =>
+                    {
+                        tracing::warn!(%observed, "Station soil data is stale; not using it as current");
+                    }
+                    _ => {
                         if let Some(ref current) = summary.current {
                             combined_reading.soil_temp_5_f = current.soil_temp_5_f;
                             combined_reading.soil_temp_10_f = current.soil_temp_10_f;
@@ -157,9 +186,6 @@ impl DataSyncService {
                             combined_reading.soil_moisture_100 = current.soil_moisture_100;
                             combined_reading.precipitation_mm = current.precipitation_mm;
                         }
-                    }
-                    Err(e) => {
-                        tracing::warn!("Failed to fetch soil data: {}", e);
                     }
                 }
             }
@@ -217,11 +243,15 @@ impl DataSyncService {
                     }
                 }
             }
-        } else {
-            // Keep existing forecast
-            if summary.forecast.is_none() {
-                summary.forecast = self.current_forecast.clone();
-            }
+        }
+        // Keep the last forecast when none was fetched — also when the fetch just failed,
+        // so one OpenWeatherMap hiccup doesn't silence every forecast rule — but only
+        // while it is recent enough to still describe the coming days.
+        if summary.forecast.is_none() {
+            summary.forecast = self
+                .current_forecast
+                .clone()
+                .filter(|f| Utc::now() - f.fetched_at < Duration::hours(FORECAST_MAX_AGE_HOURS));
         }
 
         // Update cached summary
