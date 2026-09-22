@@ -224,6 +224,16 @@ Enables plan generation on the **Landscape** page and product identification on 
 > - **Existing cached plans stay visible.** Plant rows you added earlier still appear on the Landscape page, and their maintenance windows still overlay Calendar, Seasonal Plan, and Recommendations. Only *new* plan generation and *regenerating* existing plans are blocked.
 > - All turf features continue to work unchanged.
 
+### MCP Server (Optional — Ask Claude About Your Lawn)
+
+TurfOps can serve a read-only [Model Context Protocol](https://modelcontextprotocol.io) server at `/mcp` (streamable HTTP, in the same process), so an LLM client such as Claude can pull the lawn's snapshot, recommendations, conditions and application log as tools and answer questions grounded in them. It is stateless with JSON responses; no tool writes anything.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `MCP_TOKEN` | Bearer token clients must send (`Authorization: Bearer …`); at least 32 characters (`openssl rand -hex 32`) | *(empty — `/mcp` not mounted)* |
+
+Tools: `lawn_snapshot` (call first — profile, conditions, full recommendation feed, recent applications, timing windows, disease headlines, nitrogen totals), `lawn_profile`, `current_conditions`, `recommendations`, `applications`. `GET /api/v1/health` reports `mcp: "enabled" | "disabled"`. Try it with `npx @modelcontextprotocol/inspector` against `http://localhost:3000/mcp` and the bearer header.
+
 ### Server
 
 | Variable | Description | Default |
@@ -275,6 +285,9 @@ OWM_LONGITUDE=-74.01
 OPENROUTER_API_KEY=your_openrouter_key_here
 # OPENROUTER_MODEL=anthropic/claude-haiku-4-5
 # OPENROUTER_ENABLED=true
+
+# MCP server for LLM clients (optional; at least 32 characters, e.g. `openssl rand -hex 32`)
+# MCP_TOKEN=your_generated_token_here
 
 # Logging
 RUST_LOG=info
@@ -332,6 +345,7 @@ RUST_LOG=info
 | `POST` | `/api/v1/products/:id/link-applications` | Link past applications logged under this product's name |
 | `GET` | `/api/v1/inventory/suggestions` | Product names in your log that are not on the shelf |
 | `GET` | `/api/v1/inventory/shopping-list` | What to buy or restock, from the active recommendations |
+| `POST` | `/mcp` | MCP server (streamable HTTP, read-only tools) — only when `MCP_TOKEN` is set; requires `Authorization: Bearer $MCP_TOKEN` |
 
 ## Pages
 

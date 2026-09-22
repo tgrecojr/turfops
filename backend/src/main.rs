@@ -4,6 +4,7 @@ mod datasources;
 mod db;
 mod error;
 mod logic;
+mod mcp;
 mod models;
 mod state;
 
@@ -62,7 +63,8 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // Create app state
-    let state = AppState::new(pool, sync_service, openrouter);
+    let mcp_token = config.mcp.token.clone();
+    let state = AppState::new(pool, sync_service, openrouter, mcp_token.is_some());
 
     // Build router
     let app = Router::new()
@@ -178,7 +180,19 @@ async fn main() -> anyhow::Result<()> {
         )
         .layer(RequestBodyLimitLayer::new(1024 * 1024)) // 1MB request body limit
         .layer(build_cors_layer(&config))
-        .with_state(state);
+        .with_state(state.clone());
+
+    // MCP server for LLM clients: server-to-server, so merged after the CORS layer.
+    let app = match mcp_token {
+        Some(token) => {
+            tracing::info!("MCP server mounted at /mcp (bearer token required)");
+            app.merge(mcp::router(state, &token))
+        }
+        None => {
+            tracing::info!("MCP_TOKEN not set — /mcp not mounted");
+            app
+        }
+    };
 
     // Serve React SPA static files with fallback to index.html
     let static_dir = std::env::var("STATIC_DIR").unwrap_or_else(|_| "./static".to_string());
