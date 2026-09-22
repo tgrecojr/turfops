@@ -71,6 +71,7 @@ pub fn apply(
                 profile.grass_type.as_str()
             );
             rec.suggested_action = None;
+            rec.needs.clear();
         } else if remaining < LARGEST_FEEDING_LBS {
             rec.description = format!(
                 "{} Keep this application at or under {remaining:.2} lb N/1000 sqft to stay \

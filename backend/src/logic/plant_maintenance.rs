@@ -7,7 +7,8 @@ use crate::models::seasonal_plan::{
     ActivityDetails, ActivityStatus, DateWindow, PlannedActivity, WindowConfidence,
 };
 use crate::models::{
-    Application, ApplicationType, DataSource, Recommendation, RecommendationCategory,
+    Application, ApplicationType, DataSource, ProductCategory, ProductNeed, Recommendation,
+    RecommendationCategory,
 };
 use chrono::{Datelike, NaiveDate};
 
@@ -154,6 +155,13 @@ pub fn generate_plant_maintenance_recommendations(
                 plant.common_name,
                 suggested_application_type(task.task_type),
             ));
+
+            if task.task_type == TaskType::Fertilizing {
+                rec = rec.with_need(
+                    ProductNeed::new("plant fertilizer", ProductCategory::Fertilizer)
+                        .or_category(ProductCategory::Supplement),
+                );
+            }
 
             recs.push(rec);
         }

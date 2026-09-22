@@ -1,7 +1,10 @@
-use crate::db::queries;
+use crate::db::{product_queries, queries};
 use crate::error::TurfOpsError;
 use crate::logic::disease::{self, weather_days};
-use crate::models::{DailyWeather, DiseaseRiskResponse, LawnProfile, Recommendation};
+use crate::models::{
+    DailyWeather, DiseaseRiskResponse, LawnProfile, ProductCategory, Recommendation,
+    ShelfFungicide, ShelfProduct, StockStatus,
+};
 use crate::state::AppState;
 use axum::extract::State;
 use axum::Json;
@@ -71,7 +74,23 @@ async fn compute(
         today + Duration::days(1),
     )
     .await?;
-    let ctx = disease::context_from_history(&history, today);
+    let mut ctx = disease::context_from_history(&history, today);
+    ctx.shelf = product_queries::list_products_for_profile(
+        &state.pool,
+        profile_id,
+        Some(ProductCategory::Fungicide),
+        false,
+    )
+    .await?
+    .iter()
+    .filter(|p| p.stock_status != StockStatus::Out)
+    .filter_map(|p| {
+        Some(ShelfFungicide {
+            product: ShelfProduct::of(p)?,
+            classes: p.facts.frac_classes.clone(),
+        })
+    })
+    .collect();
 
     let mut data_notes = data_notes(&series, today, forecast.is_some());
     // Every tracked disease is a cool-season turf disease.

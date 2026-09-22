@@ -118,6 +118,12 @@ pub struct Recommendation {
     pub explanation: String,
     pub data_points: Vec<DataPoint>,
     pub suggested_action: Option<String>,
+    /// What the action calls for from the shelf (empty = nothing to buy or fetch).
+    #[serde(default)]
+    pub needs: Vec<super::ProductNeed>,
+    /// The shelf's answer to `needs`, filled by the feed's enrichment pass.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inventory: Option<super::InventoryStatus>,
     pub created_at: DateTime<Utc>,
     pub dismissed: bool,
     pub addressed: bool,
@@ -140,6 +146,8 @@ impl Recommendation {
             explanation: String::new(),
             data_points: Vec::new(),
             suggested_action: None,
+            needs: Vec::new(),
+            inventory: None,
             created_at: Utc::now(),
             dismissed: false,
             addressed: false,
@@ -163,6 +171,11 @@ impl Recommendation {
 
     pub fn with_action(mut self, action: impl Into<String>) -> Self {
         self.suggested_action = Some(action.into());
+        self
+    }
+
+    pub fn with_need(mut self, need: super::ProductNeed) -> Self {
+        self.needs.push(need);
         self
     }
 

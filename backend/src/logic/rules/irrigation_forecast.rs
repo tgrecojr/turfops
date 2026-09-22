@@ -1,8 +1,8 @@
 use super::thresholds::*;
 use super::Rule;
 use crate::models::{
-    Application, DataSource, EnvironmentalSummary, LawnProfile, Recommendation,
-    RecommendationCategory, Severity,
+    Application, DataSource, EnvironmentalSummary, LawnProfile, ProductCategory, ProductNeed,
+    Recommendation, RecommendationCategory, Severity,
 };
 
 /// Irrigation forecast rule - recommends irrigation based on forecast drought
@@ -129,6 +129,10 @@ impl IrrigationForecastRule {
             DataSource::OpenWeatherMap.as_str(),
         )
         .with_action(action)
+        // Nice to have on dry, water-repellent spots; never a reason to shop.
+        .with_need(
+            ProductNeed::new("wetting agent (optional)", ProductCategory::Surfactant).optional(),
+        )
     }
 }
 

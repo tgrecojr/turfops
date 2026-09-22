@@ -1,8 +1,8 @@
 use super::thresholds::*;
 use super::Rule;
 use crate::models::{
-    Application, ApplicationType, DataSource, EnvironmentalSummary, LawnProfile, Recommendation,
-    RecommendationCategory, Severity,
+    Application, ApplicationType, DataSource, EnvironmentalSummary, HerbicideTiming, LawnProfile,
+    ProductCategory, ProductNeed, ProductTarget, Recommendation, RecommendationCategory, Severity,
 };
 use chrono::{Datelike, Local, NaiveDate};
 
@@ -136,13 +136,22 @@ fn build_spring_herbicide_rec(soil_temp: f64, gdd_ytd: Option<f64>) -> Recommend
         );
     }
 
-    rec = rec.with_action(
+    rec = rec.with_need(broadleaf_need()).with_action(
         "Apply post-emergent broadleaf herbicide (2,4-D + dicamba or triclopyr). \
          Apply when air temp is 50-80°F and no rain expected for 24 hours. \
          Avoid application if wind >10 mph. Do not mow for 24-48 hours after application.",
     );
 
     rec
+}
+
+fn broadleaf_need() -> ProductNeed {
+    ProductNeed::new(
+        "post-emergent broadleaf herbicide",
+        ProductCategory::Herbicide,
+    )
+    .with_timing(HerbicideTiming::PostEmergent)
+    .with_targets(vec![ProductTarget::Broadleaf])
 }
 
 fn build_fall_herbicide_rec(soil_temp: f64) -> Recommendation {
@@ -174,6 +183,7 @@ fn build_fall_herbicide_rec(soil_temp: f64) -> Recommendation {
         "Perennial broadleaf (dandelion, clover, plantain)",
         DataSource::MissouriExtension.as_str(),
     )
+    .with_need(broadleaf_need())
     .with_action(
         "Apply post-emergent broadleaf herbicide (2,4-D + dicamba or triclopyr). \
          Fall application is more effective than spring for perennial weeds. \

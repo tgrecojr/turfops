@@ -1,8 +1,8 @@
 use super::thresholds::*;
 use super::Rule;
 use crate::models::{
-    Application, ApplicationType, DataSource, EnvironmentalSummary, LawnProfile, Recommendation,
-    RecommendationCategory, Severity,
+    Application, ApplicationType, DataSource, EnvironmentalSummary, LawnProfile, ProductCategory,
+    ProductNeed, Recommendation, RecommendationCategory, Severity,
 };
 use chrono::{Datelike, Local, NaiveDate};
 
@@ -326,6 +326,10 @@ fn build_ready_to_fertilize(
         );
     }
 
+    rec = rec.with_need(ProductNeed::new(
+        "nitrogen fertilizer",
+        ProductCategory::Fertilizer,
+    ));
     rec = rec.with_action(format!(
         "Apply ~{:.1} lbs of nitrogen for your {:.0} sqft lawn ({:.1} lb N/1000 sqft). \
          Use slow-release nitrogen to avoid surge growth. \

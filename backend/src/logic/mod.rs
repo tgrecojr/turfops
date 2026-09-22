@@ -2,6 +2,7 @@ pub mod data_sync;
 pub mod disease;
 pub mod follow_up;
 pub mod gdd;
+pub mod inventory;
 pub mod plant_maintenance;
 pub mod rules;
 pub mod seasonal_plan;

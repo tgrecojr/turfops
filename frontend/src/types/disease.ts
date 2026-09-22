@@ -1,3 +1,4 @@
+import type { ShelfProduct } from "./inventory";
 // Mirrors backend/src/models/disease.rs
 
 export type Disease =
@@ -60,6 +61,10 @@ export interface FungicideOption {
 	note: string | null;
 	last_used: boolean;
 	recommended: boolean;
+	/** Never picked (e.g. not labeled for residential lawns). */
+	restricted: boolean;
+	/** Products on the shelf in this class. */
+	on_hand: ShelfProduct[];
 }
 
 export interface FungicideProgram {

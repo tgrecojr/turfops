@@ -34,6 +34,10 @@ pub struct FungicideOption {
     pub last_used: bool,
     /// The rotation-aware pick for the next application.
     pub recommended: bool,
+    /// Never picked (e.g. not labeled for residential lawns); listed for completeness.
+    pub restricted: bool,
+    /// Products on the shelf in this class.
+    pub on_hand: Vec<super::ShelfProduct>,
 }
 
 /// A preventative or curative spray program.

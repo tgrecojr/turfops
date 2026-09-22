@@ -31,8 +31,13 @@ pub(super) fn plan(
 ) -> DiseaseManagement {
     let spec = program_for(disease);
     let last_used = last_used_class(spec, &ctx.fungicide_apps, today);
-    let recommended = recommended_class(spec, last_used, false);
-    let curative_pick = recommended_class(spec, last_used, true);
+    let owned: Vec<FracClass> = ctx
+        .shelf
+        .iter()
+        .flat_map(|f| f.classes.iter().copied())
+        .collect();
+    let recommended = recommended_class(spec, last_used, false, &owned);
+    let curative_pick = recommended_class(spec, last_used, true, &owned);
     let protection = active_protection(spec, &ctx.fungicide_apps, tier, today);
     let action = action_for(disease, tier, protection.is_some());
     let outlook = headline::outlook_escalation(daily, today).map(|day| headline::Outlook {
@@ -47,17 +52,22 @@ pub(super) fn plan(
     }
     notes.push(LABEL_NOTE.into());
 
+    let mut headline = headline::headline(
+        disease,
+        tier,
+        action,
+        ctx,
+        recommended,
+        &protection,
+        &outlook,
+    );
+    if action == ManagementAction::ApplyPreventative {
+        headline.push_str(&shelf_note(ctx, recommended));
+    }
+
     DiseaseManagement {
         action,
-        headline: headline::headline(
-            disease,
-            tier,
-            action,
-            ctx,
-            recommended,
-            &protection,
-            &outlook,
-        ),
+        headline,
         cultural: spec.cultural.iter().map(|c| c.to_string()).collect(),
         preventative: FungicideProgram {
             when: "Before symptoms, when risk reaches High or a High/Severe stretch is forecast."
@@ -71,7 +81,7 @@ pub(super) fn plan(
                  consecutive applications of the same single-site class."
                     .into(),
             ],
-            options: options(spec, last_used, recommended, false),
+            options: options(spec, last_used, recommended, false, ctx),
         },
         curative: FungicideProgram {
             when: "Once you can see active symptoms, whatever the current risk tier.".into(),
@@ -84,7 +94,7 @@ pub(super) fn plan(
                  comes from new growth, so keep up the cultural practices."
                     .into(),
             ],
-            options: options(spec, last_used, curative_pick, true),
+            options: options(spec, last_used, curative_pick, true, ctx),
         },
         protection,
         notes,
@@ -114,12 +124,15 @@ fn last_used_class(
         .find(|class| !class.is_multisite() && spec.options.iter().any(|o| o.class == *class))
 }
 
-/// Best unrestricted option that isn't the class used last; ties go to list order.
-/// With `curative_only`, the pick must itself have curative activity.
+/// Best unrestricted option that isn't the class used last. Among equals, one the user
+/// owns wins; then list order. The shelf is only ever a tiebreak — it never promotes a
+/// weaker class and never overrides rotation. With `curative_only`, the pick must itself
+/// have curative activity.
 fn recommended_class(
     spec: &ProgramSpec,
     last_used: Option<FracClass>,
     curative_only: bool,
+    owned: &[FracClass],
 ) -> Option<FracClass> {
     let eligible = |o: &&OptionSpec| {
         !o.restricted && Some(o.class) != last_used && (!curative_only || o.curative)
@@ -130,11 +143,33 @@ fn recommended_class(
         .filter(eligible)
         .map(|o| o.efficacy)
         .max()?;
-    spec.options
+    let mut top = spec
+        .options
         .iter()
         .filter(eligible)
-        .find(|o| o.efficacy == best)
+        .filter(|o| o.efficacy == best);
+    top.clone()
+        .find(|o| owned.contains(&o.class))
+        .or_else(|| top.next())
         .map(|o| o.class)
+}
+
+/// "…you have Heritage G (FRAC 11) on hand." / "…nothing on the shelf covers FRAC 3 or 11."
+fn shelf_note(ctx: &DiseaseContext, pick: Option<FracClass>) -> String {
+    let Some(class) = pick else {
+        return String::new();
+    };
+    let owned: Vec<&str> = ctx
+        .shelf
+        .iter()
+        .filter(|f| f.classes.contains(&class))
+        .map(|f| f.product.name.as_str())
+        .collect();
+    if owned.is_empty() {
+        format!(" Nothing on your shelf is in {}.", class.as_str())
+    } else {
+        format!(" You have {} on hand.", owned.join(" / "))
+    }
 }
 
 fn options(
@@ -142,6 +177,7 @@ fn options(
     last_used: Option<FracClass>,
     pick: Option<FracClass>,
     curative_only: bool,
+    ctx: &DiseaseContext,
 ) -> Vec<FungicideOption> {
     spec.options
         .iter()
@@ -159,6 +195,13 @@ fn options(
             note: o.note.map(Into::into),
             last_used: Some(o.class) == last_used,
             recommended: Some(o.class) == pick,
+            restricted: o.restricted,
+            on_hand: ctx
+                .shelf
+                .iter()
+                .filter(|f| f.classes.contains(&o.class))
+                .map(|f| f.product.clone())
+                .collect(),
         })
         .collect()
 }

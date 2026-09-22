@@ -37,6 +37,55 @@ fn recommended(program: &FungicideProgram) -> Vec<FracClass> {
         .collect()
 }
 
+fn shelf(name: &str, classes: &[FracClass]) -> crate::models::ShelfFungicide {
+    crate::models::ShelfFungicide {
+        product: crate::models::ShelfProduct {
+            product_id: 1,
+            name: name.into(),
+            stock_status: crate::models::StockStatus::InStock,
+        },
+        classes: classes.to_vec(),
+    }
+}
+
+#[test]
+fn the_shelf_breaks_ties_but_never_beats_efficacy_or_rotation() {
+    let today = date(7, 20);
+    // Brown patch: FRAC 11 and FRAC 7 are both Excellent; the default pick is FRAC 11.
+    // Owning an SDHI flips the tie to FRAC 7 and says so.
+    let ctx = DiseaseContext {
+        shelf: vec![shelf("Xzemplar", &[FracClass::Frac7])],
+        ..Default::default()
+    };
+    let owned = plan(Disease::BrownPatch, RiskTier::High, &[], today, &ctx);
+    assert_eq!(recommended(&owned.preventative), vec![FracClass::Frac7]);
+    assert!(owned.headline.contains("You have Xzemplar on hand"));
+    let sdhi = owned
+        .preventative
+        .options
+        .iter()
+        .find(|o| o.frac_class == FracClass::Frac7)
+        .unwrap();
+    assert_eq!(sdhi.on_hand[0].name, "Xzemplar");
+
+    // Owning the class used last does not bring it back: rotation wins.
+    let mut ctx = ctx_with(vec![app(6, 20, "Heritage G")]);
+    ctx.shelf = vec![shelf("Heritage G", &[FracClass::Frac11])];
+    let rotated = plan(Disease::BrownPatch, RiskTier::High, &[], today, &ctx);
+    assert_eq!(recommended(&rotated.preventative), vec![FracClass::Frac7]);
+    assert!(rotated
+        .headline
+        .contains("Nothing on your shelf is in FRAC 7"));
+
+    // Owning only a weaker class does not promote it either.
+    let ctx = DiseaseContext {
+        shelf: vec![shelf("Cleary's 3336", &[FracClass::Frac1])],
+        ..Default::default()
+    };
+    let weak = plan(Disease::BrownPatch, RiskTier::High, &[], today, &ctx);
+    assert_eq!(recommended(&weak.preventative), vec![FracClass::Frac11]);
+}
+
 #[test]
 fn tiers_map_to_actions() {
     let today = date(7, 20);
