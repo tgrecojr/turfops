@@ -1,8 +1,9 @@
-//! The application log.
+//! The application log and soil tests.
 
 use super::{call, json_result, tool_error};
 use crate::api;
 use crate::api::applications::ListApplicationsQuery;
+use crate::api::soil_tests::ListSoilTestsQuery;
 use crate::db::queries;
 use crate::error::TurfOpsError;
 use crate::mcp::TurfOpsMcp;
@@ -31,6 +32,12 @@ pub struct ApplicationsParams {
     /// Latest application date, inclusive (YYYY-MM-DD).
     pub until: Option<String>,
     /// Most entries to return, newest first (default 20, max 100).
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Default, Deserialize, JsonSchema)]
+pub struct SoilTestsParams {
+    /// Most tests to return, newest first (default 5, max 50).
     pub limit: Option<i64>,
 }
 
@@ -71,6 +78,40 @@ impl TurfOpsMcp {
             Ok(apps) => json_result(&apps),
             Err(err) => Ok(tool_error(err)),
         }
+    }
+
+    #[tool(
+        description = "Soil test results, newest first: date, lab, pH, buffer pH, P, K, Ca, \
+                       Mg, S and micronutrients (ppm), organic matter and CEC. The latest \
+                       test drives `soil_test_advice`.",
+        annotations(read_only_hint = true)
+    )]
+    async fn soil_tests(
+        &self,
+        Parameters(params): Parameters<SoilTestsParams>,
+    ) -> Result<CallToolResult, ErrorData> {
+        call(api::soil_tests::list_soil_tests(
+            State(self.state.clone()),
+            Query(ListSoilTestsQuery {
+                limit: Some(params.limit.unwrap_or(5).clamp(1, 50)),
+                offset: None,
+            }),
+        ))
+        .await
+    }
+
+    #[tool(
+        description = "Advice from the latest soil test: pH correction (lime or sulfur, \
+                       scaled to soil type), an N-P-K ratio from the P and K levels, and \
+                       micronutrient deficiencies. Use for 'should I lime' or 'what \
+                       fertilizer ratio' questions.",
+        annotations(read_only_hint = true)
+    )]
+    async fn soil_test_advice(&self) -> Result<CallToolResult, ErrorData> {
+        call(api::soil_tests::get_soil_test_recommendations(State(
+            self.state.clone(),
+        )))
+        .await
     }
 }
 

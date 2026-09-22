@@ -5,6 +5,7 @@
 mod auth;
 mod config;
 mod instructions;
+mod resources;
 mod tools;
 mod trim;
 
@@ -13,10 +14,14 @@ pub use config::{parse_token, McpConfig};
 use crate::state::AppState;
 use axum::Router;
 use rmcp::handler::server::router::tool::ToolRouter;
-use rmcp::model::{Implementation, ServerCapabilities, ServerConfig};
+use rmcp::model::{
+    Implementation, ListResourcesResult, PaginatedRequestParams, ReadResourceRequestParams,
+    ReadResourceResponse, ServerCapabilities, ServerConfig,
+};
+use rmcp::service::RequestContext;
 use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 use rmcp::transport::streamable_http_server::{StreamableHttpServerConfig, StreamableHttpService};
-use rmcp::{tool_handler, ServerHandler};
+use rmcp::{tool_handler, ErrorData, RoleServer, ServerHandler};
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -28,7 +33,12 @@ pub struct TurfOpsMcp {
 impl TurfOpsMcp {
     /// Every tool, from the per-area routers in `tools/`.
     fn tools() -> ToolRouter<Self> {
-        Self::lawn_tools() + Self::log_tools()
+        Self::lawn_tools()
+            + Self::season_tools()
+            + Self::weather_tools()
+            + Self::disease_tools()
+            + Self::log_tools()
+            + Self::shelf_tools()
     }
 }
 
@@ -37,12 +47,33 @@ impl ServerHandler for TurfOpsMcp {
     fn get_info(&self) -> ServerConfig {
         server_config()
     }
+
+    async fn list_resources(
+        &self,
+        _request: Option<PaginatedRequestParams>,
+        _context: RequestContext<RoleServer>,
+    ) -> Result<ListResourcesResult, ErrorData> {
+        Ok(resources::list())
+    }
+
+    async fn read_resource(
+        &self,
+        request: ReadResourceRequestParams,
+        _context: RequestContext<RoleServer>,
+    ) -> Result<ReadResourceResponse, ErrorData> {
+        resources::read(&request.uri).map(Into::into)
+    }
 }
 
 fn server_config() -> ServerConfig {
-    ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
-        .with_server_info(Implementation::new("turfops", env!("CARGO_PKG_VERSION")))
-        .with_instructions(instructions::INSTRUCTIONS)
+    ServerConfig::new(
+        ServerCapabilities::builder()
+            .enable_tools()
+            .enable_resources()
+            .build(),
+    )
+    .with_server_info(Implementation::new("turfops", env!("CARGO_PKG_VERSION")))
+    .with_instructions(instructions::INSTRUCTIONS)
 }
 
 /// The `/mcp` routes, guarded by `Authorization: Bearer <token>`.
@@ -102,7 +133,7 @@ mod tests {
     }
 
     #[test]
-    fn phase_one_tools_are_registered() {
+    fn every_planned_tool_is_registered() {
         let names: Vec<String> = TurfOpsMcp::tools()
             .list_all()
             .into_iter()
@@ -111,9 +142,22 @@ mod tests {
         for expected in [
             "applications",
             "current_conditions",
+            "disease_detail",
+            "disease_risk",
+            "gdd",
             "lawn_profile",
             "lawn_snapshot",
+            "nitrogen_budget",
+            "plants",
+            "products",
             "recommendations",
+            "seasonal_plan",
+            "shopping_list",
+            "soil_temp_outlook",
+            "soil_test_advice",
+            "soil_tests",
+            "timing_windows",
+            "weather_history",
         ] {
             assert!(
                 names.iter().any(|n| n == expected),
@@ -126,6 +170,7 @@ mod tests {
     fn server_info_advertises_tools_and_instructions() {
         let info = server_config();
         assert!(info.capabilities.tools.is_some());
+        assert!(info.capabilities.resources.is_some());
         assert_eq!(info.server_info.name, "turfops");
         assert!(info.instructions.is_some_and(|i| !i.is_empty()));
     }

@@ -29,6 +29,8 @@ RUN rm -rf src
 
 # Copy actual source and force recompile
 COPY backend/src ./src
+# Docs the MCP server embeds as resources (include_str! of ../../../docs from src/mcp/).
+COPY docs/timing-windows.md docs/agronomy-methods.md /docs/
 RUN touch src/main.rs
 
 # Build the application

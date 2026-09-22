@@ -35,7 +35,7 @@ pub async fn get_timing_windows(
 }
 
 /// The memoized climate record, read from the lake when missing or older than the TTL.
-async fn climate_record(
+pub(crate) async fn climate_record(
     state: &AppState,
     client: &WeatherLakeClient,
 ) -> Result<Arc<ClimateRecord>, TurfOpsError> {

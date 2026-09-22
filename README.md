@@ -232,7 +232,7 @@ TurfOps can serve a read-only [Model Context Protocol](https://modelcontextproto
 |----------|-------------|---------|
 | `MCP_TOKEN` | Bearer token clients must send (`Authorization: Bearer …`); at least 32 characters (`openssl rand -hex 32`) | *(empty — `/mcp` not mounted)* |
 
-Tools: `lawn_snapshot` (call first — profile, conditions, full recommendation feed, recent applications, timing windows, disease headlines, nitrogen totals), `lawn_profile`, `current_conditions`, `recommendations`, `applications`. `GET /api/v1/health` reports `mcp: "enabled" | "disabled"`. Try it with `npx @modelcontextprotocol/inspector` against `http://localhost:3000/mcp` and the bearer header.
+Tools: `lawn_snapshot` (call first — profile, conditions, full recommendation feed, recent applications, timing windows, disease headlines, nitrogen totals), `lawn_profile`, `current_conditions`, `weather_history`, `recommendations`, `timing_windows`, `seasonal_plan`, `gdd`, `soil_temp_outlook`, `nitrogen_budget`, `disease_risk`, `disease_detail`, `applications`, `soil_tests`, `soil_test_advice`, `products`, `shopping_list`, `plants`. Resources: `turfops://docs/agronomy` ([docs/agronomy-methods.md](docs/agronomy-methods.md)) and `turfops://docs/timing-windows`. `GET /api/v1/health` reports `mcp: "enabled" | "disabled"`. Try it with `npx @modelcontextprotocol/inspector` against `http://localhost:3000/mcp` and the bearer header.
 
 ### Server
 
