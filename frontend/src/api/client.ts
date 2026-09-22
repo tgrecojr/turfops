@@ -19,6 +19,15 @@ import type {
 	SoilTestSummary,
 } from "../types";
 import type { DiseaseRiskResponse } from "../types/disease";
+import type {
+	Product,
+	ProductCategory,
+	ProductCreated,
+	ProductFacts,
+	ProductForm,
+	ProductRefreshed,
+	StockStatus,
+} from "../types/inventory";
 import type { TimingResponse } from "../types/timing";
 
 const BASE = "/api/v1";
@@ -306,6 +315,60 @@ export const deletePlant = (id: number) =>
 export const refreshPlantPlan = (id: number) =>
 	fetchJson<Plant>(
 		`${BASE}/plants/${id}/refresh-plan`,
+		{ method: "POST" },
+		60_000,
+	);
+
+// Products (inventory)
+export const listProducts = (opts?: {
+	category?: ProductCategory;
+	includeArchived?: boolean;
+}) => {
+	const params = new URLSearchParams();
+	if (opts?.category) params.set("category", opts.category);
+	if (opts?.includeArchived) params.set("include_archived", "true");
+	const qs = params.toString();
+	return fetchJson<Product[]>(`${BASE}/products${qs ? `?${qs}` : ""}`);
+};
+
+export type CreateProductBody = {
+	name: string;
+	brand?: string;
+	category?: ProductCategory;
+	form?: ProductForm;
+	stock_status?: StockStatus;
+	notes?: string;
+	assist?: boolean;
+};
+
+export const createProduct = (data: CreateProductBody) =>
+	// The assistant round-trip can take a while — extend the client-side timeout.
+	fetchJson<ProductCreated>(
+		`${BASE}/products`,
+		{ method: "POST", body: JSON.stringify(data) },
+		60_000,
+	);
+
+export type UpdateProductBody = ProductFacts & {
+	name: string;
+	brand: string | null;
+	stock_status: StockStatus;
+	notes: string | null;
+	archived: boolean;
+};
+
+export const updateProduct = (id: number, data: UpdateProductBody) =>
+	fetchJson<Product>(`${BASE}/products/${id}`, {
+		method: "PUT",
+		body: JSON.stringify(data),
+	});
+
+export const deleteProduct = (id: number) =>
+	fetchJson<void>(`${BASE}/products/${id}`, { method: "DELETE" });
+
+export const refreshProductProfile = (id: number) =>
+	fetchJson<ProductRefreshed>(
+		`${BASE}/products/${id}/refresh-profile`,
 		{ method: "POST" },
 		60_000,
 	);
