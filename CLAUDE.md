@@ -17,7 +17,7 @@ Containerized web application for tracking lawn care activities with data-driven
 
 ### Backend
 - `cd backend && cargo build` — Build backend
-- `cd backend && cargo test` — Run tests (263 tests)
+- `cd backend && cargo test` — Run tests (264 tests)
 - `cd backend && cargo fmt` — Format code
 - `cd backend && cargo clippy` — Run linter
 - `cd backend && cargo run` — Run API server (needs PostgreSQL)
@@ -45,7 +45,7 @@ turfops/
 │       ├── config.rs            # Env-var-based configuration
 │       ├── error.rs             # Error types with HTTP responses
 │       ├── state.rs             # AppState (pool, sync, rules engine, 1 h climate-record memo)
-│       ├── api/                 # Route handlers (27 paths / 39 routes) + recommendation_feed.rs shared by dashboard and feed
+│       ├── api/                 # Route handlers (29 paths / 41 routes) + recommendation_feed.rs shared by dashboard and feed
 │       ├── db/                  # PostgreSQL pool, queries, migrations
 │       ├── models/              # Data structures (shared with rules); product/ = inventory enums + LLM profile + user-owned facts
 │       ├── logic/               # Data sync + 10 agronomic rules + GDD accumulation + seasonal plan + disease risk models + seeding/pre-emergent timing windows
@@ -56,7 +56,7 @@ turfops/
 │       ├── api/client.ts        # Fetch wrapper for all API endpoints
 │       ├── types/               # TypeScript interfaces matching Rust models (index.ts; disease.ts for disease risk; timing.ts for timing windows; inventory.ts + inventoryTargets.ts for products)
 │       ├── pages/               # Dashboard, Applications, Inventory, Landscape, Calendar, Environmental, Recommendations, DiseaseRisk, Timing, SoilTests, SeasonalPlan, Settings
-│       └── components/          # Layout, Gauge, AlertCard, TrendChart, GddWidget, NitrogenBudgetWidget, SoilTempForecastWidget, PredictionChart, disease/ (TierBadge, RiskMeter, DailyRiskChart, DiseaseDetail, ManagementPanel, DiseaseRiskWidget), timing/ (StateBadge, WindowTimeline, WindowCard, SoilSeasonChart, SoilSeasonTable, TimingMethod, TimingWidget), inventory/ (StockBadge, AddProductForm, EditProductForm, CategoryFields, ProductRow, ProductDetails)
+│       └── components/          # Layout, Gauge, AlertCard, ProductPicker (application form ↔ shelf), TrendChart, GddWidget, NitrogenBudgetWidget, SoilTempForecastWidget, PredictionChart, disease/ (TierBadge, RiskMeter, DailyRiskChart, DiseaseDetail, ManagementPanel, DiseaseRiskWidget), timing/ (StateBadge, WindowTimeline, WindowCard, SoilSeasonChart, SoilSeasonTable, TimingMethod, TimingWidget), inventory/ (StockBadge, AddProductForm, EditProductForm, CategoryFields, ProductRow, ProductDetails, LogSuggestions, useProductActions)
 ├── Dockerfile                   # Multi-stage: Node → Rust → slim runtime
 └── docker-compose.yml           # app + PostgreSQL 18
 ```
@@ -68,7 +68,7 @@ turfops/
 | GET | /api/v1/health | Connection status (the lake is reported under the legacy key `soildata`) |
 | GET | /api/v1/dashboard | Composite dashboard data |
 | GET/PUT | /api/v1/profile | Lawn profile CRUD |
-| GET/POST | /api/v1/applications | List (`?type=&limit=&offset=`, type filtered in SQL) / create applications (409 on a true duplicate) |
+| GET/POST | /api/v1/applications | List (`?type=&limit=&offset=`, type filtered in SQL) / create applications (409 on a true duplicate; optional `product_id` must be a shelf product whose category accepts the type — 400 otherwise — and fills `product_name` when empty) |
 | PUT/DELETE | /api/v1/applications/:id | Update / delete application |
 | GET | /api/v1/applications/calendar | Calendar view |
 | GET | /api/v1/environmental | Environmental data (demand-driven refresh) |
@@ -90,6 +90,8 @@ turfops/
 | GET/POST | /api/v1/products | List (`?category=&include_archived=`) / add a shelf product (LLM profile when configured and `assist` ≠ false; saves by hand otherwise — `category` then required) |
 | GET/PUT/DELETE | /api/v1/products/:id | Read / replace user-owned fields (never the profile) / delete |
 | POST | /api/v1/products/:id/refresh-profile | Regenerate the LLM profile; returns `suggested_facts` + `changed_fields`, does not overwrite the user's facts |
+| POST | /api/v1/products/:id/link-applications | Set `product_id` on past applications logged under the product's name (case-insensitive); returns `linked` |
+| GET | /api/v1/inventory/suggestions | Names in the application log that match no shelf product, with uses / last date / types |
 | GET | /api/v1/frac-classes | FRAC class options for the application form + the classes a `?product=` name resolves to |
 | GET | /api/v1/disease-risk | Per-disease risk tiers, 11-day series, contributing factors, methodology |
 
@@ -121,7 +123,7 @@ turfops/
 - Seasonal plan uses historical NOAA soil temp data (up to 10 years) to predict activity windows via threshold crossing analysis; crossings cached in DB per station (`seasonal_threshold_crossings.station_wbanno`); a year is only "settled" once recomputed after it ended, so the year in progress is recomputed on each load instead of freezing at its first crossing
 - Calendar view overlays seasonal plan activity windows (status-colored bars) alongside application dots; detail panel shows both when a date is selected
 - `GrassType::Mixed` is a **cool-season** blend (fescue / bluegrass / rye) — it gets the rules, seeding windows and disease models. Warm-season lawns get no cool-season plan activities (`seasonal_plan::COOL_SEASON_ONLY`: spring N, fall feedings, winterizer, fall seeding + aeration); weed and grub control stay.
-- Product inventory (`models/product/`, `api/products.rs`, `/inventory`; plan in `docs/plans/product-inventory.md`): what is on the shelf, by `ProductCategory` (Fertilizer · Supplement · Fungicide · Herbicide · InsectControl · Seed · SoilAmendment · Surfactant · Other). **No quantities by design** — `stock_status` is a hand-set In stock / Low / Out (Out = rebuy; `archived` = no longer used). A product has user-owned **facts** (category, form, NPK, FRAC classes, herbicide timing, `ProductTarget` list, amendment kind, optional label rate) flattened into the JSON, plus an optional LLM **profile** (JSONB, `profile_model` / `profile_generated_at`) that is informational and regenerable. On add, the assistant fills the facts once (curated `frac_classes_for_product` beats the LLM's FRAC list; the user's category/form beat its guess); PUT edits facts only; refresh stores the new profile and returns a diff for the user to apply. The LLM schema has no interval or timing fields; its one rate is `suggested_label_rate`, stored as the product's label rate, shown with a "verify against your label" caveat, and used only to pre-fill the application form — never in advice text. A product saves without OpenRouter (unlike plants). Every enum's variant name is its serde name, DB string and JSON-schema value (`models/product/enums.rs` `string_enum!`).
+- Product inventory (`models/product/`, `api/products.rs`, `/inventory`; plan in `docs/plans/product-inventory.md`): what is on the shelf, by `ProductCategory` (Fertilizer · Supplement · Fungicide · Herbicide · InsectControl · Seed · SoilAmendment · Surfactant · Other). **No quantities by design** — `stock_status` is a hand-set In stock / Low / Out (Out = rebuy; `archived` = no longer used). A product has user-owned **facts** (category, form, NPK, FRAC classes, herbicide timing, `ProductTarget` list, amendment kind, optional label rate) flattened into the JSON, plus an optional LLM **profile** (JSONB, `profile_model` / `profile_generated_at`) that is informational and regenerable. On add, the assistant fills the facts once (curated `frac_classes_for_product` beats the LLM's FRAC list; the user's category/form beat its guess); PUT edits facts only; refresh stores the new profile and returns a diff for the user to apply. The LLM schema has no interval or timing fields; its one rate is `suggested_label_rate`, stored as the product's label rate, shown with a "verify against your label" caveat, and used only to pre-fill the application form — never in advice text. A product saves without OpenRouter (unlike plants). Every enum's variant name is its serde name, DB string and JSON-schema value (`models/product/enums.rs` `string_enum!`). **Applications link to the shelf** via nullable `applications.product_id` (`ON DELETE SET NULL`); `product_name` is copied from the product at log time so history survives a rename/delete and the duplicate key is unchanged. `ProductCategory::accepts(ApplicationType)` (mirrored by `types/inventoryCompat.ts` `categoriesFor`) gates which products the form offers and which the API accepts; `Other` on either side accepts anything. Picking a product pre-fills name, N-P-K, FRAC classes (the `FracClassPicker` is remounted with `recorded` so the name lookup does not overwrite them) and the label rate; logging against an `Out` product offers to mark it In stock (the only stock automation). The Inventory page lists logged-but-uncatalogued names (`LogSuggestions`) with one-click add (name + guessed category) and each product has "Link past applications".
 - Landscape-plant tasks use the window in force *today* (`plant_maintenance::window_on`), so one that wraps the new year (Dec → Feb) stays open in January with the same recommendation id; completion is scoped to that window (from 30 d before it opens), so April's feeding does not complete September's.
 - Mowing is tracked as an ApplicationType (no cut height field); shows on calendar and applications list like any other type
 

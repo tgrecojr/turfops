@@ -150,6 +150,7 @@ mod tests {
             plant_id,
             follow_up_date: follow_up,
             frac_classes: None,
+            product_id: None,
             created_at: Utc::now(),
         }
     }

@@ -1,6 +1,7 @@
 //! Controlled vocabularies for the product inventory. Every variant name doubles as the
 //! serde name, the database string and the JSON-schema enum value the LLM must pick from,
 //! so `as_str()` / `FromStr` / serde all agree by construction.
+use crate::models::ApplicationType;
 use serde::{Deserialize, Serialize};
 
 macro_rules! string_enum {
@@ -61,6 +62,28 @@ string_enum! {
     }
 }
 
+impl ProductCategory {
+    /// Whether a product of this category can be logged under `t`. `Other` on either side
+    /// accepts anything; the user is not second-guessed on a catch-all.
+    pub fn accepts(&self, t: ApplicationType) -> bool {
+        use ApplicationType as A;
+        if t == A::Other {
+            return true;
+        }
+        match self {
+            ProductCategory::Other => true,
+            ProductCategory::Fertilizer => matches!(t, A::Fertilizer | A::PlantFertilizer),
+            ProductCategory::Supplement => matches!(t, A::Fertilizer | A::PlantFertilizer),
+            ProductCategory::Fungicide => t == A::Fungicide,
+            ProductCategory::Herbicide => matches!(t, A::PreEmergent | A::PostEmergent),
+            ProductCategory::InsectControl => matches!(t, A::GrubControl | A::Insecticide),
+            ProductCategory::Seed => t == A::Overseed,
+            ProductCategory::SoilAmendment => matches!(t, A::Lime | A::Sulfur),
+            ProductCategory::Surfactant => t == A::Wetting,
+        }
+    }
+}
+
 string_enum! {
     ProductForm { Granular, Liquid, WaterSoluble, Seed, Other }
 }
@@ -118,6 +141,16 @@ mod tests {
             let json = serde_json::to_value(c).unwrap();
             assert_eq!(json.as_str().unwrap(), c.as_str());
         }
+    }
+
+    #[test]
+    fn category_accepts_matching_application_types_and_other() {
+        assert!(ProductCategory::Herbicide.accepts(ApplicationType::PreEmergent));
+        assert!(!ProductCategory::Herbicide.accepts(ApplicationType::Fertilizer));
+        assert!(ProductCategory::Herbicide.accepts(ApplicationType::Other));
+        assert!(ProductCategory::Other.accepts(ApplicationType::Fungicide));
+        assert!(ProductCategory::InsectControl.accepts(ApplicationType::GrubControl));
+        assert!(!ProductCategory::Seed.accepts(ApplicationType::Aeration));
     }
 
     #[test]

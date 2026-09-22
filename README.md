@@ -329,14 +329,16 @@ RUST_LOG=info
 | `PUT` | `/api/v1/products/:id` | Replace the user-owned fields (name, brand, stock status, facts, notes, archived) |
 | `DELETE` | `/api/v1/products/:id` | Delete a product |
 | `POST` | `/api/v1/products/:id/refresh-profile` | Regenerate the assistant profile; returns suggested facts + which fields differ |
+| `POST` | `/api/v1/products/:id/link-applications` | Link past applications logged under this product's name |
+| `GET` | `/api/v1/inventory/suggestions` | Product names in your log that are not on the shelf |
 
 ## Pages
 
 | Page | Description |
 |------|-------------|
 | **Dashboard** | Gauges for soil temp, ambient temp, humidity, and soil moisture. GDD, disease risk, seeding/pre-emergent timing, nitrogen budget, and soil-temp forecast widgets. Active alerts and recent applications. Auto-refreshes every 30 seconds. |
-| **Applications** | Filterable table of all lawn treatments including mowing. Add new applications with type, product, rate, and notes. |
-| **Inventory** | What's on the shelf, grouped by category (fertilizer, supplements, fungicides, herbicides, insect control, seed, amendments, surfactants). Type a product name and the assistant fills in actives, N-P-K, FRAC class, timing and targets — every fact stays editable and a suggested label rate is flagged "verify against your label". No quantities: a click on the stock pill cycles In stock → Low → Out. Products save by hand when the assistant is off. |
+| **Applications** | Filterable table of all lawn treatments including mowing. Add new applications with type, product, rate, and notes. The product is picked from your Inventory (filtered to what fits the type) and pre-fills N-P-K, FRAC class and rate; a name can still be typed for something not on the shelf. |
+| **Inventory** | What's on the shelf, grouped by category (fertilizer, supplements, fungicides, herbicides, insect control, seed, amendments, surfactants). Type a product name and the assistant fills in actives, N-P-K, FRAC class, timing and targets — every fact stays editable and a suggested label rate is flagged "verify against your label". No quantities: a click on the stock pill cycles In stock → Low → Out. Products save by hand when the assistant is off. Names you have logged under Applications but never catalogued are offered for one-click adding, and "Link past applications" attaches earlier log entries to a product. |
 | **Calendar** | Month grid view with colored dots for applications and status-colored bars for seasonal plan activity windows. Plant-maintenance windows render as outlined bars (distinct from filled turf bars). Click any date to see details grouped into Applications, Turf Activities, and Plant Maintenance. |
 | **Landscape** | Add plants by common or scientific name to get a homeowner-level care plan (pruning, fertilizing, mulching, etc.) per plant. Each card shows the plan summary, task windows, warnings, and a "Regenerate plan" button. **Requires `OPENROUTER_API_KEY`** — see [OpenRouter](#openrouter-optional--landscape-maintenance). |
 | **Environmental** | Detailed sensor data, soil depth readings, 7-day trends and averages. |

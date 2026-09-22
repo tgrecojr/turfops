@@ -149,6 +149,14 @@ async fn main() -> anyhow::Result<()> {
             post(api::products::refresh_product_profile),
         )
         .route(
+            "/api/v1/products/{id}/link-applications",
+            post(api::products::link_applications),
+        )
+        .route(
+            "/api/v1/inventory/suggestions",
+            get(api::products::logged_product_suggestions),
+        )
+        .route(
             "/api/v1/soil-temp-forecast",
             get(api::soil_temp_prediction::get_soil_temp_forecast),
         )

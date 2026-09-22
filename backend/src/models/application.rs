@@ -153,6 +153,9 @@ pub struct Application {
     /// models then fall back to recognising the product name (`frac_class::classes_of`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub frac_classes: Option<Vec<super::FracClass>>,
+    /// The inventory product this application used, when picked from the shelf.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub product_id: Option<i64>,
     pub created_at: chrono::DateTime<Utc>,
 }
 
@@ -196,6 +199,7 @@ mod tests {
             plant_id,
             follow_up_date: None,
             frac_classes: None,
+            product_id: None,
             created_at: Utc::now(),
         }
     }

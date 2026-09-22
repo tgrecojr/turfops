@@ -64,6 +64,7 @@ fn pruning_app(plant_id: i64, date: NaiveDate) -> Application {
         plant_id: Some(plant_id),
         follow_up_date: None,
         frac_classes: None,
+        product_id: None,
         created_at: Utc::now(),
     }
 }

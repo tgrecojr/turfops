@@ -1,29 +1,25 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-	deleteProduct,
-	listProducts,
-	refreshProductProfile,
-	updateProduct,
-} from "../api/client";
+import { listProducts } from "../api/client";
 import AddProductForm from "../components/inventory/AddProductForm";
+import LogSuggestions from "../components/inventory/LogSuggestions";
 import ProductRow, {
 	type Suggestion,
 } from "../components/inventory/ProductRow";
 import { inv } from "../components/inventory/styles";
+import { useProductActions } from "../components/inventory/useProductActions";
 import { sharedStyles } from "../styles/shared";
 import type {
+	LoggedProductSuggestion,
 	Product,
 	ProductCategory,
 	ProductCreated,
 } from "../types/inventory";
 import {
-	factsOf,
 	nextStockStatus,
 	PRODUCT_CATEGORIES,
 	PRODUCT_CATEGORY_LABELS,
 } from "../types/inventory";
-
-type Busy = "status" | "refresh" | "archive" | "delete";
+import { guessCategory } from "../types/inventoryCompat";
 
 export default function Inventory() {
 	const [products, setProducts] = useState<Product[]>([]);
@@ -34,10 +30,11 @@ export default function Inventory() {
 	const [showArchived, setShowArchived] = useState(false);
 	const [expanded, setExpanded] = useState<Set<number>>(new Set());
 	const [editingId, setEditingId] = useState<number | null>(null);
-	const [busy, setBusy] = useState<{ id: number; what: Busy } | null>(null);
 	const [suggestions, setSuggestions] = useState<Map<number, Suggestion>>(
 		new Map(),
 	);
+	const [prefill, setPrefill] = useState<LoggedProductSuggestion | null>(null);
+	const [logVersion, setLogVersion] = useState(0);
 
 	const fetchProducts = useCallback(async () => {
 		try {
@@ -81,6 +78,8 @@ export default function Inventory() {
 
 	const handleCreated = (created: ProductCreated) => {
 		setShowForm(false);
+		setPrefill(null);
+		setLogVersion((v) => v + 1);
 		setProducts((prev) => [...prev, created.product]);
 		if (created.product.id != null) {
 			const id = created.product.id;
@@ -93,58 +92,25 @@ export default function Inventory() {
 		);
 	};
 
-	const run = async (id: number, what: Busy, fn: () => Promise<void>) => {
-		setBusy({ id, what });
-		try {
-			await fn();
-			setError(null);
-		} catch (e) {
-			setError(e instanceof Error ? e.message : "Request failed");
-		} finally {
-			setBusy(null);
-		}
-	};
-
-	const save = (p: Product, patch: Partial<Product>) => {
-		if (p.id == null) return Promise.resolve();
-		const merged = { ...p, ...patch };
-		return updateProduct(p.id, {
-			...factsOf(merged),
-			name: merged.name,
-			brand: merged.brand,
-			stock_status: merged.stock_status,
-			notes: merged.notes,
-			archived: merged.archived,
-		}).then(replace);
-	};
-
-	const handleRefresh = (p: Product) =>
-		run(p.id ?? -1, "refresh", async () => {
-			if (p.id == null) return;
-			const res = await refreshProductProfile(p.id);
-			replace(res.product);
-			setSuggestions((prev) => {
-				const next = new Map(prev);
-				if (res.changed_fields.length > 0 && p.id != null)
-					next.set(p.id, {
-						facts: res.suggested_facts,
-						changed: res.changed_fields,
-					});
-				else if (p.id != null) next.delete(p.id);
-				return next;
-			});
-			setExpanded((prev) => (p.id == null ? prev : new Set(prev).add(p.id)));
-		});
-
-	const handleDelete = (p: Product) => {
-		if (p.id == null || !confirm(`Delete "${p.name}" from your inventory?`))
-			return;
-		const id = p.id;
-		run(id, "delete", async () => {
-			await deleteProduct(id);
-			setProducts((prev) => prev.filter((x) => x.id !== id));
-		});
-	};
+	const actions = useProductActions({
+		setProducts,
+		setError,
+		setNotice,
+		setSuggestions,
+		setExpanded,
+		setLogVersion,
+		setPrefill,
+		setShowForm,
+	});
+	const {
+		busy,
+		run,
+		save,
+		handleRefresh,
+		handleDelete,
+		handleLink,
+		handleAddFromLog,
+	} = actions;
 
 	const dismissSuggestion = (id: number) =>
 		setSuggestions((prev) => {
@@ -174,10 +140,19 @@ export default function Inventory() {
 			</p>
 
 			{showForm && (
-				<AddProductForm onCreated={handleCreated} onError={setError} />
+				<AddProductForm
+					key={prefill?.name ?? "blank"}
+					initialName={prefill?.name}
+					initialCategory={
+						prefill ? guessCategory(prefill.application_types) : undefined
+					}
+					onCreated={handleCreated}
+					onError={setError}
+				/>
 			)}
 			{notice && <div style={inv.warnBox}>{notice}</div>}
 			{error && <div style={sharedStyles.error}>{error}</div>}
+			{!loading && <LogSuggestions key={logVersion} onAdd={handleAddFromLog} />}
 
 			{loading ? (
 				<p style={sharedStyles.loading}>Loading inventory...</p>
@@ -224,6 +199,7 @@ export default function Inventory() {
 											)
 										}
 										onDelete={() => handleDelete(p)}
+										onLink={() => handleLink(p)}
 										onDismissSuggestion={() =>
 											p.id != null && dismissSuggestion(p.id)
 										}

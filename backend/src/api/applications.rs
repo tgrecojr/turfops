@@ -1,3 +1,5 @@
+mod product_link;
+
 use crate::db::queries;
 use crate::error::TurfOpsError;
 use crate::models::{Application, ApplicationScope, ApplicationType, FracClass, WeatherSnapshot};
@@ -73,6 +75,8 @@ pub struct CreateApplicationRequest {
     pub follow_up_date: Option<String>,
     /// FRAC classes read off the label (fungicides only).
     pub frac_classes: Option<Vec<FracClass>>,
+    /// Shelf product this application used; its name is copied when product_name is empty.
+    pub product_id: Option<i64>,
 }
 
 /// Only a fungicide carries FRAC classes; an empty pick means "not recorded".
@@ -143,13 +147,23 @@ pub async fn create_application(
         }
     }
 
+    let lawn_profile_id = profile
+        .id
+        .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
+    let (product_id, product_name) = product_link::resolve(
+        &state,
+        lawn_profile_id,
+        req.product_id,
+        application_type,
+        req.product_name,
+    )
+    .await?;
+
     let app = Application {
         id: None,
-        lawn_profile_id: profile
-            .id
-            .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?,
+        lawn_profile_id,
         application_type,
-        product_name: req.product_name,
+        product_name,
         application_date,
         rate_per_1000sqft: req.rate_per_1000sqft,
         coverage_sqft: req.coverage_sqft,
@@ -161,6 +175,7 @@ pub async fn create_application(
         plant_id: req.plant_id,
         follow_up_date,
         frac_classes: fungicide_classes(application_type, req.frac_classes),
+        product_id,
         created_at: Utc::now(),
     };
 
@@ -235,11 +250,20 @@ pub async fn update_application(
         }
     }
 
+    let (product_id, product_name) = product_link::resolve(
+        &state,
+        existing.lawn_profile_id,
+        req.product_id,
+        application_type,
+        req.product_name,
+    )
+    .await?;
+
     let updated = Application {
         id: Some(id),
         lawn_profile_id: existing.lawn_profile_id,
         application_type,
-        product_name: req.product_name,
+        product_name,
         application_date,
         rate_per_1000sqft: req.rate_per_1000sqft,
         coverage_sqft: req.coverage_sqft,
@@ -251,6 +275,7 @@ pub async fn update_application(
         plant_id: req.plant_id,
         follow_up_date,
         frac_classes: fungicide_classes(application_type, req.frac_classes),
+        product_id,
         created_at: existing.created_at,
     };
 

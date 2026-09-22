@@ -4,9 +4,11 @@ import {
 	deleteApplication,
 	getApplications,
 	listPlants,
+	markProductInStock,
 	updateApplication,
 } from "../api/client";
 import FracClassPicker from "../components/FracClassPicker";
+import ProductPicker from "../components/ProductPicker";
 import { appTypeBadgeStyle, sharedStyles } from "../styles/shared";
 import type { Application, ApplicationType, Plant } from "../types";
 import {
@@ -15,6 +17,7 @@ import {
 	isPlantRequiredApplicationType,
 	isTurfOnlyApplicationType,
 } from "../types";
+import type { Product } from "../types/inventory";
 import { addDaysISO, todayLocalISO } from "../utils/dates";
 
 type ScopeFilter = "all" | "turf" | "landscape";
@@ -333,6 +336,10 @@ function ApplicationForm({
 		initial?.application_type ?? "Fertilizer",
 	);
 	const [productName, setProductName] = useState(initial?.product_name ?? "");
+	const [productId, setProductId] = useState<number | null>(
+		initial?.product_id ?? null,
+	);
+	const [picked, setPicked] = useState<Product | null>(null);
 	const [fracClasses, setFracClasses] = useState<string[]>(
 		initial?.frac_classes ?? [],
 	);
@@ -380,6 +387,20 @@ function ApplicationForm({
 		setFollowUpDate(addDaysISO(date, days));
 	};
 
+	/** Picking from the shelf fills the name, N-P-K, FRAC classes and label rate. */
+	const handlePick = (p: Product | null) => {
+		setPicked(p);
+		setProductId(p?.id ?? null);
+		if (!p) return;
+		setProductName(p.name);
+		setNitrogenPct(p.nitrogen_pct != null ? String(p.nitrogen_pct) : "");
+		setPhosphorusPct(p.phosphorus_pct != null ? String(p.phosphorus_pct) : "");
+		setPotassiumPct(p.potassium_pct != null ? String(p.potassium_pct) : "");
+		setFracClasses(p.frac_classes);
+		if (p.label_rate_per_1000sqft != null)
+			setRate(String(p.label_rate_per_1000sqft));
+	};
+
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (plantRequired && !plantId) {
@@ -398,6 +419,7 @@ function ApplicationForm({
 		const payload = {
 			application_type: appType,
 			product_name: productName || undefined,
+			product_id: productId,
 			application_date: date,
 			rate_per_1000sqft: rate ? parseFloat(rate) : undefined,
 			coverage_sqft: coverage ? parseFloat(coverage) : undefined,
@@ -418,6 +440,14 @@ function ApplicationForm({
 				await updateApplication(initial.id, payload);
 			} else {
 				await createApplication(payload);
+			}
+			if (
+				picked?.stock_status === "Out" &&
+				confirm(
+					`${picked.name} is marked Out in your inventory. Mark it In stock?`,
+				)
+			) {
+				await markProductInStock(picked);
 			}
 			onSaved();
 		} catch (err) {
@@ -490,26 +520,26 @@ function ApplicationForm({
 						required
 					/>
 				</div>
-				<div>
-					<label htmlFor="app-product-name" style={styles.formLabel}>
-						Product Name
-					</label>
-					<input
-						id="app-product-name"
-						style={styles.input}
-						value={productName}
-						onChange={(e) => setProductName(e.target.value)}
-						placeholder={
-							appType === "Fungicide" ? "e.g. Heritage G" : "e.g. Milorganite"
-						}
-					/>
-				</div>
+				<ProductPicker
+					appType={appType}
+					productId={productId}
+					productName={productName}
+					onPick={handlePick}
+					onNameChange={setProductName}
+					inputStyle={styles.input}
+					labelStyle={styles.formLabel}
+				/>
 				{appType === "Fungicide" && (
 					<FracClassPicker
+						// Remount on pick so the product's confirmed classes are not overwritten
+						// by the name lookup.
+						key={productId ?? "manual"}
 						productName={productName}
 						value={fracClasses}
 						onChange={setFracClasses}
-						recorded={(initial?.frac_classes?.length ?? 0) > 0}
+						recorded={
+							productId != null || (initial?.frac_classes?.length ?? 0) > 0
+						}
 					/>
 				)}
 				<div>

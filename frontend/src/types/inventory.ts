@@ -1,4 +1,5 @@
 // Product inventory — mirrors backend/src/models/product/*.rs
+import type { ApplicationType } from "./index";
 
 export type ProductCategory =
 	| "Fertilizer"
@@ -124,6 +125,14 @@ export interface ProductCreated {
 	product: Product;
 	/** The assistant was asked for but failed; the product was saved by hand. */
 	profile_error: string | null;
+}
+
+/** A product name from the application log that is not on the shelf. */
+export interface LoggedProductSuggestion {
+	name: string;
+	uses: number;
+	last_used: string;
+	application_types: ApplicationType[];
 }
 
 export interface ProductRefreshed {
