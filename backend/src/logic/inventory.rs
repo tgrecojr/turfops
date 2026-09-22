@@ -1,6 +1,8 @@
 //! The feed's inventory pass: for every recommendation that declares needs, ask the shelf
 //! and record the answer. Runs after every source has contributed and before the user's
 //! persisted answers are applied, so ids and severities are untouched.
+pub mod shopping;
+
 use crate::models::{DataPoint, InventoryStatus, Product, Recommendation};
 
 const SOURCE: &str = "Inventory";

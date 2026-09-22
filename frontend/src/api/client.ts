@@ -27,6 +27,7 @@ import type {
 	ProductFacts,
 	ProductForm,
 	ProductRefreshed,
+	ShoppingList,
 	StockStatus,
 } from "../types/inventory";
 import { factsOf } from "../types/inventory";
@@ -397,3 +398,6 @@ export const markProductInStock = (p: Product) =>
 				notes: p.notes,
 				archived: p.archived,
 			});
+
+export const getShoppingList = () =>
+	fetchJson<ShoppingList>(`${BASE}/inventory/shopping-list`, undefined, 30_000);
