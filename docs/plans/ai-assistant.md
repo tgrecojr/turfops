@@ -58,10 +58,10 @@ No logic is duplicated and no model needs `JsonSchema` (results are JSON text, n
 | `recommendations` | `include_inactive?` | `recommendations::list_recommendations` | includes `inventory` status and data points as the UI sees them |
 | `timing_windows` | `detail?` | `timing::get_timing_windows` | `series` dropped unless `detail` |
 | `seasonal_plan` | – | `seasonal_plan::get_seasonal_plan` | as-is |
-| `gdd` | `year?` | `gdd::get_gdd` | as-is |
+| `gdd` | `year?` | `gdd::get_gdd` | `daily_history` dropped (daily values are in `weather_history`) |
 | `soil_temp_outlook` | – | `soil_temp_prediction` | as-is (crossings + 10 cm outlook) |
 | `nitrogen_budget` | – | `nitrogen_budget` | as-is |
-| `disease_risk` | – | `disease_risk::get_disease_risk` | per disease: tier, action, factors, management headline, recommended class, on-hand products; `daily` series and methodology dropped |
+| `disease_risk` | – | `disease_risk::get_disease_risk` | per disease: tier, summary, factors, action + headline, protection, notes, and the recommended preventative option with its on-hand products; `daily`, methodology, scale and full programs dropped |
 | `disease_detail` | `slug` | same handler, one disease | everything incl. series, cultural practices, programs, `FungicideOption` list |
 | `applications` | `type?`, `since?`, `until?`, `limit?` (default 20, max 100) | `applications::list_applications` / `get_applications_for_profile_in_range` | the log; includes `product_id` linkage and `frac_classes` |
 | `soil_tests` | `limit?` | `soil_tests::list_soil_tests` | as-is |
@@ -69,7 +69,7 @@ No logic is duplicated and no model needs `JsonSchema` (results are JSON text, n
 | `products` | `category?`, `include_archived?` | `products::list_products` | shelf, with facts + `stock_status`; LLM profile included (informational) |
 | `shopping_list` | – | `inventory::get_shopping_list` | as-is |
 | `plants` | – | `plants::list_plants` | name, type, location, care-plan windows; full plan JSON is large but bounded |
-| `historical` | `range` = 7d/30d/90d | `historical::get_historical` | daily aggregates only |
+| `weather_history` (was `historical`) | `days?` (default 30, max 120) | lake daily aggregates + climate record | Not the `/historical` handler: it downsamples hourly points for charts, so rain can't be summed daily (found in PR 2). Joins silver per-local-day air / RH / rain with the memoized climate record's 5 cm soil + `gdd50`, plus totals |
 
 Descriptions are the doc comments and should tell the model **when** to call the tool (e.g. `timing_windows`: "seeding and pre-emergent windows with this season's state — use for any 'when should I seed / put down pre-em' question; a boundary with `date: null` means later than usual, not unknown").
 
@@ -90,6 +90,7 @@ Static string returned in `get_info().instructions`; the profile itself comes fr
 
 - `turfops://docs/timing-windows` → `include_str!("../../../docs/timing-windows.md")` (193 lines; the full window method).
 - `turfops://docs/agronomy` → new short `docs/agronomy-methods.md`: the thresholds table from CLAUDE.md, the disease models and tiers, the FRAC efficacy source, the 72 h / 5 d staleness rules. Written once, served verbatim; keep it in sync when thresholds change.
+- The Rust build stage only copies `backend/src`, so the Dockerfile also copies these two docs to `/docs`, where `../../../docs` resolves from `/app/src/mcp/` (found in PR 2).
 
 No MCP prompts; the instructions cover it.
 

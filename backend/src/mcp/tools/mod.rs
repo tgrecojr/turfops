@@ -1,7 +1,11 @@
 //! Tool routers, one file per area; `TurfOpsMcp::tools` sums them.
 
+mod disease;
 mod lawn;
 mod log;
+mod season;
+mod shelf;
+mod weather;
 
 use crate::error::TurfOpsError;
 use axum::Json;
