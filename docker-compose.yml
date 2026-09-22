@@ -81,6 +81,10 @@ services:
       OPENROUTER_MODEL: ${OPENROUTER_MODEL:-anthropic/claude-haiku-4-5}
       OPENROUTER_ENABLED: ${OPENROUTER_ENABLED:-true}
 
+      # MCP server at /mcp for LLM clients (read-only tools). Unset = not mounted.
+      # When set it must be at least 32 characters; clients send it as a Bearer token.
+      MCP_TOKEN: ${MCP_TOKEN:-}
+
       # Only needed when the SPA is served from another origin (e.g. the Vite dev server)
       CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN:-}
 

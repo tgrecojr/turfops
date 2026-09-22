@@ -17,6 +17,8 @@ pub struct AppState {
     pub sync_service: Arc<RwLock<DataSyncService>>,
     pub openrouter: Option<Arc<OpenRouterClient>>,
     pub climate_cache: ClimateCache,
+    /// Whether `/mcp` is mounted (reported by the health check).
+    pub mcp_enabled: bool,
 }
 
 impl AppState {
@@ -24,6 +26,7 @@ impl AppState {
         pool: sqlx::PgPool,
         sync_service: DataSyncService,
         openrouter: Option<OpenRouterClient>,
+        mcp_enabled: bool,
     ) -> Self {
         Self {
             pool,
@@ -31,6 +34,7 @@ impl AppState {
             sync_service: Arc::new(RwLock::new(sync_service)),
             openrouter: openrouter.map(Arc::new),
             climate_cache: Arc::new(RwLock::new(None)),
+            mcp_enabled,
         }
     }
 }

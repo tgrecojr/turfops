@@ -1,4 +1,5 @@
 use crate::error::{Result, TurfOpsError};
+pub use crate::mcp::McpConfig;
 use serde::Deserialize;
 use sqlx::postgres::PgConnectOptions;
 
@@ -12,6 +13,7 @@ pub struct Config {
     pub openrouter: Option<OpenRouterConfig>,
     pub server: ServerConfig,
     pub database: DatabaseConfig,
+    pub mcp: McpConfig,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -271,6 +273,9 @@ impl Config {
                 name: env_or("DATABASE_NAME", "turfops"),
                 user: env_or("DATABASE_USER", "turfops"),
                 password: env_required("DATABASE_PASSWORD")?,
+            },
+            mcp: McpConfig {
+                token: crate::mcp::parse_token(std::env::var("MCP_TOKEN").ok())?,
             },
         })
     }

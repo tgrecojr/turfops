@@ -11,6 +11,8 @@ pub struct HealthResponse {
     pub version: String,
     pub database: bool,
     pub datasources: ConnectionStatus,
+    /// `enabled` when `/mcp` is mounted (MCP_TOKEN set), else `disabled`.
+    pub mcp: &'static str,
 }
 
 pub async fn health_check(State(state): State<AppState>) -> Json<HealthResponse> {
@@ -31,5 +33,10 @@ pub async fn health_check(State(state): State<AppState>) -> Json<HealthResponse>
         version: env!("CARGO_PKG_VERSION").to_string(),
         database: db_ok,
         datasources,
+        mcp: if state.mcp_enabled {
+            "enabled"
+        } else {
+            "disabled"
+        },
     })
 }

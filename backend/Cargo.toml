@@ -55,6 +55,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # Optional: only used by `cargo run --features dev-env` for loading .env locally.
 # Production containers receive env vars from the orchestrator and do not need this.
 dotenvy = { version = "0.15", optional = true }
+rmcp = { version = "3.4", features = ["server", "macros", "transport-streamable-http-server"] }
+schemars = "1"
+subtle = "2"
 
 [features]
 default = []
@@ -64,3 +67,6 @@ dev-env = ["dep:dotenvy"]
 strip = true
 lto = true
 codegen-units = 1
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
