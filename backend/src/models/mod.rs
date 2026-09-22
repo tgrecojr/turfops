@@ -9,6 +9,7 @@ pub mod historical;
 pub mod lawn_profile;
 pub mod nitrogen_budget;
 pub mod plant;
+pub mod product;
 pub mod recommendation;
 pub mod recommendation_state;
 pub mod seasonal_plan;

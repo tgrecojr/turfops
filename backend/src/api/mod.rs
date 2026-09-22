@@ -9,6 +9,7 @@ pub mod health;
 pub mod historical;
 pub mod nitrogen_budget;
 pub mod plants;
+pub mod products;
 pub mod profile;
 pub mod recommendation_feed;
 pub mod recommendations;

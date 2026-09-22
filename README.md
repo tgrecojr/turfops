@@ -206,9 +206,9 @@ Enables forecast-based rules (rain delay, heat stress warnings, optimal applicat
 
 Sign up for a free API key at [openweathermap.org](https://openweathermap.org/api). The free tier (1,000 calls/day) is more than sufficient.
 
-### OpenRouter (Optional — Landscape Maintenance)
+### OpenRouter (Optional — Landscape Maintenance and Product Identification)
 
-Enables the **Landscape** page, which generates a homeowner-level maintenance plan for each plant you add (pruning windows, fertilizing, mulching, deadheading, winter protection). Plans are generated once per plant through an LLM on [OpenRouter](https://openrouter.ai) and cached in Postgres, so there is no recurring per-view cost — only on plant creation or a manual "Regenerate plan" click.
+Enables plan generation on the **Landscape** page and product identification on the **Inventory** page. Landscape generates a homeowner-level maintenance plan for each plant you add (pruning windows, fertilizing, mulching, deadheading, winter protection). Plans are generated once per plant through an LLM on [OpenRouter](https://openrouter.ai) and cached in Postgres, so there is no recurring per-view cost — only on plant creation or a manual "Regenerate plan" click.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
@@ -220,6 +220,7 @@ Enables the **Landscape** page, which generates a homeowner-level maintenance pl
 > **Feature flag behavior**: The **presence of `OPENROUTER_API_KEY` is the feature flag** — there is no separate toggle. `OPENROUTER_ENABLED` is a second kill-switch you can flip without rotating the key. When disabled:
 >
 > - The `/landscape` page still loads, but adding a plant or regenerating a plan returns a clear `503 — OpenRouter not configured` error.
+> - The `/inventory` page keeps working: products are saved by hand (you pick the category) and "Generate profile" returns the same 503.
 > - **Existing cached plans stay visible.** Plant rows you added earlier still appear on the Landscape page, and their maintenance windows still overlay Calendar, Seasonal Plan, and Recommendations. Only *new* plan generation and *regenerating* existing plans are blocked.
 > - All turf features continue to work unchanged.
 
@@ -322,6 +323,12 @@ RUST_LOG=info
 | `PUT` | `/api/v1/plants/:id` | Update plant metadata (name, location, notes) |
 | `DELETE` | `/api/v1/plants/:id` | Delete a plant |
 | `POST` | `/api/v1/plants/:id/refresh-plan` | Regenerate the cached plan via OpenRouter |
+| `GET` | `/api/v1/products?category=&include_archived=` | Shelf inventory for the active profile |
+| `POST` | `/api/v1/products` | Add a product — the assistant identifies it when configured (`assist: false` or no key → saved by hand, `category` required) |
+| `GET` | `/api/v1/products/:id` | One product with its facts and optional assistant profile |
+| `PUT` | `/api/v1/products/:id` | Replace the user-owned fields (name, brand, stock status, facts, notes, archived) |
+| `DELETE` | `/api/v1/products/:id` | Delete a product |
+| `POST` | `/api/v1/products/:id/refresh-profile` | Regenerate the assistant profile; returns suggested facts + which fields differ |
 
 ## Pages
 
@@ -329,6 +336,7 @@ RUST_LOG=info
 |------|-------------|
 | **Dashboard** | Gauges for soil temp, ambient temp, humidity, and soil moisture. GDD, disease risk, seeding/pre-emergent timing, nitrogen budget, and soil-temp forecast widgets. Active alerts and recent applications. Auto-refreshes every 30 seconds. |
 | **Applications** | Filterable table of all lawn treatments including mowing. Add new applications with type, product, rate, and notes. |
+| **Inventory** | What's on the shelf, grouped by category (fertilizer, supplements, fungicides, herbicides, insect control, seed, amendments, surfactants). Type a product name and the assistant fills in actives, N-P-K, FRAC class, timing and targets — every fact stays editable and a suggested label rate is flagged "verify against your label". No quantities: a click on the stock pill cycles In stock → Low → Out. Products save by hand when the assistant is off. |
 | **Calendar** | Month grid view with colored dots for applications and status-colored bars for seasonal plan activity windows. Plant-maintenance windows render as outlined bars (distinct from filled turf bars). Click any date to see details grouped into Applications, Turf Activities, and Plant Maintenance. |
 | **Landscape** | Add plants by common or scientific name to get a homeowner-level care plan (pruning, fertilizing, mulching, etc.) per plant. Each card shows the plan summary, task windows, warnings, and a "Regenerate plan" button. **Requires `OPENROUTER_API_KEY`** — see [OpenRouter](#openrouter-optional--landscape-maintenance). |
 | **Environmental** | Detailed sensor data, soil depth readings, 7-day trends and averages. |

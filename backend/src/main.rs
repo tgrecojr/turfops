@@ -54,13 +54,11 @@ async fn main() -> anyhow::Result<()> {
         .as_ref()
         .filter(|c| c.enabled && !c.api_key.is_empty())
         .map(|c| {
-            tracing::info!(model = %c.model, "OpenRouter client configured for plant plans");
+            tracing::info!(model = %c.model, "OpenRouter client configured for plant plans and product profiles");
             OpenRouterClient::new(c.clone())
         });
     if openrouter.is_none() {
-        tracing::info!(
-            "OpenRouter not configured — landscape maintenance plan generation unavailable"
-        );
+        tracing::info!("OpenRouter not configured — plant plans and product profiles unavailable");
     }
 
     // Create app state
@@ -135,6 +133,20 @@ async fn main() -> anyhow::Result<()> {
         .route(
             "/api/v1/plants/{id}/refresh-plan",
             post(api::plants::refresh_plant_plan),
+        )
+        .route(
+            "/api/v1/products",
+            get(api::products::list_products).post(api::products::create_product),
+        )
+        .route(
+            "/api/v1/products/{id}",
+            get(api::products::get_product)
+                .put(api::products::update_product)
+                .delete(api::products::delete_product),
+        )
+        .route(
+            "/api/v1/products/{id}/refresh-profile",
+            post(api::products::refresh_product_profile),
         )
         .route(
             "/api/v1/soil-temp-forecast",

@@ -9,7 +9,7 @@ use std::str::FromStr;
 use tracing::warn;
 
 /// Safely convert a Serialize enum variant to its string representation for DB storage.
-fn enum_to_db_string<T: serde::Serialize>(value: T) -> Result<String> {
+pub(crate) fn enum_to_db_string<T: serde::Serialize>(value: T) -> Result<String> {
     let json_val = serde_json::to_value(value)
         .map_err(|e| TurfOpsError::InvalidData(format!("Failed to serialize enum: {}", e)))?;
     json_val
