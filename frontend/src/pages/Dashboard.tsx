@@ -17,6 +17,7 @@ import {
 	SOIL_MOISTURE_GAUGE,
 	SOIL_TEMP_GAUGE,
 } from "../components/gaugeConfigs";
+import ShoppingListPanel from "../components/inventory/ShoppingListPanel";
 import NitrogenBudgetWidget from "../components/NitrogenBudgetWidget";
 import SoilTempForecastWidget from "../components/SoilTempForecastWidget";
 import TimingWidget from "../components/timing/TimingWidget";
@@ -246,6 +247,7 @@ export default function Dashboard() {
 					{gddData && <GddWidget data={gddData} />}
 					{diseaseRisk && <DiseaseRiskWidget data={diseaseRisk} />}
 					{timing && <TimingWidget data={timing} />}
+					<ShoppingListPanel compact />
 					{nBudget && <NitrogenBudgetWidget data={nBudget} />}
 					{soilForecast && (
 						<SoilTempForecastWidget

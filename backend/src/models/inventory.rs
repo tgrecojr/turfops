@@ -73,6 +73,11 @@ impl ProductNeed {
     /// no timing or no targets recorded does not satisfy a need that asks for one — a
     /// false "on hand" sends the user to the shed for the wrong bag.
     pub fn matches(&self, p: &Product) -> bool {
+        !p.archived && p.stock_status != StockStatus::Out && self.fits(p)
+    }
+
+    /// The facts fit, whatever the stock status — what to restock when it runs out.
+    pub fn fits(&self, p: &Product) -> bool {
         fn any<T: PartialEq>(need: &[T], have: &[T]) -> bool {
             need.is_empty() || need.iter().any(|n| have.contains(n))
         }
@@ -86,9 +91,7 @@ impl ProductNeed {
         let amendment_ok = self.amendment_kinds.is_empty()
             || f.amendment_kind
                 .is_some_and(|k| self.amendment_kinds.contains(&k));
-        !p.archived
-            && p.stock_status != StockStatus::Out
-            && self.categories.contains(&f.category)
+        self.categories.contains(&f.category)
             && any(&self.frac_classes, &f.frac_classes)
             && any(&self.targets, &f.targets)
             && timing_ok

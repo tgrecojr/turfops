@@ -7,6 +7,7 @@ pub mod frac_classes;
 pub mod gdd;
 pub mod health;
 pub mod historical;
+pub mod inventory;
 pub mod nitrogen_budget;
 pub mod plants;
 pub mod products;

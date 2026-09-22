@@ -1,5 +1,5 @@
 // Product inventory — mirrors backend/src/models/product/*.rs
-import type { ApplicationType } from "./index";
+import type { ApplicationType, Severity } from "./index";
 
 export type ProductCategory =
 	| "Fertilizer"
@@ -318,4 +318,27 @@ export const INVENTORY_STATE_SYMBOLS: Record<InventoryState, string> = {
 	Low: "△",
 	NotOnHand: "✕",
 	Partial: "◐",
+};
+
+// ---- Shopping list (mirrors models/shopping.rs) ----
+
+export type ShoppingKind = "Buy" | "Restock";
+
+export interface ShoppingItem {
+	kind: ShoppingKind;
+	label: string;
+	categories: ProductCategory[];
+	product: ShelfProduct | null;
+	reasons: string[];
+	urgency: Severity;
+}
+
+export interface ShoppingList {
+	generated_at: string;
+	items: ShoppingItem[];
+}
+
+export const SHOPPING_KIND_LABELS: Record<ShoppingKind, string> = {
+	Buy: "Buy",
+	Restock: "Restock",
 };

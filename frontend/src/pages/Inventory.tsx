@@ -5,6 +5,7 @@ import LogSuggestions from "../components/inventory/LogSuggestions";
 import ProductRow, {
 	type Suggestion,
 } from "../components/inventory/ProductRow";
+import ShoppingListPanel from "../components/inventory/ShoppingListPanel";
 import { inv } from "../components/inventory/styles";
 import { useProductActions } from "../components/inventory/useProductActions";
 import { sharedStyles } from "../styles/shared";
@@ -64,6 +65,14 @@ export default function Inventory() {
 	}, [products, showArchived]);
 
 	const archivedCount = products.filter((p) => p.archived).length;
+	// Anything that changes what the shelf covers re-derives the shopping list.
+	const shelfVersion = useMemo(
+		() =>
+			products
+				.map((p) => `${p.id}:${p.stock_status}:${p.archived}:${p.updated_at}`)
+				.join("|"),
+		[products],
+	);
 
 	const replace = (updated: Product) =>
 		setProducts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
@@ -152,6 +161,7 @@ export default function Inventory() {
 			)}
 			{notice && <div style={inv.warnBox}>{notice}</div>}
 			{error && <div style={sharedStyles.error}>{error}</div>}
+			{!loading && <ShoppingListPanel key={shelfVersion} />}
 			{!loading && <LogSuggestions key={logVersion} onAdd={handleAddFromLog} />}
 
 			{loading ? (

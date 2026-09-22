@@ -157,6 +157,10 @@ async fn main() -> anyhow::Result<()> {
             get(api::products::logged_product_suggestions),
         )
         .route(
+            "/api/v1/inventory/shopping-list",
+            get(api::inventory::get_shopping_list),
+        )
+        .route(
             "/api/v1/soil-temp-forecast",
             get(api::soil_temp_prediction::get_soil_temp_forecast),
         )
