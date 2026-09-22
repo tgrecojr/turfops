@@ -19,6 +19,8 @@ import { inv } from "./styles";
 const ASSISTANT_DECIDES = "";
 
 interface Props {
+	initialName?: string;
+	initialCategory?: ProductCategory;
 	onCreated: (created: ProductCreated) => void;
 	onError: (msg: string) => void;
 }
@@ -27,11 +29,16 @@ interface Props {
  * One free-text name; the assistant fills in the rest when it is on. With it off (or
  * unavailable) the category is required and the product is saved by hand.
  */
-export default function AddProductForm({ onCreated, onError }: Props) {
-	const [name, setName] = useState("");
+export default function AddProductForm({
+	initialName,
+	initialCategory,
+	onCreated,
+	onError,
+}: Props) {
+	const [name, setName] = useState(initialName ?? "");
 	const [brand, setBrand] = useState("");
 	const [category, setCategory] = useState<ProductCategory | "">(
-		ASSISTANT_DECIDES,
+		initialCategory ?? ASSISTANT_DECIDES,
 	);
 	const [form, setForm] = useState<ProductForm | "">("");
 	const [status, setStatus] = useState<StockStatus>("InStock");

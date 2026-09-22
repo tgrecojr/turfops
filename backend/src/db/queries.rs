@@ -100,7 +100,7 @@ pub async fn get_applications_for_profile(
         r#"SELECT id, lawn_profile_id, application_type, product_name, application_date,
            rate_per_1000sqft, coverage_sqft, notes, soil_temp_10cm_f, ambient_temp_f,
            humidity_percent, soil_moisture, nitrogen_pct, phosphorus_pct, potassium_pct,
-           plant_id, follow_up_date, frac_classes, created_at
+           plant_id, follow_up_date, frac_classes, product_id, created_at
            FROM applications WHERE lawn_profile_id = $1 ORDER BY application_date DESC
            LIMIT $2 OFFSET $3"#,
     )
@@ -126,7 +126,7 @@ pub async fn get_applications_page(
         r#"SELECT id, lawn_profile_id, application_type, product_name, application_date,
            rate_per_1000sqft, coverage_sqft, notes, soil_temp_10cm_f, ambient_temp_f,
            humidity_percent, soil_moisture, nitrogen_pct, phosphorus_pct, potassium_pct,
-           plant_id, follow_up_date, frac_classes, created_at
+           plant_id, follow_up_date, frac_classes, product_id, created_at
            FROM applications
            WHERE lawn_profile_id = $1 AND ($2::text IS NULL OR application_type = $2)
            ORDER BY application_date DESC, id DESC
@@ -154,7 +154,7 @@ pub async fn get_applications_for_profile_in_range(
         r#"SELECT id, lawn_profile_id, application_type, product_name, application_date,
            rate_per_1000sqft, coverage_sqft, notes, soil_temp_10cm_f, ambient_temp_f,
            humidity_percent, soil_moisture, nitrogen_pct, phosphorus_pct, potassium_pct,
-           plant_id, follow_up_date, frac_classes, created_at
+           plant_id, follow_up_date, frac_classes, product_id, created_at
            FROM applications
            WHERE lawn_profile_id = $1
              AND application_date >= $2 AND application_date < $3
@@ -181,7 +181,7 @@ pub async fn get_applications_or_follow_ups_in_range(
         r#"SELECT id, lawn_profile_id, application_type, product_name, application_date,
            rate_per_1000sqft, coverage_sqft, notes, soil_temp_10cm_f, ambient_temp_f,
            humidity_percent, soil_moisture, nitrogen_pct, phosphorus_pct, potassium_pct,
-           plant_id, follow_up_date, frac_classes, created_at
+           plant_id, follow_up_date, frac_classes, product_id, created_at
            FROM applications
            WHERE lawn_profile_id = $1
              AND (
@@ -208,8 +208,8 @@ pub async fn create_application(pool: &PgPool, app: &Application) -> Result<i64>
              rate_per_1000sqft, coverage_sqft, notes,
              soil_temp_10cm_f, ambient_temp_f, humidity_percent, soil_moisture,
              nitrogen_pct, phosphorus_pct, potassium_pct, plant_id, follow_up_date,
-             frac_classes)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+             frac_classes, product_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
         RETURNING id
         "#,
     )
@@ -230,6 +230,7 @@ pub async fn create_application(pool: &PgPool, app: &Application) -> Result<i64>
     .bind(app.plant_id)
     .bind(app.follow_up_date)
     .bind(frac_classes_to_db(&app.frac_classes)?)
+    .bind(app.product_id)
     .fetch_one(pool)
     .await?;
 
@@ -259,7 +260,8 @@ pub async fn update_application(pool: &PgPool, app: &Application) -> Result<u64>
                potassium_pct = $14,
                plant_id = $15,
                follow_up_date = $16,
-               frac_classes = $17
+               frac_classes = $17,
+               product_id = $18
          WHERE id = $1
         "#,
     )
@@ -280,6 +282,7 @@ pub async fn update_application(pool: &PgPool, app: &Application) -> Result<u64>
     .bind(app.plant_id)
     .bind(app.follow_up_date)
     .bind(frac_classes_to_db(&app.frac_classes)?)
+    .bind(app.product_id)
     .execute(pool)
     .await?;
 
@@ -291,7 +294,7 @@ pub async fn get_application_by_id(pool: &PgPool, id: i64) -> Result<Option<Appl
         r#"SELECT id, lawn_profile_id, application_type, product_name, application_date,
                   rate_per_1000sqft, coverage_sqft, notes, soil_temp_10cm_f, ambient_temp_f,
                   humidity_percent, soil_moisture, nitrogen_pct, phosphorus_pct, potassium_pct,
-                  plant_id, follow_up_date, frac_classes, created_at
+                  plant_id, follow_up_date, frac_classes, product_id, created_at
            FROM applications WHERE id = $1"#,
     )
     .bind(id)
@@ -465,6 +468,7 @@ struct ApplicationRow {
     plant_id: Option<i64>,
     follow_up_date: Option<NaiveDate>,
     frac_classes: Option<Vec<String>>,
+    product_id: Option<i64>,
     created_at: DateTime<Utc>,
 }
 
@@ -510,6 +514,7 @@ impl ApplicationRow {
             plant_id: self.plant_id,
             follow_up_date: self.follow_up_date,
             frac_classes: parse_frac_classes(self.frac_classes),
+            product_id: self.product_id,
             created_at: self.created_at,
         }
     }

@@ -20,6 +20,7 @@ import type {
 } from "../types";
 import type { DiseaseRiskResponse } from "../types/disease";
 import type {
+	LoggedProductSuggestion,
 	Product,
 	ProductCategory,
 	ProductCreated,
@@ -28,6 +29,7 @@ import type {
 	ProductRefreshed,
 	StockStatus,
 } from "../types/inventory";
+import { factsOf } from "../types/inventory";
 import type { TimingResponse } from "../types/timing";
 
 const BASE = "/api/v1";
@@ -115,6 +117,7 @@ export const createApplication = (data: {
 	plant_id?: number | null;
 	follow_up_date?: string | null;
 	frac_classes?: string[];
+	product_id?: number | null;
 }) =>
 	fetchJson<Application>(`${BASE}/applications`, {
 		method: "POST",
@@ -136,6 +139,7 @@ export const updateApplication = (
 		plant_id?: number | null;
 		follow_up_date?: string | null;
 		frac_classes?: string[];
+		product_id?: number | null;
 	},
 ) =>
 	fetchJson<Application>(`${BASE}/applications/${id}`, {
@@ -372,3 +376,24 @@ export const refreshProductProfile = (id: number) =>
 		{ method: "POST" },
 		60_000,
 	);
+
+export const listLoggedProductSuggestions = () =>
+	fetchJson<LoggedProductSuggestion[]>(`${BASE}/inventory/suggestions`);
+
+export const linkProductApplications = (id: number) =>
+	fetchJson<{ linked: number }>(`${BASE}/products/${id}/link-applications`, {
+		method: "POST",
+	});
+
+/** Flip a product back to In stock (after logging an application against an Out one). */
+export const markProductInStock = (p: Product) =>
+	p.id == null
+		? Promise.resolve(p)
+		: updateProduct(p.id, {
+				...factsOf(p),
+				name: p.name,
+				brand: p.brand,
+				stock_status: "InStock",
+				notes: p.notes,
+				archived: p.archived,
+			});

@@ -61,6 +61,7 @@ fn make_fungicide_app(product: Option<&str>, days_ago: i64) -> Application {
         plant_id: None,
         follow_up_date: None,
         frac_classes: None,
+        product_id: None,
         created_at: Utc::now(),
     }
 }

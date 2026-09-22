@@ -23,7 +23,7 @@ interface Props {
 	expanded: boolean;
 	editing: boolean;
 	suggestion?: Suggestion;
-	busy: "status" | "refresh" | "archive" | "delete" | null;
+	busy: "status" | "refresh" | "archive" | "delete" | "link" | null;
 	onToggle: () => void;
 	onStatus: () => void;
 	onEdit: (open: boolean) => void;
@@ -31,6 +31,7 @@ interface Props {
 	onRefresh: () => void;
 	onArchive: () => void;
 	onDelete: () => void;
+	onLink: () => void;
 	onDismissSuggestion: () => void;
 	onError: (msg: string) => void;
 }
@@ -152,6 +153,15 @@ export default function ProductRow(props: Props) {
 										: profile
 											? "Regenerate profile"
 											: "Generate profile"}
+								</button>
+								<button
+									type="button"
+									style={inv.neutralBtn}
+									onClick={props.onLink}
+									disabled={busy === "link"}
+									title="Set this product on past applications logged under the same name"
+								>
+									{busy === "link" ? "Linking…" : "Link past applications"}
 								</button>
 								<button
 									type="button"

@@ -1,7 +1,9 @@
 //! Product inventory CRUD. Unlike plants, a product saves without the LLM: the profile is
 //! optional and can be generated later (`products/refresh.rs`).
+mod link;
 mod refresh;
 
+pub use link::{link_applications, logged_product_suggestions};
 pub use refresh::refresh_product_profile;
 
 use crate::datasources::openrouter::ProductProfileRequest;

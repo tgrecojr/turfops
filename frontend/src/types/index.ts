@@ -49,6 +49,8 @@ export interface Application {
 	follow_up_date?: string | null;
 	/** FRAC classes recorded for a fungicide (e.g. ["Frac11", "Frac3"]). */
 	frac_classes?: string[] | null;
+	/** Inventory product this application used, when picked from the shelf. */
+	product_id?: number | null;
 	created_at: string;
 }
 
