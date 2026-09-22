@@ -59,6 +59,7 @@ pub fn context_from_history(history: &[Application], today: NaiveDate) -> Diseas
         days_since_fertilizer: days_since(ApplicationType::Fertilizer),
         fungicide_apps,
         rotation_warning: analyze_fungicide_rotation(history, today).rotation_warning,
+        shelf: Vec::new(),
     }
 }
 

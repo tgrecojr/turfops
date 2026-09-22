@@ -1,8 +1,8 @@
 use super::thresholds::*;
 use super::Rule;
 use crate::models::{
-    Application, ApplicationType, DataSource, EnvironmentalSummary, LawnProfile, Recommendation,
-    RecommendationCategory, Severity,
+    Application, ApplicationType, DataSource, EnvironmentalSummary, LawnProfile, ProductCategory,
+    ProductNeed, ProductTarget, Recommendation, RecommendationCategory, Severity,
 };
 use chrono::{Datelike, Local, NaiveDate};
 
@@ -160,10 +160,15 @@ impl GrubControlRule {
                 );
             }
 
-            rec = rec.with_action(
-                "Apply chlorantraniliprole (GrubEx) or imidacloprid at label rate. \
-                 Water in with 0.5\" of irrigation or rain within 24 hours.",
-            );
+            rec = rec
+                .with_action(
+                    "Apply chlorantraniliprole (GrubEx) or imidacloprid at label rate. \
+                     Water in with 0.5\" of irrigation or rain within 24 hours.",
+                )
+                .with_need(
+                    ProductNeed::new("grub preventative", ProductCategory::InsectControl)
+                        .with_targets(vec![ProductTarget::Grubs]),
+                );
 
             Some(rec)
         } else if soil_temp_avg > GRUB_CONTROL_SOIL_HIGH_F {
@@ -189,10 +194,15 @@ impl GrubControlRule {
                 );
             }
 
-            rec = rec.with_action(
-                "If grub control hasn't been applied, do so soon. \
-                 Effectiveness decreases as larvae move deeper into soil.",
-            );
+            rec = rec
+                .with_action(
+                    "If grub control hasn't been applied, do so soon. \
+                     Effectiveness decreases as larvae move deeper into soil.",
+                )
+                .with_need(
+                    ProductNeed::new("grub control", ProductCategory::InsectControl)
+                        .with_targets(vec![ProductTarget::Grubs]),
+                );
 
             Some(rec)
         } else {

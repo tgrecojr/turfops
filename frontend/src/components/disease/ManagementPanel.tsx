@@ -48,6 +48,11 @@ function ProgramCard({
 										↻ Used last — rotate
 									</span>
 								)}
+								{option.on_hand.length > 0 && (
+									<span style={{ ...styles.tag, ...styles.shelfTag }}>
+										✓ On shelf: {option.on_hand.map((p) => p.name).join(", ")}
+									</span>
+								)}
 							</td>
 							<td style={styles.td}>
 								{option.examples.join(", ")}
@@ -183,6 +188,11 @@ const styles: Record<string, React.CSSProperties> = {
 	},
 	pickTag: { backgroundColor: "#c6f6d5", borderColor: "#48bb78" },
 	lastTag: { backgroundColor: "#edf2f7", borderColor: "#a0aec0" },
+	shelfTag: {
+		backgroundColor: "#0ca30c26",
+		color: "#2d3748",
+		border: "1px solid #0ca30c",
+	},
 	note: { fontSize: "0.72rem", color: "#718096", marginTop: 2 },
 	list: { margin: 0, paddingLeft: "1.1rem" },
 	listItem: {

@@ -2,7 +2,8 @@
 
 use crate::logic::rules::thresholds::*;
 use crate::models::{
-    DataSource, EnvironmentalSummary, LawnProfile, Recommendation, RecommendationCategory, Severity,
+    DataSource, EnvironmentalSummary, LawnProfile, ProductCategory, ProductNeed, Recommendation,
+    RecommendationCategory, Severity,
 };
 
 pub(super) fn build_early_fall_rec(
@@ -53,7 +54,7 @@ pub(super) fn build_early_fall_rec(
         rec = rec.with_data_point("Trend", trend.as_str(), DataSource::Calculated.as_str());
     }
 
-    rec = rec.with_action(format!(
+    rec = rec.with_need(fertilizer_need()).with_action(format!(
         "Apply ~{:.1} lbs of nitrogen for your {:.0} sqft lawn ({:.1} lb N/1000 sqft). \
          Use quick-release or balanced nitrogen (K-State recommends quick-release for fall). \
          Good NPK choices: 30-0-0, 29-5-4, 27-3-3, or any 3:1:1 / 4:1:2 ratio. \
@@ -118,7 +119,7 @@ pub(super) fn build_mid_fall_rec(
         rec = rec.with_data_point("Trend", trend.as_str(), DataSource::Calculated.as_str());
     }
 
-    rec = rec.with_action(format!(
+    rec = rec.with_need(fertilizer_need()).with_action(format!(
         "Apply ~{:.1} lbs of nitrogen for your {:.0} sqft lawn ({:.2} lb N/1000 sqft). \
          A slow-release or balanced fertilizer works well. \
          This is the most important feeding of the year - don't skip it!",
@@ -174,10 +175,15 @@ pub(super) fn build_late_fall_rec(
         format!("{}", app_count),
         DataSource::History.as_str(),
     )
+    .with_need(fertilizer_need())
     .with_action(format!(
         "Apply ~{:.1} lbs of nitrogen for your {:.0} sqft lawn ({:.1} lb N/1000 sqft). \
          Quick-release nitrogen is fine for winterizer since you want immediate uptake. \
          Apply before ground freezes, even if grass looks dormant.",
         n_needed, lawn_size, WINTERIZER_N_RATE_LBS_PER_KSQFT
     ))
+}
+
+fn fertilizer_need() -> ProductNeed {
+    ProductNeed::new("nitrogen fertilizer", ProductCategory::Fertilizer)
 }

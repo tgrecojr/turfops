@@ -116,6 +116,8 @@ pub struct DiseaseContext {
     pub fungicide_apps: Vec<FungicideRecord>,
     /// Season-level resistance warning from the rotation analysis.
     pub rotation_warning: Option<String>,
+    /// Fungicides on the shelf (usable ones only), so the pick can prefer what is owned.
+    pub shelf: Vec<super::ShelfFungicide>,
 }
 
 #[derive(Debug, Clone, Serialize)]

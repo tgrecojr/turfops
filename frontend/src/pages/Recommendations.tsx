@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router";
 import { getRecommendations, patchRecommendation } from "../api/client";
+import InventoryBadge from "../components/InventoryBadge";
 import { sharedStyles } from "../styles/shared";
 import type { Recommendation } from "../types";
 import { categoryLabel, SEVERITY_COLORS, SEVERITY_SYMBOLS } from "../types";
+import { STOCK_STATUS_LABELS } from "../types/inventory";
 
 export default function Recommendations() {
 	const [allRecs, setAllRecs] = useState<Recommendation[]>([]);
@@ -125,6 +128,7 @@ export default function Recommendations() {
 										<span style={styles.category}>
 											{categoryLabel(rec.category)}
 										</span>
+										{rec.inventory && <InventoryBadge status={rec.inventory} />}
 									</div>
 									<div style={styles.listTitle}>{rec.title}</div>
 									<div style={styles.listDesc}>{rec.description}</div>
@@ -209,6 +213,35 @@ export default function Recommendations() {
 									<p style={styles.sectionText}>
 										{selectedRec.suggested_action}
 									</p>
+								</div>
+							)}
+
+							{selectedRec.inventory && (
+								<div style={styles.section}>
+									<h3 style={sharedStyles.sectionTitle}>
+										Inventory <InventoryBadge status={selectedRec.inventory} />
+									</h3>
+									<ul style={styles.inventoryList}>
+										{selectedRec.inventory.matches.map((m) => (
+											<li key={`${m.need}-${m.product_id}`}>
+												<Link to="/inventory" style={styles.inventoryLink}>
+													{m.name}
+												</Link>{" "}
+												covers {m.need}
+												{m.stock_status !== "InStock" &&
+													` — ${STOCK_STATUS_LABELS[m.stock_status].toLowerCase()}`}
+											</li>
+										))}
+										{selectedRec.inventory.missing.map((need) => (
+											<li key={need}>
+												Nothing on the shelf for {need} —{" "}
+												<Link to="/inventory" style={styles.inventoryLink}>
+													add it to Inventory
+												</Link>{" "}
+												once bought
+											</li>
+										))}
+									</ul>
 								</div>
 							)}
 						</div>
@@ -342,6 +375,14 @@ const styles: Record<string, React.CSSProperties> = {
 	detailTitle: { margin: "0 0 8px", fontSize: "1.1rem", color: "#1a202c" },
 	detailDesc: { color: "#4a5568", fontSize: "0.9rem", lineHeight: 1.5 },
 	section: { marginTop: "1rem" },
+	inventoryList: {
+		margin: 0,
+		paddingLeft: "1.2rem",
+		fontSize: "0.85rem",
+		color: "#4a5568",
+		lineHeight: 1.6,
+	},
+	inventoryLink: { color: "#3182ce" },
 	sectionText: {
 		color: "#4a5568",
 		fontSize: "0.85rem",

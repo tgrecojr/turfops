@@ -265,3 +265,57 @@ export function factsOf(p: Product): ProductFacts {
 		amendment_kind: p.amendment_kind,
 	};
 }
+
+// ---- What a recommendation needs from the shelf (mirrors models/inventory.rs) ----
+
+export interface ProductNeed {
+	label: string;
+	categories: ProductCategory[];
+	frac_classes: string[];
+	herbicide_timing: HerbicideTiming | null;
+	targets: ProductTarget[];
+	amendment_kinds: AmendmentKind[];
+	optional: boolean;
+}
+
+export type InventoryState = "OnHand" | "Low" | "NotOnHand" | "Partial";
+
+export interface ShelfProduct {
+	product_id: number;
+	name: string;
+	stock_status: StockStatus;
+}
+
+export interface InventoryMatch extends ShelfProduct {
+	/** The need this product satisfies. */
+	need: string;
+}
+
+export interface InventoryStatus {
+	state: InventoryState;
+	matches: InventoryMatch[];
+	/** Required needs nothing on the shelf covers. */
+	missing: string[];
+}
+
+export const INVENTORY_STATE_LABELS: Record<InventoryState, string> = {
+	OnHand: "On hand",
+	Low: "On hand, running low",
+	NotOnHand: "Need to buy",
+	Partial: "Partly on hand",
+};
+
+// Status palette; never color alone — always symbol + label.
+export const INVENTORY_STATE_COLORS: Record<InventoryState, string> = {
+	OnHand: "#0ca30c",
+	Low: "#fab219",
+	NotOnHand: "#d03b3b",
+	Partial: "#fab219",
+};
+
+export const INVENTORY_STATE_SYMBOLS: Record<InventoryState, string> = {
+	OnHand: "✓",
+	Low: "△",
+	NotOnHand: "✕",
+	Partial: "◐",
+};

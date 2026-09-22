@@ -1,14 +1,15 @@
 //! The recommendation feed. The dashboard's "Active Alerts" and the Recommendations page
 //! both come from [`active`], so the top 3 on the dashboard are always a subset of the feed.
 
-use crate::db::{plant_queries, queries, soil_test_queries};
+use crate::db::{plant_queries, product_queries, queries, soil_test_queries};
 use crate::error::TurfOpsError;
 use crate::logic::follow_up::generate_follow_up_recommendations;
+use crate::logic::inventory::enrich;
 use crate::logic::plant_maintenance::generate_plant_maintenance_recommendations;
 use crate::logic::soil_test_recommendations::generate_soil_test_recommendations;
 use crate::models::{
-    Application, DataSource, EnvironmentalSummary, LawnProfile, Recommendation,
-    RecommendationCategory, Severity, SoilTest,
+    AmendmentKind, Application, DataSource, EnvironmentalSummary, LawnProfile, ProductCategory,
+    ProductNeed, ProductTarget, Recommendation, RecommendationCategory, Severity, SoilTest,
 };
 use crate::state::AppState;
 use chrono::{Datelike, Local, Utc};
@@ -77,6 +78,11 @@ pub async fn all(
         recommendations.extend(soil_test_recommendations(&test, profile, &this_year));
     }
 
+    // What the shelf says about each recommendation's needs.
+    let products =
+        product_queries::list_products_for_profile(&state.pool, profile_id, None, false).await?;
+    enrich(&mut recommendations, &products);
+
     // Apply the user's answers that still hold (not escalated past, not expired)
     let rec_states = queries::get_recommendation_states(&state.pool).await?;
     let now = Utc::now();
@@ -124,7 +130,8 @@ fn soil_test_recommendations(
             .with_action(format!(
                 "Apply {} at {:.0} lbs/1000 sqft",
                 ph_rec.amendment, ph_rec.rate_lbs_per_1000sqft
-            )),
+            ))
+            .with_need(amendment_need(&ph_rec.amendment)),
         );
     }
 
@@ -173,6 +180,10 @@ fn soil_test_recommendations(
                 .with_action(format!(
                     "Apply {} product at {:.1} lbs/1000 sqft",
                     npk_rec.example_product_ratio, npk_rec.product_rate_lbs_per_1000sqft
+                ))
+                .with_need(ProductNeed::new(
+                    format!("{} fertilizer", npk_rec.recommended_ratio),
+                    ProductCategory::Fertilizer,
                 )),
             );
         }
@@ -197,9 +208,52 @@ fn soil_test_recommendations(
                 format!("{:.1}", micro.threshold_ppm),
                 DataSource::Agronomic.as_str(),
             )
-            .with_action(&micro.suggestion),
+            .with_action(&micro.suggestion)
+            .with_need(micronutrient_need(&micro.nutrient)),
         );
     }
 
     recommendations
+}
+
+fn amendment_need(amendment: &str) -> ProductNeed {
+    if amendment.to_lowercase().contains("sulfur") {
+        ProductNeed::new("elemental sulfur", ProductCategory::SoilAmendment)
+            .with_amendment_kinds(vec![AmendmentKind::Sulfur])
+    } else {
+        ProductNeed::new("lime", ProductCategory::SoilAmendment).with_amendment_kinds(vec![
+            AmendmentKind::CalciticLime,
+            AmendmentKind::DolomiticLime,
+        ])
+    }
+}
+
+/// The product-shaped half of each micronutrient suggestion in
+/// `soil_test_recommendations::evaluate_micronutrients`.
+fn micronutrient_need(nutrient: &str) -> ProductNeed {
+    let supplement = |t: ProductTarget| {
+        ProductNeed::new(
+            format!("{} supplement", nutrient.to_lowercase()),
+            ProductCategory::Supplement,
+        )
+        .with_targets(vec![t])
+    };
+    match nutrient {
+        "Calcium" => ProductNeed::new("gypsum", ProductCategory::SoilAmendment)
+            .with_amendment_kinds(vec![AmendmentKind::Gypsum]),
+        "Magnesium" => supplement(ProductTarget::Magnesium)
+            .or_category(ProductCategory::SoilAmendment)
+            .with_amendment_kinds(vec![AmendmentKind::DolomiticLime]),
+        "Sulfur" => ProductNeed::new("elemental sulfur", ProductCategory::SoilAmendment)
+            .with_amendment_kinds(vec![AmendmentKind::Sulfur]),
+        "Iron" => supplement(ProductTarget::Iron),
+        "Manganese" => supplement(ProductTarget::Manganese),
+        "Zinc" => supplement(ProductTarget::Zinc),
+        "Boron" => supplement(ProductTarget::Boron),
+        "Copper" => supplement(ProductTarget::Copper),
+        other => ProductNeed::new(
+            format!("{} supplement", other.to_lowercase()),
+            ProductCategory::Supplement,
+        ),
+    }
 }

@@ -7,7 +7,10 @@ use crate::logic::rules::thresholds::{DEFAULT_LAWN_SIZE_SQFT, OVERSEED_RATE_LBS_
 use crate::models::timing::{
     BoundaryView, SoilNow, TimingWindow, WindowId, WindowPriority, WindowState,
 };
-use crate::models::{DataSource, LawnProfile, Recommendation, RecommendationCategory, Severity};
+use crate::models::{
+    DataSource, GrassType, HerbicideTiming, LawnProfile, ProductCategory, ProductNeed,
+    ProductTarget, Recommendation, RecommendationCategory, Severity,
+};
 use chrono::NaiveDate;
 
 /// How long after the spring pre-emergent window closes the "you missed it" advice stays up.
@@ -104,7 +107,8 @@ fn to_recommendation(
         &window.detail,
     )
     .with_explanation(explanation)
-    .with_action(action);
+    .with_action(action)
+    .with_need(need_for(window.id, profile.grass_type));
 
     if let Some(avg) = soil.avg_5day_f {
         rec = rec.with_data_point(
@@ -118,6 +122,35 @@ fn to_recommendation(
         rec = boundary_point(rec, "Ideal until", ideal);
     }
     boundary_point(rec, "Closes", &window.closes)
+}
+
+/// Pre-emergent windows want a pre-emergent herbicide; seeding windows want seed of the
+/// lawn's species (a blend accepts any cool-season species).
+fn need_for(id: WindowId, grass: GrassType) -> ProductNeed {
+    match id {
+        WindowId::SpringPreEmergent | WindowId::FallPreEmergent => {
+            ProductNeed::new("pre-emergent herbicide", ProductCategory::Herbicide)
+                .with_timing(HerbicideTiming::PreEmergent)
+        }
+        WindowId::FallSeeding | WindowId::SpringSeeding | WindowId::DormantSeeding => {
+            let species = match grass {
+                GrassType::KentuckyBluegrass => vec![ProductTarget::Kbg],
+                GrassType::TallFescue => vec![ProductTarget::Ttf],
+                GrassType::PerennialRyegrass => vec![ProductTarget::Prg],
+                GrassType::FineFescue => vec![ProductTarget::FineFescue],
+                GrassType::Bermuda => vec![ProductTarget::Bermuda],
+                GrassType::Zoysia => vec![ProductTarget::Zoysia],
+                GrassType::StAugustine => vec![],
+                GrassType::Mixed => vec![
+                    ProductTarget::Kbg,
+                    ProductTarget::Ttf,
+                    ProductTarget::Prg,
+                    ProductTarget::FineFescue,
+                ],
+            };
+            ProductNeed::new("grass seed", ProductCategory::Seed).with_targets(species)
+        }
+    }
 }
 
 #[cfg(test)]

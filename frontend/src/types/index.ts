@@ -1,3 +1,4 @@
+import type { InventoryStatus, ProductNeed } from "./inventory";
 // Matches Rust models exactly
 
 export interface LawnProfile {
@@ -287,6 +288,10 @@ export interface Recommendation {
 	explanation: string;
 	data_points: DataPoint[];
 	suggested_action: string | null;
+	/** What the action calls for from the shelf; empty = nothing to fetch. */
+	needs?: ProductNeed[];
+	/** The shelf's answer to `needs` (absent when there are none). */
+	inventory?: InventoryStatus | null;
 	created_at: string;
 	dismissed: boolean;
 	addressed: boolean;

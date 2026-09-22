@@ -2,8 +2,8 @@
 //! Recommendations page agree with the Disease Risk page by construction.
 
 use crate::models::{
-    DataSource, DiseaseRisk, ManagementAction, Recommendation, RecommendationCategory, RiskTier,
-    Severity,
+    DataSource, Disease, DiseaseRisk, ManagementAction, ProductCategory, ProductNeed,
+    Recommendation, RecommendationCategory, RiskTier, Severity,
 };
 
 /// One recommendation per disease at High or Severe; lower tiers stay on the Disease
@@ -60,7 +60,32 @@ fn to_recommendation(risk: &DiseaseRisk) -> Recommendation {
             DataSource::Calculated.as_str(),
         );
     }
-    rec.with_action(action)
+    rec.with_action(action).with_need(need_for(risk))
+}
+
+/// Red thread's remedy is nitrogen; every other disease wants a fungicide in one of the
+/// program's eligible classes (unrestricted, not the class used last).
+fn need_for(risk: &DiseaseRisk) -> ProductNeed {
+    if risk.disease == Disease::RedThread {
+        return ProductNeed::new("nitrogen fertilizer", ProductCategory::Fertilizer);
+    }
+    let classes: Vec<_> = risk
+        .management
+        .preventative
+        .options
+        .iter()
+        .filter(|o| !o.restricted && !o.last_used)
+        .map(|o| o.frac_class)
+        .collect();
+    let label = format!(
+        "fungicide ({})",
+        classes
+            .iter()
+            .map(|c| c.as_str().split(' ').take(2).collect::<Vec<_>>().join(" "))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    ProductNeed::new(label, ProductCategory::Fungicide).with_frac_classes(classes)
 }
 
 #[cfg(test)]
