@@ -2,6 +2,22 @@
 
 A containerized web application for tracking lawn care activities and providing data-driven agronomic recommendations. Built with a Rust/Axum backend serving a React SPA frontend, deployed via Docker Compose.
 
+## Screenshots
+
+![TurfOps dashboard](docs/screenshots/dashboard.png)
+<p align="center"><em>Dashboard — live soil and ambient conditions, GDD, per-disease risk, seeding/pre-emergent status, nitrogen budget, alerts, and recent applications</em></p>
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/disease-risk.png" alt="Dollar spot disease risk detail page"></td>
+    <td width="50%"><img src="docs/screenshots/timing-windows.png" alt="Seeding and pre-emergent timing windows page"></td>
+  </tr>
+  <tr>
+    <td align="center"><em>Disease Risk — 11-day dollar spot trend and outlook with FRAC-rotation-aware fungicide programs</em></td>
+    <td align="center"><em>Seed &amp; Pre-Em Timing — windows from the station's own soil temperature and freeze record</em></td>
+  </tr>
+</table>
+
 ## Features
 
 - **Application Tracking**: Log fertilizer, pre-emergent, fungicide, mowing, and other lawn treatments
