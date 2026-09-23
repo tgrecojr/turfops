@@ -67,9 +67,14 @@ temperature ≤ 32°F. A year's freeze date only counts when the record *around*
 sound: ≥ 90 % of days present from Sep 15 up to a first fall freeze (a hole there could
 hide an earlier one), or from a last spring freeze through May 31. What happens on the far
 side is irrelevant — the real station lost most of December 2018, which must not discard
-the Oct 22 freeze it plainly recorded. Freeze-anchored boundaries always use the *typical*
-(median) first freeze, never the current year's actual or forecast freeze — by the time
-a freeze is in the forecast it is far too late to seed.
+the Oct 22 freeze it plainly recorded. For the **current season**, freeze-anchored
+boundaries always use the *typical* (median) first freeze, never the year's actual or
+forecast freeze — by the time a freeze is in the forecast it is far too late to seed. For
+the **typical spread**, each past year is dated from its own freeze, so "30 days before
+the first freeze" carries the freeze's real year-to-year range rather than collapsing to
+one date; a composite boundary (the earlier of a freeze buffer and a soil crossing) skips
+any year in which one of its triggers is missing, since the earlier of two dates is unknown
+while one is.
 
 ## Windows
 

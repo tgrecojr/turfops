@@ -36,43 +36,35 @@ pub struct Resolved {
     pub days_held: Option<u32>,
 }
 
-fn shift(stat: DateStat, days: i64) -> DateStat {
-    let by = Duration::days(days);
-    DateStat {
-        median: stat.median + by,
-        p10: stat.p10 + by,
-        p90: stat.p90 + by,
-        earliest: stat.earliest + by,
-        latest: stat.latest + by,
-        ..stat
-    }
-}
-
-/// When the boundary fell in a past year. Freeze-anchored boundaries use the typical
-/// freeze rather than that year's actual one, which nobody could have known in advance.
+/// When the boundary fell in a past year. A freeze-anchored boundary is dated from that
+/// year's own freeze so the typical spread reflects how much the freeze really moves;
+/// only the current season (`resolve`) pins it to the typical freeze, since by the time
+/// a freeze is in the forecast it is too late to seed.
 fn historical_date(boundary: &Boundary, season: &Season, year: i32) -> Option<NaiveDate> {
     match boundary {
         // A run that begins right after a sensor outage dates the outage, not the crossing.
         Boundary::Soil(crossing) => detect(season.smoothed, year, crossing)
             .filter(|d| d.confirmed() && !d.after_gap)
             .map(|d| d.date),
-        Boundary::BeforeFirstFreeze(days) => {
-            date_stat(season.fall_freezes, year).map(|s| s.median - Duration::days(*days))
-        }
+        Boundary::BeforeFirstFreeze(days) => season
+            .fall_freezes
+            .iter()
+            .find(|(y, _)| *y == year)
+            .map(|(_, freeze)| *freeze - Duration::days(*days)),
         Boundary::Gdd(target) => gdd_reached(season.days, year, *target),
+        // The earliest of several triggers is unknown while any one of them is: a year
+        // with no freeze on record must not report its soil crossing as "the close".
         Boundary::Earliest(options) => options
             .iter()
-            .filter_map(|o| historical_date(o, season, year))
+            .map(|o| historical_date(o, season, year))
+            .collect::<Option<Vec<_>>>()?
+            .into_iter()
             .min(),
     }
 }
 
 /// Typical dates for the boundary, expressed in `season_year`.
 pub fn typical(boundary: &Boundary, season: &Season, season_year: i32) -> Option<DateStat> {
-    if let Boundary::BeforeFirstFreeze(days) = boundary {
-        // Carry the freeze's own year-to-year spread rather than a constant.
-        return date_stat(season.fall_freezes, season_year).map(|s| shift(s, -days));
-    }
     let events: Vec<(i32, NaiveDate)> = season
         .history_years
         .iter()
@@ -272,5 +264,57 @@ mod tests {
         assert_eq!(resolved.source, DateSource::Forecast);
         assert_eq!(resolved.date, Some(today));
         assert!(!resolved.passed);
+    }
+
+    #[test]
+    fn freeze_anchored_boundaries_carry_the_freezes_own_spread() {
+        use crate::logic::timing::tests::{date, station};
+        use crate::logic::timing::windows::specs_for;
+        use crate::logic::timing::SeasonData;
+        use crate::models::lawn_profile::GrassType;
+        use crate::models::timing::WindowId;
+
+        let today = date(2026, 9, 20);
+        let days = station(date(2026, 9, 19), 0.0);
+        let data = SeasonData::build(&days, &[], 2026);
+        // The synthetic station freezes on the same day every year; give it a real
+        // spread instead, and leave 2020 and 2024 without a freeze on record (they are
+        // also the leap years, whose day-of-year offsets would land a day later in 2026).
+        let freezes = vec![
+            (2021, date(2021, 11, 10)),
+            (2022, date(2022, 10, 30)),
+            (2023, date(2023, 11, 5)),
+            (2025, date(2025, 10, 20)),
+        ];
+        let season = Season {
+            fall_freezes: &freezes,
+            ..data.season(&days, today)
+        };
+        let specs = specs_for(GrassType::TallFescue);
+        let seeding = specs
+            .iter()
+            .find(|s| s.id == WindowId::FallSeeding)
+            .unwrap();
+
+        // Ideal-until is a bare freeze boundary: 45 d before each year's freeze.
+        let ideal = typical(seeding.ideal_until.as_ref().unwrap(), &season, 2026).unwrap();
+        assert_eq!(ideal.sample_count, 4);
+        assert_eq!(ideal.earliest, date(2026, 9, 5));
+        assert_eq!(ideal.latest, date(2026, 9, 26));
+
+        // Closes is the earlier of 30 d before the freeze and soil cooling to 55°F
+        // (≈ Oct 20 on this curve, so the freeze buffer wins every year). It must carry
+        // the same spread as the freeze, not collapse to one date — and the years with
+        // no freeze on record must not contribute their soil crossing.
+        let closes = typical(&seeding.closes, &season, 2026).unwrap();
+        assert_eq!(closes.sample_count, 4);
+        assert_eq!(closes.earliest, date(2026, 9, 20));
+        assert_eq!(closes.latest, date(2026, 10, 11));
+        assert!(closes.p10 < closes.p90);
+
+        // The current season still pins to the typical freeze.
+        let resolved = resolve(&seeding.closes, &season, 2026);
+        assert_eq!(resolved.source, DateSource::Typical);
+        assert_eq!(resolved.date, Some(closes.median));
     }
 }
