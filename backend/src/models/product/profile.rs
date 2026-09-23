@@ -110,6 +110,27 @@ impl ProductFacts {
         }
     }
 
+    /// Drop the facts that cannot apply to this category: FRAC classes belong to
+    /// fungicides, timing to herbicides, an amendment kind to soil amendments, and
+    /// targets to the family that fits (`ProductTarget::fits_category`). `Other` keeps
+    /// everything. The LLM tags herbicides with FRAC classes and fungicides with nutrient
+    /// targets; storing those as facts would let them match needs they cannot meet.
+    pub fn scoped_to_category(mut self) -> Self {
+        use ProductCategory as C;
+        let category = self.category;
+        if !matches!(category, C::Fungicide | C::Other) {
+            self.frac_classes.clear();
+        }
+        if !matches!(category, C::Herbicide | C::Other) {
+            self.herbicide_timing = None;
+        }
+        if !matches!(category, C::SoilAmendment | C::Other) {
+            self.amendment_kind = None;
+        }
+        self.targets.retain(|t| t.fits_category(category));
+        self
+    }
+
     /// Names of the fields on which `other` differs — what a refreshed profile suggests
     /// changing, for the user to accept or ignore.
     pub fn changed_fields(&self, other: &ProductFacts) -> Vec<&'static str> {

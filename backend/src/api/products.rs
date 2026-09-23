@@ -132,6 +132,7 @@ pub async fn create_product(
     if let Some(f) = req.form {
         facts.form = f;
     }
+    let facts = facts.scoped_to_category();
 
     let now = Utc::now();
     let brand = req
@@ -194,7 +195,7 @@ pub async fn update_product(
         name: req.name,
         brand: req.brand.filter(|b| !b.trim().is_empty()),
         stock_status: req.stock_status,
-        facts: req.facts,
+        facts: req.facts.scoped_to_category(),
         notes: req.notes.filter(|n| !n.trim().is_empty()),
         archived: req.archived,
     };

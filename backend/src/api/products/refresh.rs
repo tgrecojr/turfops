@@ -51,7 +51,8 @@ pub async fn refresh_product_profile(
     product_queries::update_product_profile(&state.pool, id, &profile, openrouter.model()).await?;
 
     let suggested_facts =
-        ProductFacts::from_profile(&profile, frac_classes_for_product(&product.name));
+        ProductFacts::from_profile(&profile, frac_classes_for_product(&product.name))
+            .scoped_to_category();
     let product = load(&state, id).await?;
     let changed_fields = product.facts.changed_fields(&suggested_facts);
     Ok(Json(ProductRefreshed {

@@ -53,7 +53,7 @@ fn scale() -> RiskScale {
 }
 
 /// `None` = no fertilizer on record, which also counts as nitrogen-hungry.
-fn nitrogen_hungry(ctx: &DiseaseContext) -> bool {
+pub(super) fn nitrogen_hungry(ctx: &DiseaseContext) -> bool {
     ctx.days_since_fertilizer
         .is_none_or(|days| days > NITROGEN_DEFICIT_DAYS)
 }

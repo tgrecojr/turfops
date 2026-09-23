@@ -92,6 +92,36 @@ mod tests {
     }
 
     #[test]
+    fn scoping_drops_facts_foreign_to_the_category() {
+        // A herbicide the LLM tagged with a FRAC class and a nutrient target.
+        let mut facts = ProductFacts::from_profile(&profile(), vec![]);
+        facts.category = ProductCategory::Herbicide;
+        facts.herbicide_timing = Some(HerbicideTiming::PostEmergent);
+        facts.targets = vec![ProductTarget::Broadleaf, ProductTarget::Iron];
+        facts.amendment_kind = Some(AmendmentKind::Humic);
+        let scoped = facts.scoped_to_category();
+        assert!(scoped.frac_classes.is_empty());
+        assert_eq!(scoped.herbicide_timing, Some(HerbicideTiming::PostEmergent));
+        assert_eq!(scoped.targets, vec![ProductTarget::Broadleaf]);
+        assert_eq!(scoped.amendment_kind, None);
+
+        // A fungicide keeps its class and loses the noise targets.
+        let mut facts = ProductFacts::from_profile(&profile(), vec![FracClass::Frac11]);
+        facts.targets = vec![ProductTarget::Moss, ProductTarget::Ttf];
+        let scoped = facts.scoped_to_category();
+        assert_eq!(scoped.frac_classes, vec![FracClass::Frac11]);
+        assert!(scoped.targets.is_empty());
+
+        // `Other` is not second-guessed.
+        let mut facts = ProductFacts::from_profile(&profile(), vec![FracClass::Frac11]);
+        facts.category = ProductCategory::Other;
+        facts.targets = vec![ProductTarget::Moss];
+        let scoped = facts.scoped_to_category();
+        assert_eq!(scoped.frac_classes, vec![FracClass::Frac11]);
+        assert_eq!(scoped.targets, vec![ProductTarget::Moss]);
+    }
+
+    #[test]
     fn changed_fields_lists_only_differences() {
         let a = ProductFacts::from_profile(&profile(), vec![FracClass::Frac11]);
         let mut b = a.clone();

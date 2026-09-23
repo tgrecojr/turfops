@@ -130,6 +130,37 @@ string_enum! {
     }
 }
 
+impl ProductTarget {
+    /// Whether this target makes sense on a product of `category`: pests on insect
+    /// control, weeds on herbicides, nutrients on fertilizers and supplements, species on
+    /// seed. `Other` keeps anything. The LLM happily lists "Iron" and "Ttf" on a fungicide;
+    /// those are noise, not facts.
+    pub fn fits_category(&self, category: ProductCategory) -> bool {
+        use ProductCategory as C;
+        use ProductTarget as T;
+        match category {
+            C::Other => true,
+            C::InsectControl => matches!(
+                self,
+                T::Grubs | T::SurfaceInsects | T::Ants | T::Termites | T::Ticks | T::Mosquitoes
+            ),
+            C::Herbicide => matches!(
+                self,
+                T::Broadleaf | T::Crabgrass | T::Nutsedge | T::Poa | T::Moss
+            ),
+            C::Fertilizer | C::Supplement => matches!(
+                self,
+                T::Iron | T::Manganese | T::Magnesium | T::Zinc | T::Boron | T::Copper | T::Calcium
+            ),
+            C::Seed => matches!(
+                self,
+                T::Kbg | T::Ttf | T::Prg | T::FineFescue | T::Bermuda | T::Zoysia
+            ),
+            C::Fungicide | C::SoilAmendment | C::Surfactant => false,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -151,6 +182,17 @@ mod tests {
         assert!(ProductCategory::Other.accepts(ApplicationType::Fungicide));
         assert!(ProductCategory::InsectControl.accepts(ApplicationType::GrubControl));
         assert!(!ProductCategory::Seed.accepts(ApplicationType::Aeration));
+    }
+
+    #[test]
+    fn targets_fit_their_own_family_only() {
+        assert!(ProductTarget::Grubs.fits_category(ProductCategory::InsectControl));
+        assert!(!ProductTarget::Grubs.fits_category(ProductCategory::Herbicide));
+        assert!(ProductTarget::Iron.fits_category(ProductCategory::Supplement));
+        assert!(ProductTarget::Iron.fits_category(ProductCategory::Fertilizer));
+        assert!(!ProductTarget::Iron.fits_category(ProductCategory::Fungicide));
+        assert!(ProductTarget::Ttf.fits_category(ProductCategory::Seed));
+        assert!(ProductTarget::Ttf.fits_category(ProductCategory::Other));
     }
 
     #[test]
