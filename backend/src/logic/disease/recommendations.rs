@@ -2,17 +2,18 @@
 //! Recommendations page agree with the Disease Risk page by construction.
 
 use crate::models::{
-    DataSource, Disease, DiseaseRisk, ManagementAction, ProductCategory, ProductNeed,
-    Recommendation, RecommendationCategory, RiskTier, Severity,
+    DataSource, Disease, DiseaseContext, DiseaseRisk, ManagementAction, ProductCategory,
+    ProductNeed, Recommendation, RecommendationCategory, RiskTier, Severity,
 };
 
 /// One recommendation per disease at High or Severe; lower tiers stay on the Disease
-/// Risk page only.
-pub fn to_recommendations(risks: &[DiseaseRisk]) -> Vec<Recommendation> {
+/// Risk page only. `ctx` is the lawn history the risks were assessed with; it decides
+/// whether red thread's nitrogen remedy is still outstanding.
+pub fn to_recommendations(risks: &[DiseaseRisk], ctx: &DiseaseContext) -> Vec<Recommendation> {
     risks
         .iter()
         .filter(|risk| risk.tier >= RiskTier::High)
-        .map(to_recommendation)
+        .map(|risk| to_recommendation(risk, ctx))
         .collect()
 }
 
@@ -25,7 +26,7 @@ fn severity_for(risk: &DiseaseRisk) -> Severity {
     }
 }
 
-fn to_recommendation(risk: &DiseaseRisk) -> Recommendation {
+fn to_recommendation(risk: &DiseaseRisk, ctx: &DiseaseContext) -> Recommendation {
     let methodology = &risk.methodology;
     let explanation = format!(
         "{} ({}). {}\n\n{}",
@@ -60,14 +61,21 @@ fn to_recommendation(risk: &DiseaseRisk) -> Recommendation {
             DataSource::Calculated.as_str(),
         );
     }
-    rec.with_action(action).with_need(need_for(risk))
+    rec = rec.with_action(action);
+    match need_for(risk, ctx) {
+        Some(need) => rec.with_need(need),
+        None => rec,
+    }
 }
 
-/// Red thread's remedy is nitrogen; every other disease wants a fungicide in one of the
-/// program's eligible classes (unrestricted, not the class used last).
-fn need_for(risk: &DiseaseRisk) -> ProductNeed {
+/// Red thread's remedy is nitrogen — but only while the lawn is nitrogen-hungry; once
+/// fed, the advice is "stay the course" and nothing needs buying. Every other disease
+/// wants a fungicide in one of the program's eligible classes (unrestricted, not the
+/// class used last).
+fn need_for(risk: &DiseaseRisk, ctx: &DiseaseContext) -> Option<ProductNeed> {
     if risk.disease == Disease::RedThread {
-        return ProductNeed::new("nitrogen fertilizer", ProductCategory::Fertilizer);
+        return super::red_thread::nitrogen_hungry(ctx)
+            .then(|| ProductNeed::new("nitrogen fertilizer", ProductCategory::Fertilizer));
     }
     let classes: Vec<_> = risk
         .management
@@ -85,7 +93,7 @@ fn need_for(risk: &DiseaseRisk) -> ProductNeed {
             .collect::<Vec<_>>()
             .join(", ")
     );
-    ProductNeed::new(label, ProductCategory::Fungicide).with_frac_classes(classes)
+    Some(ProductNeed::new(label, ProductCategory::Fungicide).with_frac_classes(classes))
 }
 
 #[cfg(test)]
@@ -107,8 +115,9 @@ mod tests {
     #[test]
     fn only_high_and_severe_diseases_are_surfaced() {
         let today = date(7, 20);
-        let risks = assess_all(&hot_humid(today), today, &DiseaseContext::default());
-        let recs = to_recommendations(&risks);
+        let ctx = DiseaseContext::default();
+        let risks = assess_all(&hot_humid(today), today, &ctx);
+        let recs = to_recommendations(&risks, &ctx);
         let ids: Vec<&str> = recs.iter().map(|r| r.id.as_str()).collect();
         assert!(ids.contains(&"disease_brown_patch"));
         assert!(ids.contains(&"disease_pythium_blight"));
@@ -121,8 +130,9 @@ mod tests {
     fn nothing_is_surfaced_in_cool_dry_weather() {
         let today = date(11, 20);
         let series = run_of(today, 8, |d| day(d, 5.0, 0.0, 10.0, 55.0));
-        let risks = assess_all(&series, today, &DiseaseContext::default());
-        assert!(to_recommendations(&risks).is_empty());
+        let ctx = DiseaseContext::default();
+        let risks = assess_all(&series, today, &ctx);
+        assert!(to_recommendations(&risks, &ctx).is_empty());
     }
 
     #[test]
@@ -137,7 +147,7 @@ mod tests {
             ..context_from_history(&[], today)
         };
         let risks = assess_all(&hot_humid(today), today, &ctx);
-        let recs = to_recommendations(&risks);
+        let recs = to_recommendations(&risks, &ctx);
         let brown_patch = recs.iter().find(|r| r.id == "disease_brown_patch").unwrap();
         assert_eq!(brown_patch.severity, Severity::Info);
         assert!(brown_patch
@@ -145,5 +155,45 @@ mod tests {
             .as_deref()
             .unwrap()
             .starts_with("Protected"));
+    }
+
+    /// Cool, wet weather: red thread High on its own.
+    fn cool_wet(today: chrono::NaiveDate) -> Vec<DailyWeather> {
+        run_of(today, 8, |d| {
+            let mut w = day(d, 16.0, 12.0, 20.0, 92.0);
+            w.hours_rh90 = 16.0;
+            w.leaf_wetness_hours = 16.0;
+            w
+        })
+    }
+
+    fn red_thread_needs(ctx: &DiseaseContext) -> Vec<String> {
+        let today = date(10, 5);
+        let risks = assess_all(&cool_wet(today), today, ctx);
+        let recs = to_recommendations(&risks, ctx);
+        let rec = recs
+            .iter()
+            .find(|r| r.id == "disease_red_thread")
+            .expect("red thread surfaced");
+        rec.needs.iter().map(|n| n.label.clone()).collect()
+    }
+
+    #[test]
+    fn red_thread_wants_nitrogen_only_while_the_lawn_is_hungry() {
+        let hungry = DiseaseContext {
+            days_since_fertilizer: Some(75),
+            ..Default::default()
+        };
+        assert_eq!(red_thread_needs(&hungry), vec!["nitrogen fertilizer"]);
+        assert_eq!(
+            red_thread_needs(&DiseaseContext::default()),
+            vec!["nitrogen fertilizer"]
+        );
+
+        let fed = DiseaseContext {
+            days_since_fertilizer: Some(3),
+            ..Default::default()
+        };
+        assert!(red_thread_needs(&fed).is_empty());
     }
 }

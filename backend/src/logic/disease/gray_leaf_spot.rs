@@ -88,14 +88,16 @@ pub(super) fn assess(
         as_of: day.date,
         scale,
         daily: scored.daily,
-        factors: factors(day, seedlings),
+        factors: factors(day, seedlings, tier != weather_tier),
         summary: summary(tier, index, seedlings.is_some()),
         methodology: methodology(),
         management,
     })
 }
 
-fn factors(day: &DailyWeather, seedlings: Option<i64>) -> Vec<RiskFactor> {
+/// `raised` says whether the seedling amplifier actually moved the headline tier: it
+/// only applies at Moderate or above, so at Low the note must not claim a raise.
+fn factors(day: &DailyWeather, seedlings: Option<i64>, raised: bool) -> Vec<RiskFactor> {
     let in_season = SEASON_MONTHS.contains(&day.date.month());
     let temp_s = temp_suitability(day);
     let wet_s = wetness_suitability(day);
@@ -139,7 +141,13 @@ fn factors(day: &DailyWeather, seedlings: Option<i64>) -> Vec<RiskFactor> {
             label: "Seedling turf".into(),
             value: format!("Overseeded {days} d ago"),
             status: FactorStatus::Favorable,
-            note: "Young seedlings are highly susceptible — risk raised one tier".into(),
+            note: if raised {
+                "Young seedlings are highly susceptible — risk raised one tier"
+            } else {
+                "Young seedlings are highly susceptible — the tier is raised once weather \
+                 risk reaches Moderate"
+            }
+            .into(),
         });
     }
     out
@@ -233,6 +241,28 @@ mod tests {
 
         let dry = run_of(today, 4, |d| day(d, 21.5, 18.0, 26.0, 60.0));
         assert_eq!(assess(&dry, today, &ctx).unwrap().tier, RiskTier::Low);
+    }
+
+    #[test]
+    fn seedling_factor_note_only_claims_a_raise_when_one_happened() {
+        let today = date(9, 10);
+        let ctx = DiseaseContext {
+            days_since_overseed: Some(14),
+            ..Default::default()
+        };
+        let note = |series: &[DailyWeather]| {
+            assess(series, today, &ctx)
+                .unwrap()
+                .factors
+                .into_iter()
+                .find(|f| f.label == "Seedling turf")
+                .unwrap()
+                .note
+        };
+        let favorable = run_of(today, 4, |d| wet(day(d, 21.5, 18.0, 26.0, 90.0), 16.0));
+        assert!(note(&favorable).ends_with("risk raised one tier"));
+        let dry = run_of(today, 4, |d| day(d, 21.5, 18.0, 26.0, 60.0));
+        assert!(note(&dry).ends_with("once weather risk reaches Moderate"));
     }
 
     #[test]

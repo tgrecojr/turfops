@@ -2,8 +2,8 @@ use crate::db::{product_queries, queries};
 use crate::error::TurfOpsError;
 use crate::logic::disease::{self, weather_days};
 use crate::models::{
-    DailyWeather, DiseaseRiskResponse, LawnProfile, ProductCategory, Recommendation,
-    ShelfFungicide, ShelfProduct, StockStatus,
+    DailyWeather, DiseaseContext, DiseaseRiskResponse, LawnProfile, ProductCategory,
+    Recommendation, ShelfFungicide, ShelfProduct, StockStatus,
 };
 use crate::state::AppState;
 use axum::extract::State;
@@ -19,7 +19,8 @@ pub async fn get_disease_risk(
     let profile = queries::get_default_lawn_profile(&state.pool)
         .await?
         .ok_or_else(|| TurfOpsError::NotFound("No lawn profile found".into()))?;
-    Ok(Json(compute(&state, &profile).await?))
+    let (response, _) = compute(&state, &profile).await?;
+    Ok(Json(response))
 }
 
 /// Disease recommendations for the feed/dashboard. Disease risk is additive there, so
@@ -29,7 +30,9 @@ pub(crate) async fn recommendations(
     profile: &LawnProfile,
 ) -> Vec<Recommendation> {
     match compute(state, profile).await {
-        Ok(response) => disease::recommendations::to_recommendations(&response.diseases),
+        Ok((response, ctx)) => {
+            disease::recommendations::to_recommendations(&response.diseases, &ctx)
+        }
         Err(e) => {
             tracing::warn!("Disease risk unavailable for recommendations: {}", e);
             Vec::new()
@@ -39,11 +42,12 @@ pub(crate) async fn recommendations(
 
 /// Observed days come from the data lake's hourly silver layer, today's remainder and
 /// the outlook from the OpenWeatherMap forecast, and lawn history (overseeding,
-/// nitrogen, fungicides) from the applications log.
+/// nitrogen, fungicides) from the applications log. Returns the context alongside the
+/// response so the recommendation bridge can see the same history.
 async fn compute(
     state: &AppState,
     profile: &LawnProfile,
-) -> Result<DiseaseRiskResponse, TurfOpsError> {
+) -> Result<(DiseaseRiskResponse, DiseaseContext), TurfOpsError> {
     let (client, forecast) = {
         let mut service = state.sync_service.write().await;
         let summary = service.get_or_refresh().await?;
@@ -101,13 +105,14 @@ async fn compute(
         Vec::new()
     };
 
-    Ok(DiseaseRiskResponse {
+    let response = DiseaseRiskResponse {
         generated_at: Utc::now(),
         today,
         station: format!("NOAA USCRN station {}", client.station_wbanno()),
         diseases,
         data_notes,
-    })
+    };
+    Ok((response, ctx))
 }
 
 /// Plain-language caveats about the inputs behind this response.
