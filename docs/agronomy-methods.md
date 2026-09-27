@@ -36,6 +36,7 @@ a threshold, tier or rule in the code changes.**
 | Air temp | > 85°F | Fertilizer stress risk |
 | Soil moisture (fraction) | < 0.10 | Irrigation needed |
 | Soil moisture (fraction) | > 0.40 | Saturated — avoid fertilizer |
+| Plant watering (dry-spell test) | ≥ 0.1" forecast in 48 h, or ≥ 1" in the last 7 d, or soil moisture ≥ 0.20 | Weather is watering — plant Watering reminder held back |
 | Soil 5 cm, 5-day mean held 5 d | 45 / 50 / 55°F rising | Spring pre-emergent: early / ideal / closed (or 200 GDD) |
 | Soil 5 cm, 5-day mean held 5 d | 70 / 65 / 55°F falling | Fall pre-emergent: opens / late / closed |
 | Soil 5 cm, 5-day mean held 5 d | ≤ 75°F from Aug 15 → 55°F | Fall seeding opens → soil-side close |
