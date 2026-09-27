@@ -53,7 +53,7 @@ pub async fn all(
     let plants = plant_queries::list_plants_for_profile(&state.pool, profile_id).await?;
     let today = Local::now().date_naive();
     recommendations.extend(generate_plant_maintenance_recommendations(
-        &plants, &apps, today,
+        &plants, &apps, summary, today,
     ));
 
     // Follow-up reminders for applications that scheduled one.

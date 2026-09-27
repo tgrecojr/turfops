@@ -2,7 +2,7 @@ use super::*;
 use crate::models::plant::{
     IdentificationConfidence, MaintenanceTask, PlantMaintenancePlan, PlantType, TaskFrequency,
 };
-use crate::models::Severity;
+use crate::models::{EnvironmentalSummary, Severity};
 use chrono::Utc;
 
 fn make_task(
@@ -90,7 +90,12 @@ fn recommendation_emitted_in_window() {
     let task = make_task(TaskType::Pruning, "03-01", "03-31", Severity::Advisory);
     let plant = make_plant(42, vec![task]);
     let today = NaiveDate::from_ymd_opt(2026, 3, 15).unwrap();
-    let recs = generate_plant_maintenance_recommendations(&[plant], &[], today);
+    let recs = generate_plant_maintenance_recommendations(
+        &[plant],
+        &[],
+        &EnvironmentalSummary::default(),
+        today,
+    );
     assert_eq!(recs.len(), 1);
     assert_eq!(recs[0].category, RecommendationCategory::PlantMaintenance);
     assert!(recs[0].title.contains("Test Hydrangea"));
@@ -105,7 +110,12 @@ fn recommendation_suppressed_when_completed() {
         42,
         NaiveDate::from_ymd_opt(2026, 3, 10).unwrap(),
     )];
-    let recs = generate_plant_maintenance_recommendations(&[plant], &apps, today);
+    let recs = generate_plant_maintenance_recommendations(
+        &[plant],
+        &apps,
+        &EnvironmentalSummary::default(),
+        today,
+    );
     assert!(recs.is_empty(), "Should suppress after pruning was logged");
 }
 
@@ -115,7 +125,12 @@ fn recommendation_not_emitted_before_lead_in() {
     let plant = make_plant(42, vec![task]);
     // Well before lead-in window.
     let today = NaiveDate::from_ymd_opt(2026, 2, 1).unwrap();
-    let recs = generate_plant_maintenance_recommendations(&[plant], &[], today);
+    let recs = generate_plant_maintenance_recommendations(
+        &[plant],
+        &[],
+        &EnvironmentalSummary::default(),
+        today,
+    );
     assert!(recs.is_empty());
 }
 
@@ -124,7 +139,12 @@ fn recommendation_not_emitted_after_end() {
     let task = make_task(TaskType::Pruning, "03-01", "03-31", Severity::Advisory);
     let plant = make_plant(42, vec![task]);
     let today = NaiveDate::from_ymd_opt(2026, 4, 15).unwrap();
-    let recs = generate_plant_maintenance_recommendations(&[plant], &[], today);
+    let recs = generate_plant_maintenance_recommendations(
+        &[plant],
+        &[],
+        &EnvironmentalSummary::default(),
+        today,
+    );
     assert!(recs.is_empty());
 }
 
@@ -167,7 +187,12 @@ fn a_window_that_wraps_the_new_year_stays_open_in_january() {
     let plant = make_plant(42, vec![task]);
     let jan = NaiveDate::from_ymd_opt(2027, 1, 10).unwrap();
 
-    let recs = generate_plant_maintenance_recommendations(std::slice::from_ref(&plant), &[], jan);
+    let recs = generate_plant_maintenance_recommendations(
+        std::slice::from_ref(&plant),
+        &[],
+        &EnvironmentalSummary::default(),
+        jan,
+    );
     assert_eq!(
         recs.len(),
         1,
@@ -184,7 +209,13 @@ fn a_window_that_wraps_the_new_year_stays_open_in_january() {
         42,
         NaiveDate::from_ymd_opt(2026, 12, 12).unwrap(),
     )];
-    assert!(generate_plant_maintenance_recommendations(&[plant], &apps, jan).is_empty());
+    assert!(generate_plant_maintenance_recommendations(
+        &[plant],
+        &apps,
+        &EnvironmentalSummary::default(),
+        jan
+    )
+    .is_empty());
 }
 
 #[test]
@@ -199,11 +230,48 @@ fn completion_belongs_to_one_window() {
     )];
 
     let sept = NaiveDate::from_ymd_opt(2026, 9, 10).unwrap();
-    let recs =
-        generate_plant_maintenance_recommendations(std::slice::from_ref(&plant), &apps, sept);
+    let recs = generate_plant_maintenance_recommendations(
+        std::slice::from_ref(&plant),
+        &apps,
+        &EnvironmentalSummary::default(),
+        sept,
+    );
     assert_eq!(recs.len(), 1, "the fall window is still to do");
 
     let acts = build_plant_activities(&[plant], &apps, 2026, sept);
     assert!(matches!(acts[0].status, ActivityStatus::Completed));
     assert!(matches!(acts[1].status, ActivityStatus::Active));
+}
+
+#[test]
+fn watering_waits_out_the_rain_but_other_tasks_do_not() {
+    let plant = make_plant(
+        1,
+        vec![
+            make_task(TaskType::Watering, "06-01", "09-30", Severity::Advisory),
+            make_task(TaskType::Pruning, "06-01", "09-30", Severity::Advisory),
+        ],
+    );
+    let today = NaiveDate::from_ymd_opt(2026, 7, 15).unwrap();
+
+    let wet = EnvironmentalSummary {
+        precipitation_7day_total_mm: Some(30.0),
+        ..Default::default()
+    };
+    let recs =
+        generate_plant_maintenance_recommendations(std::slice::from_ref(&plant), &[], &wet, today);
+    assert_eq!(recs.len(), 1);
+    assert!(recs[0].title.contains("Pruning"));
+
+    let dry = EnvironmentalSummary {
+        precipitation_7day_total_mm: Some(1.0),
+        ..Default::default()
+    };
+    let recs = generate_plant_maintenance_recommendations(&[plant], &[], &dry, today);
+    assert_eq!(recs.len(), 2);
+    let watering = recs.iter().find(|r| r.title.contains("Watering")).unwrap();
+    assert!(watering
+        .data_points
+        .iter()
+        .any(|d| d.label == "Rain last 7 d"));
 }

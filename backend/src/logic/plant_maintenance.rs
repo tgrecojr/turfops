@@ -7,10 +7,13 @@ use crate::models::seasonal_plan::{
     ActivityDetails, ActivityStatus, DateWindow, PlannedActivity, WindowConfidence,
 };
 use crate::models::{
-    Application, ApplicationType, DataSource, ProductCategory, ProductNeed, Recommendation,
-    RecommendationCategory,
+    Application, ApplicationType, DataSource, EnvironmentalSummary, ProductCategory, ProductNeed,
+    Recommendation, RecommendationCategory,
 };
 use chrono::{Datelike, NaiveDate};
+
+pub mod watering;
+use watering::WaterSignals;
 
 /// Recommendation lead-in: fire N days before window opens.
 const WINDOW_LEAD_DAYS: i64 = 7;
@@ -89,13 +92,18 @@ fn task_recommendation_id(plant: &Plant, task_idx: usize, year: i32) -> String {
 }
 
 /// Emit one Recommendation per plant task when today is inside the window
-/// (with a lead-in) and the task hasn't been logged recently.
+/// (with a lead-in) and the task hasn't been logged recently. A Watering task is a
+/// "during dry spells" reminder, so it is also held back while rain (falling, forecast,
+/// or recent) or adequate soil moisture is doing the job — see [`watering`].
 pub fn generate_plant_maintenance_recommendations(
     plants: &[Plant],
     applications: &[Application],
+    env: &EnvironmentalSummary,
     today: NaiveDate,
 ) -> Vec<Recommendation> {
     let mut recs = Vec::new();
+    let water = WaterSignals::from_env(env);
+    let weather_is_watering = water.wet_reason().is_some();
 
     for plant in plants {
         for (idx, task) in plant.maintenance_plan.tasks.iter().enumerate() {
@@ -109,6 +117,9 @@ pub fn generate_plant_maintenance_recommendations(
                 continue;
             }
             if task_completed(plant, task, applications, today, (start, end)) {
+                continue;
+            }
+            if task.task_type == TaskType::Watering && weather_is_watering {
                 continue;
             }
 
@@ -161,6 +172,9 @@ pub fn generate_plant_maintenance_recommendations(
                     ProductNeed::new("plant fertilizer", ProductCategory::Fertilizer)
                         .or_category(ProductCategory::Supplement),
                 );
+            }
+            if task.task_type == TaskType::Watering {
+                rec = water.annotate(rec);
             }
 
             recs.push(rec);
