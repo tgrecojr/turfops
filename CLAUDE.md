@@ -10,14 +10,14 @@ Containerized web application for tracking lawn care activities with data-driven
 - Frontend: React 19 + TypeScript + Vite
 - Database: PostgreSQL 18 (app data)
 - External Data: NOAA USCRN weather data lake (embedded DuckDB over parquet), Home Assistant API, OpenWeatherMap API
-- Deployment: container image (distroless runtime ships `/usr/share/zoneinfo` so `TZ` works); example Docker Compose (app + PostgreSQL)
+- Deployment: container image (distroless runtime ships `/usr/share/zoneinfo` so `TZ` works; runs as `USER 65532:65532`; `HEALTHCHECK` runs `turfops-backend --healthcheck`, which probes its own `/api/v1/health`); example Docker Compose (app + PostgreSQL 18 on loopback `127.0.0.1:5433`, volume at `/var/lib/postgresql`). Startup retries an unreachable Postgres for about a minute; SIGTERM shuts down gracefully. Config is read through `config::load::from_vars`, which warns about every unusable value
 - Async Runtime: Tokio
 
 ## Commands
 
 ### Backend
 - `cd backend && cargo build` — Build backend
-- `cd backend && cargo test` — Run tests (478 tests)
+- `cd backend && cargo test` — Run tests (495 tests)
 - `cd backend && cargo fmt` — Format code
 - `cd backend && cargo clippy` — Run linter
 - `cd backend && cargo run` — Run API server (needs PostgreSQL)

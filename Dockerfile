@@ -2,7 +2,8 @@
 FROM node:26-alpine@sha256:143494b1da2945f061539253adc65e4f1569ddf07da2d384c022c791a9d90a4a AS frontend-build
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
-RUN npm ci
+# No package lifecycle scripts, as in the supply-chain scan: nothing in the build needs one.
+RUN npm ci --ignore-scripts
 COPY frontend/ ./
 RUN npm run build
 
@@ -49,6 +50,14 @@ COPY --from=backend-build /usr/share/zoneinfo /usr/share/zoneinfo
 
 ENV STATIC_DIR=/app/static
 
+# Run as the distroless non-root user, stated rather than inherited from the base image.
+USER 65532:65532
+
 EXPOSE 3000
+
+# No shell or curl in the runtime: the binary probes its own /api/v1/health. The start
+# period covers the startup wait for PostgreSQL (about a minute) plus migrations.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 \
+    CMD ["./turfops-backend", "--healthcheck"]
 
 ENTRYPOINT ["./turfops-backend"]

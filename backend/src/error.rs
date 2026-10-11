@@ -52,6 +52,21 @@ const DUPLICATE_MESSAGE: &str =
 
 pub type Result<T> = std::result::Result<T, TurfOpsError>;
 
+/// The status and owner message for a unique-index violation on `constraint`.
+// @spec DEPLOY-HTTP-011
+pub(crate) fn unique_violation(constraint: Option<&str>) -> (StatusCode, &'static str) {
+    let message = if is_application_duplicate(constraint) {
+        DUPLICATE_MESSAGE
+    } else {
+        CONFLICT_MESSAGE
+    };
+    (StatusCode::CONFLICT, message)
+}
+
+/// Any other unique index: the record clashes with one already stored.
+const CONFLICT_MESSAGE: &str =
+    "That conflicts with a record that already exists. Change it, or edit the existing one.";
+
 /// Whether a unique violation on `constraint` is an application-log duplicate.
 // @spec APP-DUP-003
 pub(crate) fn is_application_duplicate(constraint: Option<&str>) -> bool {
@@ -160,10 +175,8 @@ impl TurfOpsError {
             | TurfOpsError::InvalidData(msg)
             | TurfOpsError::Conflict(msg) => msg.clone(),
             TurfOpsError::Unavailable { origin, outage } => outage_message(*origin, outage),
-            TurfOpsError::Database(sqlx::Error::Database(db))
-                if db.is_unique_violation() && is_application_duplicate(db.constraint()) =>
-            {
-                DUPLICATE_MESSAGE.to_string()
+            TurfOpsError::Database(sqlx::Error::Database(db)) if db.is_unique_violation() => {
+                unique_violation(db.constraint()).1.to_string()
             }
             _ => SERVER_ERROR_MESSAGE.to_string(),
         }
@@ -232,10 +245,8 @@ impl IntoResponse for TurfOpsError {
                 }
                 StatusCode::SERVICE_UNAVAILABLE
             }
-            TurfOpsError::Database(sqlx::Error::Database(db))
-                if db.is_unique_violation() && is_application_duplicate(db.constraint()) =>
-            {
-                StatusCode::CONFLICT
+            TurfOpsError::Database(sqlx::Error::Database(db)) if db.is_unique_violation() => {
+                unique_violation(db.constraint()).0
             }
             TurfOpsError::Conflict(_) => StatusCode::CONFLICT,
             other => {
@@ -314,6 +325,19 @@ mod tests {
         assert!(msg.contains("couldn't identify this product"), "{msg}");
         assert!(msg.contains("Pick a category"), "{msg}");
         assert!(!msg.contains("raw model output"));
+    }
+
+    // @spec DEPLOY-HTTP-011
+    #[test]
+    fn another_unique_index_is_a_generic_conflict() {
+        let (status, msg) = unique_violation(Some("products_lower_name_idx"));
+        assert_eq!(status, StatusCode::CONFLICT);
+        assert!(!msg.contains("same type, product and date"), "{msg}");
+        assert!(msg.contains("already exists"), "{msg}");
+        assert_eq!(
+            unique_violation(Some("applications_unique_turf")).1,
+            DUPLICATE_MESSAGE
+        );
     }
 
     // @spec APP-DUP-003

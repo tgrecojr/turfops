@@ -3,6 +3,10 @@ pub use crate::mcp::McpConfig;
 use serde::Deserialize;
 use sqlx::postgres::PgConnectOptions;
 
+mod load;
+#[cfg(test)]
+mod load_tests;
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct Config {
     pub lawn: LawnConfig,
@@ -148,6 +152,8 @@ pub struct DatabaseConfig {
     pub name: String,
     pub user: String,
     pub password: String,
+    /// `DB_MAX_CONNECTIONS` (default 10).
+    pub max_connections: u32,
 }
 
 impl std::fmt::Debug for DatabaseConfig {
@@ -173,120 +179,13 @@ impl DatabaseConfig {
     }
 }
 
-fn env_or(key: &str, default: &str) -> String {
-    std::env::var(key).unwrap_or_else(|_| default.to_string())
-}
-
-fn env_required(key: &str) -> Result<String> {
-    std::env::var(key).map_err(|_| TurfOpsError::Config(format!("Missing env var: {}", key)))
-}
-
 impl Config {
     pub fn from_env() -> Result<Self> {
-        Ok(Self {
-            lawn: LawnConfig {
-                name: env_or("LAWN_NAME", "Main Lawn"),
-                grass_type: env_or("LAWN_GRASS_TYPE", "TallFescue"),
-                usda_zone: env_or("LAWN_USDA_ZONE", "7a"),
-                soil_type: std::env::var("LAWN_SOIL_TYPE").ok(),
-                lawn_size_sqft: std::env::var("LAWN_SIZE_SQFT").ok(),
-                irrigation_type: std::env::var("LAWN_IRRIGATION_TYPE").ok(),
-            },
-            noaa: NoaaConfig {
-                station_wbanno: {
-                    let raw = env_or("NOAA_STATION_WBANNO", "3761");
-                    raw.parse().unwrap_or_else(|_| {
-                        tracing::warn!(value = %raw, "Invalid NOAA_STATION_WBANNO, defaulting to 3761");
-                        3761
-                    })
-                },
-            },
-            datalake: {
-                // Either set the two full paths explicitly, or set DATALAKE_ROOT and
-                // derive the conventional weather parquet locations beneath it.
-                let root = env_or("DATALAKE_ROOT", "/data");
-                let silver_weather_path = std::env::var("WEATHER_SILVER_PATH")
-                    .unwrap_or_else(|_| format!("{root}/silver/weather/silver_weather.parquet"));
-                let gold_weather_path = std::env::var("WEATHER_GOLD_PATH")
-                    .unwrap_or_else(|_| format!("{root}/gold/weather/daily_weather.parquet"));
-                tracing::info!(
-                    silver = %silver_weather_path,
-                    gold = %gold_weather_path,
-                    "Weather data lake paths configured"
-                );
-                DataLakeConfig {
-                    silver_weather_path,
-                    gold_weather_path,
-                }
-            },
-            homeassistant: HomeAssistantConfig {
-                url: env_or("HA_URL", "http://localhost:8123"),
-                token: env_or("HA_TOKEN", ""),
-                temperature_entity: env_or(
-                    "HA_TEMPERATURE_ENTITY",
-                    "sensor.temp_humidity_sensor_temperature",
-                ),
-                humidity_entity: env_or(
-                    "HA_HUMIDITY_ENTITY",
-                    "sensor.temp_humidity_sensor_humidity",
-                ),
-                temperature_unit: if env_or("HA_TEMPERATURE_UNIT", "fahrenheit") == "celsius" {
-                    TemperatureUnit::Celsius
-                } else {
-                    TemperatureUnit::Fahrenheit
-                },
-            },
-            // docker-compose passes unset optional keys as empty strings; empty = not configured.
-            openweathermap: std::env::var("OWM_API_KEY")
-                .ok()
-                .filter(|key| !key.trim().is_empty())
-                .map(|api_key| OpenWeatherMapConfig {
-                    api_key,
-                    latitude: env_or("OWM_LATITUDE", "0").parse().unwrap_or(0.0),
-                    longitude: env_or("OWM_LONGITUDE", "0").parse().unwrap_or(0.0),
-                    enabled: env_or("OWM_ENABLED", "true") == "true",
-                }),
-            openrouter: std::env::var("OPENROUTER_API_KEY")
-                .ok()
-                .filter(|key| !key.trim().is_empty())
-                .map(|api_key| OpenRouterConfig {
-                    api_key,
-                    model: env_or("OPENROUTER_MODEL", DEFAULT_OPENROUTER_MODEL),
-                    enabled: env_or("OPENROUTER_ENABLED", "true") == "true",
-                    base_url: env_or("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
-                }),
-            server: ServerConfig {
-                host: env_or("SERVER_HOST", "0.0.0.0"),
-                port: {
-                    let raw = env_or("SERVER_PORT", "3000");
-                    raw.parse().unwrap_or_else(|_| {
-                        tracing::warn!(value = %raw, "Invalid SERVER_PORT, defaulting to 3000");
-                        3000
-                    })
-                },
-                cors_allowed_origin: std::env::var("CORS_ALLOWED_ORIGIN")
-                    .ok()
-                    .filter(|origin| !origin.trim().is_empty()),
-            },
-            database: DatabaseConfig {
-                host: env_or("DATABASE_HOST", "localhost"),
-                port: {
-                    let raw = env_or("DATABASE_PORT", "5432");
-                    raw.parse().unwrap_or_else(|_| {
-                        tracing::warn!(value = %raw, "Invalid DATABASE_PORT, defaulting to 5432");
-                        5432
-                    })
-                },
-                name: env_or("DATABASE_NAME", "turfops"),
-                user: env_or("DATABASE_USER", "turfops"),
-                password: env_required("DATABASE_PASSWORD")?,
-            },
-            clock: crate::clock::Clock::from_tz(std::env::var("TZ").ok().as_deref())
-                .map_err(TurfOpsError::Config)?,
-            mcp: McpConfig {
-                token: crate::mcp::parse_token(std::env::var("MCP_TOKEN").ok())?,
-            },
-        })
+        let (config, warnings) = load::from_vars(&|key| std::env::var(key).ok())?;
+        for warning in warnings {
+            tracing::warn!("{warning}");
+        }
+        Ok(config)
     }
 }
 

@@ -3,7 +3,11 @@ mod clock;
 mod config;
 mod datasources;
 mod db;
+#[cfg(test)]
+mod deployment_tests;
 mod error;
+mod health_probe;
+mod logging;
 mod logic;
 mod mcp;
 mod models;
@@ -23,7 +27,6 @@ use std::path::PathBuf;
 use tower_http::cors::CorsLayer;
 use tower_http::limit::RequestBodyLimitLayer;
 use tower_http::services::{ServeDir, ServeFile};
-use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -32,10 +35,22 @@ async fn main() -> anyhow::Result<()> {
         let _ = dotenvy::dotenv();
     }
 
-    // Initialize tracing
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
-        .init();
+    // The container health check: probe our own /api/v1/health and exit.
+    if std::env::args().any(|arg| arg == "--healthcheck") {
+        let healthy = health_probe::probe(
+            health_probe::local_addr(),
+            std::time::Duration::from_secs(3),
+        )
+        .await;
+        std::process::exit(if healthy { 0 } else { 1 });
+    }
+
+    // Initialize tracing before anything that may warn about configuration.
+    let (filter, filter_warning) = logging::filter(std::env::var("RUST_LOG").ok().as_deref());
+    tracing_subscriber::fmt().with_env_filter(filter).init();
+    if let Some(warning) = filter_warning {
+        tracing::warn!("{warning}");
+    }
 
     // Load config from environment
     let config = Config::from_env()?;
@@ -51,7 +66,11 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // Connect to app database and run migrations
-    let pool = create_pool(config.database.connect_options()).await?;
+    let pool = create_pool(
+        config.database.connect_options(),
+        config.database.max_connections,
+    )
+    .await?;
 
     // Create default profile if DB is empty
     ensure_default_profile(&pool, &config).await?;
@@ -235,9 +254,40 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("Starting server on {}", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    axum::serve(listener, app).await?;
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await?;
+    tracing::info!("Server stopped");
 
     Ok(())
+}
+
+/// SIGTERM (`docker stop`) or Ctrl-C: stop accepting connections and let in-flight
+/// requests finish before exiting.
+// @spec DEPLOY-START-006
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        let _ = tokio::signal::ctrl_c().await;
+    };
+    #[cfg(unix)]
+    let terminate = async {
+        match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+            Ok(mut sigterm) => {
+                sigterm.recv().await;
+            }
+            Err(e) => {
+                tracing::warn!("Could not listen for SIGTERM: {e}");
+                std::future::pending::<()>().await
+            }
+        }
+    };
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
+    tracing::info!("Shutdown signal received; finishing in-flight requests");
 }
 
 /// Build CORS layer from config. Defaults to same-origin (the server's own address)

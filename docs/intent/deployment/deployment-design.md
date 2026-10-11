@@ -29,7 +29,7 @@ Three stages, every base image pinned by digest (Renovate maintains the digests)
 | `backend-build` | `rust:1.98-slim-trixie` | `cargo build --release` → `/app/target/release/turfops-backend` |
 | runtime | `cgr.dev/chainguard/glibc-dynamic:latest@sha256:…` | `/app/turfops-backend`, `/app/static`, `/usr/share/zoneinfo` |
 
-**No install scripts.** The frontend stage installs with `--ignore-scripts`, the same policy as the supply-chain scan, so no package's lifecycle script runs in the image build. No dependency in the lockfile declares an install script; one that genuinely needs it would be named in the Dockerfile with the reason (Deferred 11).
+**No install scripts.** The frontend stage installs with `--ignore-scripts`, the same policy as the supply-chain scan, so no package's lifecycle script runs in the image build. No dependency in the lockfile declares an install script; one that genuinely needs it would be named in the Dockerfile with the reason.
 
 **Native toolchain.** The build stage installs `g++` because the `duckdb` crate is built with `bundled` (its C++ amalgamation compiles into the binary) and `tzdata` only so its files can be copied forward.
 
@@ -45,7 +45,9 @@ Three stages, every base image pinned by digest (Renovate maintains the digests)
 - When `TZ` is unset or empty it logs a warning that every date gate follows the host's default zone (UTC in the container image) and that `TZ` must be set to the lawn's timezone. It still starts: a local `cargo run` legitimately uses the developer's OS zone, while in the image the default is UTC.
 - When `TZ` is set but is not a timezone name (a typo, or a name the zone database lacks), `Clock::from_tz` returns a configuration error naming `TZ` and the value, `Config::from_env` fails, and `main` exits non-zero, because chrono would otherwise fall back to UTC without a word.
 
-**Runtime.** Binary and static files are copied `--chown=65532:65532`, and the image declares `USER 65532:65532` explicitly, so the process stays non-root even if the base image's default user changes (Deferred 3). `ENV STATIC_DIR=/app/static`, `EXPOSE 3000`, `ENTRYPOINT ["./turfops-backend"]`. The image declares no `HEALTHCHECK` (see Deferred).
+**Runtime.** Binary and static files are copied `--chown=65532:65532`, and the image declares `USER 65532:65532` explicitly, so the process stays non-root even if the base image's default user changes. `ENV STATIC_DIR=/app/static`, `EXPOSE 3000`, `ENTRYPOINT ["./turfops-backend"]`.
+
+**Health check.** The runtime has no shell or curl, so the image's `HEALTHCHECK` runs the binary itself: `turfops-backend --healthcheck` sends `GET /api/v1/health` to `127.0.0.1:$SERVER_PORT` with a 3 s timeout and exits 0 only on a 200 (`backend/src/health_probe.rs`). Interval 30 s, timeout 5 s, 3 retries; the 90 s start period covers the startup wait for PostgreSQL plus migrations. Living in the image, it applies to any deployment of it, not only Compose.
 
 **Release profile** (`backend/Cargo.toml`): `strip = true`, `lto = true`, `codegen-units = 1`.
 
@@ -58,9 +60,9 @@ Three stages, every base image pinned by digest (Renovate maintains the digests)
 | `db` | `postgres:18-alpine@sha256:…` | `127.0.0.1:5433:5432` | `POSTGRES_DB` / `POSTGRES_USER` = `turfops`; `POSTGRES_PASSWORD: ${DB_PASSWORD:?}`; volume `turfops_data:/var/lib/postgresql`; healthcheck `pg_isready -U turfops` every 5 s, 5 retries |
 | `app` | `build: .` (Dockerfile) | `3000:3000` | `depends_on: db: condition: service_healthy`; lake mount `${DATALAKE_HOST_PATH:-/data}:/data:ro` |
 
-Both services `restart: unless-stopped`. Host port 5433 exposes Postgres for a local `cargo run` against the Compose database (`README.md`, Local development); it is bound to the loopback interface, so other machines on the network cannot reach the database (Deferred 15).
+Both services `restart: unless-stopped`. Host port 5433 exposes Postgres for a local `cargo run` against the Compose database (`README.md`, Local development); it is bound to the loopback interface, so other machines on the network cannot reach the database.
 
-**Postgres data volume.** The PostgreSQL 18 image keeps its cluster in a version-specific directory (`/var/lib/postgresql/18/docker`) under the volume root `/var/lib/postgresql`. The named volume is mounted at that root, so a fresh `docker compose up` initializes the database and the data survives recreating the container (Deferred 1).
+**Postgres data volume.** The PostgreSQL 18 image keeps its cluster in a version-specific directory (`/var/lib/postgresql/18/docker`) under the volume root `/var/lib/postgresql`. The named volume is mounted at that root, so a fresh `docker compose up` initializes the database and the data survives recreating the container.
 
 **Required password.** `DB_PASSWORD` is read with `${DB_PASSWORD:?}`: Compose refuses to start when it is unset or empty, and the same value feeds both `POSTGRES_PASSWORD` and the app's `DATABASE_PASSWORD`. The bare `:?` form (no message) is deliberate: the ggshield pre-commit hook flags `${VAR:?message}` as a hard-coded password.
 
@@ -98,7 +100,7 @@ Both services `restart: unless-stopped`. Host port 5433 exposes Postgres for a l
 | `TZ` | process default (UTC in the image, the OS zone under `cargo run`) | `America/New_York` | **required in practice**: the lawn's timezone, the app's single "today" clock; unset or empty → warn, process default; set but not a timezone → `Config` error naming `TZ`, process exits |
 | `RUST_LOG` | `info` | `info` | invalid filter → warn, `info` |
 
-Every fallback caused by an unusable non-empty value logs a warning naming the setting and the default used, so a typo shows in the startup log instead of quietly changing behavior (Deferred 5). An empty value is "not set", not invalid, and takes the default without a warning (except `TZ`, whose absence is always worth a warning).
+Every fallback caused by an unusable non-empty value logs a warning naming the setting and the default used, so a typo shows in the startup log instead of quietly changing behavior. An empty value is "not set", not invalid, and takes the default without a warning (except `TZ`, whose absence is always worth a warning).
 
 `LAWN_*` values only seed the lawn profile on first start (`ensure_default_profile`); once a profile exists they are ignored and the profile is edited through Settings.
 
@@ -121,13 +123,13 @@ Every fallback caused by an unusable non-empty value logs a warning naming the s
 | Startup failure | Behavior |
 |---|---|
 | `DATABASE_PASSWORD` unset or empty; `MCP_TOKEN` too short; `TZ` set but not a timezone | `Config` error returned from `main`; exit non-zero |
-| Postgres unreachable | retried with backoff for about a minute, so a database that starts a little later (a host reboot, or a run without Compose's `depends_on`) is picked up; still unreachable → error returned from `main`, exit non-zero (Deferred 17) |
+| Postgres unreachable | retried after 2, 4, 8, 16 and 30 s (about a minute, `db::pool::startup_delays`, each failure logged at WARN), so a database that starts a little later (a host reboot, or a run without Compose's `depends_on`) is picked up; still unreachable → error returned from `main`, exit non-zero. Only reachability failures are retried (I/O, pool timeout, TLS, Postgres `57P03` still starting): a wrong password or database name fails at once |
 | Migration fails | error returned from `main`; exit non-zero (no retry: a failing migration fails the same way again) |
 | Invalid `CORS_ALLOWED_ORIGIN` | panic in `build_cors_layer` |
 | Port already bound | `TcpListener::bind` error; exit non-zero |
 | Lake, Home Assistant, OWM or OpenRouter unreachable | no effect at startup; degraded per feature at request time |
 
-**Shutdown.** On SIGTERM the server stops accepting new connections, lets in-flight requests finish, then exits, so `docker stop` or a Compose restart does not cut a request off midway (Deferred 4).
+**Shutdown.** On SIGTERM (or Ctrl-C) the server stops accepting new connections, lets in-flight requests finish, then exits 0 (`axum::serve(...).with_graceful_shutdown`, `main.rs::shutdown_signal`), so `docker stop` or a Compose restart does not cut a request off midway.
 
 ## Router Assembly and Middleware
 
@@ -167,7 +169,7 @@ All handler errors are `TurfOpsError` and render as JSON `{"error": "<message>"}
 
 **Data-source outages.** `Source` names a source as the owner knows it: `WeatherLake`, `Forecast` (OpenWeatherMap), `PatioSensor` (Home Assistant), `PlanAssistant` (OpenRouter for plant care plans), `ProductAssistant` (OpenRouter answering for a shelf product) and `SoilOutlook` (the 10 cm projection). `Outage` says why: `NotConfigured`, `Disabled`, `Down(detail)` or `NotEnoughData`. Sources build these through `TurfOpsError::unavailable(source, detail)`, `not_configured(source)`, `disabled(source)` and `not_enough_data(source)`; `for_products()` re-labels a `PlanAssistant` outage as `ProductAssistant` so the product endpoints word it for products. Each source and outage pair has one sentence saying what is unavailable, what it affects and what to do, for example "The weather data lake isn't configured, so soil, disease, timing and history data are unavailable. Set DATALAKE_ROOT and restart TurfOps." A `Down` detail (an upstream status and body, a raw model output, a lake task error) is logged and never part of the response.
 
-The duplicate-application text tells the owner how to fix the entry (edit the existing one, or rename the product), so it is used only for the two indexes it describes; the constraint name decides which message applies, and any other unique index gets the generic text rather than advice that does not fit (Deferred 8). Requests that fail before a handler runs get the same shape through `with_json_errors`, one plain sentence per status: 400 (malformed JSON, a non-numeric `{id}`) "The request couldn't be read. Check the form and try again.", 405 "That action isn't supported here.", 413 (a body over 1 MiB) "That request is too large to accept.", 415 "The request must be sent as JSON.", 422 "Some fields are missing or not valid. Check the form and try again.", any 5xx the server-error sentence. A response that is already JSON passes through unchanged.
+The duplicate-application text tells the owner how to fix the entry (edit the existing one, or rename the product), so it is used only for the two indexes it describes; the constraint name decides which message applies, and any other unique index gets the generic text rather than advice that does not fit. Requests that fail before a handler runs get the same shape through `with_json_errors`, one plain sentence per status: 400 (malformed JSON, a non-numeric `{id}`) "The request couldn't be read. Check the form and try again.", 405 "That action isn't supported here.", 413 (a body over 1 MiB) "That request is too large to accept.", 415 "The request must be sent as JSON.", 422 "Some fields are missing or not valid. Check the form and try again.", any 5xx the server-error sentence. A response that is already JSON passes through unchanged.
 
 ## Health Endpoint (`backend/src/api/health.rs`)
 
@@ -190,7 +192,7 @@ The duplicate-application text tells the owner how to fix the entry (edit the ex
 | `docker-publish.yml` | push / PR to `main`, `v*` tags | Runs the supply-chain scan, then builds the image (GHA cache). PRs build without pushing, which is what exercises `npm run build`. Otherwise pushes to GHCR (`latest` on main, semver, `sha`), signs keylessly with cosign, attaches an SPDX SBOM and build-provenance attestations. |
 | `ghcr-retention.yml` | Mondays 06:00 UTC / manual | Keeps `latest` plus the 5 newest tagged versions; deletes untagged manifests. |
 
-**Advisory ignores.** `backend/.cargo/audit.toml` (cargo audit) and `backend/osv-scanner.toml` (OSV) name an advisory only while its crate is in `Cargo.lock`, each with a written justification; an ignore whose crate has left the lockfile is deleted, so it cannot silently hide a future advisory of the same ID (Deferred 10).
+**Advisory ignores.** `backend/.cargo/audit.toml` (cargo audit) and `backend/osv-scanner.toml` (OSV) name an advisory only while its crate is in `Cargo.lock`, each with a written justification; an ignore whose crate has left the lockfile is deleted, so it cannot silently hide a future advisory of the same ID.
 
 **Renovate.** Runs off-hours on weekdays and anytime on weekends (America/New_York), at most 3 open PRs, creating them immediately and rebasing when behind. Docker images are digest-pinned. Minor and patch updates are grouped, wait 3 days (1 day for common images such as `postgres`) and auto-merge; digest updates auto-merge at any time; majors are labeled `major-update` and wait for review. Weekly lock-file maintenance runs Monday before 4 am; vulnerability alerts are labeled `security`.
 
@@ -206,6 +208,9 @@ The duplicate-application text tells the owner how to fix the entry (edit the ex
 | Timezone | Ship `/usr/share/zoneinfo`; deployment sets `TZ` to the lawn's timezone (Compose default `America/New_York`); the app's `Clock`, resolved once from `TZ`, is the one "today" | Compute all dates in UTC; a station-local date from the lake's UTC offset; the viewer's browser date; hard-code the zone in the image | Every agronomic date is a lawn-local calendar day. One configured clock gives every component the same day. Lake timestamps are UTC, so the UTC date would be wrong every evening. The image cannot know the lawn's location, so the zone belongs to the deployment. |
 | Required DB password syntax | `${DB_PASSWORD:?}` | `${DB_PASSWORD:?message}`; a default password | A missing password must stop Compose; the message form trips the ggshield secret scanner. |
 | Optional keys | Empty or whitespace = not configured | Treat empty as a value; separate `*_ENABLED` only | Compose passes unset `${KEY:-}` as `""`; treating it as configured would start clients with blank credentials. [inferred] |
+| Container health check | The binary probes its own `/api/v1/health` (`--healthcheck`), declared in the image | `curl` in the runtime; a Compose-only check; no check | The distroless runtime has no shell or curl and should stay that way; an image-level check covers every deployment of the image, not just the example Compose stack. |
+| What the startup retry waits out | Only reachability failures | Every connect error | A wrong password or database name will not fix itself; waiting a minute on it only delays the error the owner needs to see. |
+| Config loading | `config::load::from_vars(lookup)` returns the config and its warnings; `from_env` passes the process environment and logs them | Reading `std::env` directly | Tests can feed any combination of settings without touching the process environment, which parallel tests share. |
 | Malformed security config | Refuse to start (`MCP_TOKEN` < 32, bad CORS origin) | Warn and continue | A short token or wrong origin would silently weaken an open endpoint (MCP plan, `docs/plans/ai-assistant.md`). |
 | Other malformed values | Warn, naming the setting and the default, then fall back | Refuse to start; fall back silently | Keeps the app up on a typo in a non-security setting, while the warning makes the typo visible on the next restart. |
 | Empty `DATABASE_PASSWORD` | Refuse to start | Connect with a blank password | A blank password is never intended; failing at startup with the setting's name beats an authentication error from Postgres, and runs without Compose's `:?` guard get the same protection. |
@@ -231,23 +236,13 @@ The duplicate-application text tells the owner how to fix the entry (edit the ex
 2. ✅ `/mcp` is unmounted, not merely unauthenticated, when `MCP_TOKEN` is empty.
 
 ### Deferred
-1. **Divergence: Postgres 18 volume path** (DEPLOY-COMPOSE-009). Intent: mount `turfops_data` at the PostgreSQL 18 image's volume root `/var/lib/postgresql`. `docker-compose.yml` still mounts the pre-18 path `/var/lib/postgresql/data`, which does not match the 18 image's layout (cluster under `/var/lib/postgresql/18/docker`).
-2. **No container healthcheck.** The Dockerfile has no `HEALTHCHECK` and the `app` service none in Compose, against the project's Docker rule. The distroless image has no shell or curl, so it would need a binary subcommand or an external probe of `/api/v1/health`.
-3. **Divergence: implicit non-root user** (DEPLOY-IMAGE-009). Intent: the runtime image declares `USER 65532:65532`. The Dockerfile declares no `USER` and relies on the Chainguard base image's default uid 65532.
-4. **Divergence: no graceful shutdown** (DEPLOY-START-006). Intent: on SIGTERM, stop accepting connections and let in-flight requests finish before exiting. `axum::serve` gets no shutdown signal (`backend/src/main.rs:240`; tokio's `signal` feature is enabled but unused), so in-flight requests are cut on SIGTERM. Still open: there is no panic hook beyond the default. `build_cors_layer` (`main.rs:271`) and the OWM client builder (`datasources/openweathermap.rs:110`) use `expect`, so a bad CORS origin ends startup in a panic, not in the `Config` error every other refused setting produces.
-5. **Divergence: silent fallbacks** (DEPLOY-CONFIG-012). Intent: every unusable non-empty value logs a warning naming the setting and its default. These fall back with no warning: `SERVER_HOST`, `DB_MAX_CONNECTIONS`, `OWM_LATITUDE` / `OWM_LONGITUDE`, `LAWN_SOIL_TYPE`, `LAWN_SIZE_SQFT`, `LAWN_IRRIGATION_TYPE`, `HA_TEMPERATURE_UNIT`, `RUST_LOG`. Still open: `STATIC_DIR` and `DB_MAX_CONNECTIONS` are read outside `Config::from_env`, and an OWM key with unset or unparseable coordinates forecasts for 0°, 0° (`backend/src/config.rs:241-242`).
-6. **`OPENROUTER_MODEL` is not validated.** An id OpenRouter does not know surfaces only when the assistant is first called (the default, `anthropic/claude-haiku-4.5`, is valid).
-7. **Divergence: boolean flags are exact-match** (DEPLOY-CONFIG-013). Intent: `true`, `1` or `yes` in any case turn a flag on. `OWM_ENABLED` / `OPENROUTER_ENABLED` enable only on `true`; `TRUE` or `1` disables (`config.rs:243,251`).
-8. **Divergence: every unique violation gets the duplicate-application text** (DEPLOY-HTTP-011). Intent: only `applications_unique_turf` / `applications_unique_plant` get it, and any other unique index a generic conflict message. `owner_message()` and `IntoResponse` match any unique violation (`backend/src/error.rs`), whichever index raised it.
-9. **`/mcp` has no explicit body limit or CORS.** It is merged after `RequestBodyLimitLayer` and the CORS layer (`main.rs:199-210`). CORS is intentional; a body limit is not addressed.
-10. **Divergence: stale advisory ignore** (DEPLOY-CI-009). Intent: an ignore exists only while its crate is in `Cargo.lock`. `backend/.cargo/audit.toml` still ignores RUSTSEC-2023-0071, but `rsa` no longer appears in `Cargo.lock`; the ignore is to be deleted.
-11. **Divergence: build-script policy differs** (DEPLOY-IMAGE-010). Intent: the image's frontend install uses `--ignore-scripts`, like the supply-chain scan. The Dockerfile's `npm ci` runs lifecycle scripts.
-12. **CI does not build the frontend.** `ci.yml` type-checks, lints and runs the Vitest suite; only the PR image build in `docker-publish.yml` runs `npm run build`.
-13. **`.dockerignore` patterns are root-anchored.** `target/`, `src/` and `*.md` match only top-level paths, so `backend/target` (tens of GB locally) is not excluded. BuildKit transfers only paths the Dockerfile copies, which keeps this harmless today. Widening `*.md` to `**/*.md` would break the MCP docs copy.
-14. **`main.rs` is 327 lines,** over the 300-line limit; the route table is the natural split (for example `api::router()`).
-15. **Divergence: Postgres port on all interfaces** (DEPLOY-COMPOSE-007). Intent: publish 5433 on `127.0.0.1` only. `docker-compose.yml` publishes `5433:5432` on all interfaces, so the database is reachable from the network wherever the example runs.
-16. **Divergence: an empty `DATABASE_PASSWORD` is accepted** (DEPLOY-CONFIG-002). Intent: unset or empty refuses to start with a configuration error naming the setting. `env_required` only rejects an unset variable (`backend/src/config.rs:174-175`, read at `:278`); only Compose's `${DB_PASSWORD:?}` blocks an empty one, so a non-Compose run connects with a blank password.
-17. **Divergence: no retry when Postgres is unreachable at boot** (DEPLOY-START-007). Intent: retry with backoff for about a minute before exiting. `create_pool` fails on the first connect error (`backend/src/db/pool.rs:11-15`) and `main` exits, so recovery depends on a restart policy; a run without one stays down.
+1. **No panic hook.** There is none beyond the default. `build_cors_layer` (`main.rs`) and the OWM client builder (`datasources/openweathermap.rs`) use `expect`, so a bad CORS origin ends startup in a panic, not in the `Config` error every other refused setting produces.
+2. **Settings outside the loader.** `STATIC_DIR` is read in `main.rs`, not in `config::load`, and an OWM key with unset or unparseable coordinates forecasts for 0°, 0° (the bad value is warned about, the 0° default is not).
+3. **`OPENROUTER_MODEL` is not validated.** An id OpenRouter does not know surfaces only when the assistant is first called (the default, `anthropic/claude-haiku-4.5`, is valid).
+4. **CI does not build the frontend.** `ci.yml` type-checks, lints and runs the Vitest suite; only the PR image build in `docker-publish.yml` runs `npm run build`.
+5. **`.dockerignore` patterns are root-anchored.** `target/`, `src/` and `*.md` match only top-level paths, so `backend/target` (tens of GB locally) is not excluded. BuildKit transfers only paths the Dockerfile copies, which keeps this harmless today. Widening `*.md` to `**/*.md` would break the MCP docs copy.
+6. **`main.rs` is 353 lines,** over the 300-line limit; the route table is the natural split (for example `api::router()`).
+7. **The example stack's database user is fixed.** The `db` service always creates `turfops`, while `app` takes `${DATABASE_USER:-turfops}`; a `.env` that sets `DATABASE_USER` (Compose reads `.env` automatically) makes the app authenticate as a user the database never created.
 
 ## References
 

@@ -13,9 +13,9 @@ Design: [deployment-design.md](deployment-design.md). Prefix `DEPLOY`. Facets: `
 - [x] **DEPLOY-IMAGE-005**: The runtime image shall run the backend as the non-root uid 65532, with the binary and static files owned by 65532:65532.
 - [x] **DEPLOY-IMAGE-006**: The runtime image shall set `STATIC_DIR=/app/static`, expose port 3000 and use the backend binary as its entrypoint.
 - [x] **DEPLOY-IMAGE-007**: The Docker build context shall exclude `.env` and every `.env.*` except `.env.example`, so no image contains an environment file.
-- [ ] **DEPLOY-IMAGE-008**: The app container (image or Compose `app` service) shall declare a health check that probes `GET /api/v1/health` and marks the container unhealthy when it does not answer, using a probe that works without a shell or curl in the distroless runtime.
-- [ ] **DEPLOY-IMAGE-009**: The runtime image shall declare `USER 65532:65532` explicitly, so the backend runs as that non-root uid even if the base image's default user changes.
-- [ ] **DEPLOY-IMAGE-010**: The image's frontend build stage shall install dependencies with `npm ci --ignore-scripts` (no package lifecycle scripts, matching the supply-chain scan), unless a dependency genuinely needs an install script, in which case the Dockerfile shall say which one and why.
+- [x] **DEPLOY-IMAGE-008**: The app container (image or Compose `app` service) shall declare a health check that probes `GET /api/v1/health` and marks the container unhealthy when it does not answer, using a probe that works without a shell or curl in the distroless runtime.
+- [x] **DEPLOY-IMAGE-009**: The runtime image shall declare `USER 65532:65532` explicitly, so the backend runs as that non-root uid even if the base image's default user changes.
+- [x] **DEPLOY-IMAGE-010**: The image's frontend build stage shall install dependencies with `npm ci --ignore-scripts` (no package lifecycle scripts, matching the supply-chain scan), unless a dependency genuinely needs an install script, in which case the Dockerfile shall say which one and why.
 
 ## Compose stack
 
@@ -25,13 +25,13 @@ Design: [deployment-design.md](deployment-design.md). Prefix `DEPLOY`. Facets: `
 - [x] **DEPLOY-COMPOSE-004**: The Compose `app` service shall mount the NOAA weather lake read-only from `${DATALAKE_HOST_PATH:-/data}` at `/data`.
 - [x] **DEPLOY-COMPOSE-005**: The Compose `app` service shall pass `TZ` to the backend, defaulting to `America/New_York` when the host leaves it unset (a user sets it to their lawn's timezone).
 - [x] **DEPLOY-COMPOSE-006**: The Compose `app` service shall pass every optional setting as `${KEY:-}` or `${KEY:-default}`, so a variable the host leaves unset reaches the backend as an empty string or the stated default; it shall fix `SERVER_HOST=0.0.0.0`, `SERVER_PORT=3000` and `STATIC_DIR=/app/static`, and default `RUST_LOG` to `info`.
-- [ ] **DEPLOY-COMPOSE-007**: The Compose stack shall publish the app on host port 3000, and PostgreSQL on host port 5433 bound to the host's loopback interface only (`127.0.0.1:5433:5432`), so a local `cargo run` can use the Compose database but other machines on the network cannot reach it.
-- [ ] **DEPLOY-COMPOSE-009**: The Compose `db` service shall mount its named volume `turfops_data` where the PostgreSQL 18 image keeps its data (the volume root `/var/lib/postgresql`, under which the image stores the cluster in `18/docker`), so a fresh `docker compose up` initializes the database and keeps it across container recreation.
+- [x] **DEPLOY-COMPOSE-007**: The Compose stack shall publish the app on host port 3000, and PostgreSQL on host port 5433 bound to the host's loopback interface only (`127.0.0.1:5433:5432`), so a local `cargo run` can use the Compose database but other machines on the network cannot reach it.
+- [x] **DEPLOY-COMPOSE-009**: The Compose `db` service shall mount its named volume `turfops_data` where the PostgreSQL 18 image keeps its data (the volume root `/var/lib/postgresql`, under which the image stores the cluster in `18/docker`), so a fresh `docker compose up` initializes the database and keeps it across container recreation.
 
 ## Configuration
 
 - [x] **DEPLOY-CONFIG-001**: The backend shall read its configuration from environment variables once at startup, giving every setting a default except `DATABASE_PASSWORD`.
-- [ ] **DEPLOY-CONFIG-002**: If `DATABASE_PASSWORD` is unset or empty at startup, then the backend shall stop with a configuration error naming `DATABASE_PASSWORD` and exit non-zero.
+- [x] **DEPLOY-CONFIG-002**: If `DATABASE_PASSWORD` is unset or empty at startup, then the backend shall stop with a configuration error naming `DATABASE_PASSWORD` and exit non-zero.
 - [x] **DEPLOY-CONFIG-003**: Where `OPENROUTER_API_KEY`, `MCP_TOKEN` or `CORS_ALLOWED_ORIGIN` is empty or whitespace-only, the backend shall treat that setting as not configured.
 - [x] **DEPLOY-CONFIG-004**: The backend shall construct the OpenRouter client only when `OPENROUTER_API_KEY` is non-blank and `OPENROUTER_ENABLED` is on (DEPLOY-CONFIG-013; on by default), with the model from `OPENROUTER_MODEL` and the base URL from `OPENROUTER_BASE_URL` (default `https://openrouter.ai/api/v1`).
 - [x] **DEPLOY-CONFIG-007**: If `DATABASE_PORT`, `SERVER_PORT` or `LAWN_GRASS_TYPE` cannot be parsed, then the backend shall log a warning naming the value and use its default (5432, 3000, TallFescue).
@@ -39,8 +39,8 @@ Design: [deployment-design.md](deployment-design.md). Prefix `DEPLOY`. Facets: `
 - [x] **DEPLOY-CONFIG-009**: When the backend starts with no lawn profile in the database, it shall create one from `LAWN_NAME`, `LAWN_GRASS_TYPE`, `LAWN_USDA_ZONE`, `LAWN_SOIL_TYPE`, `LAWN_SIZE_SQFT` and `LAWN_IRRIGATION_TYPE`; once a profile exists, the backend shall ignore the `LAWN_*` settings.
 - [x] **DEPLOY-CONFIG-010**: Every configuration struct that holds a credential shall print it as `[REDACTED]` in its `Debug` output.
 - [x] **DEPLOY-CONFIG-011**: Where the backend is built with the `dev-env` feature, it shall load a `.env` file before reading configuration; the default build shall read only the process environment.
-- [ ] **DEPLOY-CONFIG-012**: If any configuration setting is set to a non-empty value the backend cannot use (for example an unparseable `SERVER_HOST`, `DB_MAX_CONNECTIONS`, `OWM_LATITUDE` / `OWM_LONGITUDE` or `LAWN_SIZE_SQFT`, an unknown `LAWN_SOIL_TYPE`, `LAWN_IRRIGATION_TYPE` or `HA_TEMPERATURE_UNIT`, or an invalid `RUST_LOG` filter), then the backend shall log a warning naming the setting and the default it uses instead, never falling back silently.
-- [ ] **DEPLOY-CONFIG-013**: When `OWM_ENABLED` or `OPENROUTER_ENABLED` is set, the backend shall treat `true`, `1` or `yes`, in any letter case, as on and any other value as off; when unset, the flag shall be on.
+- [x] **DEPLOY-CONFIG-012**: If any configuration setting is set to a non-empty value the backend cannot use (for example an unparseable `SERVER_HOST`, `DB_MAX_CONNECTIONS`, `OWM_LATITUDE` / `OWM_LONGITUDE` or `LAWN_SIZE_SQFT`, an unknown `LAWN_SOIL_TYPE`, `LAWN_IRRIGATION_TYPE` or `HA_TEMPERATURE_UNIT`, or an invalid `RUST_LOG` filter), then the backend shall log a warning naming the setting and the default it uses instead, never falling back silently.
+- [x] **DEPLOY-CONFIG-013**: When `OWM_ENABLED` or `OPENROUTER_ENABLED` is set, the backend shall treat `true`, `1` or `yes`, in any letter case, as on and any other value as off; when unset, the flag shall be on.
 
 ## Timezone ("today")
 
@@ -57,8 +57,8 @@ Design: [deployment-design.md](deployment-design.md). Prefix `DEPLOY`. Facets: `
 - [x] **DEPLOY-START-003**: If PostgreSQL is still unreachable when the startup connection retries (DEPLOY-START-007) run out, or a migration fails at startup, then the backend shall exit non-zero without binding the listener.
 - [x] **DEPLOY-START-004**: When the backend starts, it shall perform no network or lake I/O for the weather lake, Home Assistant, OpenWeatherMap or OpenRouter, so an unreachable integration never prevents startup.
 - [x] **DEPLOY-START-005**: The backend shall issue database queries through sqlx's runtime API (no compile-time-checked query macros or offline query metadata), so the image and CI build without a database.
-- [ ] **DEPLOY-START-006**: When the running backend receives SIGTERM, it shall stop accepting new connections, let in-flight requests finish, and then exit.
-- [ ] **DEPLOY-START-007**: If PostgreSQL is unreachable at startup, then the backend shall retry the connection with increasing backoff for about one minute, logging each failed attempt at WARN, before giving up.
+- [x] **DEPLOY-START-006**: When the running backend receives SIGTERM, it shall stop accepting new connections, let in-flight requests finish, and then exit.
+- [x] **DEPLOY-START-007**: If PostgreSQL is unreachable at startup, then the backend shall retry the connection with increasing backoff for about one minute, logging each failed attempt at WARN, before giving up.
 
 ## Router, middleware and error contract
 
@@ -70,7 +70,7 @@ Design: [deployment-design.md](deployment-design.md). Prefix `DEPLOY`. Facets: `
 - [x] **DEPLOY-HTTP-008**: When the backend answers 500, the `error` message shall be plain language that says something went wrong on the server and what to do (try again; the details are in the server log).
 - [x] **DEPLOY-HTTP-009**: When the backend answers 503 for an unavailable data source, the `error` message shall be written for the owner, naming the source that is unavailable, and shall carry no upstream response body, request URL, credential or internal error text; those details shall go to the log.
 - [x] **DEPLOY-HTTP-010**: If an `/api/v1` request cannot be extracted (malformed JSON body, a path id that is not a number, a body over 1 MiB), then the backend shall answer with the JSON `{"error"}` shape and a plain-language message saying what was wrong with the request, not the framework's plain-text rejection.
-- [ ] **DEPLOY-HTTP-011**: If an API write violates a unique index other than the application-log duplicate guards (`applications_unique_turf` / `applications_unique_plant`), then the backend shall answer 409 with a generic plain-language message that the record conflicts with one that already exists, never the duplicate-application text.
+- [x] **DEPLOY-HTTP-011**: If an API write violates a unique index other than the application-log duplicate guards (`applications_unique_turf` / `applications_unique_plant`), then the backend shall answer 409 with a generic plain-language message that the record conflicts with one that already exists, never the duplicate-application text.
 
 ## Health endpoint
 
@@ -82,7 +82,7 @@ Design: [deployment-design.md](deployment-design.md). Prefix `DEPLOY`. Facets: `
 
 - [x] **DEPLOY-LOG-001**: The backend shall write text logs to stdout, filtered by `RUST_LOG` (default `info`; an invalid filter falls back to `info`), with logging initialized before configuration is read so configuration warnings are logged.
 - [x] **DEPLOY-LOG-002**: When the backend starts, it shall log at INFO the weather lake paths, which integrations are configured, the OpenRouter model, whether `/mcp` is mounted, the CORS origin and the bind address.
-- [ ] **DEPLOY-LOG-003**: No log line and no HTTP response body produced by the backend shall contain a credential.
+- [x] **DEPLOY-LOG-003**: No log line and no HTTP response body produced by the backend shall contain a credential.
 
 ## CI, release and supply chain
 
@@ -94,4 +94,4 @@ Design: [deployment-design.md](deployment-design.md). Prefix `DEPLOY`. Facets: `
 - [x] **DEPLOY-CI-006**: Every Monday at 06:00 UTC, and on manual dispatch, the retention workflow shall keep `latest` and the 5 newest tagged image versions in GHCR and delete untagged manifests.
 - [x] **DEPLOY-CI-007**: Renovate shall pin Docker images by digest; group minor and patch updates and auto-merge them after a 3-day soak (1 day for common images such as `postgres`); auto-merge digest updates at any time; label major updates `major-update` and leave them for review; keep at most 3 open PRs; run lock-file maintenance Mondays before 4 am; and label vulnerability alerts `security`.
 - [x] **DEPLOY-CI-008**: Every change shall reach `main` through a pull request that the owner merges.
-- [ ] **DEPLOY-CI-009**: The supply-chain scan's advisory ignore lists (`backend/.cargo/audit.toml` for `cargo audit`, `backend/osv-scanner.toml` for OSV) shall name an advisory only while its affected crate is in `backend/Cargo.lock`, each with a written justification.
+- [x] **DEPLOY-CI-009**: The supply-chain scan's advisory ignore lists (`backend/.cargo/audit.toml` for `cargo audit`, `backend/osv-scanner.toml` for OSV) shall name an advisory only while its affected crate is in `backend/Cargo.lock`, each with a written justification.
