@@ -1,7 +1,7 @@
 use super::WeatherLakeClient;
 use crate::error::Result;
 use crate::models::celsius_to_fahrenheit;
-use chrono::{Duration, NaiveDate, Utc};
+use chrono::NaiveDate;
 use std::collections::BTreeMap;
 
 /// Minimum hourly soil observations for a day's 5 cm mean to count.
@@ -26,14 +26,6 @@ pub struct ClimateDay {
 pub struct ClimateRecord {
     /// Ascending by date.
     pub days: Vec<ClimateDay>,
-    pub utc_offset_minutes: i32,
-}
-
-impl ClimateRecord {
-    /// Today's date at the station.
-    pub fn local_today(&self) -> NaiveDate {
-        (Utc::now().naive_utc() + Duration::minutes(self.utc_offset_minutes as i64)).date()
-    }
 }
 
 impl ClimateDay {
@@ -97,21 +89,8 @@ impl WeatherLakeClient {
                 day.gdd50 = row.get(3)?;
             }
 
-            let offset_sql = format!(
-                "SELECT CAST(date_diff('minute', obs_ts_utc, obs_ts_local) AS INTEGER) \
-                 FROM {silver} WHERE CAST(wbanno AS INTEGER) = ? \
-                 ORDER BY obs_ts_utc DESC LIMIT 1"
-            );
-            let mut stmt = conn.prepare(&offset_sql)?;
-            let mut rows = stmt.query(duckdb::params![station])?;
-            let utc_offset_minutes = match rows.next()? {
-                Some(row) => row.get::<_, Option<i32>>(0)?.unwrap_or(0),
-                None => 0,
-            };
-
             Ok(ClimateRecord {
                 days: days.into_values().collect(),
-                utc_offset_minutes,
             })
         })
         .await
@@ -177,8 +156,6 @@ mod tests {
         let days = record.days;
         std::fs::remove_file(&silver).ok();
         std::fs::remove_file(&gold).ok();
-
-        assert_eq!(record.utc_offset_minutes, -300);
 
         // Mar 1, 2, 4 — Mar 3 is sparse in both layers.
         assert_eq!(days.len(), 3);

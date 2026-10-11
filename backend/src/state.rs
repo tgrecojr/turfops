@@ -1,3 +1,4 @@
+use crate::clock::Clock;
 use crate::datasources::weather::ClimateRecord;
 use crate::datasources::OpenRouterClient;
 use crate::logic::data_sync::DataSyncService;
@@ -19,6 +20,8 @@ pub struct AppState {
     pub climate_cache: ClimateCache,
     /// Whether `/mcp` is mounted (reported by the health check).
     pub mcp_enabled: bool,
+    /// The lawn's clock: every "today" and date gate.
+    pub clock: Clock,
 }
 
 impl AppState {
@@ -27,6 +30,7 @@ impl AppState {
         sync_service: DataSyncService,
         openrouter: Option<OpenRouterClient>,
         mcp_enabled: bool,
+        clock: Clock,
     ) -> Self {
         Self {
             pool,
@@ -35,6 +39,7 @@ impl AppState {
             openrouter: openrouter.map(Arc::new),
             climate_cache: Arc::new(RwLock::new(None)),
             mcp_enabled,
+            clock,
         }
     }
 }

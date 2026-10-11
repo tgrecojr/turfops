@@ -1,6 +1,7 @@
 //! The server instructions returned at `initialize`: how a model should use TurfOps.
 //! The lawn itself (grass, size, soil, irrigation) comes from the `lawn_profile` tool.
 
+// @spec MCP-DOC-004
 pub const INSTRUCTIONS: &str = "\
 TurfOps is the source of truth for one home lawn: its weather and soil readings, \
 agronomic recommendations, seeding / pre-emergent timing windows, disease risk, \
@@ -13,7 +14,8 @@ methods; read them when the user asks why TurfOps says what it does.
 SETTING
 - Cool-season lawn (tall fescue / Kentucky bluegrass / perennial rye / a Mixed blend) in \
 USDA zone 7a, southeast Pennsylvania. Soil readings come from a NOAA USCRN station whose \
-data lake lags about a day; `today` in the responses is station-local. The forecast is \
+data lake lags about a day; `today` in the responses is the lawn's local date (the \
+server's `TZ`). The forecast is \
 OpenWeatherMap. Keep observed values and forecast values distinct in your answers.
 - Temperatures are Fahrenheit. Soil timing uses the 5 cm depth; the dashboard's live \
 soil reading and the grub window use 10 cm.

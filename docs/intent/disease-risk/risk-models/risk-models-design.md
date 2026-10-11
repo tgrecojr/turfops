@@ -28,15 +28,11 @@ Guiding principles:
 
 ## Today and Day Boundaries
 
-**Intent.** `today` is the server's local date (`chrono::Local`, governed by `TZ`, which deployment sets to the lawn's timezone). Observed lake hours keep the lake's `obs_date_local` (the station's civil date in America/New_York, daylight-saving aware), which is the calendar `TZ` gives; forecast points are bucketed into those same local days. Every date in the subtree (the headline day, the display window, residual windows, the outlook, the rotation year, the 365-day log read) is measured from this `today`.
+`today` is the lawn's local date, `state.clock.today()` (the app's `Clock`, resolved from `TZ`, which deployment sets to the lawn's timezone; `api/disease_risk.rs`, `compute`). Every date in the subtree (the headline day, the display window, residual windows, the outlook, the rotation year, the 365-day log read) is measured from this `today`, including when the station has no silver rows.
 
-**Current state (divergence).** The code runs a second clock, derived from the lake (Deferred 6):
-
-- `today` is UTC now plus the lake's UTC offset (`api/disease_risk.rs:63`). The offset is read from the station's newest silver row (`datasources/weather/disease.rs:74-84`).
-- Observed hours are grouped by the lake's own `obs_date_local` (`datasources/weather/disease.rs:36-51`), as intended. Forecast points are bucketed with the lake offset of the newest silver row (`weather_days.rs:24-29`, called at `api/disease_risk.rs:67`), which is wrong for forecast hours that fall across a daylight-saving change.
-- The fetch start is anchored on the UTC date, one day early so a date mismatch cannot cut the lookback short (`api/disease_risk.rs:60-61`).
-
-This is harmless while `TZ` matches the station's offset, but it is not the designed clock.
+- **Observed hours** are grouped by the lake's own `obs_date_local` (`datasources/weather/disease.rs`): the station's civil date in America/New_York, daylight-saving aware, which is the calendar `TZ` gives, so lake hours are not re-bucketed.
+- **Forecast points** are bucketed by `weather_days::forecast_days(points, &clock)`: each 3-hourly point goes to the `TZ` local date and hour of its own time (`clock.local_date`, `clock.local`), so points on either side of a daylight-saving change land on the right day and the dawn and afternoon flags use local hours.
+- **The fetch** starts at `today − LOOKBACK_DAYS`. Lake days and `today` share one calendar, so no margin day is added.
 
 ## Daily Weather Series
 
@@ -142,7 +138,7 @@ Pythium's peak dew point is shown as a factor but not scored (`pythium.rs`). The
 | Merged partial day | Forecast points fill only hours the lake has not reported | Sum both sources and cap hours at 24 | Summing double-counts humid hours and inflates Pythium and gray leaf spot; capping only `hours_covered` hides it. |
 | Data notes | Judge "today usable" with the headline's usable-day rule, and name any disease left out | Hours alone; silent omission | A note must explain every fallback and every missing disease, or the page reads as if the risk were Low. |
 | Model temperature unit | °C inside `DailyWeather`, which is never stored | °F, as stored data is | [inferred] The published formulas are specified in °C. Values are converted to °F only for display. |
-| Day boundary | Server-local date (`TZ`) for `today`; the lake's `obs_date_local` (the same Eastern, daylight-saving-aware calendar) for observed hours | UTC date; station-local `today` from the lake's offset; re-bucketing lake hours by `TZ` | Every agronomic date is a lawn-local calendar day, and one configured clock gives every component the same day (HLD). The code still uses the station-local clock (Deferred 6). |
+| Day boundary | The lawn's local date (the app's `Clock`, `TZ`) for `today` and forecast points; the lake's `obs_date_local` (the same Eastern, daylight-saving-aware calendar) for observed hours | UTC date; station-local `today` from the lake's offset; re-bucketing lake hours by `TZ` | Every agronomic date is a lawn-local calendar day, and one configured clock gives every component the same day (HLD). A fixed offset misplaces forecast points across a daylight-saving change. |
 
 ## Open Questions & Future Decisions
 
@@ -153,14 +149,13 @@ Pythium's peak dew point is shown as a factor but not scored (`pythium.rs`). The
 
 ### Deferred
 
-1. **Divergence: data note vs usable-day rule** (DIS-MODEL-API-004). `data_notes` judges "latest observed" and "today usable" on `hours_covered ≥ 12` alone (`api/disease_risk.rs:121-125, 134-143`). When today has 12+ hours but no dawn or afternoon hours, the headline falls back to an earlier day, but the "reflects the most recent complete day" note is not shown.
-2. **Divergence: merge overlap** (DIS-MODEL-DAY-007). Intent: forecast points fill only hours the lake has not reported. `build_series` assumes the lake and the forecast never cover the same hours. If they do, `merge_day` sums them with no de-duplication. Only `hours_covered` is capped at 24, so `hours_rh90` and `leaf_wetness_hours` can exceed 24 h and double-count (`weather_days.rs:70-88, 97-101`). A merged day also reports `is_forecast = true`.
-3. **Recomputed per request.** The dashboard triggers two full computations, one through the feed and one through the widget, each with a lake read (`api/disease_risk.rs:28-41, 47-116`). There is no memo.
+1. **Divergence: data note vs usable-day rule** (DIS-MODEL-API-004). `data_notes` judges "latest observed" and "today usable" on `hours_covered ≥ 12` alone (`api/disease_risk.rs:122-126, 135-144`). When today has 12+ hours but no dawn or afternoon hours, the headline falls back to an earlier day, but the "reflects the most recent complete day" note is not shown.
+2. **Divergence: merge overlap** (DIS-MODEL-DAY-007). Intent: forecast points fill only hours the lake has not reported. `build_series` assumes the lake and the forecast never cover the same hours. If they do, `merge_day` sums them with no de-duplication. Only `hours_covered` is capped at 24, so `hours_rh90` and `leaf_wetness_hours` can exceed 24 h and double-count (`weather_days.rs:74-92, 101-105`). A merged day also reports `is_forecast = true`.
+3. **Recomputed per request.** The dashboard triggers two full computations, one through the feed and one through the widget, each with a lake read (`api/disease_risk.rs:28-41, 47-117`). There is no memo.
 4. **Leaf wetness is a proxy.** It is approximated as RH ≥ 90 % or precipitation. Unused lake columns (`solar_rad_wm2`, `surface_temp_c`) could improve it.
 5. **Divergence: no usable day → silent omission** (DIS-MODEL-API-005). Intent: a data note names the omitted disease. When no day in the 6-day lookback is usable, `score_window` returns `None` and the disease drops out of the response with no note that names it (`logic/disease/mod.rs:120`). The list shows the remaining diseases. A link to the missing one shows the generic "No risk data for …" (`pages/DiseaseRisk.tsx`).
-6. **Station-local clock** (DIS-MODEL-DAY-001, DIS-MODEL-DAY-003). `today` and forecast-day bucketing use the lake's UTC offset, not the server-local date (see Today and Day Boundaries; `api/disease_risk.rs:61-67`, `datasources/weather/disease.rs:36-51`, `weather_days.rs:24-29`). This `today` also drives management's residual windows, outlook and rotation year, and the 365-day log read (`api/disease_risk.rs:74-81`). When the station has no silver row at all, the offset defaults to 0 and `today` becomes the **UTC date** (`datasources/weather/disease.rs:81-84`).
-7. **Tech debt** against the 50-line limit: `api::disease_risk::compute` (~70 lines), `brown_patch::factors` (~72), `pythium::factors` (~65).
-8. **Divergence: nitrogen-hungry counts any Fertilizer** (DIS-MODEL-AMP-001). `days_since_fertilizer` takes the latest `Fertilizer` entry (`logic/disease/history.rs`), so a potash-only product resets it. Intent: only a feeding counts.
+6. **Tech debt** against the 50-line limit: `api::disease_risk::compute` (~70 lines), `brown_patch::factors` (~72), `pythium::factors` (~65).
+7. **Divergence: nitrogen-hungry counts any Fertilizer** (DIS-MODEL-AMP-001). `days_since_fertilizer` takes the latest `Fertilizer` entry (`logic/disease/history.rs`), so a potash-only product resets it. Intent: only a feeding counts.
 
 ## References
 

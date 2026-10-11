@@ -1,4 +1,5 @@
 mod api;
+mod clock;
 mod config;
 mod datasources;
 mod db;
@@ -40,6 +41,15 @@ async fn main() -> anyhow::Result<()> {
     let config = Config::from_env()?;
     tracing::info!("Configuration loaded");
 
+    // @spec DEPLOY-TZ-003, DEPLOY-TZ-004
+    tracing::info!("Clock: {}", config.clock.describe(chrono::Utc::now()));
+    if config.clock.is_system() {
+        tracing::warn!(
+            "TZ is not set: every date gate follows the host's default zone (UTC in the \
+             container image). Set TZ to the lawn's timezone, for example America/New_York"
+        );
+    }
+
     // Connect to app database and run migrations
     let pool = create_pool(config.database.connect_options()).await?;
 
@@ -64,7 +74,13 @@ async fn main() -> anyhow::Result<()> {
 
     // Create app state
     let mcp_token = config.mcp.token.clone();
-    let state = AppState::new(pool, sync_service, openrouter, mcp_token.is_some());
+    let state = AppState::new(
+        pool,
+        sync_service,
+        openrouter,
+        mcp_token.is_some(),
+        config.clock,
+    );
 
     // Build router
     let app = Router::new()

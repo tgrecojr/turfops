@@ -46,9 +46,9 @@ Design: [deployment-design.md](deployment-design.md). Prefix `DEPLOY`. Facets: `
 
 - [x] **DEPLOY-TZ-001**: The runtime image shall ship the timezone database at `/usr/share/zoneinfo`, so the backend's local clock (`chrono::Local`) honors `TZ`.
 - [x] **DEPLOY-TZ-002**: The runtime image shall set no `TZ` of its own; the deployment shall supply the lawn's timezone, which every component uses as its one "today" clock.
-- [ ] **DEPLOY-TZ-003**: When the backend starts, it shall log at INFO the `TZ` value, the UTC offset it resolved to and the resulting local date and time, so a wrong clock shows in the startup log.
-- [ ] **DEPLOY-TZ-004**: If `TZ` is unset or empty at startup, then the backend shall log a warning that every date gate will follow the host's default zone (UTC in the image) and that `TZ` must be set to the lawn's timezone.
-- [ ] **DEPLOY-TZ-005**: If `TZ` is set to a value that does not resolve to a timezone (for example an IANA name missing from the zoneinfo database), then the backend shall stop with a configuration error naming `TZ` and exit non-zero, rather than fall back silently to UTC.
+- [x] **DEPLOY-TZ-003**: When the backend starts, it shall log at INFO the `TZ` value, the UTC offset it resolved to and the resulting local date and time, so a wrong clock shows in the startup log.
+- [x] **DEPLOY-TZ-004**: If `TZ` is unset or empty at startup, then the backend shall log a warning that every date gate will follow the host's default zone (UTC in the image) and that `TZ` must be set to the lawn's timezone.
+- [x] **DEPLOY-TZ-005**: If `TZ` is set to a value that does not resolve to a timezone (for example an IANA name missing from the zoneinfo database), then the backend shall stop with a configuration error naming `TZ` and exit non-zero, rather than fall back silently to UTC.
 
 ## Startup and migrations
 

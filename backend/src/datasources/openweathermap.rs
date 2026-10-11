@@ -1,3 +1,4 @@
+use crate::clock::Clock;
 use crate::config::OpenWeatherMapConfig;
 use crate::error::{Result, TurfOpsError};
 use crate::models::forecast::{
@@ -15,6 +16,9 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
 pub struct OpenWeatherMapClient {
     client: reqwest::Client,
     config: OpenWeatherMapConfig,
+    /// Daily summaries are the lawn's local days.
+    clock: Clock,
+    base_url: String,
 }
 
 // OpenWeatherMap API response structures
@@ -89,27 +93,44 @@ struct OwmCoord {
     lon: f64,
 }
 
+// @spec WX-SRC-OWM-005
+/// A failed request as a data-source error. The request URL carries the API key in its
+/// query string, and reqwest's error text includes the URL, so it is stripped here: no
+/// caller, log line or response can then leak the key.
+fn request_error(e: reqwest::Error) -> TurfOpsError {
+    TurfOpsError::DataSourceUnavailable(format!("OpenWeatherMap: {}", e.without_url()))
+}
+
 impl OpenWeatherMapClient {
-    pub fn new(config: OpenWeatherMapConfig) -> Self {
+    pub fn new(config: OpenWeatherMapConfig, clock: Clock) -> Self {
         let client = reqwest::Client::builder()
             .connect_timeout(CONNECT_TIMEOUT)
             .timeout(REQUEST_TIMEOUT)
             .build()
             .expect("failed to build OpenWeatherMap HTTP client");
-        Self { client, config }
+        Self {
+            client,
+            config,
+            clock,
+            base_url: API_BASE_URL.to_string(),
+        }
+    }
+
+    /// A client aimed at another endpoint (tests).
+    #[cfg(test)]
+    fn with_base_url(mut self, base_url: &str) -> Self {
+        self.base_url = base_url.to_string();
+        self
     }
 
     /// Fetch 5-day/3-hour forecast from OpenWeatherMap
     pub async fn fetch_forecast(&self) -> Result<WeatherForecast> {
         let url = format!(
             "{}/forecast?lat={}&lon={}&appid={}&units=imperial",
-            API_BASE_URL, self.config.latitude, self.config.longitude, self.config.api_key
+            self.base_url, self.config.latitude, self.config.longitude, self.config.api_key
         );
 
-        let response =
-            self.client.get(&url).send().await.map_err(|e| {
-                TurfOpsError::DataSourceUnavailable(format!("OpenWeatherMap: {}", e))
-            })?;
+        let response = self.client.get(&url).send().await.map_err(request_error)?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -123,7 +144,7 @@ impl OpenWeatherMapClient {
         let owm_response: OwmForecastResponse = response.json().await.map_err(|e| {
             TurfOpsError::DataSourceUnavailable(format!(
                 "Failed to parse OpenWeatherMap response: {}",
-                e
+                e.without_url()
             ))
         })?;
 
@@ -134,13 +155,10 @@ impl OpenWeatherMapClient {
     pub async fn test_connection(&self) -> Result<bool> {
         let url = format!(
             "{}/weather?lat={}&lon={}&appid={}&units=imperial",
-            API_BASE_URL, self.config.latitude, self.config.longitude, self.config.api_key
+            self.base_url, self.config.latitude, self.config.longitude, self.config.api_key
         );
 
-        let response =
-            self.client.get(&url).send().await.map_err(|e| {
-                TurfOpsError::DataSourceUnavailable(format!("OpenWeatherMap: {}", e))
-            })?;
+        let response = self.client.get(&url).send().await.map_err(request_error)?;
 
         Ok(response.status().is_success())
     }
@@ -160,7 +178,7 @@ impl OpenWeatherMapClient {
             .map(|item| self.convert_forecast_item(item))
             .collect();
 
-        let daily_summary = self.aggregate_daily(&hourly, location.utc_offset_seconds);
+        let daily_summary = self.aggregate_daily(&hourly);
 
         WeatherForecast {
             fetched_at: Utc::now(),
@@ -198,17 +216,13 @@ impl OpenWeatherMapClient {
         }
     }
 
-    fn aggregate_daily(
-        &self,
-        hourly: &[ForecastPoint],
-        utc_offset_seconds: i32,
-    ) -> Vec<DailyForecast> {
-        // Group by the location's local date. UTC dates run 8 pm–8 pm Eastern, which put a
+    // @spec WX-SRC-OWM-002
+    fn aggregate_daily(&self, hourly: &[ForecastPoint]) -> Vec<DailyForecast> {
+        // Group by the lawn's local date. UTC dates run 8 pm–8 pm Eastern, which put a
         // day's afternoon high and the following dawn low into different "days".
-        let offset = chrono::Duration::seconds(utc_offset_seconds as i64);
         let mut by_date: HashMap<NaiveDate, Vec<&ForecastPoint>> = HashMap::new();
         for point in hourly {
-            let date = (point.timestamp + offset).date_naive();
+            let date = self.clock.local_date(point.timestamp);
             by_date.entry(date).or_default().push(point);
         }
 

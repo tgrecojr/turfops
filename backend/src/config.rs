@@ -14,6 +14,9 @@ pub struct Config {
     pub server: ServerConfig,
     pub database: DatabaseConfig,
     pub mcp: McpConfig,
+    /// The lawn's clock, resolved from `TZ`.
+    #[serde(skip)]
+    pub clock: crate::clock::Clock,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -274,6 +277,8 @@ impl Config {
                 user: env_or("DATABASE_USER", "turfops"),
                 password: env_required("DATABASE_PASSWORD")?,
             },
+            clock: crate::clock::Clock::from_tz(std::env::var("TZ").ok().as_deref())
+                .map_err(TurfOpsError::Config)?,
             mcp: McpConfig {
                 token: crate::mcp::parse_token(std::env::var("MCP_TOKEN").ok())?,
             },

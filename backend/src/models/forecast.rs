@@ -20,12 +20,6 @@ impl WeatherForecast {
             .collect()
     }
 
-    /// Today's date at the forecast location (the daily summaries are local days).
-    pub fn local_today(&self) -> NaiveDate {
-        (Utc::now() + chrono::Duration::seconds(self.location.utc_offset_seconds as i64))
-            .date_naive()
-    }
-
     /// Daily summaries that cover enough of the day for their high/low (and the mean
     /// derived from them) to mean something. The 5-day feed starts and ends mid-day, so
     /// its first and last buckets are usually an evening or a few night hours.
@@ -33,9 +27,9 @@ impl WeatherForecast {
         self.daily_summary.iter().filter(|d| d.is_full_day())
     }
 
-    /// Get forecast points for the next N days
-    pub fn next_days(&self, days: u32) -> Vec<&DailyForecast> {
-        let today = self.local_today();
+    /// Daily summaries dated from the start of the feed through `today` + `days` (partial
+    /// days included). `today` is the lawn's local date.
+    pub fn next_days(&self, today: NaiveDate, days: u32) -> Vec<&DailyForecast> {
         let cutoff = today + chrono::Duration::days(days as i64);
         self.daily_summary
             .iter()
@@ -66,9 +60,9 @@ impl WeatherForecast {
         }
     }
 
-    /// Find the maximum temperature in the forecast period
-    pub fn max_temp_next_days(&self, days: u32) -> Option<f64> {
-        self.next_days(days)
+    /// Highest daily high over `next_days(today, days)`.
+    pub fn max_temp_next_days(&self, today: NaiveDate, days: u32) -> Option<f64> {
+        self.next_days(today, days)
             .iter()
             .map(|d| d.high_temp_f)
             .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
@@ -198,5 +192,44 @@ mod tests {
         assert_eq!(WeatherCondition::from_owm_id(800), WeatherCondition::Clear);
         assert_eq!(WeatherCondition::from_owm_id(801), WeatherCondition::Clouds);
         assert_eq!(WeatherCondition::from_owm_id(600), WeatherCondition::Snow);
+    }
+
+    fn summary(date: NaiveDate) -> DailyForecast {
+        DailyForecast {
+            date,
+            high_temp_f: 70.0,
+            low_temp_f: 50.0,
+            avg_humidity: 50.0,
+            total_precipitation_mm: 0.0,
+            max_precipitation_prob: 0.0,
+            dominant_condition: WeatherCondition::Clear,
+            avg_wind_speed_mph: 0.0,
+            max_wind_gust_mph: None,
+            hours_covered: 24,
+        }
+    }
+
+    // @spec WX-SRC-OWM-004
+    #[test]
+    fn next_days_counts_from_the_given_local_today() {
+        let d = |m, day| NaiveDate::from_ymd_opt(2025, m, day).unwrap();
+        let forecast = WeatherForecast {
+            fetched_at: Utc::now(),
+            location: ForecastLocation {
+                city: "Avondale".into(),
+                country: "US".into(),
+                latitude: 0.0,
+                longitude: 0.0,
+                utc_offset_seconds: 0,
+            },
+            hourly: vec![],
+            daily_summary: (1..=6).map(|day| summary(d(6, day))).collect(),
+        };
+        let dates: Vec<_> = forecast
+            .next_days(d(6, 2), 2)
+            .iter()
+            .map(|s| s.date)
+            .collect();
+        assert_eq!(dates, vec![d(6, 1), d(6, 2), d(6, 3), d(6, 4)]);
     }
 }

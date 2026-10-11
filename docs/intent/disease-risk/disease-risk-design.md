@@ -47,7 +47,7 @@ flowchart LR
 ```
 
 - **The headline tier** (`DiseaseRisk.tier`, after amplification) is the only tier management, the feed recommendation and the UI badge read. The daily tiers stay weather-only and are used for the outlook and the chart.
-- **`today`** is defined once by risk-models and passed to management. Every residual window, outlook day and rotation year is measured from it.
+- **`today`** is defined once by risk-models, as the lawn's local date from the app's `Clock`, and passed to management. Every residual window, outlook day and rotation year is measured from it.
 - **`DiseaseContext`** (`models/disease.rs`) is built once per computation from the lawn's log and the shelf. Risk-models reads its history fields (days since overseeding / fertilizer). Management reads its fungicide records, rotation warning and shelf.
 - **One computation.** `api/disease_risk.rs` `compute` produces both the page response and the context the feed bridge uses, so the page, the widget and the feed agree by construction.
 
@@ -63,7 +63,7 @@ flowchart LR
 
 | Component | Contract |
 |---|---|
-| **Weather data access** | `WeatherLakeClient::fetch_daily_disease_inputs(start)` returns per-day silver aggregates plus the lake's UTC offset. The OWM 3-hourly forecast arrives on the environmental summary. |
+| **Weather data access** | `WeatherLakeClient::fetch_daily_disease_inputs(start)` returns per-day silver aggregates keyed by the lake's `obs_date_local`. The OWM 3-hourly forecast arrives on the environmental summary. `today` comes from the app's `Clock` (`TZ`). |
 | **Data sync** | `compute` calls `sync_service.get_or_refresh()` for the forecast and the lake client. Disease Risk adds no staleness rules of its own. |
 | **Applications** | Disease Risk reads the lawn's log for the last 365 days and owns the *meaning* of a logged fungicide (`classes_of`, protection, rotation). Applications owns the form's FRAC field and picker, which read `GET /frac-classes`. |
 | **Product inventory** | Usable shelf fungicides fill `DiseaseContext.shelf`. Each disease recommendation declares a `ProductNeed`; inventory's `enrich` sets on-hand status later. |

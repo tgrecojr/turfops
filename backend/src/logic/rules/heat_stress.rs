@@ -31,9 +31,10 @@ impl Rule for HeatStressRule {
         }
 
         let forecast = env.forecast.as_ref()?;
+        let today = chrono::Local::now().date_naive();
 
         // Find max temp in next 3 days
-        let max_temp = forecast.max_temp_next_days(3)?;
+        let max_temp = forecast.max_temp_next_days(today, 3)?;
 
         // No warning if temps are mild
         if max_temp < HEAT_STRESS_TEMP_F {
@@ -42,7 +43,7 @@ impl Rule for HeatStressRule {
 
         // Count consecutive hot days
         let hot_days: usize = forecast
-            .next_days(5)
+            .next_days(today, 5)
             .iter()
             // Tonight's leftover hours are not a cool day that ends the streak.
             .filter(|d| d.is_full_day() || d.high_temp_f >= HEAT_STRESS_TEMP_F)

@@ -12,7 +12,7 @@ The "10 cm outlook" is this leaf's projection of station 10 cm soil temperature 
 - [x] **WX-OUTLOOK-MODEL-004**: The 10 cm outlook shall train on the lake's gold daily air and 10 cm soil means for the last 30 days and require at least 14 pairs.
 - [x] **WX-OUTLOOK-MODEL-005**: The 10 cm outlook shall drive predictions with (high + low) / 2 of full forecast days only.
 - [x] **WX-OUTLOOK-MODEL-006**: The 10 cm outlook shall give each prediction a confidence: High when R² ≥ 0.7 and at most 2 days out, Medium when R² ≥ 0.5 and at most 3 days out, otherwise Low; and label the model Good (R² ≥ 0.7), Fair (≥ 0.5) or Poor.
-- [ ] **WX-OUTLOOK-MODEL-007**: The 10 cm outlook shall measure "today" and "days out" from the server's local date (`TZ`).
+- [x] **WX-OUTLOOK-MODEL-007**: The 10 cm outlook shall measure "today" and "days out" from the server's local date (`TZ`).
 - [ ] **WX-OUTLOOK-MODEL-008**: The 10 cm outlook shall drive the regression with one continuous air series (station daily mean air preferred over forecast (high + low) / 2, gaps of up to 7 days linearly interpolated) and shift every prediction by the model's error on the last observed day, using the same shared functions as the timing windows' 5 cm outlook.
 
 ## Thresholds and crossings

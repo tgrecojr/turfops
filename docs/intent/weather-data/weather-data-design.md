@@ -43,12 +43,13 @@ the UI, and sentinels are dropped rather than averaged in.
 
 ### One clock
 
-"Today", every date gate and every year boundary use the server's local date
-(`chrono::Local`, set by `TZ` to the lawn's timezone). Lake timestamps are UTC; observed hours
-keep the lake's own day key, `obs_date_local` (the station's civil date in America/New_York,
-daylight-saving aware), which is the same calendar `TZ` gives, so the lake is never re-bucketed.
-Forecast slots are bucketed into those same local days. Each child flags the places where its
-code still uses another clock.
+"Today", every date gate and every year boundary use the lawn's local date: the app's `Clock`
+(`backend/src/clock.rs`), resolved once at startup from `TZ`, which deployment sets to the
+lawn's timezone. Lake timestamps are UTC; observed hours keep the lake's own day key,
+`obs_date_local` (the station's civil date in America/New_York, daylight-saving aware), which is
+the same calendar `TZ` gives, so the lake is never re-bucketed. Forecast slots are bucketed into
+those same local days, each by the `TZ` date of its own time. No source publishes a "today" of
+its own.
 
 ## Children
 
@@ -84,7 +85,7 @@ Decisions specific to one child live in that child's Decisions table.
 | How the lake is read | Embedded DuckDB over the parquet files on a read-only mount | A weather HTTP API; a Postgres copy; the MCP gateway | Local parquet reads are fast and always current. A copy goes stale, an API is one more service to run, and the gateway is an agent tool, not an app dependency (HLD; owner's lake-migration decision). |
 | Raw weather caching | None. The views and contracts read silver and gold directly, so air and RH history is the station's, not the patio sensor's | An `environmental_cache` table of combined readings | Only expensive derived results are cached (HLD). Owner decision: the patio sensor has no history to keep. |
 | Modeled weather as observed history | Never. The station is the record for soil, freeze dates, GDD history and humidity | Open-Meteo / ERA5 as a replacement or gap-free source | Measured against 14 years at the station: crossings 4–10 days early, first freeze 17.5 days late, moisture +0.13 wetter, humid hours under-read (owner's Open-Meteo comparison). |
-| Clock for "today" and day buckets | The server's local date (`chrono::Local`, `TZ` = the lawn's timezone) for every date gate, year boundary and forecast day bucket; the lake's `obs_date_local` (the same Eastern calendar) for observed days | The UTC date; a station-local "today" from the lake's UTC offset; the forecast location's offset from OWM; re-bucketing lake hours by `TZ` | HLD decision: every agronomic date is a lawn-local calendar day, and one configured clock gives every component the same day. The UTC date rolls over hours early every evening. |
+| Clock for "today" and day buckets | The lawn's local date (the app's `Clock`, from `TZ` = the lawn's timezone) for every date gate, year boundary and forecast day bucket; the lake's `obs_date_local` (the same Eastern calendar) for observed days | The UTC date; a station-local "today" from the lake's UTC offset; the forecast location's offset from OWM; re-bucketing lake hours by `TZ` | HLD decision: every agronomic date is a lawn-local calendar day, and one configured clock gives every component the same day. The UTC date rolls over hours early every evening. |
 | Precipitation units | Millimetres in every backend contract; only the UI converts to inches (`frontend/src/utils/units.ts`) | Inches in the API | One unit across the lake, the forecast, the models and the rules. [inferred] |
 | Shape of this node | A sub-HLD over three leaves | One leaf; the outlook as a flat sibling | Sources are consumed by five components and would be the only part touched by a forecast-provider swap; the outlook is a model with its own thresholds and a reuse contract; the views are UI. All three share the station-as-record, read-in-place and lag-as-data intent held here. |
 

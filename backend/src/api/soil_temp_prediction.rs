@@ -72,6 +72,7 @@ pub async fn get_soil_temp_forecast(
         &recent_daily_air,
         &forecast_daily_air,
         current_soil_temp,
+        state.clock.today(),
     )
     .ok_or_else(|| {
         TurfOpsError::InvalidData("Could not build prediction model (poor data correlation)".into())

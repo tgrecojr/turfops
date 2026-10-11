@@ -28,9 +28,7 @@ pub async fn get_nitrogen_budget(
         .id
         .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
 
-    let start_date = NaiveDate::from_ymd_opt(year, 1, 1)
-        .ok_or_else(|| TurfOpsError::InvalidData(format!("Invalid year: {}", year)))?;
-    let end_date = NaiveDate::from_ymd_opt(year + 1, 1, 1)
+    let (start_date, end_date) = budget_window(year, state.clock.today())
         .ok_or_else(|| TurfOpsError::InvalidData(format!("Invalid year: {}", year)))?;
 
     let apps = queries::get_applications_for_profile_in_range(
@@ -79,4 +77,40 @@ pub async fn get_nitrogen_budget(
         applications: n_applications,
         grass_type_target: target,
     }))
+}
+
+/// The application dates a year's budget counts: `[start, end)`, from Jan 1 through the
+/// lawn's `today` at the latest, so a future-dated entry counts once its date arrives.
+// @spec RULE-BUDGET-005
+fn budget_window(year: i32, today: NaiveDate) -> Option<(NaiveDate, NaiveDate)> {
+    let start = NaiveDate::from_ymd_opt(year, 1, 1)?;
+    let next_year = NaiveDate::from_ymd_opt(year + 1, 1, 1)?;
+    Some((start, next_year.min(today.succ_opt()?)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn d(y: i32, m: u32, day: u32) -> NaiveDate {
+        NaiveDate::from_ymd_opt(y, m, day).unwrap()
+    }
+
+    // @spec RULE-BUDGET-005
+    #[test]
+    fn this_years_budget_stops_at_today() {
+        assert_eq!(
+            budget_window(2026, d(2026, 10, 11)),
+            Some((d(2026, 1, 1), d(2026, 10, 12)))
+        );
+    }
+
+    // @spec RULE-BUDGET-005
+    #[test]
+    fn a_past_years_budget_covers_the_whole_year() {
+        assert_eq!(
+            budget_window(2025, d(2026, 10, 11)),
+            Some((d(2025, 1, 1), d(2026, 1, 1)))
+        );
+    }
 }
