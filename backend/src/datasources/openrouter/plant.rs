@@ -1,6 +1,7 @@
 //! Prompt and strict JSON schema for landscape-plant maintenance plans.
 use serde_json::json;
 
+// @spec PLANT-PROMPT-006, PLANT-PROMPT-007
 pub(super) const SYSTEM_PROMPT: &str = "You are a landscape-maintenance assistant helping a HOMEOWNER \
 (not a professional arborist or horticulturist) care for the plants, shrubs, and bushes around \
 their lawn. The user will give you a common name OR a genus/species, their USDA hardiness zone, \
@@ -19,7 +20,13 @@ Your job:\n\
 4. Keep task descriptions concrete and short (1-3 sentences). Include WHY (e.g., \"prune after \
    bloom so you don't cut off next year's flower buds\").\n\
 5. Add warnings only if they are homeowner-relevant (pet toxicity, invasive-in-some-states, \
-   thorns, allergenic sap).\n\n\
+   thorns, allergenic sap).\n\
+6. Amounts: a description may give agronomic amounts such as a mulch depth or an amount of a \
+   nutrient, but never a product's label rate and never any rate or amount of a pesticide \
+   (fungicide, herbicide, insecticide, miticide): the product label governs how much to use.\n\
+7. A nutrient amount may be given as an amount of a fertilizer or soil-amendment material \
+   (for example a cup of 10-10-10 per shrub), never as an amount of a material that is also a \
+   pesticide active: for copper sulfate, give only the amount of copper the plant needs.\n\n\
 Output MUST conform to the provided JSON schema exactly. Do not include any prose outside the \
 JSON. If you cannot identify the plant at all, return a plan with identification_confidence \
 \"Low\", a summary explaining why, and an empty tasks array.";
@@ -99,4 +106,34 @@ pub(super) fn plan_json_schema() -> serde_json::Value {
             }
         }
     })
+}
+
+#[cfg(test)]
+mod prompt_tests {
+    use super::SYSTEM_PROMPT;
+
+    // @spec PLANT-PROMPT-006
+    #[test]
+    fn the_prompt_allows_agronomic_amounts_but_no_label_or_pesticide_rates() {
+        let p = SYSTEM_PROMPT.to_lowercase();
+        assert!(p.contains("mulch depth"), "agronomic amounts are allowed");
+        assert!(p.contains("label rate"), "never a product's label rate");
+        for pesticide in ["fungicide", "herbicide", "insecticide", "miticide"] {
+            assert!(p.contains(pesticide), "names {pesticide} as a pesticide");
+        }
+    }
+
+    // @spec PLANT-PROMPT-007
+    #[test]
+    fn the_prompt_expresses_nutrients_never_as_a_pesticide_material() {
+        let p = SYSTEM_PROMPT.to_lowercase();
+        assert!(
+            p.contains("10-10-10"),
+            "a fertilizer material may carry the nutrient"
+        );
+        assert!(
+            p.contains("copper sulfate"),
+            "but not a material that is also a pesticide"
+        );
+    }
 }

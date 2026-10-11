@@ -1,6 +1,6 @@
 use crate::db::{plant_queries, queries};
 use crate::error::TurfOpsError;
-use crate::logic::plant_maintenance::build_plant_activities;
+use crate::logic::plant_maintenance::{build_plant_activities, plant_log_range};
 use crate::logic::rules::plan_state::{season_states, SeasonInputs, SeasonState};
 use crate::logic::seasonal_plan::{analyze_year, apply_rule_states, build_seasonal_plan};
 use crate::models::seasonal_plan::SeasonalPlan;
@@ -78,15 +78,16 @@ pub async fn get_seasonal_plan(
 
     // Overlay plant-maintenance activities from the landscape feature.
     let plants = plant_queries::list_plants_for_profile(&state.pool, profile_id).await?;
-    // A plant window can open late in the previous year (dormant pruning, Dec → Feb), and
-    // the job may have been done back then — look that far for its completion.
-    let plant_log_start = NaiveDate::from_ymd_opt(year - 1, 10, 1)
+    // A plant window can open late in the previous year (dormant pruning, Dec → Feb) or run
+    // into the next; read the log from Oct 1 before through the end of the latest window.
+    // @spec PLANT-PLAN-005
+    let (plant_log_start, plant_log_end) = plant_log_range(&plants, year)
         .ok_or_else(|| TurfOpsError::InvalidData(format!("Invalid year: {}", year)))?;
     let plant_applications = queries::get_applications_for_profile_in_range(
         &state.pool,
         profile_id,
         plant_log_start,
-        end_date,
+        plant_log_end,
     )
     .await?;
     plan.activities.extend(build_plant_activities(

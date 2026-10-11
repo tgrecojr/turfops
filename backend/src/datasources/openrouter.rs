@@ -172,7 +172,7 @@ pub(super) mod tests {
     pub(super) fn sample_config() -> OpenRouterConfig {
         OpenRouterConfig {
             api_key: "test_key".to_string(),
-            model: "anthropic/claude-haiku-4-5".to_string(),
+            model: "anthropic/claude-haiku-4.5".to_string(),
             enabled: true,
             base_url: "http://localhost:9999/v1".to_string(),
         }
@@ -181,7 +181,7 @@ pub(super) mod tests {
     #[test]
     fn client_creation() {
         let client = OpenRouterClient::new(sample_config());
-        assert_eq!(client.model(), "anthropic/claude-haiku-4-5");
+        assert_eq!(client.model(), "anthropic/claude-haiku-4.5");
     }
 
     #[test]

@@ -7,8 +7,8 @@ use crate::models::seasonal_plan::{
     ActivityDetails, ActivityStatus, DateWindow, PlannedActivity, WindowConfidence,
 };
 use crate::models::{
-    Application, ApplicationType, DataSource, EnvironmentalSummary, ProductCategory, ProductNeed,
-    Recommendation, RecommendationCategory,
+    Application, DataSource, EnvironmentalSummary, ProductCategory, ProductNeed, Recommendation,
+    RecommendationCategory,
 };
 use chrono::{Datelike, NaiveDate};
 
@@ -87,8 +87,34 @@ fn task_completed(
     })
 }
 
-fn task_recommendation_id(plant: &Plant, task_idx: usize, year: i32) -> String {
-    format!("plant_{}_{}_{}", plant.id.unwrap_or(0), task_idx, year)
+/// `plant_{id}_{task_type}_{window start}`: the task's type and the day its window opened,
+/// never its position in the plan, so a regenerated plan keeps each answer on its task and
+/// a window that wraps the new year keeps one id.
+// @spec PLANT-REC-002
+fn task_recommendation_id(
+    plant: &Plant,
+    task: &MaintenanceTask,
+    window_start: NaiveDate,
+) -> String {
+    format!(
+        "plant_{}_{}_{}",
+        plant.id.unwrap_or(0),
+        task.task_type.as_str().to_lowercase().replace(' ', "_"),
+        window_start.format("%Y-%m-%d")
+    )
+}
+
+/// The window a reminder is about on `today`: the first of last year's, this year's and
+/// next year's windows whose 7-day lead-in or span covers today, so a window that opens
+/// in early January is announced in late December.
+// @spec PLANT-REC-008
+fn reminder_window(task: &MaintenanceTask, today: NaiveDate) -> Option<(NaiveDate, NaiveDate)> {
+    (today.year() - 1..=today.year() + 1)
+        .filter_map(|year| resolve_window(task, year))
+        .find(|(start, end)| {
+            let lead_in = *start - chrono::Duration::days(WINDOW_LEAD_DAYS);
+            lead_in <= today && today <= *end
+        })
 }
 
 /// Emit one Recommendation per plant task when today is inside the window
@@ -106,16 +132,10 @@ pub fn generate_plant_maintenance_recommendations(
     let weather_is_watering = water.wet_reason().is_some();
 
     for plant in plants {
-        for (idx, task) in plant.maintenance_plan.tasks.iter().enumerate() {
-            let Some((start, end)) = window_on(task, today) else {
+        for task in &plant.maintenance_plan.tasks {
+            let Some((start, end)) = reminder_window(task, today) else {
                 continue;
             };
-            // The id carries the year the window opened in, so it is stable across Jan 1.
-            let year = start.year();
-            let lead_in = start - chrono::Duration::days(WINDOW_LEAD_DAYS);
-            if today < lead_in || today > end {
-                continue;
-            }
             if task_completed(plant, task, applications, today, (start, end)) {
                 continue;
             }
@@ -138,7 +158,7 @@ pub fn generate_plant_maintenance_recommendations(
             );
 
             let mut rec = Recommendation::new(
-                task_recommendation_id(plant, idx, year),
+                task_recommendation_id(plant, task, start),
                 RecommendationCategory::PlantMaintenance,
                 task.severity,
                 title,
@@ -159,13 +179,7 @@ pub fn generate_plant_maintenance_recommendations(
                 rec = rec.with_data_point("Zone Note", zone, DataSource::OpenRouter.as_str());
             }
 
-            rec = rec.with_action(format!(
-                "Complete {} on {} within the window, then log it under Applications \
-                 (type: {}) linked to this plant so this reminder clears.",
-                task.task_type,
-                plant.common_name,
-                suggested_application_type(task.task_type),
-            ));
+            rec = rec.with_action(task_action(plant, task));
 
             if task.task_type == TaskType::Fertilizing {
                 rec = rec.with_need(
@@ -184,16 +198,22 @@ pub fn generate_plant_maintenance_recommendations(
     recs
 }
 
-fn suggested_application_type(task: TaskType) -> &'static str {
-    match task {
-        TaskType::Pruning => ApplicationType::Pruning.as_str(),
-        TaskType::Fertilizing => ApplicationType::PlantFertilizer.as_str(),
-        TaskType::Mulching => ApplicationType::Mulching.as_str(),
-        TaskType::Deadheading => ApplicationType::Deadheading.as_str(),
-        TaskType::WinterProtection => ApplicationType::WinterProtection.as_str(),
-        TaskType::Watering | TaskType::PestInspection | TaskType::Other => {
-            ApplicationType::Other.as_str()
-        }
+/// What to do about a task: log it with the type that completes it, or, for watering
+/// (which no log entry clears), mark the reminder addressed.
+// @spec PLANT-REC-005
+fn task_action(plant: &Plant, task: &MaintenanceTask) -> String {
+    match task.task_type.matching_application_types().first() {
+        Some(kind) => format!(
+            "Complete {} on {} within the window, then log it under Applications \
+             (type: {}) linked to this plant so this reminder clears.",
+            task.task_type,
+            plant.common_name,
+            kind.as_str(),
+        ),
+        None => format!(
+            "Water {} deeply if the soil is dry, then use Mark Addressed on this reminder.",
+            plant.common_name
+        ),
     }
 }
 
@@ -208,7 +228,7 @@ pub fn build_plant_activities(
     let mut out = Vec::new();
 
     for plant in plants {
-        for (idx, task) in plant.maintenance_plan.tasks.iter().enumerate() {
+        for task in &plant.maintenance_plan.tasks {
             // For the current year show the window as it stands today (possibly one that
             // opened last December); other years show the window that opens in them.
             let window = if year == today.year() {
@@ -240,7 +260,8 @@ pub fn build_plant_activities(
             };
 
             out.push(PlannedActivity {
-                id: format!("plant_{}_{}_{}", plant.id.unwrap_or(0), idx, year),
+                // @spec PLANT-PLAN-003
+                id: task_recommendation_id(plant, task, start),
                 name: format!("{} — {}", plant.common_name, task.task_type),
                 category: "Plant Maintenance".into(),
                 description: task.description.clone(),
@@ -266,5 +287,24 @@ pub fn build_plant_activities(
     out
 }
 
+/// The log the plan's plant activities for `year` are judged on, as `[start, end)`: from
+/// Oct 1 of the previous year through the end of the latest window judged for `year`.
+// @spec PLANT-PLAN-005
+pub fn plant_log_range(plants: &[Plant], year: i32) -> Option<(NaiveDate, NaiveDate)> {
+    let year_end = NaiveDate::from_ymd_opt(year + 1, 1, 1)?;
+    let latest_window_end = plants
+        .iter()
+        .flat_map(|p| &p.maintenance_plan.tasks)
+        .filter_map(|task| resolve_window(task, year))
+        .map(|(_, end)| end + chrono::Duration::days(1))
+        .max();
+    Some((
+        NaiveDate::from_ymd_opt(year - 1, 10, 1)?,
+        latest_window_end.map_or(year_end, |end| end.max(year_end)),
+    ))
+}
+
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod window_tests;

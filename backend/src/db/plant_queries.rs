@@ -16,7 +16,23 @@ pub async fn list_plants_for_profile(pool: &PgPool, profile_id: i64) -> Result<V
     .fetch_all(pool)
     .await?;
 
-    rows.into_iter().map(PlantRow::into_plant).collect()
+    Ok(keep_readable(
+        rows.into_iter().map(PlantRow::into_plant).collect(),
+    ))
+}
+
+/// The plants whose rows could be read.
+/// One plant whose stored plan can't be read is skipped with a warning, not the list.
+// @spec PLANT-DATA-006
+pub(crate) fn keep_readable(plants: Vec<Result<Plant>>) -> Vec<Plant> {
+    plants
+        .into_iter()
+        .filter_map(|plant| {
+            plant
+                .inspect_err(|e| warn!("Skipping a plant whose care plan can't be read: {e}"))
+                .ok()
+        })
+        .collect()
 }
 
 pub async fn get_plant(pool: &PgPool, id: i64) -> Result<Option<Plant>> {
@@ -144,7 +160,7 @@ pub async fn update_plant_plan(
 /// history (never lawn entries) once the link is gone. The rows then sit outside both
 /// application duplicate indexes, so the delete cannot collide with anything.
 // @spec APP-LOG-009, APP-LOG-011
-pub async fn delete_plant(pool: &PgPool, id: i64) -> Result<()> {
+pub async fn delete_plant(pool: &PgPool, id: i64) -> Result<u64> {
     let mut tx = pool.begin().await?;
     sqlx::query(
         r#"UPDATE applications a SET plant_name = p.common_name
@@ -153,12 +169,13 @@ pub async fn delete_plant(pool: &PgPool, id: i64) -> Result<()> {
     .bind(id)
     .execute(&mut *tx)
     .await?;
-    sqlx::query("DELETE FROM plants WHERE id = $1")
+    let deleted = sqlx::query("DELETE FROM plants WHERE id = $1")
         .bind(id)
         .execute(&mut *tx)
-        .await?;
+        .await?
+        .rows_affected();
     tx.commit().await?;
-    Ok(())
+    Ok(deleted)
 }
 
 #[derive(sqlx::FromRow)]
@@ -211,5 +228,50 @@ impl PlantRow {
             created_at: self.created_at,
             updated_at: self.updated_at,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::plant::{IdentificationConfidence, PlantMaintenancePlan};
+
+    fn plant(id: i64) -> Plant {
+        Plant {
+            id: Some(id),
+            lawn_profile_id: 1,
+            common_name: "Holly".into(),
+            scientific_name: None,
+            plant_type: PlantType::Shrub,
+            location: None,
+            planting_date: None,
+            notes: None,
+            maintenance_plan: PlantMaintenancePlan {
+                identified_name: "Holly".into(),
+                scientific_name: None,
+                identification_confidence: IdentificationConfidence::High,
+                summary: String::new(),
+                tasks: vec![],
+                warnings: vec![],
+            },
+            plan_generated_at: Utc::now(),
+            plan_model: "m".into(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        }
+    }
+
+    // @spec PLANT-DATA-006
+    #[test]
+    fn an_unreadable_plan_skips_that_plant_not_the_list() {
+        let rows = vec![
+            Ok(plant(1)),
+            Err(TurfOpsError::InvalidData(
+                "Plant 2 has invalid maintenance_plan JSON".into(),
+            )),
+            Ok(plant(3)),
+        ];
+        let ids: Vec<_> = keep_readable(rows).into_iter().map(|p| p.id).collect();
+        assert_eq!(ids, vec![Some(1), Some(3)]);
     }
 }

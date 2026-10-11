@@ -78,6 +78,7 @@ impl TaskType {
 
     /// The ApplicationType variant(s) that represent "completing" this maintenance task.
     /// Used to match logged Applications to PlantMaintenance tasks when computing status.
+    // @spec PLANT-WIN-006
     pub fn matching_application_types(&self) -> &'static [super::ApplicationType] {
         use super::ApplicationType;
         match self {
@@ -86,7 +87,9 @@ impl TaskType {
             TaskType::Mulching => &[ApplicationType::Mulching],
             TaskType::Deadheading => &[ApplicationType::Deadheading],
             TaskType::WinterProtection => &[ApplicationType::WinterProtection],
-            TaskType::Watering | TaskType::PestInspection | TaskType::Other => &[],
+            // An inspection or other task is logged as Other; nothing logs "it rained".
+            TaskType::PestInspection | TaskType::Other => &[ApplicationType::Other],
+            TaskType::Watering => &[],
         }
     }
 }

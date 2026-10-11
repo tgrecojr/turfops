@@ -78,7 +78,7 @@ services:
       # OpenRouter (optional) — generates landscape-plant care plans. Without a key the
       # plant add / refresh-plan endpoints answer 503.
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
-      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-anthropic/claude-haiku-4-5}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-anthropic/claude-haiku-4.5}
       OPENROUTER_ENABLED: ${OPENROUTER_ENABLED:-true}
 
       # MCP server at /mcp for LLM clients (read-only tools). Unset = not mounted.
