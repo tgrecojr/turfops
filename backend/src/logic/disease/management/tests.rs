@@ -330,6 +330,60 @@ fn pythium_curative_program_excludes_preventative_only_chemistry() {
     assert!(curative.contains(&FracClass::Frac21));
 }
 
+// @spec DIS-MGMT-PICK-003
+#[test]
+fn every_class_of_a_premix_counts_as_last_used() {
+    // Headway G is FRAC 11 + 3: neither may be the next pick for brown patch.
+    let today = date(7, 20);
+    let mut headway = app(7, 10, "Headway G");
+    headway.class = Some(FracClass::Frac11);
+    let mut headway_3 = app(7, 10, "Headway G");
+    headway_3.class = Some(FracClass::Frac3);
+    let ctx = ctx_with(vec![headway, headway_3]);
+    let m = plan(Disease::BrownPatch, RiskTier::High, &[], today, &ctx);
+    let last: Vec<_> = m
+        .preventative
+        .options
+        .iter()
+        .filter(|o| o.last_used)
+        .map(|o| o.frac_class)
+        .collect();
+    assert!(
+        last.contains(&FracClass::Frac11) && last.contains(&FracClass::Frac3),
+        "{last:?}"
+    );
+    let pick = recommended(&m.preventative);
+    assert!(
+        !pick.contains(&FracClass::Frac11) && !pick.contains(&FracClass::Frac3),
+        "{pick:?}"
+    );
+}
+
+// @spec DIS-MGMT-FRAC-005
+#[test]
+fn the_rotation_warning_names_each_diseases_own_pick() {
+    // Dollar spot has no FRAC 11 option, so its warning must not send the owner there.
+    let ctx = DiseaseContext {
+        rotation_warning: Some(
+            "Your last 2 applications were FRAC 3 — resistance risk increases with \
+             consecutive same-class use."
+                .into(),
+        ),
+        rotation_streak: true,
+        fungicide_apps: vec![app(7, 1, "Banner Maxx"), app(7, 12, "Banner Maxx")],
+        ..Default::default()
+    };
+    let m = plan(Disease::DollarSpot, RiskTier::High, &[], date(7, 20), &ctx);
+    let warning = m
+        .notes
+        .iter()
+        .find(|n| n.contains("last 2 applications"))
+        .expect("rotation warning");
+    let pick = recommended(&m.preventative)[0];
+    assert!(warning.contains(&format!("Rotate to {pick}")), "{warning}");
+    assert!(!warning.contains("FRAC 11"), "{warning}");
+}
+
 #[test]
 fn rotation_warning_and_label_note_are_surfaced() {
     let ctx = DiseaseContext {

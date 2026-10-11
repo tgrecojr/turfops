@@ -31,7 +31,7 @@ Guiding principles:
 `today` is the lawn's local date, `state.clock.today()` (the app's `Clock`, resolved from `TZ`, which deployment sets to the lawn's timezone; `api/disease_risk.rs`, `compute`). Every date in the subtree (the headline day, the display window, residual windows, the outlook, the rotation year, the 365-day log read) is measured from this `today`, including when the station has no silver rows.
 
 - **Observed hours** are grouped by the lake's own `obs_date_local` (`datasources/weather/disease.rs`): the station's civil date in America/New_York, daylight-saving aware, which is the calendar `TZ` gives, so lake hours are not re-bucketed.
-- **Forecast points** are bucketed by `weather_days::forecast_days(points, &clock)`: each 3-hourly point goes to the `TZ` local date and hour of its own time (`clock.local_date`, `clock.local`), so points on either side of a daylight-saving change land on the right day and the dawn and afternoon flags use local hours.
+- **Forecast points** are bucketed by `weather_days::forecast_days(points, &clock, after)`: each 3-hourly point goes to the `TZ` local date and hour of its own time (`clock.local_date`, `clock.local`), so points on either side of a daylight-saving change land on the right day and the dawn and afternoon flags use local hours.
 - **The fetch** starts at `today − LOOKBACK_DAYS`. Lake days and `today` share one calendar, so no margin day is added.
 
 ## Daily Weather Series
@@ -48,15 +48,15 @@ The lake query skips hours with no air temperature or RH, so `hours_covered` cou
 
 **Window** (`logic/disease/mod.rs`): the fetch covers `LOOKBACK_DAYS` = 12 observed days, so trailing windows are already full on the first displayed day. The display shows `HISTORY_DAYS` = 6 days before today, today, and `FORECAST_DAYS` = 4 days after, for at most 11 days.
 
-**Forecast days** (`weather_days::forecast_days`): 3-hourly points are bucketed into local days, and each point stands for 3 h, so `hours_covered = 3 × points`. A point counts toward `hours_rh90` when RH ≥ 90 %, and toward leaf wetness when RH ≥ 90 % or precipitation > 0. Forecast temperatures are converted from °F.
+**Forecast days** (`weather_days::forecast_days`): points at or before `after` are dropped, because those hours are already observed. `after` is `LakeDailyWeather.latest_observed`, the newest `obs_ts_utc` among the lake's usable hours (air temperature present and RH above 0) since the fetch start; with no lake hours every point is kept. The remaining 3-hourly points are bucketed into local days, and each point stands for 3 h, so `hours_covered = 3 × points`. A point counts toward `hours_rh90` when RH ≥ 90 %, and toward leaf wetness when RH ≥ 90 % or precipitation > 0. Forecast temperatures are converted from °F.
 
 **Join** (`weather_days::build_series`):
 
 - A day with 24 observed hours wins outright.
-- A partly observed day (usually today, because the lake lags) is merged with that day's forecast. The merge weights means by hours, takes the min of minimums and the max of maximums, sums hours and precipitation, caps `hours_covered` at 24 and ORs the flags.
+- A partly observed day (usually today, because the lake lags) is merged with that day's forecast, which holds only hours after the newest observation. The merge weights means by hours, takes the min of minimums and the max of maximums, sums hours and precipitation, caps `hours_covered` at 24 and ORs the flags.
 - Forecast-only days are appended.
 
-The result is sorted ascending by date. The join assumes the lake and the forecast never cover the same hours (Deferred 2).
+The result is sorted ascending by date. Because forecast days hold only hours the lake has not reported, a merged day counts no hour twice in any field.
 
 **Usable day** (`is_usable`): a day is usable when all three of these hold:
 
@@ -70,7 +70,7 @@ The result is sorted ascending by date. The join assumes the lake and the foreca
 
 `score_window` scores every day in the display window that has a value. Each becomes a `DailyRisk { date, value, tier, is_forecast, partial }`, where `partial = !is_usable`.
 
-The headline is the **latest usable day on or before today**. That is today once enough of it is covered, otherwise the most recent complete day. The search reaches back no further than the start of the display window, 6 days. With no usable day in that span, the model returns `None` and the disease is left out of the response (Deferred 5). `DiseaseRisk.as_of` names the headline day.
+The headline is the **latest usable day on or before today**. That is today once enough of it is covered, otherwise the most recent complete day. The search reaches back no further than the start of the display window, 6 days. With no usable day in that span, the model returns `None` and the disease is left out of the response, with a data note naming it. `DiseaseRisk.as_of` names the headline day.
 
 ## Risk Models
 
@@ -109,19 +109,21 @@ Pythium's peak dew point is shown as a factor but not scored (`pythium.rs`). The
 
 `GET /api/v1/disease-risk` returns `DiseaseRiskResponse { generated_at, today, station, diseases[], data_notes[] }`. It responds 404 with no lawn profile and 503 when the lake is not configured (`not_configured(Source::WeatherLake)`, the owner sentence naming the lake). A lake, sync or DB error is returned as an error. `compute` builds the series and the context, runs `assess_all` and assembles `data_notes`. It returns the context alongside the response so the feed bridge (management) reuses the same run.
 
-`data_notes` (`api/disease_risk.rs:119-148`) are plain-language caveats about the inputs:
+`data_notes` (`api/disease_risk.rs:129-172`) are plain-language caveats about the inputs. "Latest observed" and "today" are judged with the headline's own usable-day rule (`disease::is_usable`: hours, dawn and afternoon), so a note explains every fallback the headline makes:
 
-- no recent station observations;
-- observations end more than a day before today, so more recent days rely on the forecast;
-- today is not covered, so current risk reflects the most recent complete day;
-- no forecast, so no outlook days are shown.
+- no usable observed day ("No recent station observations are available.");
+- the latest usable observed day is more than a day before today, so more recent days rely on the forecast;
+- today is not usable, so current risk reflects the most recent complete day;
+- no forecast, so no outlook days are shown;
+- for each disease in `Disease::ALL` missing from the response on a cool-season lawn: "<Disease> is left out: no recent day has enough station data to score it.";
+- on a warm-season lawn, "Disease models cover cool-season turf only." (no disease is scored, and none is named as left out).
 
 | Condition | Page behavior |
 |---|---|
 | Lake unconfigured or the read fails | Error response (feed behavior: see management) |
 | Forecast missing | Observed days only, with a note; no outlook days |
 | Lake lagging | Headline falls back to the last usable day (≤ 6 days back), with a note |
-| No usable day in the window | That disease is left out. If all are left out, the list is empty and the first note explains why. |
+| No usable day in the window | That disease is left out, with a note naming it. If all are left out, the list is empty and the first note explains why. |
 
 ## Decisions & Alternatives
 
@@ -149,12 +151,10 @@ Pythium's peak dew point is shown as a factor but not scored (`pythium.rs`). The
 
 ### Deferred
 
-1. **Divergence: data note vs usable-day rule** (DIS-MODEL-API-004). `data_notes` judges "latest observed" and "today usable" on `hours_covered ≥ 12` alone (`api/disease_risk.rs:122-126, 135-144`). When today has 12+ hours but no dawn or afternoon hours, the headline falls back to an earlier day, but the "reflects the most recent complete day" note is not shown.
-2. **Divergence: merge overlap** (DIS-MODEL-DAY-007). Intent: forecast points fill only hours the lake has not reported. `build_series` assumes the lake and the forecast never cover the same hours. If they do, `merge_day` sums them with no de-duplication. Only `hours_covered` is capped at 24, so `hours_rh90` and `leaf_wetness_hours` can exceed 24 h and double-count (`weather_days.rs:74-92, 101-105`). A merged day also reports `is_forecast = true`.
-3. **Recomputed per request.** The dashboard triggers two full computations, one through the feed and one through the widget, each with a lake read (`api/disease_risk.rs:28-41, 47-117`). There is no memo.
-4. **Leaf wetness is a proxy.** It is approximated as RH ≥ 90 % or precipitation. Unused lake columns (`solar_rad_wm2`, `surface_temp_c`) could improve it.
-5. **Divergence: no usable day → silent omission** (DIS-MODEL-API-005). Intent: a data note names the omitted disease. When no day in the 6-day lookback is usable, `score_window` returns `None` and the disease drops out of the response with no note that names it (`logic/disease/mod.rs:120`). The list shows the remaining diseases. A link to the missing one shows the generic "No risk data for …" (`pages/DiseaseRisk.tsx`).
-6. **Tech debt** against the 50-line limit: `api::disease_risk::compute` (~70 lines), `brown_patch::factors` (~72), `pythium::factors` (~65).
+1. **A merged day reads as forecast.** `merge_day` ORs `is_forecast` (`weather_days.rs:98`), so a partly observed day topped up with forecast hours reports `is_forecast = true` and its bar is drawn as a forecast.
+2. **Recomputed per request.** The dashboard triggers two full computations, one through the feed and one through the widget, each with a lake read (`api/disease_risk.rs:28-41, 47-126`). There is no memo.
+3. **Leaf wetness is a proxy.** It is approximated as RH ≥ 90 % or precipitation. Unused lake columns (`solar_rad_wm2`, `surface_temp_c`) could improve it.
+4. **Tech debt** against the 50-line limit: `api::disease_risk::compute` (~80 lines), `brown_patch::factors` (~72), `pythium::factors` (~65).
 
 ## References
 

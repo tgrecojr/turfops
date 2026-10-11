@@ -36,19 +36,34 @@ pub(super) fn plan(
         .iter()
         .flat_map(|f| f.classes.iter().copied())
         .collect();
-    let recommended = recommended_class(spec, last_used, false, &owned);
-    let curative_pick = recommended_class(spec, last_used, true, &owned);
+    let recommended = recommended_class(spec, &last_used, false, &owned);
+    let curative_pick = recommended_class(spec, &last_used, true, &owned);
     let protection = active_protection(spec, &ctx.fungicide_apps, tier, today);
     let action = action_for(disease, tier, protection.is_some());
-    let outlook = headline::outlook_escalation(daily, today).map(|day| headline::Outlook {
+    // @spec DIS-MGMT-PROT-007
+    // Red thread's remedy is nitrogen, so its forecast never calls for a fungicide.
+    let outlook_days: &[DailyRisk] = if disease == Disease::RedThread {
+        &[]
+    } else {
+        daily
+    };
+    let outlook = headline::outlook_escalation(outlook_days, today).map(|day| headline::Outlook {
         tier: day.tier,
         date: day.date,
         protection: active_protection(spec, &ctx.fungicide_apps, day.tier, day.date),
     });
 
     let mut notes: Vec<String> = spec.notes.iter().map(|n| n.to_string()).collect();
+    // @spec DIS-MGMT-FRAC-005
+    // A streak warning names this disease's own pick, never a class it cannot use.
     if let Some(warning) = &ctx.rotation_warning {
-        notes.push(warning.clone());
+        match recommended.filter(|_| ctx.rotation_streak) {
+            Some(class) => notes.push(format!(
+                "{warning} Rotate to {}.",
+                headline::pick_text(Some(class))
+            )),
+            None => notes.push(warning.clone()),
+        }
     }
     notes.push(LABEL_NOTE.into());
 
@@ -81,7 +96,7 @@ pub(super) fn plan(
                  consecutive applications of the same single-site class."
                     .into(),
             ],
-            options: options(spec, last_used, recommended, false, ctx),
+            options: options(spec, &last_used, recommended, false, ctx),
         },
         curative: FungicideProgram {
             when: "Once you can see active symptoms, whatever the current risk tier.".into(),
@@ -94,7 +109,7 @@ pub(super) fn plan(
                  comes from new growth, so keep up the cultural practices."
                     .into(),
             ],
-            options: options(spec, last_used, curative_pick, true, ctx),
+            options: options(spec, &last_used, curative_pick, true, ctx),
         },
         protection,
         notes,
@@ -113,15 +128,29 @@ fn action_for(disease: Disease, tier: RiskTier, protected: bool) -> ManagementAc
 }
 
 /// Most recent single-site class from this disease's options applied this calendar year.
+// @spec DIS-MGMT-PICK-003
 fn last_used_class(
     spec: &ProgramSpec,
     apps: &[FungicideRecord],
     today: NaiveDate,
-) -> Option<FracClass> {
+) -> Vec<FracClass> {
+    let eligible = |app: &&FungicideRecord| {
+        app.date.year() == today.year()
+            && app.date <= today
+            && app.class.is_some_and(|class| {
+                !class.is_multisite() && spec.options.iter().any(|o| o.class == class)
+            })
+    };
+    // The newest application with an eligible class; a premix has one record per class,
+    // all with its date and product, and every one of them counts as last used.
+    let Some(newest) = apps.iter().filter(eligible).max_by_key(|app| app.date) else {
+        return Vec::new();
+    };
     apps.iter()
-        .filter(|app| app.date.year() == today.year() && app.date <= today)
+        .filter(eligible)
+        .filter(|app| app.date == newest.date && app.product == newest.product)
         .filter_map(|app| app.class)
-        .find(|class| !class.is_multisite() && spec.options.iter().any(|o| o.class == *class))
+        .collect()
 }
 
 /// Best unrestricted option that isn't the class used last. Among equals, one the user
@@ -130,12 +159,12 @@ fn last_used_class(
 /// have curative activity.
 fn recommended_class(
     spec: &ProgramSpec,
-    last_used: Option<FracClass>,
+    last_used: &[FracClass],
     curative_only: bool,
     owned: &[FracClass],
 ) -> Option<FracClass> {
     let eligible = |o: &&OptionSpec| {
-        !o.restricted && Some(o.class) != last_used && (!curative_only || o.curative)
+        !o.restricted && !last_used.contains(&o.class) && (!curative_only || o.curative)
     };
     let best = spec
         .options
@@ -174,7 +203,7 @@ fn shelf_note(ctx: &DiseaseContext, pick: Option<FracClass>) -> String {
 
 fn options(
     spec: &ProgramSpec,
-    last_used: Option<FracClass>,
+    last_used: &[FracClass],
     pick: Option<FracClass>,
     curative_only: bool,
     ctx: &DiseaseContext,
@@ -193,7 +222,7 @@ fn options(
                 .collect(),
             efficacy: o.efficacy,
             note: o.note.map(Into::into),
-            last_used: Some(o.class) == last_used,
+            last_used: last_used.contains(&o.class),
             recommended: Some(o.class) == pick,
             restricted: o.restricted,
             on_hand: ctx

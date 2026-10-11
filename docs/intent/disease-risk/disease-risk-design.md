@@ -48,7 +48,7 @@ flowchart LR
 
 - **The headline tier** (`DiseaseRisk.tier`, after amplification) is the only tier management, the feed recommendation and the UI badge read. The daily tiers stay weather-only and are used for the outlook and the chart.
 - **`today`** is defined once by risk-models, as the lawn's local date from the app's `Clock`, and passed to management. Every residual window, outlook day and rotation year is measured from it.
-- **`DiseaseContext`** (`models/disease.rs`) is built once per computation from the lawn's log and the shelf. Risk-models reads its history fields (days since overseeding / fertilizer). Management reads its fungicide records, rotation warning and shelf.
+- **`DiseaseContext`** (`models/disease.rs`) is built once per computation from the lawn's log and the shelf. Risk-models reads its history fields (days since overseeding / fertilizer). Management reads its fungicide records, rotation warning, rotation streak flag and shelf.
 - **One computation.** `api/disease_risk.rs` `compute` produces both the page response and the context the feed bridge uses, so the page, the widget and the feed agree by construction.
 
 ## Child Map

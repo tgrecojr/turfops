@@ -278,8 +278,10 @@ Resulting activity sets:
 | Windows unavailable | all ten 10 cm activities | none |
 
 The timing activities' windows are typical opens → closes medians; for the season being
-lived now their status follows the window's resolved state. Both are the Timing windows
-component's contract (`backend/src/logic/timing/plan.rs`).
+lived now their status follows the window's resolved state, evaluated from the same
+inputs as the Timing page, forecast included (TIME-PLAN-007), so the plan's status
+matches the window's state on the page. Both are the Timing windows component's contract
+(`backend/src/logic/timing/plan.rs`).
 
 Error shape: Postgres failures and an invalid `year` (no Jan 1 for it) propagate as the
 standard `TurfOpsError` responses (500 / 400). Lake failures never fail the request.

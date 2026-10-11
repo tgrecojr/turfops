@@ -107,8 +107,12 @@ fn to_recommendation(
         &window.detail,
     )
     .with_explanation(explanation)
-    .with_action(action)
-    .with_need(need_for(window.id, profile.grass_type));
+    .with_action(action);
+    // @spec TIME-FEED-008
+    // A missed spring pre-emergent points to post-emergent control: nothing to buy for it.
+    if window.state != WindowState::Closed {
+        rec = rec.with_need(need_for(window.id, profile.grass_type));
+    }
 
     if let Some(avg) = soil.avg_5day_f {
         rec = rec.with_data_point(
@@ -247,5 +251,18 @@ mod tests {
             vec![Severity::Warning]
         );
         assert!(severities(&[missed], date(6, 1)).is_empty());
+    }
+
+    // @spec TIME-FEED-008
+    #[test]
+    fn a_missed_spring_pre_emergent_shops_for_nothing() {
+        let missed = window(
+            WindowId::SpringPreEmergent,
+            WindowPriority::Primary,
+            WindowState::Closed,
+        );
+        let recs = to_recommendations(&[missed], &soil(), &LawnProfile::default(), date(5, 1));
+        assert_eq!(recs.len(), 1);
+        assert!(recs[0].needs.is_empty(), "{:?}", recs[0].needs);
     }
 }

@@ -9,6 +9,8 @@ use chrono::NaiveDate;
 pub struct LakeDailyWeather {
     /// Ascending by date. The most recent day is usually partial (the lake lags).
     pub days: Vec<DailyWeather>,
+    /// When the newest usable hour was observed: forecast points up to it are not new.
+    pub latest_observed: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 /// Magnus dew point (°C) as a SQL expression over the silver columns.
@@ -70,7 +72,21 @@ impl WeatherLakeClient {
                 });
             }
 
-            Ok(LakeDailyWeather { days })
+            let latest_sql = format!(
+                "SELECT max(obs_ts_utc) FROM {src} \
+                 WHERE CAST(wbanno AS INTEGER) = ? AND obs_date_local >= ?::DATE \
+                   AND air_temp_c IS NOT NULL AND rh_pct > 0"
+            );
+            let latest_observed = conn
+                .query_row(&latest_sql, duckdb::params![station, start_s], |row| {
+                    row.get::<_, Option<chrono::NaiveDateTime>>(0)
+                })?
+                .map(|t| t.and_utc());
+
+            Ok(LakeDailyWeather {
+                days,
+                latest_observed,
+            })
         })
         .await
     }
