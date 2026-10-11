@@ -91,9 +91,13 @@ pub(super) fn headline(
                  fungicide only if it persists for several weeks."
                     .into()
             } else {
-                "Feed the lawn: about 0.5 lb N/1000 sq ft is the fix for red thread. A \
-                 fungicide is rarely needed."
-                    .into()
+                format!(
+                    "Feed the lawn: about {} is the fix for red thread. A fungicide is \
+                     rarely needed.",
+                    crate::logic::rules::nitrogen_guard::rate_text(
+                        crate::logic::disease::red_thread::FEEDING_N_LBS
+                    )
+                )
             }
         }
         ManagementAction::Protected => {

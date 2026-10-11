@@ -11,12 +11,10 @@ use chrono::NaiveDate;
 /// are ignored).
 pub fn context_from_history(history: &[Application], today: NaiveDate) -> DiseaseContext {
     // A fungicide or fertilizer logged against a landscape plant says nothing about the lawn.
-    let days_since = |kind: ApplicationType| {
+    let days_since = |logged: &dyn Fn(&Application) -> bool| {
         history
             .iter()
-            .filter(|app| {
-                app.application_type == kind && app.is_turf() && app.application_date <= today
-            })
+            .filter(|app| logged(app) && app.is_turf() && app.application_date <= today)
             .map(|app| (today - app.application_date).num_days())
             .min()
     };
@@ -55,8 +53,9 @@ pub fn context_from_history(history: &[Application], today: NaiveDate) -> Diseas
     fungicide_apps.sort_by_key(|app| std::cmp::Reverse(app.date));
 
     DiseaseContext {
-        days_since_overseed: days_since(ApplicationType::Overseed),
-        days_since_fertilizer: days_since(ApplicationType::Fertilizer),
+        days_since_overseed: days_since(&|a| a.application_type == ApplicationType::Overseed),
+        // @spec DIS-MODEL-AMP-001
+        days_since_fertilizer: days_since(&Application::is_feeding),
         fungicide_apps,
         rotation_warning: analyze_fungicide_rotation(history, today).rotation_warning,
         shelf: Vec::new(),
@@ -113,6 +112,20 @@ mod tests {
         app.frac_classes = Some(vec![FracClass::Frac11]);
         let ctx = context_from_history(&[app], today());
         assert_eq!(ctx.fungicide_apps[0].class, Some(FracClass::Frac11));
+    }
+
+    // @spec DIS-MODEL-AMP-001
+    #[test]
+    fn only_a_lawn_feeding_resets_days_since_fertilizer() {
+        let mut potash = logged(ApplicationType::Fertilizer, "0-0-50", 3);
+        potash.nitrogen_pct = Some(0.0);
+        let feeding = logged(ApplicationType::Fertilizer, "Milorganite", 40);
+        let ctx = context_from_history(&[potash, feeding], today());
+        assert_eq!(
+            ctx.days_since_fertilizer,
+            Some(40),
+            "potash is not a feeding"
+        );
     }
 
     #[test]

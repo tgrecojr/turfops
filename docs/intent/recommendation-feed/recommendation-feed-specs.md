@@ -11,15 +11,15 @@ Design: [recommendation-feed-design.md](recommendation-feed-design.md). Prefix `
 
 ## Building the feed
 
-- [ ] **FEED-PIPE-001**: The system shall build the recommendation feed in one shared function that the dashboard, the Recommendations page, the shopping list and the MCP recommendation tools all read, and none of those surfaces shall filter, re-score, re-word or reorder the feed's recommendations (a surface may only truncate the feed).
+- [x] **FEED-PIPE-001**: The system shall build the recommendation feed in one shared function that the dashboard, the Recommendations page, the shopping list and the MCP recommendation tools all read, and none of those surfaces shall filter, re-score, re-word or reorder the feed's recommendations (a surface may only truncate the feed).
 - [x] **FEED-PIPE-002**: When building the feed, the system shall gather recommendations from its sources in this order: agronomic rules, disease risk, timing windows, landscape-plant tasks, application follow-ups.
 - [x] **FEED-PIPE-003**: When building the feed, the system shall run the timing-window source after the agronomic rules, so that the timing pass can edit or drop the rule-produced `broadleaf_fall` recommendation.
-- [ ] **FEED-PIPE-004**: When building the feed, the system shall run the nitrogen guard exactly once, after every source has contributed, over every recommendation its source marked as a feeding (advice to apply nitrogen to the lawn now: today the rules' `fall_fert_*` and `spring_n_ready`, and `disease_red_thread` while its advice is to feed), whatever its source and without a fixed list of ids.
+- [x] **FEED-PIPE-004**: When building the feed, the system shall run the nitrogen guard exactly once, after every source has contributed, over every recommendation its source marked as a feeding (advice to apply nitrogen to the lawn now: today the rules' `fall_fert_*` and `spring_n_ready`, and `disease_red_thread` while its advice is to feed), whatever its source and without a fixed list of ids.
 - [x] **FEED-PIPE-005**: When building the feed, the system shall not treat landscape-plant Fertilizing tasks or `spring_n_may_cutoff` as feedings for the nitrogen guard.
-- [ ] **FEED-PIPE-006**: The system shall add an "N budget remaining" data point to a feed recommendation only through the nitrogen guard, so a guarded feeding carries exactly one such point and no source adds its own.
+- [x] **FEED-PIPE-006**: The system shall add an "N budget remaining" data point to a feed recommendation only through the nitrogen guard, so a guarded feeding carries exactly one such point and no source adds its own.
 - [x] **FEED-PIPE-007**: When building the feed, the system shall run the inventory pass after every source and the nitrogen guard, and before applying answered state.
 - [x] **FEED-PIPE-008**: When applying answered state, the system shall compare each answer's stored severity against the recommendation's severity after the nitrogen guard has run.
-- [ ] **FEED-PIPE-009**: As the last stage of building the feed, after answered state is applied, the system shall sort the feed by descending severity with a stable sort, so recommendations of equal severity keep source order.
+- [x] **FEED-PIPE-009**: As the last stage of building the feed, after answered state is applied, the system shall sort the feed by descending severity with a stable sort, so recommendations of equal severity keep source order.
 - [D] **FEED-PIPE-010**: The system shall emit at most one recommendation per id in the feed.
 - [x] **FEED-PIPE-011**: When building the feed, the system shall read the application log once (newest first, up to 1000 rows) and give that same log to every source.
 - [x] **FEED-PIPE-012**: When building the feed, the system shall use the server's local date (`Local::now()`, governed by `TZ`) as "today" for landscape-plant tasks and application follow-ups.
@@ -27,7 +27,7 @@ Design: [recommendation-feed-design.md](recommendation-feed-design.md). Prefix `
 - [x] **FEED-PIPE-015**: If the disease-risk source fails while building the feed (weather lake or forecast unavailable), then the system shall omit disease recommendations, log a warning, and return the rest of the feed.
 - [x] **FEED-PIPE-016**: If the timing-window source fails while building the feed (weather lake unavailable), then the system shall omit timing-window and aeration recommendations and leave `broadleaf_fall` as the agronomic rules produced it.
 - [x] **FEED-PIPE-017**: If no lawn profile exists, then the recommendations and dashboard endpoints shall return 404 without building the feed.
-- [ ] **FEED-PIPE-018**: The system shall not add soil-test advice (pH, N-P-K or micronutrient recommendations) to the recommendation feed; the Soil Tests page and the MCP `soil_test_advice` tool are its only surfaces.
+- [x] **FEED-PIPE-018**: The system shall not add soil-test advice (pH, N-P-K or micronutrient recommendations) to the recommendation feed; the Soil Tests page and the MCP `soil_test_advice` tool are its only surfaces.
 
 ## Answered state
 

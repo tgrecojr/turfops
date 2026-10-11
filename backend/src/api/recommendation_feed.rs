@@ -1,24 +1,24 @@
 //! The recommendation feed. The dashboard's "Active Alerts" and the Recommendations page
 //! both come from [`active`], so the top 3 on the dashboard are always a subset of the feed.
 
-use crate::db::{plant_queries, product_queries, queries, soil_test_queries};
+use crate::db::{plant_queries, product_queries, queries};
 use crate::error::TurfOpsError;
 use crate::logic::follow_up::generate_follow_up_recommendations;
 use crate::logic::inventory::enrich;
 use crate::logic::plant_maintenance::generate_plant_maintenance_recommendations;
-use crate::logic::soil_test_recommendations::generate_soil_test_recommendations;
+use crate::logic::rules::nitrogen_guard;
 use crate::models::{
-    AmendmentKind, Application, DataSource, EnvironmentalSummary, LawnProfile, ProductCategory,
-    ProductNeed, ProductTarget, Recommendation, RecommendationCategory, Severity, SoilTest,
+    Application, EnvironmentalSummary, LawnProfile, Product, Recommendation, RecommendationState,
 };
 use crate::state::AppState;
-use chrono::{Datelike, Local, Utc};
+use chrono::Utc;
+use std::collections::HashMap;
 
 /// How much application history the rules see. Mowing is an application, so a short window
 /// (the dashboard once used 10 rows) drops this season's treatments within weeks.
 const RULE_HISTORY_LIMIT: i64 = 1000;
 
-/// Every active recommendation, in source order.
+/// Every active recommendation, most severe first.
 pub async fn active(
     state: &AppState,
     profile: &LawnProfile,
@@ -51,7 +51,7 @@ pub async fn all(
 
     // Plant maintenance for landscape plants.
     let plants = plant_queries::list_plants_for_profile(&state.pool, profile_id).await?;
-    let today = Local::now().date_naive();
+    let today = state.clock.today();
     recommendations.extend(generate_plant_maintenance_recommendations(
         &plants, &apps, summary, today,
     ));
@@ -67,193 +67,131 @@ pub async fn all(
         today,
     ));
 
-    // Soil-test recommendations. The nitrogen budget is annual, so only this year's
-    // applications count against it (same as /soil-tests/recommendations).
-    if let Ok(Some(test)) = soil_test_queries::get_latest_soil_test(&state.pool, profile_id).await {
-        let this_year: Vec<Application> = apps
-            .iter()
-            .filter(|a| a.application_date.year() == today.year())
-            .cloned()
-            .collect();
-        recommendations.extend(soil_test_recommendations(&test, profile, &this_year));
-    }
-
-    // What the shelf says about each recommendation's needs.
     let products =
         product_queries::list_products_for_profile(&state.pool, profile_id, None, false).await?;
-    enrich(&mut recommendations, &products);
-
-    // Apply the user's answers that still hold (not escalated past, not expired)
     let rec_states = queries::get_recommendation_states(&state.pool).await?;
-    let now = Utc::now();
+    Ok(assemble(
+        recommendations,
+        &Stages {
+            profile,
+            history: &apps,
+            today,
+            products: &products,
+            answers: &rec_states,
+            now: Utc::now(),
+        },
+    ))
+}
+
+/// What the stages after the sources read.
+pub(crate) struct Stages<'a> {
+    pub profile: &'a LawnProfile,
+    pub history: &'a [Application],
+    pub today: chrono::NaiveDate,
+    pub products: &'a [Product],
+    pub answers: &'a HashMap<String, RecommendationState>,
+    pub now: chrono::DateTime<Utc>,
+}
+
+/// Everything after the sources, in order: the nitrogen guard over marked feedings, the
+/// shelf, the owner's answers that still hold, then one stable sort by severity.
+// @spec FEED-PIPE-004, FEED-PIPE-006, FEED-PIPE-007, FEED-PIPE-008, FEED-PIPE-009
+pub(crate) fn assemble(
+    mut recommendations: Vec<Recommendation>,
+    stages: &Stages,
+) -> Vec<Recommendation> {
+    // No "feed the lawn" next to "avoid fertilizer", and none past the annual budget,
+    // whichever source the feeding came from.
+    nitrogen_guard::apply(
+        &mut recommendations,
+        stages.profile,
+        stages.history,
+        stages.today,
+    );
+    enrich(&mut recommendations, stages.products);
     for rec in &mut recommendations {
-        if let Some(answer) = rec_states.get(&rec.id).filter(|a| a.suppresses(rec, now)) {
+        if let Some(answer) = stages
+            .answers
+            .get(&rec.id)
+            .filter(|a| a.suppresses(rec, stages.now))
+        {
             rec.dismissed = answer.dismissed;
             rec.addressed = answer.addressed;
         }
     }
-
-    Ok(recommendations)
-}
-
-fn soil_test_recommendations(
-    test: &SoilTest,
-    profile: &LawnProfile,
-    apps: &[Application],
-) -> Vec<Recommendation> {
-    let mut recommendations = Vec::new();
-    let soil_summary = generate_soil_test_recommendations(test, profile, apps);
-
-    if let Some(ph_rec) = &soil_summary.ph_recommendation {
-        recommendations.push(
-            Recommendation::new(
-                "soil_test_ph",
-                RecommendationCategory::SoilTest,
-                if (ph_rec.current_ph - ph_rec.target_ph).abs() > 1.0 {
-                    Severity::Warning
-                } else {
-                    Severity::Advisory
-                },
-                format!("pH Adjustment: Apply {}", ph_rec.amendment),
-                &ph_rec.explanation,
-            )
-            .with_data_point(
-                "Current pH",
-                format!("{:.1}", ph_rec.current_ph),
-                DataSource::SoilTestData.as_str(),
-            )
-            .with_data_point(
-                "Target pH",
-                format!("{:.1}", ph_rec.target_ph),
-                DataSource::Agronomic.as_str(),
-            )
-            .with_action(format!(
-                "Apply {} at {:.0} lbs/1000 sqft",
-                ph_rec.amendment, ph_rec.rate_lbs_per_1000sqft
-            ))
-            .with_need(amendment_need(&ph_rec.amendment)),
-        );
-    }
-
-    if let Some(npk_rec) = &soil_summary.npk_recommendation {
-        if npk_rec.nitrogen_rate_lbs_per_1000sqft > 0.0
-            || npk_rec.phosphorus_rate_lbs_per_1000sqft > 0.0
-            || npk_rec.potassium_rate_lbs_per_1000sqft > 0.0
-        {
-            recommendations.push(
-                Recommendation::new(
-                    "soil_test_npk",
-                    RecommendationCategory::SoilTest,
-                    Severity::Advisory,
-                    format!("Fertilizer: Use {} ratio", npk_rec.recommended_ratio),
-                    &npk_rec.explanation,
-                )
-                .with_data_point(
-                    "N rate",
-                    format!("{:.2} lbs/1000sqft", npk_rec.nitrogen_rate_lbs_per_1000sqft),
-                    DataSource::SoilTestData.as_str(),
-                )
-                .with_data_point(
-                    "P₂O₅ rate",
-                    format!(
-                        "{:.2} lbs/1000sqft",
-                        npk_rec.phosphorus_rate_lbs_per_1000sqft
-                    ),
-                    DataSource::SoilTestData.as_str(),
-                )
-                .with_data_point(
-                    "K₂O rate",
-                    format!(
-                        "{:.2} lbs/1000sqft",
-                        npk_rec.potassium_rate_lbs_per_1000sqft
-                    ),
-                    DataSource::SoilTestData.as_str(),
-                )
-                .with_data_point(
-                    "N budget remaining",
-                    format!(
-                        "{:.2} lbs/1000sqft",
-                        npk_rec.remaining_n_budget_lbs_per_1000sqft
-                    ),
-                    DataSource::Calculated.as_str(),
-                )
-                .with_action(format!(
-                    "Apply {} product at {:.1} lbs/1000 sqft",
-                    npk_rec.example_product_ratio, npk_rec.product_rate_lbs_per_1000sqft
-                ))
-                .with_need(ProductNeed::new(
-                    format!("{} fertilizer", npk_rec.recommended_ratio),
-                    ProductCategory::Fertilizer,
-                )),
-            );
-        }
-    }
-
-    for micro in &soil_summary.micronutrient_recommendations {
-        recommendations.push(
-            Recommendation::new(
-                format!("soil_test_micro_{}", micro.nutrient.to_lowercase()),
-                RecommendationCategory::SoilTest,
-                Severity::Info,
-                format!("{} Deficiency Detected", micro.nutrient),
-                &micro.suggestion,
-            )
-            .with_data_point(
-                &format!("{} (ppm)", micro.nutrient),
-                format!("{:.1}", micro.current_ppm),
-                DataSource::SoilTestData.as_str(),
-            )
-            .with_data_point(
-                "Threshold (ppm)",
-                format!("{:.1}", micro.threshold_ppm),
-                DataSource::Agronomic.as_str(),
-            )
-            .with_action(&micro.suggestion)
-            .with_need(micronutrient_need(&micro.nutrient)),
-        );
-    }
-
+    // Most severe first; equal severities keep source order. Every surface uses this order.
+    recommendations.sort_by_key(|r| std::cmp::Reverse(r.severity));
     recommendations
 }
 
-fn amendment_need(amendment: &str) -> ProductNeed {
-    if amendment.to_lowercase().contains("sulfur") {
-        ProductNeed::new("elemental sulfur", ProductCategory::SoilAmendment)
-            .with_amendment_kinds(vec![AmendmentKind::Sulfur])
-    } else {
-        ProductNeed::new("lime", ProductCategory::SoilAmendment).with_amendment_kinds(vec![
-            AmendmentKind::CalciticLime,
-            AmendmentKind::DolomiticLime,
-        ])
-    }
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::{GrassType, RecommendationCategory, Severity};
 
-/// The product-shaped half of each micronutrient suggestion in
-/// `soil_test_recommendations::evaluate_micronutrients`.
-fn micronutrient_need(nutrient: &str) -> ProductNeed {
-    let supplement = |t: ProductTarget| {
-        ProductNeed::new(
-            format!("{} supplement", nutrient.to_lowercase()),
-            ProductCategory::Supplement,
+    fn profile() -> LawnProfile {
+        LawnProfile {
+            id: Some(1),
+            name: "Test".into(),
+            grass_type: GrassType::TallFescue,
+            usda_zone: "7a".into(),
+            soil_type: None,
+            lawn_size_sqft: Some(5000.0),
+            irrigation_type: None,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        }
+    }
+
+    fn rec(id: &str, severity: Severity) -> Recommendation {
+        Recommendation::new(id, RecommendationCategory::General, severity, id, id)
+    }
+
+    fn assembled(recs: Vec<Recommendation>) -> Vec<Recommendation> {
+        let profile = profile();
+        let answers = HashMap::new();
+        assemble(
+            recs,
+            &Stages {
+                profile: &profile,
+                history: &[],
+                today: chrono::NaiveDate::from_ymd_opt(2026, 10, 5).unwrap(),
+                products: &[],
+                answers: &answers,
+                now: Utc::now(),
+            },
         )
-        .with_targets(vec![t])
-    };
-    match nutrient {
-        "Calcium" => ProductNeed::new("gypsum", ProductCategory::SoilAmendment)
-            .with_amendment_kinds(vec![AmendmentKind::Gypsum]),
-        "Magnesium" => supplement(ProductTarget::Magnesium)
-            .or_category(ProductCategory::SoilAmendment)
-            .with_amendment_kinds(vec![AmendmentKind::DolomiticLime]),
-        "Sulfur" => ProductNeed::new("elemental sulfur", ProductCategory::SoilAmendment)
-            .with_amendment_kinds(vec![AmendmentKind::Sulfur]),
-        "Iron" => supplement(ProductTarget::Iron),
-        "Manganese" => supplement(ProductTarget::Manganese),
-        "Zinc" => supplement(ProductTarget::Zinc),
-        "Boron" => supplement(ProductTarget::Boron),
-        "Copper" => supplement(ProductTarget::Copper),
-        other => ProductNeed::new(
-            format!("{} supplement", other.to_lowercase()),
-            ProductCategory::Supplement,
-        ),
+    }
+
+    // @spec FEED-PIPE-004, FEED-PIPE-006
+    #[test]
+    fn the_guard_covers_a_feeding_from_any_source_once() {
+        // A disease source's feeding, appended after the rules, still waits out the block.
+        let red_thread = rec("disease_red_thread", Severity::Advisory).with_feeding(0.5);
+        let block = rec("fertilizer_block", Severity::Warning);
+        let out = assembled(vec![block, red_thread]);
+        let red_thread = out.iter().find(|r| r.id == "disease_red_thread").unwrap();
+        assert_eq!(red_thread.severity, Severity::Info);
+        assert!(red_thread.title.starts_with("On hold"));
+        let budget_points = red_thread
+            .data_points
+            .iter()
+            .filter(|d| d.label == "N budget remaining")
+            .count();
+        assert_eq!(budget_points, 1);
+    }
+
+    // @spec FEED-PIPE-009
+    #[test]
+    fn the_feed_is_sorted_by_severity_keeping_source_order_for_ties() {
+        let out = assembled(vec![
+            rec("a", Severity::Info),
+            rec("b", Severity::Critical),
+            rec("c", Severity::Warning),
+            rec("d", Severity::Info),
+            rec("e", Severity::Warning),
+        ]);
+        let ids: Vec<_> = out.iter().map(|r| r.id.as_str()).collect();
+        assert_eq!(ids, vec!["b", "c", "e", "a", "d"]);
     }
 }

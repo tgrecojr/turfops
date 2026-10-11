@@ -40,19 +40,10 @@ impl RulesEngine {
         profile: &LawnProfile,
         history: &[Application],
     ) -> Vec<Recommendation> {
-        let mut recommendations: Vec<Recommendation> = self
-            .rules
+        self.rules
             .iter()
             .filter_map(|rule| rule.evaluate(env, profile, history))
-            .collect();
-        // No "feed the lawn" next to "avoid fertilizer", and none past the annual budget.
-        super::nitrogen_guard::apply(
-            &mut recommendations,
-            profile,
-            history,
-            chrono::Local::now().date_naive(),
-        );
-        recommendations
+            .collect()
     }
 }
 

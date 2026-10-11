@@ -166,6 +166,16 @@ impl Application {
         self.plant_id.is_none() && self.application_type.scope() != ApplicationScope::PlantRequired
     }
 
+    /// The one definition of a lawn feeding: a turf Fertilizer entry whose nitrogen is
+    /// unrecorded or above 0. Plant fertilizer and potash-only (0-0-x) entries are not
+    /// feedings; an entry with no analysis is assumed to carry nitrogen.
+    // @spec APP-LOG-004
+    pub fn is_feeding(&self) -> bool {
+        self.application_type == ApplicationType::Fertilizer
+            && self.is_turf()
+            && self.nitrogen_pct.is_none_or(|n| n > 0.0)
+    }
+
     /// Pounds of nitrogen per 1000 sq ft this put on the lawn. `None` for plant
     /// applications or when the analysis or rate wasn't recorded.
     pub fn turf_nitrogen_lbs(&self) -> Option<f64> {
@@ -214,6 +224,27 @@ mod tests {
         assert!(fertilizer(ApplicationType::PlantFertilizer, Some(7))
             .turf_nitrogen_lbs()
             .is_none());
+    }
+
+    // @spec APP-LOG-004
+    #[test]
+    fn a_feeding_is_turf_fertilizer_that_carries_nitrogen() {
+        assert!(fertilizer(ApplicationType::Fertilizer, None).is_feeding());
+
+        let mut unrecorded = fertilizer(ApplicationType::Fertilizer, None);
+        unrecorded.nitrogen_pct = None;
+        assert!(
+            unrecorded.is_feeding(),
+            "no analysis recorded counts as nitrogen"
+        );
+
+        let mut potash = fertilizer(ApplicationType::Fertilizer, None);
+        potash.nitrogen_pct = Some(0.0);
+        assert!(!potash.is_feeding(), "0-0-x is not a feeding");
+
+        assert!(!fertilizer(ApplicationType::Fertilizer, Some(7)).is_feeding());
+        assert!(!fertilizer(ApplicationType::PlantFertilizer, Some(7)).is_feeding());
+        assert!(!fertilizer(ApplicationType::Fungicide, None).is_feeding());
     }
 
     #[test]

@@ -96,12 +96,12 @@ Pythium's peak dew point is shown as a factor but not scored (`pythium.rs`). The
 
 ## History Amplifiers
 
-`history::context_from_history(apps, today)` reads **lawn** applications only. It ignores plant applications (`plant_id` set) and future-dated entries. It sets `days_since_overseed` and `days_since_fertilizer` from the latest `Overseed` and `Fertilizer` entries. Management owns the fungicide fields of the same context.
+`history::context_from_history(apps, today)` reads **lawn** applications only. It ignores plant applications (`plant_id` set) and future-dated entries. It sets `days_since_overseed` from the latest `Overseed` entry and `days_since_fertilizer` from the latest feeding, as Applications defines it (`Application::is_feeding()`: a turf `Fertilizer` entry with N unrecorded or above 0), so a potash-only product does not count. Management owns the fungicide fields of the same context.
 
 | Amplifier | Condition | Effect |
 |---|---|---|
 | Seedlings → gray leaf spot | `Overseed` ≤ 60 days ago | Headline tier raised one step |
-| Nitrogen-hungry → red thread (`red_thread::nitrogen_hungry`) | No feeding (a turf `Fertilizer` with N unrecorded or above 0, the agronomic rules' definition) logged, or the last one > 60 days ago | Headline tier raised one step |
+| Nitrogen-hungry → red thread (`red_thread::nitrogen_hungry`) | No feeding (`Application::is_feeding()`: a turf `Fertilizer` with N unrecorded or above 0) logged, or the last one > 60 days ago | Headline tier raised one step |
 
 `amplify` raises a tier only when it is already ≥ Moderate, saturating at Severe. Only the headline is raised: `daily` stays weather-only, so its bars agree with the scale's thresholds. When a raise happens, `tier_note` reads "Raised from <tier> — …". The raised tier is the one handed to management and shown everywhere.
 
@@ -155,7 +155,6 @@ Pythium's peak dew point is shown as a factor but not scored (`pythium.rs`). The
 4. **Leaf wetness is a proxy.** It is approximated as RH ≥ 90 % or precipitation. Unused lake columns (`solar_rad_wm2`, `surface_temp_c`) could improve it.
 5. **Divergence: no usable day → silent omission** (DIS-MODEL-API-005). Intent: a data note names the omitted disease. When no day in the 6-day lookback is usable, `score_window` returns `None` and the disease drops out of the response with no note that names it (`logic/disease/mod.rs:120`). The list shows the remaining diseases. A link to the missing one shows the generic "No risk data for …" (`pages/DiseaseRisk.tsx`).
 6. **Tech debt** against the 50-line limit: `api::disease_risk::compute` (~70 lines), `brown_patch::factors` (~72), `pythium::factors` (~65).
-7. **Divergence: nitrogen-hungry counts any Fertilizer** (DIS-MODEL-AMP-001). `days_since_fertilizer` takes the latest `Fertilizer` entry (`logic/disease/history.rs`), so a potash-only product resets it. Intent: only a feeding counts.
 
 ## References
 

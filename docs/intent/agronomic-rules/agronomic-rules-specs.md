@@ -26,9 +26,9 @@ Design: [agronomic-rules-design.md](agronomic-rules-design.md). Prefix `RULE`. F
 - [x] **RULE-SPRING-005**: When the spring nitrogen rule evaluates from February through April with the soil average from 50°F to below 55°F, no spring feeding logged, and year-to-date GDD of at least 50, it shall emit `spring_n_ready` at Advisory.
 - [x] **RULE-SPRING-006**: When the spring nitrogen rule evaluates from February through April with the soil average from 50°F to below 55°F, no spring feeding logged, and year-to-date GDD below 50 or missing, it shall emit `spring_n_almost` at Info.
 - [x] **RULE-SPRING-007**: When the spring nitrogen rule evaluates from February through April with the soil average from 55°F to 65°F inclusive and no spring feeding logged, it shall emit `spring_n_ready` at Advisory, adding a "well established" note at year-to-date GDD ≥ 150 or an "active growth" note at GDD ≥ 50.
-- [ ] **RULE-SPRING-008**: When the spring nitrogen rule emits `spring_n_ready`, it shall declare a nitrogen-fertilizer product need (a Fertilizer whose nitrogen is above 0 or unrecorded), so a potash-only product does not satisfy it.
+- [x] **RULE-SPRING-008**: When the spring nitrogen rule emits `spring_n_ready`, it shall declare a nitrogen-fertilizer product need (a Fertilizer whose nitrogen is above 0 or unrecorded), so a potash-only product does not satisfy it.
 - [x] **RULE-SPRING-009**: When the spring nitrogen rule tells the owner to wait, it shall point to the Timing page for pre-emergent and give no pre-emergent advice of its own.
-- [ ] **RULE-SPRING-010**: The spring nitrogen rule shall count as a spring feeding only a feeding as defined by Applications (`Application::is_feeding()`: a turf Fertilizer application with nitrogen unrecorded or above 0) dated from Feb 1 of this year through today.
+- [x] **RULE-SPRING-010**: The spring nitrogen rule shall count as a spring feeding only a feeding as defined by Applications (`Application::is_feeding()`: a turf Fertilizer application with nitrogen unrecorded or above 0) dated from Feb 1 of this year through today.
 
 ## Broadleaf herbicide
 
@@ -59,7 +59,7 @@ Design: [agronomic-rules-design.md](agronomic-rules-design.md). Prefix `RULE`. F
 - [x] **RULE-FALL-004**: When it is September, no fall feeding is logged, spacing is met and the soil average is 45–65°F inclusive, the fall fertilization rule shall emit `fall_fert_early` at Warning.
 - [x] **RULE-FALL-005**: When it is October, fewer than two fall feedings are logged, spacing is met and the soil average is 45–65°F inclusive, the fall fertilization rule shall emit `fall_fert_mid`, at Warning if no fall feeding is logged, otherwise at Advisory.
 - [x] **RULE-FALL-006**: When it is November, fewer than three fall feedings are logged, spacing is met and the soil average is at least 40°F, the fall fertilization rule shall emit `fall_fert_winterizer`, at Warning if no fall feeding is logged, otherwise at Advisory.
-- [ ] **RULE-FALL-007**: When the fall fertilization rule emits a recommendation, it shall declare a nitrogen-fertilizer product need (a Fertilizer whose nitrogen is above 0 or unrecorded), so a potash-only product does not satisfy it.
+- [x] **RULE-FALL-007**: When the fall fertilization rule emits a recommendation, it shall declare a nitrogen-fertilizer product need (a Fertilizer whose nitrogen is above 0 or unrecorded), so a potash-only product does not satisfy it.
 
 ## Weather rules
 
@@ -74,13 +74,13 @@ Design: [agronomic-rules-design.md](agronomic-rules-design.md). Prefix `RULE`. F
 
 ## Nitrogen guard
 
-- [ ] **RULE-GUARD-001**: The nitrogen guard shall act on exactly the recommendations their source marked as a feeding (advice to apply nitrogen to the lawn now), and shall keep no list of recommendation ids.
-- [ ] **RULE-GUARD-002**: When the fall fertilization or spring nitrogen rule emits `fall_fert_early`, `fall_fert_mid`, `fall_fert_winterizer` or `spring_n_ready`, it shall mark the recommendation as a feeding; no other rule recommendation shall carry the mark.
+- [x] **RULE-GUARD-001**: The nitrogen guard shall act on exactly the recommendations their source marked as a feeding (advice to apply nitrogen to the lawn now), and shall keep no list of recommendation ids.
+- [x] **RULE-GUARD-002**: When the fall fertilization or spring nitrogen rule emits `fall_fert_early`, `fall_fert_mid`, `fall_fert_winterizer` or `spring_n_ready`, it shall mark the recommendation as a feeding; no other rule recommendation shall carry the mark.
 - [x] **RULE-GUARD-003**: For each feeding, the nitrogen guard shall add the data point "N budget remaining: *remaining* of *target* lb/1000 sqft", where target is the grass type's recommended annual nitrogen and remaining is target minus lawn nitrogen applied in the current calendar year on or before today, shown no lower than 0.
 - [x] **RULE-GUARD-004**: When the remaining annual nitrogen is under 0.05 lb N/1000 sq ft and a feeding's advice is nitrogen only, the nitrogen guard shall lower it to Info, append "— annual nitrogen target reached" to the title, replace the description with the applied-versus-target figures and "skip this feeding, or use a product without nitrogen", clear the suggested action, and remove its product needs.
 - [D] **RULE-GUARD-005**: When the remaining annual nitrogen is under 0.05 lb N/1000 sq ft and a feeding's advice also covers a non-nitrogen nutrient, the nitrogen guard shall withdraw only the nitrogen part and keep the remaining action, product need and severity.
 - [x] **RULE-GUARD-006**: When the remaining annual nitrogen is at least 0.05 lb but less than the largest single feeding any rule suggests, the nitrogen guard shall limit the feeding to the remaining amount, telling the owner to keep the application at or under it, without changing its severity.
-- [ ] **RULE-GUARD-007**: When the nitrogen guard limits a feeding to the remaining amount, no part of the recommendation (description, suggested action or data points) shall state a nitrogen amount above the remaining amount.
+- [x] **RULE-GUARD-007**: When the nitrogen guard limits a feeding to the remaining amount, no part of the recommendation (description, suggested action or data points) shall state a nitrogen amount above the remaining amount.
 - [x] **RULE-GUARD-008**: While the feed contains `fertilizer_block` at any severity or `heat_stress_forecast` at Warning or above, the nitrogen guard shall hold every feeding: lower it to Info, prefix its title with "On hold —", and explain in the description that current conditions rule out fertilizer.
 - [x] **RULE-GUARD-009**: When a feeding is both on hold and at target reached, the nitrogen guard shall apply both edits.
 - [x] **RULE-GUARD-010**: The nitrogen guard shall treat `fertilizer_block` and `heat_stress_forecast` as blockers whether or not the owner has dismissed or addressed them.

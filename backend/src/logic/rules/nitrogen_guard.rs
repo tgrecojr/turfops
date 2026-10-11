@@ -2,19 +2,14 @@
 //! judges its own window; none of them sees the other rules or the annual budget. Left
 //! alone they tell the user to feed the lawn next to "Avoid Fertilizer Application", and
 //! their fixed fall program overshoots the annual target of a low-nitrogen grass
-//! (3.25 lb vs. fine fescue's 3.0 lb maximum). This pass runs after the rules.
+//! (3.25 lb vs. fine fescue's 3.0 lb maximum). The feed runs this pass once, after every
+//! source, over the recommendations their source marked as feedings.
 
+use super::thresholds::DEFAULT_LAWN_SIZE_SQFT;
 use crate::models::nitrogen_budget::annual_n_target;
 use crate::models::{Application, DataSource, LawnProfile, Recommendation, Severity};
 use chrono::{Datelike, NaiveDate};
 
-/// Recommendations whose action is "apply nitrogen now".
-const FEEDING_IDS: [&str; 4] = [
-    "fall_fert_early",
-    "fall_fert_mid",
-    "fall_fert_winterizer",
-    "spring_n_ready",
-];
 /// Rules that say conditions are wrong for fertilizer right now.
 const FERTILIZER_BLOCK_ID: &str = "fertilizer_block";
 const HEAT_STRESS_ID: &str = "heat_stress_forecast";
@@ -24,8 +19,46 @@ const LARGEST_FEEDING_LBS: f64 = 1.0;
 /// Below this much room the target counts as reached.
 const BUDGET_EPSILON_LBS: f64 = 0.05;
 
-fn is_feeding(rec: &Recommendation) -> bool {
-    FEEDING_IDS.contains(&rec.id.as_str())
+/// Label of the data point that states a feeding's nitrogen rate.
+pub const RATE_POINT: &str = "Recommended Rate";
+
+/// Pounds, without trailing zeros: 0.5, 0.75, 1.
+fn lbs(x: f64) -> String {
+    let s = format!("{x:.2}");
+    s.trim_end_matches('0').trim_end_matches('.').to_string()
+}
+
+/// A feeding's rate as every feeding source states it: "0.75 lb N/1000 sq ft".
+pub fn rate_text(n_lbs_per_ksqft: f64) -> String {
+    format!("{} lb N/1000 sq ft", lbs(n_lbs_per_ksqft))
+}
+
+/// A feeding's amount as every feeding source states it in its text: "about 3.75 lb of
+/// nitrogen for your 5000 sq ft lawn (0.75 lb N/1000 sq ft)". The guard re-renders this
+/// exact phrase when it caps a feeding.
+pub fn amount_text(n_lbs_per_ksqft: f64, lawn_sqft: f64) -> String {
+    format!(
+        "about {} lb of nitrogen for your {:.0} sq ft lawn ({})",
+        lbs(lawn_sqft / 1000.0 * n_lbs_per_ksqft),
+        lawn_sqft,
+        rate_text(n_lbs_per_ksqft)
+    )
+}
+
+/// Re-state a feeding's amount as `capped` wherever the source stated its own `n`.
+fn cap_amount(rec: &mut Recommendation, n: f64, capped: f64, lawn_sqft: f64) {
+    let restate = |text: &str| -> String {
+        text.replace(&amount_text(n, lawn_sqft), &amount_text(capped, lawn_sqft))
+            .replace(&rate_text(n), &rate_text(capped))
+    };
+    rec.suggested_action = rec.suggested_action.as_deref().map(restate);
+    rec.description = restate(&rec.description);
+    for point in rec.data_points.iter_mut().filter(|d| d.label == RATE_POINT) {
+        point.value = rate_text(capped);
+    }
+    rec.feeding = Some(crate::models::Feeding {
+        n_lbs_per_ksqft: capped,
+    });
 }
 
 /// Lawn nitrogen applied in `today`'s year (lb N / 1000 sq ft).
@@ -37,6 +70,7 @@ fn applied_this_year(history: &[Application], today: NaiveDate) -> f64 {
         .sum()
 }
 
+// @spec RULE-GUARD-001, RULE-GUARD-003, RULE-GUARD-004, RULE-GUARD-006, RULE-GUARD-007, RULE-GUARD-008
 pub fn apply(
     recommendations: &mut [Recommendation],
     profile: &LawnProfile,
@@ -50,7 +84,11 @@ pub fn apply(
     let applied = applied_this_year(history, today);
     let remaining = target.recommended_lbs_per_1000sqft - applied;
 
-    for rec in recommendations.iter_mut().filter(|r| is_feeding(r)) {
+    let lawn_sqft = profile.lawn_size_sqft.unwrap_or(DEFAULT_LAWN_SIZE_SQFT);
+    for rec in recommendations.iter_mut() {
+        let Some(feeding) = rec.feeding else {
+            continue;
+        };
         rec.data_points.push(crate::models::DataPoint::new(
             "N budget remaining",
             format!(
@@ -73,6 +111,9 @@ pub fn apply(
             rec.suggested_action = None;
             rec.needs.clear();
         } else if remaining < LARGEST_FEEDING_LBS {
+            if remaining < feeding.n_lbs_per_ksqft {
+                cap_amount(rec, feeding.n_lbs_per_ksqft, remaining, lawn_sqft);
+            }
             rec.description = format!(
                 "{} Keep this application at or under {remaining:.2} lb N/1000 sqft to stay \
                  within this year's target.",
@@ -115,15 +156,86 @@ mod tests {
         NaiveDate::from_ymd_opt(2026, 10, 5).unwrap()
     }
 
+    /// A feeding as the sources build one: marked, with its amount stated through the
+    /// shared phrases (5000 sq ft lawn, 1 lb N/1000 sq ft).
     fn feeding() -> Recommendation {
         Recommendation::new(
             "fall_fert_mid",
             RecommendationCategory::Fertilizer,
             Severity::Warning,
             "Main Fall Feeding",
-            "Apply 1.0 lb N.",
+            format!("Feed now: {}.", amount_text(1.0, 5000.0)),
         )
-        .with_action("Apply now")
+        .with_data_point(RATE_POINT, rate_text(1.0), DataSource::Agronomic.as_str())
+        .with_action(format!(
+            "Apply {}. Use slow-release nitrogen.",
+            amount_text(1.0, 5000.0)
+        ))
+        .with_feeding(1.0)
+    }
+
+    fn block() -> Recommendation {
+        Recommendation::new(
+            FERTILIZER_BLOCK_ID,
+            RecommendationCategory::Fertilizer,
+            Severity::Warning,
+            "Avoid Fertilizer Application",
+            "Saturated soil.",
+        )
+    }
+
+    // @spec RULE-GUARD-001
+    #[test]
+    fn the_guard_acts_on_the_mark_not_the_id() {
+        // A feeding from any source, under any id, is held…
+        let mut marked = feeding();
+        marked.id = "disease_red_thread".into();
+        // …and a rule id that happens to be a feeding id but is not marked is left alone.
+        let mut unmarked = feeding();
+        unmarked.feeding = None;
+        unmarked.id = "fall_fert_early".into();
+        let mut recs = vec![marked, unmarked, block()];
+        apply(&mut recs, &profile(GrassType::TallFescue), &[], today());
+        assert_eq!(recs[0].severity, Severity::Info);
+        assert!(recs[0].title.starts_with("On hold"));
+        assert_eq!(recs[1].severity, Severity::Warning);
+        assert!(!recs[1].title.starts_with("On hold"));
+        assert!(recs[1]
+            .data_points
+            .iter()
+            .all(|d| d.label != "N budget remaining"));
+    }
+
+    // @spec RULE-GUARD-007
+    #[test]
+    fn a_capped_feeding_states_no_more_nitrogen_than_remains() {
+        // Tall fescue target 3.5; 3.0 down leaves 0.5 — half the suggested 1.0.
+        let history = [fed(1.5, 4), fed(1.5, 9)];
+        let mut recs = vec![feeding()];
+        apply(
+            &mut recs,
+            &profile(GrassType::TallFescue),
+            &history,
+            today(),
+        );
+        let rec = &recs[0];
+        let original = amount_text(1.0, 5000.0);
+        let capped = amount_text(0.5, 5000.0);
+        let action = rec.suggested_action.as_deref().unwrap_or_default();
+        assert!(!rec.description.contains(&original), "{}", rec.description);
+        assert!(!action.contains(&original), "{action}");
+        assert!(action.contains(&capped), "{action}");
+        assert!(
+            action.contains("slow-release"),
+            "other advice is kept: {action}"
+        );
+        let rate = rec
+            .data_points
+            .iter()
+            .find(|d| d.label == RATE_POINT)
+            .unwrap();
+        assert_eq!(rate.value, rate_text(0.5));
+        assert_eq!(rec.severity, Severity::Warning);
     }
 
     fn fed(lbs_n: f64, month: u32) -> Application {
@@ -201,7 +313,7 @@ mod tests {
         let mut recs = vec![feeding()];
         apply(&mut recs, &profile(GrassType::TallFescue), &[], today());
         assert_eq!(recs[0].severity, Severity::Warning);
-        assert_eq!(recs[0].description, "Apply 1.0 lb N.");
+        assert_eq!(recs[0].description, feeding().description);
         assert!(recs[0]
             .data_points
             .iter()

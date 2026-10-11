@@ -83,7 +83,7 @@ A grass type stored in the DB that cannot be parsed reads back as `TallFescue` w
 
 Consumers are the nitrogen budget endpoint, the nitrogen guard and soil-test advice. They sum the values and own the budget logic. Entries without N% or rate contribute nothing. The log never infers N from a product name.
 
-`Application::is_feeding()` is the single definition of a **feeding**: an entry that `is_turf()`, of type `Fertilizer`, with `nitrogen_pct` unrecorded or above 0. Plant fertilizer and potash-only (0-0-x) products are not feedings; an entry with no analysis recorded is assumed to carry nitrogen. Fall fertilization's spacing and count, spring nitrogen's "fed this spring" and red thread's "nitrogen-hungry" all read it; each consumer applies its own date range. Today each consumer filters for itself, and spring nitrogen and red thread count any `Fertilizer` row (Deferred 20).
+`Application::is_feeding()` is the single definition of a **feeding**: an entry that `is_turf()`, of type `Fertilizer`, with `nitrogen_pct` unrecorded or above 0. Plant fertilizer and potash-only (0-0-x) products are not feedings; an entry with no analysis recorded is assumed to carry nitrogen. Fall fertilization's spacing and count, spring nitrogen's "fed this spring" and red thread's "nitrogen-hungry" all read it; each consumer applies its own date range.
 
 ### Row shape
 
@@ -201,7 +201,7 @@ The form gets its options and the name lookup from `GET /api/v1/frac-classes?pro
 
 ## Follow-up Reminders (`backend/src/logic/follow_up.rs`)
 
-Any application may set `follow_up_date` ("do this again on…"). `generate_follow_up_recommendations` is a pure function over the log, the plants and `today`. The recommendation feed runs it, passing the newest 1000 applications and the server's local date (`Local::now()`, governed by `TZ`; `api/recommendation_feed.rs:54`), the one "today" the HLD gives every component.
+Any application may set `follow_up_date` ("do this again on…"). `generate_follow_up_recommendations` is a pure function over the log, the plants and `today`. The recommendation feed runs it, passing the newest 1000 applications and the lawn's local date (the app's `Clock`, `state.clock.today()`, resolved from `TZ`; `api/recommendation_feed.rs:54`), the one "today" the HLD gives every component.
 
 | Condition | Result |
 |---|---|
@@ -315,9 +315,8 @@ The page edits the profile: name and USDA zone are required, plus grass type, so
 17. **Divergence: follow-up completion accepts any later entry** (APP-FOLLOW-003). `follow_up_completed` (`logic/follow_up.rs:16-23`) counts an entry dated the day after the original, long before the follow-up's lead-in. Intent: only entries dated from `follow_up − 7 d` onward complete it.
 18. **Divergence: invalid optional `LAWN_*` values are dropped silently** (APP-PROF-006). A bad soil type, irrigation type (`main.rs:291-307`) or size (`config.rs:186-188`) gets no warning; only a bad grass type does. Intent: every invalid value logs a warning naming the variable.
 19. **Browser and server dates can differ.** If the browser is in a different timezone from the server's `TZ`, the form's default date (and the +2/+4/+6 week shortcuts) can be a day off the server's "today" around midnight. Harmless in the single-owner setup; the form could default from a server-supplied date instead.
-20. **No shared feeding definition** (divergence, APP spec pending). Fall fertilization filters `is_turf()` and N% (`fall_fertilization.rs:58-59`); spring nitrogen (`spring_nitrogen.rs:53-60`) and red thread's `days_since_fertilizer` (`logic/disease/history.rs`) count any `Fertilizer` row. Intent: all three read `Application::is_feeding()`.
-21. **Divergence: the profile cannot be created through the API** (APP-PROF-011, APP-PROF-012, APP-SET-003). `update_profile` (`api/profile.rs`) returns 404 when no profile exists, and the Settings page shows that as a load error. Intent: `PUT /profile` creates the profile when none exists, and Settings presents the empty form as the way to create it.
-22. **Divergence: a deleted plant's applications become lawn entries** (APP-LOG-002, APP-LOG-009). Deleting a plant sets `plant_id` to null (`ON DELETE SET NULL`), and `is_turf()` treats a null `plant_id` with a non-plant-required type as lawn, so a deleted shrub's Fertilizer or Fungicide entry starts counting toward lawn nitrogen, feedings and disease protection. Intent: a landscape application never counts toward the lawn, whatever its type; each entry keeps a record that it was for a plant (the plant's name).
+20. **Divergence: the profile cannot be created through the API** (APP-PROF-011, APP-PROF-012, APP-SET-003). `update_profile` (`api/profile.rs`) returns 404 when no profile exists, and the Settings page shows that as a load error. Intent: `PUT /profile` creates the profile when none exists, and Settings presents the empty form as the way to create it.
+21. **Divergence: a deleted plant's applications become lawn entries** (APP-LOG-002, APP-LOG-009). Deleting a plant sets `plant_id` to null (`ON DELETE SET NULL`), and `is_turf()` treats a null `plant_id` with a non-plant-required type as lawn, so a deleted shrub's Fertilizer or Fungicide entry starts counting toward lawn nitrogen, feedings and disease protection. Intent: a landscape application never counts toward the lawn, whatever its type; each entry keeps a record that it was for a plant (the plant's name).
 
 ## References
 

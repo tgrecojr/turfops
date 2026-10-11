@@ -3,9 +3,7 @@ mod recs;
 use self::recs::{build_early_fall_rec, build_late_fall_rec, build_mid_fall_rec};
 use super::thresholds::*;
 use super::Rule;
-use crate::models::{
-    Application, ApplicationType, EnvironmentalSummary, LawnProfile, Recommendation,
-};
+use crate::models::{Application, EnvironmentalSummary, LawnProfile, Recommendation};
 use chrono::{Datelike, Local, NaiveDate};
 
 /// Fall fertilization program rule
@@ -54,9 +52,7 @@ impl Rule for FallFertilizationRule {
         let feedings: Vec<&Application> = history
             .iter()
             .filter(|app| {
-                app.application_type == ApplicationType::Fertilizer
-                    && app.is_turf()
-                    && app.nitrogen_pct.is_none_or(|n| n > 0.0)
+                app.is_feeding()
                     && app.application_date.year() == current_year
                     && app.application_date <= today
             })

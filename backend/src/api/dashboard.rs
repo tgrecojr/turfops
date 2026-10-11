@@ -47,8 +47,8 @@ pub async fn get_dashboard(
     let mut recommendations =
         super::recommendation_feed::active(&state, &profile, &summary).await?;
 
-    // Top 3 recommendations by severity
-    recommendations.sort_by_key(|r| std::cmp::Reverse(r.severity));
+    // @spec FEED-PIPE-001, FEED-API-006
+    // The feed is already most-severe-first; the dashboard only truncates it.
     recommendations.truncate(3);
 
     Ok(Json(DashboardResponse {

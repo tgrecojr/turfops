@@ -23,6 +23,9 @@ pub struct ProductNeed {
     /// Nice to have: never makes the recommendation "need to buy" on its own.
     #[serde(default)]
     pub optional: bool,
+    /// Only a product that carries nitrogen (N above 0, or N not recorded) fits.
+    #[serde(default)]
+    pub requires_nitrogen: bool,
 }
 
 impl ProductNeed {
@@ -35,6 +38,7 @@ impl ProductNeed {
             targets: Vec::new(),
             amendment_kinds: Vec::new(),
             optional: false,
+            requires_nitrogen: false,
         }
     }
 
@@ -58,8 +62,9 @@ impl ProductNeed {
         self
     }
 
-    pub fn with_amendment_kinds(mut self, kinds: Vec<AmendmentKind>) -> Self {
-        self.amendment_kinds = kinds;
+    /// Require a product that carries nitrogen (the need of a feeding).
+    pub fn requiring_nitrogen(mut self) -> Self {
+        self.requires_nitrogen = true;
         self
     }
 
@@ -91,7 +96,12 @@ impl ProductNeed {
         let amendment_ok = self.amendment_kinds.is_empty()
             || f.amendment_kind
                 .is_some_and(|k| self.amendment_kinds.contains(&k));
-        self.categories.contains(&f.category)
+        // @spec INV-NEED-005
+        // Unrecorded N matches: most fertilizers carry nitrogen and are often logged
+        // without their analysis; a recorded 0-0-x is the case to exclude.
+        let nitrogen_ok = !self.requires_nitrogen || f.nitrogen_pct.is_none_or(|n| n > 0.0);
+        nitrogen_ok
+            && self.categories.contains(&f.category)
             && any(&self.frac_classes, &f.frac_classes)
             && any(&self.targets, &f.targets)
             && timing_ok
@@ -221,6 +231,27 @@ mod tests {
             created_at: now,
             updated_at: now,
         }
+    }
+
+    // @spec INV-NEED-005
+    #[test]
+    fn a_feeding_need_takes_only_a_fertilizer_that_carries_nitrogen() {
+        let need = ProductNeed::new("nitrogen fertilizer", ProductCategory::Fertilizer)
+            .requiring_nitrogen();
+        let with_n = |n: Option<f64>| {
+            let mut p = product(1, ProductCategory::Fertilizer, StockStatus::InStock);
+            p.facts.nitrogen_pct = n;
+            p
+        };
+        assert!(need.fits(&with_n(Some(24.0))));
+        assert!(
+            need.fits(&with_n(None)),
+            "an unrecorded analysis may carry nitrogen"
+        );
+        assert!(
+            !need.fits(&with_n(Some(0.0))),
+            "0-0-50 cannot deliver a feeding"
+        );
     }
 
     #[test]
