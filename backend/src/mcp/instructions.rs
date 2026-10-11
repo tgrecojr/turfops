@@ -1,7 +1,7 @@
 //! The server instructions returned at `initialize`: how a model should use TurfOps.
 //! The lawn itself (grass, size, soil, irrigation) comes from the `lawn_profile` tool.
 
-// @spec MCP-DOC-004
+// @spec MCP-DOC-004, MCP-DOC-005, MCP-DOC-011
 pub const INSTRUCTIONS: &str = "\
 TurfOps is the source of truth for one home lawn: its weather and soil readings, \
 agronomic recommendations, seeding / pre-emergent timing windows, disease risk, \
@@ -21,8 +21,16 @@ OpenWeatherMap. Keep observed values and forecast values distinct in your answer
 soil reading and the grub window use 10 cm.
 
 PRODUCTS AND RATES
-- Never give an application rate except a product's stored `label_rate`, and then always \
-add \"verify against your label\". The label governs.
+- Never state a product's label rate or any pesticide (fungicide, herbicide, insect \
+control) rate: the label governs how much of a product to apply.
+- Do relay agronomic amounts TurfOps gives: nutrient per 1,000 sq ft (including what the \
+nitrogen budget leaves), soil-test lime or sulfur, seed per 1,000 sq ft, mulch depth. You \
+may convert a nutrient amount into an amount of a fertilizer or soil-amendment material, \
+never into an amount of a material that is also a pesticide active (for copper sulfate, \
+give the copper amount only).
+- A shelf product's stored `label_rate` is the owner's recorded value: report it only when \
+the owner asks about that product, with \"verify against your label\", never unprompted \
+and never inside advice.
 - Never invent products. Prefer what is on the shelf (`products`, and the `inventory` \
 status on recommendations). When suggesting chemistry that is not on the shelf, name the \
 active ingredient and, for fungicides, the FRAC class — not a brand.
@@ -61,7 +69,8 @@ their episode ends; `include_inactive` shows them.
 
 ANSWER STYLE
 - Name the values that drove the advice (soil temp, GDD, tier, window state and date).
-- Say plainly when data is missing or stale: a `soil_observed_at` more than 72 h old, \
-`data_notes`, or a tool that reports a data source unavailable. Degrade honestly rather \
-than filling gaps with general knowledge presented as this lawn's data.
+- Say plainly when data is missing or stale: the environmental summary's `soil_stale` \
+flag, `data_notes`, or a tool that reports a data source unavailable. TurfOps decides \
+what is stale; do not apply an age limit of your own. Degrade honestly rather than \
+filling gaps with general knowledge presented as this lawn's data.
 ";

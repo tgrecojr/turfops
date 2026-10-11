@@ -135,6 +135,19 @@ pub fn part(result: Result<Value, String>, name: &str, notes: &mut Vec<String>) 
     })
 }
 
+/// The snapshot's `data_sources`: the connection status, or `null` with a note.
+// @spec MCP-SNAP-010
+pub fn data_sources(status: Result<Value, serde_json::Error>, notes: &mut Vec<String>) -> Value {
+    status.unwrap_or_else(|err| {
+        tracing::error!(error = %err, "MCP lawn_snapshot: connection status not serializable");
+        notes.push(format!(
+            "data_sources unavailable: {}",
+            super::tools::INTERNAL_ERROR
+        ));
+        Value::Null
+    })
+}
+
 /// Build an object from named parts.
 pub fn object(parts: Vec<(&str, Value)>) -> Value {
     Value::Object(
@@ -285,6 +298,24 @@ mod tests {
         assert_eq!(detail["disease"]["management"]["cultural"][0], "remove dew");
         assert!(disease_detail(&risk, "brown-patch").is_none());
         assert_eq!(disease_slugs(&risk), vec!["dollar-spot"]);
+    }
+
+    // @spec MCP-SNAP-010
+    #[test]
+    fn unserializable_connection_status_is_null_with_a_note() {
+        let mut notes = Vec::new();
+        let ok = data_sources(Ok(json!({"soildata": true})), &mut notes);
+        assert_eq!(ok, json!({"soildata": true}));
+        assert!(notes.is_empty());
+        let err = serde_json::from_str::<Value>("{").unwrap_err();
+        assert_eq!(data_sources(Err(err), &mut notes), Value::Null);
+        assert_eq!(
+            notes,
+            vec![
+                "data_sources unavailable: TurfOps hit an internal error answering this; \
+                  details are in the server log."
+            ]
+        );
     }
 
     #[test]

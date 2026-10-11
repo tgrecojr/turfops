@@ -108,7 +108,8 @@ impl TurfOpsMcp {
             ),
         ];
         let mut snapshot = trim::object(parts);
-        snapshot["data_sources"] = serde_json::to_value(connections).unwrap_or_default();
+        snapshot["data_sources"] =
+            trim::data_sources(serde_json::to_value(connections), &mut notes);
         snapshot["notes"] = notes.into();
         json_result(&snapshot)
     }

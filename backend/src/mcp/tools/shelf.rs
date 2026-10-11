@@ -26,28 +26,25 @@ pub struct ProductsParams {
 
 #[tool_router(router = shelf_tools, vis = "pub(in crate::mcp)")]
 impl TurfOpsMcp {
+    // @spec MCP-TOOL-023
     #[tool(
         description = "The product shelf: every product the owner has, with category, form, \
                        N-P-K, FRAC classes, herbicide timing (pre / post-emergent), targets, \
                        amendment kind, stock status (InStock / Low / Out — there are no \
-                       quantities) and the stored label rate (quote it only with 'verify \
-                       against your label'). `profile` is AI-generated background, not fact. \
-                       Check this before suggesting any product.",
+                       quantities) and the owner's recorded label rate. Report that rate \
+                       only when the owner asks about that product, as their recorded \
+                       value with 'verify against your label', and never inside advice. \
+                       `profile` is AI-generated background, not fact. Check this before \
+                       suggesting any product.",
         annotations(read_only_hint = true)
     )]
     async fn products(
         &self,
         Parameters(params): Parameters<ProductsParams>,
     ) -> Result<CallToolResult, ErrorData> {
-        let category = match params.category.as_deref().map(ProductCategory::from_str) {
-            None => None,
-            Some(Ok(category)) => Some(category),
-            Some(Err(_)) => {
-                return Ok(tool_error(TurfOpsError::InvalidData(format!(
-                    "Unknown product category `{}`",
-                    params.category.unwrap_or_default()
-                ))))
-            }
+        let category = match category_filter(params.category.as_deref()) {
+            Ok(category) => category,
+            Err(err) => return Ok(tool_error(err)),
         };
         call(api::products::list_products(
             State(self.state.clone()),
@@ -79,5 +76,42 @@ impl TurfOpsMcp {
     )]
     async fn plants(&self) -> Result<CallToolResult, ErrorData> {
         call(api::plants::list_plants(State(self.state.clone()))).await
+    }
+}
+
+/// The `category` argument as a product category.
+// @spec MCP-TOOL-022
+fn category_filter(raw: Option<&str>) -> Result<Option<ProductCategory>, TurfOpsError> {
+    raw.map(|c| {
+        ProductCategory::from_str(c).map_err(|_| {
+            let known: Vec<&str> = ProductCategory::ALL.iter().map(|k| k.as_str()).collect();
+            TurfOpsError::InvalidData(format!(
+                "Unknown product category `{c}`. Use one of: {}",
+                known.join(", ")
+            ))
+        })
+    })
+    .transpose()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // @spec MCP-TOOL-022
+    #[test]
+    fn an_unknown_category_lists_the_real_ones() {
+        match category_filter(Some("Pesticide")) {
+            Err(TurfOpsError::InvalidData(msg)) => assert_eq!(
+                msg,
+                "Unknown product category `Pesticide`. Use one of: Fertilizer, Supplement, \
+                 Fungicide, Herbicide, InsectControl, Seed, SoilAmendment, Surfactant, Other"
+            ),
+            other => panic!("expected a category error, got ok={}", other.is_ok()),
+        }
+        assert_eq!(
+            category_filter(Some("Seed")).unwrap(),
+            Some(ProductCategory::Seed)
+        );
     }
 }

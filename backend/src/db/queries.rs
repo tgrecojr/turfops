@@ -173,6 +173,39 @@ pub async fn get_applications_for_profile_in_range(
     Ok(rows.into_iter().map(|r| r.into_application()).collect())
 }
 
+/// At most `limit` applications dated in `[start, end)`, newest first, optionally of one
+/// type: filtered and limited in SQL, so a wide range never reads the whole log.
+// @spec MCP-TOOL-026
+pub async fn get_applications_in_range_page(
+    pool: &PgPool,
+    profile_id: i64,
+    application_type: Option<ApplicationType>,
+    start_date: NaiveDate,
+    end_date: NaiveDate,
+    limit: i64,
+) -> Result<Vec<Application>> {
+    let rows = sqlx::query_as::<_, ApplicationRow>(
+        r#"SELECT id, lawn_profile_id, application_type, product_name, application_date,
+           rate_per_1000sqft, coverage_sqft, notes, nitrogen_pct, phosphorus_pct, potassium_pct,
+           plant_id, plant_name, follow_up_date, frac_classes, product_id, created_at
+           FROM applications
+           WHERE lawn_profile_id = $1
+             AND application_date >= $2 AND application_date < $3
+             AND ($4::text IS NULL OR application_type = $4)
+           ORDER BY application_date DESC, id DESC
+           LIMIT $5"#,
+    )
+    .bind(profile_id)
+    .bind(start_date)
+    .bind(end_date)
+    .bind(opt_enum_to_db_string(application_type)?)
+    .bind(limit)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows.into_iter().map(|r| r.into_application()).collect())
+}
+
 /// Applications applied in the range **or** with a follow-up due in it — the calendar
 /// shows both. Rows matched only by follow-up carry an `application_date` outside the range.
 pub async fn get_applications_or_follow_ups_in_range(

@@ -4,10 +4,14 @@
 
 mod auth;
 mod config;
+#[cfg(test)]
+mod guard_tests;
 mod instructions;
 mod resources;
 mod tools;
 mod trim;
+#[cfg(test)]
+mod trim_model_tests;
 
 pub use config::{parse_token, McpConfig};
 
@@ -99,17 +103,85 @@ pub fn router(state: AppState, token: &str) -> Router {
         Arc::new(LocalSessionManager::default()),
         config,
     );
-    Router::new()
-        .nest_service("/mcp", service)
+    guarded(Router::new().nest_service("/mcp", service), token)
+}
+
+/// The same body limit as `/api/v1`.
+const MAX_BODY_BYTES: usize = 1024 * 1024;
+
+/// The `/mcp` routes behind the bearer guard, then a POST-only gate and the body limit,
+/// so an unauthenticated request learns nothing and no tool runs on an oversized body.
+// @spec MCP-SRV-006, MCP-SRV-007
+pub(crate) fn guarded(inner: Router, token: &str) -> Router {
+    inner
+        .layer(tower_http::limit::RequestBodyLimitLayer::new(
+            MAX_BODY_BYTES,
+        ))
+        .layer(axum::middleware::from_fn(post_only))
         .layer(axum::middleware::from_fn_with_state(
             Arc::<str>::from(token),
             auth::require_bearer,
         ))
 }
 
+/// Stateless streamable HTTP with JSON responses needs only POST.
+async fn post_only(
+    request: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    use axum::http::{header, Method, StatusCode};
+    use axum::response::IntoResponse;
+    if request.method() != Method::POST {
+        return (StatusCode::METHOD_NOT_ALLOWED, [(header::ALLOW, "POST")]).into_response();
+    }
+    next.run(request).await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // @spec MCP-TOOL-023
+    #[test]
+    fn the_products_tool_reports_a_label_rate_only_when_asked() {
+        let tools = TurfOpsMcp::tools().list_all();
+        let products = tools.iter().find(|t| t.name == "products").unwrap();
+        let d = products.description.as_deref().unwrap_or_default();
+        assert!(d.contains("only when the owner asks"), "{d}");
+        assert!(d.contains("verify against your label"), "{d}");
+        assert!(d.contains("never inside advice"), "{d}");
+    }
+
+    // @spec MCP-DOC-005
+    #[test]
+    fn the_rates_rule_separates_label_rates_from_agronomic_amounts() {
+        let doc = instructions::INSTRUCTIONS;
+        for phrase in [
+            "label rate",
+            "fungicide, herbicide, insect control",
+            "per 1,000 sq ft",
+            "nitrogen budget",
+            "lime or sulfur",
+            "mulch depth",
+            "also a pesticide active",
+            "only when the owner asks",
+            "verify against your label",
+        ] {
+            assert!(doc.contains(phrase), "doctrine lacks {phrase:?}");
+        }
+    }
+
+    // @spec MCP-DOC-011
+    #[test]
+    fn staleness_comes_from_the_flag_not_a_limit_of_its_own() {
+        let doc = instructions::INSTRUCTIONS;
+        assert!(doc.contains("soil_stale"));
+        assert!(doc.contains("data_notes"));
+        assert!(
+            !doc.contains("72 h"),
+            "the doctrine must not state its own staleness limit"
+        );
+    }
 
     #[test]
     fn every_tool_has_a_description_and_is_read_only() {

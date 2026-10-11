@@ -50,14 +50,8 @@ pub async fn list_applications(
     // Optional filter by application type
     let app_type = params
         .app_type
-        .map(|type_filter| {
-            ApplicationType::from_str(&type_filter).map_err(|_| {
-                TurfOpsError::InvalidData(format!(
-                    "Unknown application type filter: {}",
-                    type_filter
-                ))
-            })
-        })
+        .as_deref()
+        .map(parse_type_filter)
         .transpose()?;
 
     // @spec APP-API-012
@@ -86,6 +80,12 @@ pub struct CreateApplicationRequest {
     pub frac_classes: Option<Vec<FracClass>>,
     /// Shelf product this application used; its name is copied when product_name is empty.
     pub product_id: Option<i64>,
+}
+
+/// The list's `type` filter, leniently parsed (`pre-emergent`, `grub control`, `mow`).
+pub(crate) fn parse_type_filter(raw: &str) -> Result<ApplicationType, TurfOpsError> {
+    ApplicationType::from_str(raw)
+        .map_err(|_| TurfOpsError::InvalidData(format!("Unknown application type filter: {raw}")))
 }
 
 /// Only a fungicide carries FRAC classes; an empty pick means "not recorded".
