@@ -1,5 +1,8 @@
 //! Product inventory CRUD. Unlike plants, a product saves without the LLM: the profile is
 //! optional and can be generated later (`products/refresh.rs`).
+mod checks;
+#[cfg(test)]
+mod checks_tests;
 mod link;
 mod refresh;
 
@@ -80,9 +83,9 @@ pub async fn create_product(
     }
     let profile = active_profile(&state).await?;
     let lawn_profile_id = profile_id(&profile)?;
+    ensure_name_free(&state, lawn_profile_id, &name, None).await?;
 
-    let (ai, mut assistant_failure) = match (req.assist.unwrap_or(true), state.openrouter.as_ref())
-    {
+    let (ai, assistant_failure) = match (req.assist.unwrap_or(true), state.openrouter.as_ref()) {
         (true, Some(openrouter)) => {
             let lookup = lookup_name(req.brand.as_deref(), &name);
             match openrouter
@@ -109,19 +112,21 @@ pub async fn create_product(
     };
 
     let mut facts = match &ai {
-        Some((p, _)) => ProductFacts::from_profile(p, frac_classes_for_product(&name)),
-        None => {
-            let Some(category) = req.category else {
-                return Err(assistant_failure.take().unwrap_or_else(|| {
-                    TurfOpsError::InvalidData(
-                        "Pick a category to save the product without the assistant.".into(),
-                    )
-                }));
-            };
-            let mut f = ProductFacts::manual(category, req.form.unwrap_or(ProductForm::Other));
-            f.frac_classes = frac_classes_for_product(&name);
-            f
+        Some((p, _)) => {
+            // @spec INV-LLM-010
+            let (facts, dropped) = ProductFacts::from_profile(p, frac_classes_for_product(&name))
+                .without_out_of_range();
+            if !dropped.is_empty() {
+                warn!(product = %name, ?dropped, "Left out-of-range assistant suggestions out of the facts");
+            }
+            facts
         }
+        None => checks::facts_without_profile(
+            req.category,
+            req.form,
+            &name,
+            assistant_failure.is_some(),
+        )?,
     };
     // The user's own category / form beat the LLM's guess.
     if let Some(c) = req.category {
@@ -159,10 +164,21 @@ pub async fn create_product(
         StatusCode::CREATED,
         Json(ProductCreated {
             product: created,
-            profile_error: assistant_failure.map(|_| SAVED_BY_HAND.to_string()),
+            profile_error: assistant_failure.map(|_| {
+                if req.category.is_some() {
+                    SAVED_BY_HAND
+                } else {
+                    SAVED_AS_OTHER
+                }
+                .to_string()
+            }),
         }),
     ))
 }
+
+/// What the owner sees when the assistant failed and no category was given.
+const SAVED_AS_OTHER: &str = "The assistant couldn't identify this product, so it was saved \
+     under Other. Edit it to set its category, or use Refresh profile to try again later.";
 
 /// What the owner sees when the assistant failed but the product saved with their details.
 const SAVED_BY_HAND: &str = "The assistant couldn't identify this product, so it was saved with \
@@ -193,6 +209,12 @@ pub async fn update_product(
             "label rate needs both an amount and a unit".into(),
         ));
     }
+    // @spec INV-API-011
+    if let Some(problem) = req.facts.range_problem() {
+        return Err(TurfOpsError::InvalidData(problem));
+    }
+    let lawn_profile_id = profile_id(&active_profile(&state).await?)?;
+    ensure_name_free(&state, lawn_profile_id, &req.name, Some(id)).await?;
     let update = product_queries::ProductUpdate {
         name: req.name,
         brand: req.brand.filter(|b| !b.trim().is_empty()),
@@ -211,6 +233,23 @@ pub async fn delete_product(
 ) -> Result<StatusCode, TurfOpsError> {
     product_queries::delete_product(&state.pool, id).await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// 409 when another of the lawn's products (archived included) already has this name.
+// @spec INV-API-013
+async fn ensure_name_free(
+    state: &AppState,
+    lawn_profile_id: i64,
+    name: &str,
+    editing: Option<i64>,
+) -> Result<(), TurfOpsError> {
+    let shelf =
+        product_queries::list_products_for_profile(&state.pool, lawn_profile_id, None, true)
+            .await?;
+    if checks::name_taken(&shelf, name, editing) {
+        return Err(checks::name_conflict(name));
+    }
+    Ok(())
 }
 
 async fn load(state: &AppState, id: i64) -> Result<Product, TurfOpsError> {

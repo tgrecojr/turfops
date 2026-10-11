@@ -77,8 +77,11 @@ pub async fn all_with_history(
         today,
     ));
 
-    let products =
-        product_queries::list_products_for_profile(&state.pool, profile_id, None, false).await?;
+    // A shelf that can't be read costs the inventory badges, not the feed.
+    let products = product_queries::list_products_for_profile(&state.pool, profile_id, None, false)
+        .await
+        .inspect_err(|e| tracing::warn!("Skipping inventory in the feed: {e}"))
+        .ok();
     let rec_states = queries::get_recommendation_states(&state.pool).await?;
     let feed = assemble(
         recommendations,
@@ -86,7 +89,7 @@ pub async fn all_with_history(
             profile,
             history: &apps,
             today,
-            products: &products,
+            products: products.as_deref(),
             answers: &rec_states,
             now: Utc::now(),
         },
@@ -99,7 +102,8 @@ pub(crate) struct Stages<'a> {
     pub profile: &'a LawnProfile,
     pub history: &'a [Application],
     pub today: chrono::NaiveDate,
-    pub products: &'a [Product],
+    /// `None` when the shelf could not be read: the inventory pass is skipped.
+    pub products: Option<&'a [Product]>,
     pub answers: &'a HashMap<String, RecommendationState>,
     pub now: chrono::DateTime<Utc>,
 }
@@ -119,7 +123,10 @@ pub(crate) fn assemble(
         stages.history,
         stages.today,
     );
-    enrich(&mut recommendations, stages.products);
+    // @spec INV-ENRICH-005
+    if let Some(products) = stages.products {
+        enrich(&mut recommendations, products);
+    }
     for rec in &mut recommendations {
         if let Some(answer) = stages
             .answers
@@ -159,6 +166,13 @@ mod tests {
     }
 
     fn assembled(recs: Vec<Recommendation>) -> Vec<Recommendation> {
+        assembled_with(recs, Some(&[]))
+    }
+
+    fn assembled_with(
+        recs: Vec<Recommendation>,
+        products: Option<&[Product]>,
+    ) -> Vec<Recommendation> {
         let profile = profile();
         let answers = HashMap::new();
         assemble(
@@ -167,11 +181,32 @@ mod tests {
                 profile: &profile,
                 history: &[],
                 today: chrono::NaiveDate::from_ymd_opt(2026, 10, 5).unwrap(),
-                products: &[],
+                products,
                 answers: &answers,
                 now: Utc::now(),
             },
         )
+    }
+
+    // @spec INV-ENRICH-005
+    #[test]
+    fn without_a_readable_shelf_the_feed_has_no_inventory_verdicts() {
+        let need = crate::models::ProductNeed::new(
+            "grub preventative",
+            crate::models::ProductCategory::InsectControl,
+        );
+        let grubs = rec("grub_control_2026", Severity::Advisory).with_need(need);
+        let shelf_down = assembled_with(vec![grubs.clone()], None);
+        assert!(shelf_down[0].inventory.is_none(), "not \"need to buy\"");
+        assert!(!shelf_down[0]
+            .data_points
+            .iter()
+            .any(|d| d.label == "Not on shelf"));
+        let empty_shelf = assembled_with(vec![grubs], Some(&[]));
+        assert!(
+            empty_shelf[0].inventory.is_some(),
+            "an empty shelf is still a verdict"
+        );
     }
 
     // @spec FEED-PIPE-004, FEED-PIPE-006

@@ -160,6 +160,7 @@ pub struct InventoryStatus {
 
 impl InventoryStatus {
     /// `None` when there is nothing to say: no needs, or only optional ones unmet.
+    // @spec INV-ENRICH-002
     pub fn assess(needs: &[ProductNeed], products: &[Product]) -> Option<Self> {
         let mut matches = Vec::new();
         let mut missing = Vec::new();
@@ -189,13 +190,22 @@ impl InventoryStatus {
         if required == 0 && matches.is_empty() {
             return None;
         }
+        // Only products serving required needs decide Low vs On hand.
+        let required_labels: Vec<&str> = needs
+            .iter()
+            .filter(|n| !n.optional)
+            .map(|n| n.label.as_str())
+            .collect();
+        let mut serving = matches
+            .iter()
+            .filter(|m| required_labels.contains(&m.need.as_str()))
+            .peekable();
         let state = if required > 0 && covered == 0 {
             InventoryState::NotOnHand
         } else if covered < required {
             InventoryState::Partial
-        } else if matches
-            .iter()
-            .all(|m| m.product.stock_status == StockStatus::Low)
+        } else if serving.peek().is_some()
+            && serving.all(|m| m.product.stock_status == StockStatus::Low)
         {
             InventoryState::Low
         } else {
@@ -231,6 +241,39 @@ mod tests {
             created_at: now,
             updated_at: now,
         }
+    }
+
+    // @spec INV-ENRICH-002
+    #[test]
+    fn only_products_serving_required_needs_decide_low() {
+        let needs = [
+            ProductNeed::new("grub preventative", ProductCategory::InsectControl),
+            ProductNeed::new("wetting agent", ProductCategory::Surfactant).optional(),
+        ];
+        let low_grub = product(1, ProductCategory::InsectControl, StockStatus::Low);
+        let wetting = product(2, ProductCategory::Surfactant, StockStatus::InStock);
+        let status = InventoryStatus::assess(&needs, &[low_grub.clone(), wetting]).unwrap();
+        assert_eq!(
+            status.state,
+            InventoryState::Low,
+            "the in-stock optional match must not mask it"
+        );
+
+        let low_wetting = product(3, ProductCategory::Surfactant, StockStatus::Low);
+        let grub = product(4, ProductCategory::InsectControl, StockStatus::InStock);
+        let status = InventoryStatus::assess(&needs, &[grub, low_wetting]).unwrap();
+        assert_eq!(
+            status.state,
+            InventoryState::OnHand,
+            "a low optional match must not create it"
+        );
+
+        assert!(
+            InventoryStatus::assess(&needs[1..], &[]).is_none(),
+            "optional unmet: nothing to say"
+        );
+        let status = InventoryStatus::assess(&needs, &[]).unwrap();
+        assert_eq!(status.state, InventoryState::NotOnHand);
     }
 
     // @spec INV-NEED-005

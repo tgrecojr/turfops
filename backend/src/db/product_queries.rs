@@ -129,10 +129,7 @@ pub async fn update_product(pool: &PgPool, id: i64, update: &ProductUpdate) -> R
     .bind(id)
     .execute(pool)
     .await?;
-    if result.rows_affected() == 0 {
-        return Err(TurfOpsError::NotFound(format!("Product {} not found", id)));
-    }
-    Ok(())
+    ensure_found(result.rows_affected(), id)
 }
 
 pub async fn update_product_profile(
@@ -156,11 +153,20 @@ pub async fn update_product_profile(
     Ok(())
 }
 
+// @spec INV-API-014
 pub async fn delete_product(pool: &PgPool, id: i64) -> Result<()> {
-    sqlx::query("DELETE FROM products WHERE id = $1")
+    let result = sqlx::query("DELETE FROM products WHERE id = $1")
         .bind(id)
         .execute(pool)
         .await?;
+    ensure_found(result.rows_affected(), id)
+}
+
+/// `NotFound` when a write by id touched no row.
+pub(crate) fn ensure_found(rows_affected: u64, id: i64) -> Result<()> {
+    if rows_affected == 0 {
+        return Err(TurfOpsError::NotFound(format!("Product {id} not found")));
+    }
     Ok(())
 }
 
@@ -273,5 +279,17 @@ impl ProductRow {
             created_at: self.created_at,
             updated_at: self.updated_at,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // @spec INV-API-014
+    #[test]
+    fn a_write_that_touched_no_row_is_not_found() {
+        assert!(ensure_found(1, 7).is_ok());
+        assert!(matches!(ensure_found(0, 7), Err(TurfOpsError::NotFound(_))));
     }
 }

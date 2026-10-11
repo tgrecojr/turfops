@@ -37,6 +37,11 @@ pub enum TurfOpsError {
     /// generic server-error sentence.
     #[error("Internal inconsistency: {0}")]
     Internal(String),
+
+    /// The request clashes with what is already stored; the message says what and is shown
+    /// to the owner as written.
+    #[error("Conflict: {0}")]
+    Conflict(String),
 }
 
 /// What a unique-index violation means to the user. The only unique indexes writable
@@ -142,7 +147,9 @@ impl TurfOpsError {
     /// duplicate-entry explanation, or the generic server-error sentence.
     pub fn owner_message(&self) -> String {
         match self {
-            TurfOpsError::NotFound(msg) | TurfOpsError::InvalidData(msg) => msg.clone(),
+            TurfOpsError::NotFound(msg)
+            | TurfOpsError::InvalidData(msg)
+            | TurfOpsError::Conflict(msg) => msg.clone(),
             TurfOpsError::Unavailable { origin, outage } => outage_message(*origin, outage),
             TurfOpsError::Database(sqlx::Error::Database(db)) if db.is_unique_violation() => {
                 DUPLICATE_MESSAGE.to_string()
@@ -217,6 +224,7 @@ impl IntoResponse for TurfOpsError {
             TurfOpsError::Database(sqlx::Error::Database(db)) if db.is_unique_violation() => {
                 StatusCode::CONFLICT
             }
+            TurfOpsError::Conflict(_) => StatusCode::CONFLICT,
             other => {
                 tracing::error!("Internal error: {}", other);
                 StatusCode::INTERNAL_SERVER_ERROR
@@ -293,6 +301,14 @@ mod tests {
         assert!(msg.contains("couldn't identify this product"), "{msg}");
         assert!(msg.contains("Pick a category"), "{msg}");
         assert!(!msg.contains("raw model output"));
+    }
+
+    // @spec INV-API-013
+    #[tokio::test]
+    async fn a_conflict_is_a_409_with_its_own_message() {
+        let (status, msg) = body_of(TurfOpsError::Conflict("Already on the shelf.".into())).await;
+        assert_eq!(status, StatusCode::CONFLICT);
+        assert_eq!(msg, "Already on the shelf.");
     }
 
     // @spec DEPLOY-HTTP-008
