@@ -118,3 +118,80 @@ describe("applications list", () => {
 		expect(url).toContain("offset=0");
 	});
 });
+
+describe("request options", () => {
+	// @spec UI-API-005
+	it("merges a caller's headers with the JSON default", async () => {
+		const fetchSpy = vi.fn(
+			async () =>
+				new Response("{}", {
+					status: 200,
+					headers: { "Content-Type": "application/json" },
+				}),
+		);
+		vi.stubGlobal("fetch", fetchSpy);
+		await fetchJson("/api/v1/x", { headers: { "X-Trace": "1" } });
+		const init = (fetchSpy.mock.calls[0] as unknown[])[1] as RequestInit;
+		const headers = new Headers(init.headers);
+		expect(headers.get("Content-Type")).toBe("application/json");
+		expect(headers.get("X-Trace")).toBe("1");
+	});
+
+	// @spec UI-API-006
+	it("keeps the timeout when the caller passes its own signal, and honours that signal", async () => {
+		vi.useFakeTimers();
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(
+				(_url: string, init: RequestInit) =>
+					new Promise((_, reject) => {
+						init.signal?.addEventListener("abort", () =>
+							reject(new DOMException("aborted", "AbortError")),
+						);
+					}),
+			),
+		);
+		const caller = new AbortController();
+		const timedOut = fetchJson(
+			"/api/v1/x",
+			{ signal: caller.signal },
+			1000,
+		).catch((e: ApiError) => e);
+		await vi.advanceTimersByTimeAsync(1000);
+		const err = await timedOut;
+		expect(err).toBeInstanceOf(ApiError);
+		expect((err as ApiError).timedOut).toBe(true);
+
+		const mine = new AbortController();
+		const cancelled = fetchJson(
+			"/api/v1/x",
+			{ signal: mine.signal },
+			1000,
+		).catch((e: unknown) => e);
+		mine.abort();
+		const abort = await cancelled;
+		expect(abort).toBeInstanceOf(DOMException);
+	});
+});
+
+describe("server today", () => {
+	// @spec UI-UTIL-005, DEPLOY-TZ-006
+	it("reads the lawn's date from /api/v1/today", async () => {
+		const fetchSpy = vi.fn(
+			async () =>
+				new Response(
+					JSON.stringify({ today: "2026-10-11", timezone: "America/New_York" }),
+					{ status: 200, headers: { "Content-Type": "application/json" } },
+				),
+		);
+		vi.stubGlobal("fetch", fetchSpy);
+		const { getToday } = await import("./client");
+		expect(await getToday()).toEqual({
+			today: "2026-10-11",
+			timezone: "America/New_York",
+		});
+		expect(String((fetchSpy.mock.calls[0] as unknown[])[0])).toBe(
+			"/api/v1/today",
+		);
+	});
+});

@@ -159,26 +159,7 @@ export function byUrgency(a: TimingWindow, b: TimingWindow): number {
 	return STATE_RANK[a.state] - STATE_RANK[b.state];
 }
 
-const MONTHS = [
-	"Jan",
-	"Feb",
-	"Mar",
-	"Apr",
-	"May",
-	"Jun",
-	"Jul",
-	"Aug",
-	"Sep",
-	"Oct",
-	"Nov",
-	"Dec",
-];
-
-/** Format an ISO `YYYY-MM-DD` date as `Sep 18` without timezone shifts. */
-export function formatMonthDay(iso: string): string {
-	const [, month, day] = iso.split("-");
-	return `${MONTHS[Number(month) - 1]} ${Number(day)}`;
-}
+export { formatMonthDay } from "../utils/dates";
 
 /** Days since the epoch for an ISO date, for positioning on a time axis. */
 export function dayNumber(iso: string): number {

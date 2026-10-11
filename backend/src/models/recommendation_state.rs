@@ -33,7 +33,14 @@ fn episode_days(rec: &Recommendation) -> Option<i64> {
     if rec.id.starts_with("application_followup_") {
         return None;
     }
-    if rec.id == "fertilizer_block" {
+    // A plant watering reminder is "during dry spells": a weather condition, not work
+    // for the season.
+    // @spec FEED-STATE-010
+    if rec.id == "fertilizer_block"
+        || (rec.category == RecommendationCategory::PlantMaintenance
+            && rec.id.starts_with("plant_")
+            && rec.id.contains("_watering_"))
+    {
         return Some(WEATHER_EPISODE_DAYS);
     }
     Some(match rec.category {
@@ -81,6 +88,27 @@ mod tests {
             severity,
             updated_at: Utc::now() - Duration::days(days_ago),
         }
+    }
+
+    // @spec FEED-STATE-010
+    #[test]
+    fn a_plant_watering_answer_lasts_one_weather_episode() {
+        let watering = rec(
+            "plant_12_watering_2026-07-01",
+            RecommendationCategory::PlantMaintenance,
+            Severity::Info,
+        );
+        let pruning = rec(
+            "plant_12_pruning_2026-07-01",
+            RecommendationCategory::PlantMaintenance,
+            Severity::Info,
+        );
+        assert!(answered(Some(Severity::Info), 6).suppresses(&watering, Utc::now()));
+        assert!(!answered(Some(Severity::Info), 8).suppresses(&watering, Utc::now()));
+        assert!(
+            answered(Some(Severity::Info), 8).suppresses(&pruning, Utc::now()),
+            "seasonal"
+        );
     }
 
     #[test]

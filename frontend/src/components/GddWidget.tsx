@@ -7,6 +7,7 @@ import {
 } from "recharts";
 import type { GddSummary } from "../types";
 import { CRABGRASS_STATUS_COLORS, CRABGRASS_STATUS_LABELS } from "../types";
+import ChartTable from "./ChartTable";
 
 interface GddWidgetProps {
 	data: GddSummary;
@@ -76,6 +77,16 @@ export default function GddWidget({ data }: GddWidgetProps) {
 							/>
 						</AreaChart>
 					</ResponsiveContainer>
+					<ChartTable
+						columns={["Date", "GDD", "Season total"]}
+						rows={daily_history
+							.slice(-60)
+							.map((d) => [
+								d.date,
+								d.gdd_base50.toFixed(1),
+								d.cumulative_gdd_base50.toFixed(0),
+							])}
+					/>
 				</div>
 			)}
 

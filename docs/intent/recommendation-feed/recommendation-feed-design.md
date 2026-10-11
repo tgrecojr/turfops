@@ -237,7 +237,7 @@ The dashboard is a composition. The feed owns only the Active Alerts column and 
 ### Deferred
 
 1. **No de-duplication of ids.** If two sources ever emit the same id, both appear, one answer hides both, and the React keys collide (`recommendation_feed.rs:46-68`; `Recommendations.tsx:101`, `:270`). This is unenforced.
-2. **Divergence: episode class follows category, not intent** (FEED-STATE-010). A landscape-plant Watering task ("during dry spells") is PlantMaintenance, so its answer holds 120 d like seasonal work, not 7 d like weather (`models/recommendation_state.rs:32-48`). Intent: Watering tasks get the 7-day weather episode. `FrostWarning` has a weather episode but no producer. `Fungicide`, `SoilTempForecast` and `General` are variants no production source emits.
+2. **Episode classes without producers.** `FrostWarning` has a weather episode but no producer. `Fungicide`, `SoilTempForecast` and `General` are variants no production source emits.
 3. **PATCH accepts any id and any flag combination** (`api/recommendations.rs:53-79`). It accepts unknown ids, `dismissed` and `addressed` both true, and a missing `severity` on a first answer, which stores NULL and disables escalation for that row. There is no 404 and no validation.
 4. **Answered rows are never pruned** (`db/queries.rs:316-375`). Expired rows, and rows for ids a source no longer emits (deleted applications or plants, past `timing_*_<year>`), accumulate.
 5. **Answered list shows only what still fires.** An answered rec whose source stopped emitting it disappears from "Show dismissed" but keeps its row. If the source re-emits it within the episode, it stays hidden (`recommendation_feed.rs:112-121`). This is intended per episode, but not stated in the UI.

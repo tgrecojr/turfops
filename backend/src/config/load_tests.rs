@@ -119,3 +119,33 @@ fn no_credential_appears_in_the_configurations_debug_output() {
         assert!(!printed.contains(secret), "{secret} leaked");
     }
 }
+
+// @spec UI-SRV-009
+#[test]
+fn an_invalid_cors_origin_stops_startup_without_a_panic() {
+    for bad in [
+        "lawn.example.com",
+        "https://lawn.example.com/app",
+        "ftp://lawn.example.com",
+        "http://",
+    ] {
+        match load(&with(&[("CORS_ALLOWED_ORIGIN", bad)])) {
+            Err(TurfOpsError::Config(msg)) => assert!(msg.contains("CORS_ALLOWED_ORIGIN"), "{msg}"),
+            other => panic!(
+                "{bad}: expected a configuration error, got ok={}",
+                other.is_ok()
+            ),
+        }
+    }
+    for good in [
+        "*",
+        "http://localhost:5173",
+        "https://lawn.example.com",
+        "  ",
+    ] {
+        assert!(
+            load(&with(&[("CORS_ALLOWED_ORIGIN", good)])).is_ok(),
+            "{good}"
+        );
+    }
+}

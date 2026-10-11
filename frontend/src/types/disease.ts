@@ -157,8 +157,4 @@ export const MANAGEMENT_ACTION_LABELS: Record<ManagementAction, string> = {
 	Protected: "Protected",
 };
 
-/** Format an ISO `YYYY-MM-DD` date as `M/D` without timezone shifts. */
-export function formatShortDate(iso: string): string {
-	const [, month, day] = iso.split("-");
-	return `${Number(month)}/${Number(day)}`;
-}
+export { formatShortDate } from "../utils/dates";

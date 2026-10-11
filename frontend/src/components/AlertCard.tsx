@@ -1,20 +1,27 @@
 import type { Recommendation } from "../types";
-import { categoryLabel, SEVERITY_COLORS, SEVERITY_SYMBOLS } from "../types";
+import { categoryLabel } from "../types";
 import InventoryBadge from "./InventoryBadge";
+import { severityChip } from "./severity";
 
 interface AlertCardProps {
 	rec: Recommendation;
 }
 
 export default function AlertCard({ rec }: AlertCardProps) {
-	const color = SEVERITY_COLORS[rec.severity];
-	const symbol = SEVERITY_SYMBOLS[rec.severity];
+	// @spec FEED-REC-004
+	const chip = severityChip(rec.severity);
 
 	return (
-		<div style={{ ...styles.card, borderLeftColor: color }}>
+		<div style={{ ...styles.card, borderLeftColor: chip.accent }}>
 			<div style={styles.header}>
-				<span style={{ ...styles.badge, backgroundColor: color }}>
-					{symbol} {rec.severity}
+				<span
+					style={{
+						...styles.badge,
+						color: chip.color,
+						backgroundColor: chip.backgroundColor,
+					}}
+				>
+					{chip.text}
 				</span>
 				<span style={styles.category}>{categoryLabel(rec.category)}</span>
 				{rec.inventory && <InventoryBadge status={rec.inventory} />}
@@ -41,7 +48,6 @@ const styles: Record<string, React.CSSProperties> = {
 		marginBottom: 4,
 	},
 	badge: {
-		color: "#fff",
 		fontSize: "0.7rem",
 		fontWeight: 600,
 		padding: "2px 8px",

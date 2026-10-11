@@ -14,6 +14,7 @@ mod models;
 mod state;
 #[cfg(test)]
 mod test_support;
+mod web;
 
 use crate::config::Config;
 use crate::datasources::OpenRouterClient;
@@ -24,9 +25,7 @@ use axum::routing::{get, patch, post, put};
 use axum::Router;
 use std::net::SocketAddr;
 use std::path::PathBuf;
-use tower_http::cors::CorsLayer;
 use tower_http::limit::RequestBodyLimitLayer;
-use tower_http::services::{ServeDir, ServeFile};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -209,6 +208,7 @@ async fn main() -> anyhow::Result<()> {
             "/api/v1/soil-tests",
             get(api::soil_tests::list_soil_tests).post(api::soil_tests::create_soil_test),
         )
+        .route("/api/v1/today", get(api::today::get_today))
         .route(
             "/api/v1/soil-tests/{id}",
             put(api::soil_tests::update_soil_test).delete(api::soil_tests::delete_soil_test),
@@ -217,7 +217,10 @@ async fn main() -> anyhow::Result<()> {
                                                          // Every /api/v1 error is JSON with a plain message, including unknown paths and
                                                          // requests rejected before a handler runs.
     let app = api::json_errors::with_json_errors(app)
-        .layer(build_cors_layer(&config))
+        .layer(web::cors_layer(
+            config.server.cors_allowed_origin.as_deref(),
+            config.server.port,
+        ))
         .with_state(state.clone());
 
     // MCP server for LLM clients: server-to-server, so merged after the CORS layer.
@@ -232,19 +235,9 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
-    // Serve React SPA static files with fallback to index.html
+    // Serve the React SPA, with client routes falling back to index.html.
     let static_dir = std::env::var("STATIC_DIR").unwrap_or_else(|_| "./static".to_string());
-    let static_path = PathBuf::from(&static_dir);
-
-    let app = if static_path.join("index.html").exists() {
-        let index_file = static_path.join("index.html");
-        let serve_dir = ServeDir::new(&static_path).not_found_service(ServeFile::new(&index_file));
-        tracing::info!("Serving static files from {}", static_dir);
-        app.fallback_service(serve_dir)
-    } else {
-        tracing::warn!("Static directory '{}' not found, API-only mode", static_dir);
-        app
-    };
+    let app = web::with_frontend(app, &PathBuf::from(&static_dir));
 
     // Start server
     let addr = SocketAddr::new(
@@ -288,49 +281,6 @@ async fn shutdown_signal() {
         _ = terminate => {},
     }
     tracing::info!("Shutdown signal received; finishing in-flight requests");
-}
-
-/// Build CORS layer from config. Defaults to same-origin (the server's own address)
-/// when CORS_ALLOWED_ORIGIN is not set. Set to "*" for permissive access.
-fn build_cors_layer(config: &Config) -> CorsLayer {
-    use axum::http::Method;
-
-    let methods = vec![
-        Method::GET,
-        Method::POST,
-        Method::PUT,
-        Method::PATCH,
-        Method::DELETE,
-    ];
-
-    match config.server.cors_allowed_origin.as_deref() {
-        Some("*") => {
-            tracing::warn!(
-                "CORS configured to allow all origins — use CORS_ALLOWED_ORIGIN to restrict"
-            );
-            CorsLayer::permissive()
-        }
-        Some(origin) => {
-            tracing::info!(origin = %origin, "CORS restricted to configured origin");
-            CorsLayer::new()
-                .allow_origin(
-                    origin
-                        .parse::<axum::http::HeaderValue>()
-                        .expect("Invalid CORS_ALLOWED_ORIGIN"),
-                )
-                .allow_methods(methods)
-                .allow_headers(tower_http::cors::Any)
-        }
-        None => {
-            // Default: allow only from the server's own origin (same host/port)
-            let default_origin = format!("http://localhost:{}", config.server.port);
-            tracing::info!(origin = %default_origin, "CORS defaulting to localhost origin");
-            CorsLayer::new()
-                .allow_origin(default_origin.parse::<axum::http::HeaderValue>().unwrap())
-                .allow_methods(methods)
-                .allow_headers(tower_http::cors::Any)
-        }
-    }
 }
 
 /// Create a default lawn profile from config if no profile exists in the DB.

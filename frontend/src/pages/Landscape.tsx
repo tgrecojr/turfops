@@ -15,6 +15,7 @@ import {
 	PLANT_TYPE_LABELS,
 	TASK_TYPE_LABELS,
 } from "../types";
+import { formatMmDd, formatTimestampDate } from "../utils/dates";
 
 export default function Landscape() {
 	const [plants, setPlants] = useState<Plant[]>([]);
@@ -291,7 +292,7 @@ function PlantRow({
 
 					<div style={styles.rowFooter}>
 						<div style={styles.footerMeta}>
-							Plan generated {formatDate(plant.plan_generated_at)} ·{" "}
+							Plan generated {formatTimestampDate(plant.plan_generated_at)} ·{" "}
 							{plant.plan_model}
 						</div>
 						<div style={styles.footerButtons}>
@@ -461,23 +462,6 @@ function AddPlantForm({
 			</div>
 		</form>
 	);
-}
-
-function formatDate(iso: string): string {
-	try {
-		return new Date(iso).toLocaleDateString();
-	} catch {
-		return iso;
-	}
-}
-
-function formatMmDd(mmdd: string): string {
-	const [mStr, dStr] = mmdd.split("-");
-	const month = parseInt(mStr, 10);
-	const day = parseInt(dStr, 10);
-	if (Number.isNaN(month) || Number.isNaN(day)) return mmdd;
-	const d = new Date(2000, month - 1, day);
-	return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 const styles: Record<string, React.CSSProperties> = {

@@ -8,6 +8,7 @@ import {
 	CHANGED_FIELD_LABELS,
 	PRODUCT_TARGET_LABELS,
 } from "../../types/inventoryTargets";
+import { formatTimestampDate } from "../../utils/dates";
 import EditProductForm from "./EditProductForm";
 import ProductDetails from "./ProductDetails";
 import StockBadge from "./StockBadge";
@@ -131,7 +132,7 @@ export default function ProductRow(props: Props) {
 						<div style={styles.footer}>
 							<div style={styles.footerMeta}>
 								{profile && p.profile_generated_at
-									? `Profile generated ${formatDate(p.profile_generated_at)} · ${p.profile_model}`
+									? `Profile generated ${formatTimestampDate(p.profile_generated_at)} · ${p.profile_model}`
 									: "Entered by hand — no assistant profile"}
 							</div>
 							<div style={inv.buttonRow}>
@@ -201,14 +202,6 @@ function npk(p: Product): string | null {
 /** "Frac11" → "11", "FracP07" → "P07", "FracM5" → "M5". */
 function fracCode(id: string): string {
 	return id.replace(/^Frac/, "");
-}
-
-function formatDate(iso: string): string {
-	try {
-		return new Date(iso).toLocaleDateString();
-	} catch {
-		return iso;
-	}
 }
 
 const styles: Record<string, React.CSSProperties> = {

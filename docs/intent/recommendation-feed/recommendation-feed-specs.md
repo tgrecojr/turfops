@@ -7,7 +7,7 @@ Design: [recommendation-feed-design.md](recommendation-feed-design.md). Prefix `
 - [x] **FEED-REC-001**: The system shall represent every piece of advice it shows on any surface as a `Recommendation` with an id, category, severity, title, description, explanation, data points, optional suggested action, product needs, optional inventory status, creation time, and `dismissed` / `addressed` flags.
 - [x] **FEED-REC-002**: The system shall order recommendation severities Info < Advisory < Warning < Critical, and every severity comparison in the feed shall use that order.
 - [x] **FEED-REC-003**: When serializing a recommendation, the system shall always include `needs` (an empty list when the advice calls for no product) and shall omit `inventory` when no inventory status is set.
-- [ ] **FEED-REC-004**: Wherever the web UI shows a recommendation's severity (Recommendations page cards, the detail pane, dashboard alert cards, the shopping list), it shall show the severity's symbol and label in ink text on a tint of its status color (Info ℹ, Advisory →, Warning ⚠, Critical !), never the color alone and never white text on a fill.
+- [x] **FEED-REC-004**: Wherever the web UI shows a recommendation's severity (Recommendations page cards, the detail pane, dashboard alert cards, the shopping list), it shall show the severity's symbol and label in ink text on a tint of its status color (Info ℹ, Advisory →, Warning ⚠, Critical !), never the color alone and never white text on a fill.
 
 ## Building the feed
 
@@ -40,7 +40,7 @@ Design: [recommendation-feed-design.md](recommendation-feed-design.md). Prefix `
 - [x] **FEED-STATE-007**: The system shall measure an answer's episode from the time of the last answer recorded for that id.
 - [x] **FEED-STATE-008**: The system shall apply the same suppression policy to Dismissed and Mark Addressed answers; they differ only in the label shown.
 - [x] **FEED-STATE-009**: When an answer suppresses a recommendation, the system shall copy the row's `dismissed` and `addressed` flags onto the recommendation; when it does not, the system shall leave the recommendation active and leave the row unchanged.
-- [ ] **FEED-STATE-010**: The system shall give a landscape-plant Watering task (a "during dry spells" reminder) the 7-day weather episode, not the 120-day seasonal one.
+- [x] **FEED-STATE-010**: The system shall give a landscape-plant Watering task (a "during dry spells" reminder) the 7-day weather episode, not the 120-day seasonal one.
 
 ## Endpoints
 
@@ -61,8 +61,8 @@ Design: [recommendation-feed-design.md](recommendation-feed-design.md). Prefix `
 - [x] **FEED-UI-006**: When the owner clicks Restore on an answered recommendation, the Recommendations page shall send a PATCH setting both `dismissed` and `addressed` to false.
 - [x] **FEED-UI-007**: While the feed has no active recommendations, the Recommendations page shall show "No active recommendations. Your lawn is looking good!"
 - [x] **FEED-UI-008**: The dashboard's Active Alerts shall show the dashboard endpoint's top three recommendations as read-only alert cards (severity badge, category, inventory badge, title, description) with no answer buttons.
-- [ ] **FEED-UI-009**: The dashboard shall lay out, in order: the header (profile name, grass type, zone, last-updated time), the stale-soil banner when the summary's `soil_stale` flag is set (SYNC-MERGE-006), the connection indicators, the four gauges, the widget grid, and Active Alerts beside Recent Applications (five rows).
+- [x] **FEED-UI-009**: The dashboard shall lay out, in order: the header (profile name, grass type, zone, last-updated time), the stale-soil banner when the summary's `soil_stale` flag is set (SYNC-MERGE-006), the connection indicators, the four gauges, the widget grid, and Active Alerts beside Recent Applications (five rows).
 - [x] **FEED-UI-010**: While the dashboard tab is visible, the dashboard shall re-fetch every 30 seconds; while it is hidden it shall not poll; when it becomes visible again it shall re-fetch immediately.
 - [x] **FEED-UI-011**: If a dashboard widget's own fetch fails on first load, then the dashboard shall hide that widget and render the rest of the page.
-- [ ] **FEED-UI-013**: If a dashboard widget's re-poll fails after it has shown data, then the dashboard shall keep that widget's last good data, marked stale, instead of hiding it.
+- [x] **FEED-UI-013**: If a dashboard widget's re-poll fails after it has shown data, then the dashboard shall keep that widget's last good data, marked stale, instead of hiding it.
 - [x] **FEED-UI-012**: The Recommendations page shall list active recommendations in the order the feed returns them, without reordering.

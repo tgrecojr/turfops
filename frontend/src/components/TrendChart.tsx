@@ -9,6 +9,7 @@ import {
 	YAxis,
 } from "recharts";
 import type { TimeSeriesPoint } from "../types";
+import ChartTable from "./ChartTable";
 
 interface TrendChartProps {
 	data: TimeSeriesPoint[];
@@ -126,6 +127,10 @@ export default function TrendChart({
 					/>
 				</AreaChart>
 			</ResponsiveContainer>
+			<ChartTable
+				columns={["Time", `${label} (${unit})`]}
+				rows={chartData.map((p) => [formatTooltipTime(p.time), p.value])}
+			/>
 		</div>
 	);
 }

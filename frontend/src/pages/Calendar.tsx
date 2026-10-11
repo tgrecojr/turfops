@@ -16,18 +16,11 @@ import type {
 	SeasonalPlan,
 } from "../types";
 import { APPLICATION_TYPE_COLORS, APPLICATION_TYPE_LABELS } from "../types";
+import { formatDateRange } from "../utils/dates";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 type MonthRef = { year: number; month: number };
-
-function formatDateRange(start: string, end: string): string {
-	const s = new Date(`${start}T00:00:00`);
-	const e = new Date(`${end}T00:00:00`);
-	const fmt = (d: Date) =>
-		d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-	return `${fmt(s)} – ${fmt(e)}`;
-}
 
 export default function Calendar() {
 	// null until the owner navigates: the first request asks for the server's month.

@@ -44,6 +44,7 @@ Three stages, every base image pinned by digest (Renovate maintains the digests)
 - At startup `main.rs` logs at INFO `Clock: TZ=<zone> (UTC<offset>), local time <date> <time>` (`Clock::describe`), so a wrong clock shows in the startup log.
 - When `TZ` is unset or empty it logs a warning that every date gate follows the host's default zone (UTC in the container image) and that `TZ` must be set to the lawn's timezone. It still starts: a local `cargo run` legitimately uses the developer's OS zone, while in the image the default is UTC.
 - When `TZ` is set but is not a timezone name (a typo, or a name the zone database lacks), `Clock::from_tz` returns a configuration error naming `TZ` and the value, `Config::from_env` fails, and `main` exits non-zero, because chrono would otherwise fall back to UTC without a word.
+- `GET /api/v1/today` (`backend/src/api/today.rs`) exposes the clock to the web UI as `{"today": "YYYY-MM-DD", "timezone": <IANA name or null>}`, with no database or data-source access, so forms judge "future" by the lawn's date rather than the viewer's (DEPLOY-TZ-006). It is its own route, not part of `/health`, which stays an operations probe.
 
 **Runtime.** Binary and static files are copied `--chown=65532:65532`, and the image declares `USER 65532:65532` explicitly, so the process stays non-root even if the base image's default user changes. `ENV STATIC_DIR=/app/static`, `EXPOSE 3000`, `ENTRYPOINT ["./turfops-backend"]`.
 
