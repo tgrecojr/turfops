@@ -8,7 +8,7 @@ Design: [environmental-views-design.md](environmental-views-design.md). Parent: 
 - [x] **WX-VIEW-API-002**: When `GET /api/v1/historical` is called with `range` 7d, 30d or 90d (default 7d), the system shall return the station's silver hourly series for that span in ascending time (10 cm soil temperature, air temperature, RH, 10 cm moisture, precipitation ≥ 0), leaving a missing value out of its series rather than filling it with zero.
 - [ ] **WX-VIEW-API-003**: `GET /api/v1/historical` shall return every hour for 7d, and for 30d and 90d shall group hours into 6-hour and 24-hour time buckets, summing precipitation and averaging the other series over the hours present.
 - [x] **WX-VIEW-API-004**: `GET /api/v1/historical` shall include a running GDD series for the range, accumulated from gold `gdd50` from Jan 1 and reset at each Jan 1.
-- [ ] **WX-VIEW-API-005**: `GET /api/v1/historical` shall take "today" and the GDD accumulation year from the server's local date (`TZ`).
+- [x] **WX-VIEW-API-005**: `GET /api/v1/historical` shall take "today" and the GDD accumulation year from the server's local date (`TZ`).
 - [x] **WX-VIEW-API-006**: If `GET /api/v1/historical` is called with any other range, then the system shall return 400; with no lake client, 503.
 
 ## Lake connection probe

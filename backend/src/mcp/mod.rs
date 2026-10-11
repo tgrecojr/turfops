@@ -180,4 +180,12 @@ mod tests {
         assert!(instructions::INSTRUCTIONS.contains("lawn_snapshot"));
         assert!(instructions::INSTRUCTIONS.contains("verify against your label"));
     }
+
+    // @spec MCP-DOC-004
+    #[test]
+    fn instructions_name_one_clock_the_lawns_tz() {
+        let text = instructions::INSTRUCTIONS;
+        assert!(!text.contains("station-local"), "second clock named");
+        assert!(text.contains("TZ"), "the lawn's clock is not named");
+    }
 }

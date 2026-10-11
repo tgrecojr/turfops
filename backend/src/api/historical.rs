@@ -1,10 +1,11 @@
+use crate::clock::Clock;
 use crate::error::TurfOpsError;
 use crate::logic::gdd;
 use crate::models::{HistoricalData, TimeSeriesPoint};
 use crate::state::AppState;
 use axum::extract::{Query, State};
 use axum::Json;
-use chrono::{Datelike, Duration, NaiveDate, Utc};
+use chrono::{DateTime, Datelike, Duration, NaiveDate, Utc};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -92,13 +93,9 @@ pub async fn get_historical(
     // GDD accumulation from the gold daily layer. Accumulate from Jan 1 so the values
     // are true year-to-date (resetting on year boundaries), then keep only points
     // within the requested range.
-    let start_date = start.date_naive();
-    let accum_start = NaiveDate::from_ymd_opt(start.year(), 1, 1).unwrap_or(start_date);
-    let gdd_records = gdd::accumulate_daily_gdd(
-        &client
-            .fetch_daily_gdd(accum_start, now.date_naive())
-            .await?,
-    );
+    let (accum_start, start_date, end_date) = gdd_window(&state.clock, start, now);
+    let gdd_records =
+        gdd::accumulate_daily_gdd(&client.fetch_daily_gdd(accum_start, end_date).await?);
 
     let gdd_accumulation: Vec<TimeSeriesPoint> = gdd_records
         .iter()
@@ -118,4 +115,35 @@ pub async fn get_historical(
         precipitation_mm,
         gdd_accumulation,
     }))
+}
+
+/// The GDD series' dates for a range from `start` to `now`, as the lawn's local dates:
+/// (Jan 1 of the start's year to accumulate from, the first date shown, the last date).
+// @spec WX-VIEW-API-005
+fn gdd_window(
+    clock: &Clock,
+    start: DateTime<Utc>,
+    now: DateTime<Utc>,
+) -> (NaiveDate, NaiveDate, NaiveDate) {
+    let start_date = clock.local_date(start);
+    let accum_start = NaiveDate::from_ymd_opt(start_date.year(), 1, 1).unwrap_or(start_date);
+    (accum_start, start_date, clock.local_date(now))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // @spec WX-VIEW-API-005
+    #[test]
+    fn the_gdd_window_uses_the_lawns_dates() {
+        let clock = Clock::Zone(chrono_tz::America::New_York);
+        // 10:30 pm Eastern on New Year's Eve; UTC is already Jan 1.
+        let now: DateTime<Utc> = "2026-01-01T03:30:00Z".parse().unwrap();
+        let d = |y, m, day| NaiveDate::from_ymd_opt(y, m, day).unwrap();
+        assert_eq!(
+            gdd_window(&clock, now - Duration::days(7), now),
+            (d(2025, 1, 1), d(2025, 12, 24), d(2025, 12, 31))
+        );
+    }
 }

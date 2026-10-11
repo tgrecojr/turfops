@@ -44,12 +44,14 @@ and the `/health` endpoint itself.
   missing value is left out of its series, not zero-filled. Default range: 7d.
 - **GDD.** `fetch_daily_gdd` from Jan 1 of the range-start year to today, accumulated with a
   reset each Jan 1 (agronomic rules' `gdd::accumulate_daily_gdd`), then filtered to the range
-  and stamped 12:00 UTC. "Today" and the year are the server's local date (parent decision);
-  the code uses the UTC date and year (Deferred 2).
+  and stamped 12:00 UTC. "Today" and the year are the lawn's local date (parent decision):
+  `gdd_window(&clock, start, now)` (`backend/src/api/historical.rs`) turns the range's instants
+  into local dates with the app's `Clock`, giving Jan 1 of the local range-start year to
+  accumulate from, the first date shown and the last date (the local today).
 
 ## Lake Connection Probe
 
-`WeatherLakeClient::test_connection` (`backend/src/datasources/weather.rs:252-263`) runs
+`WeatherLakeClient::test_connection` (`backend/src/datasources/weather.rs:252-262`) runs
 `SELECT 1 FROM <gold> LIMIT 1` and returns `true` when a row comes back. Any error reads as
 `false`; the probe never fails. Data sync's `check_connections()` reports it under the JSON key
 **`soildata`** in `/health`, the dashboard connection dots and MCP `lawn_snapshot`; the UI
@@ -88,7 +90,7 @@ that they ignore the staleness limits).
   0.10 "Drought". Soil temperature, GDD and precipitation have none: soil-temperature and GDD
   milestones are the timing windows' and the outlook's questions, and disease risk comes from
   the per-disease models. Today the page also draws "Pre-emergent" (10 cm 55 °F) and
-  "Crabgrass" (200 GDD) lines and labels the RH line "Disease risk" (Deferred 3).
+  "Crabgrass" (200 GDD) lines and labels the RH line "Disease risk" (Deferred 2).
 
 `frontend/src/utils/units.ts`: `mmToInches` and `formatInches` (25.4 mm per inch). The page is
 the only place precipitation becomes inches.
@@ -97,7 +99,7 @@ the only place precipitation becomes inches.
 
 | Failure | Effect |
 |---|---|
-| Lake unreadable | `/historical` returns 500. With no error shown, the trend section stays empty on first load or keeps the previous range's data (Deferred 4). The `soildata` dot turns false only if gold is unreadable. Current conditions stay at data sync's last good summary |
+| Lake unreadable | `/historical` returns 500. With no error shown, the trend section stays empty on first load or keeps the previous range's data (Deferred 3). The `soildata` dot turns false only if gold is unreadable. Current conditions stay at data sync's last good summary |
 | Home Assistant down | Ambient and humidity gauges show `--`. History is unaffected |
 | OpenWeatherMap down | The 5-Day Forecast cards disappear once data sync's reuse window expires |
 | `/soil-temp-forecast` fails | Its section is hidden; the rest of the page renders |
@@ -120,28 +122,25 @@ the only place precipitation becomes inches.
 
 ### Deferred
 
-1. **Divergence: `/historical` downsampling** (WX-VIEW-API-003) keeps every Nth *row* (`backend/src/api/historical.rs:53-56`).
+1. **Divergence: `/historical` downsampling** (WX-VIEW-API-003) keeps every Nth *row* (`backend/src/api/historical.rs:54-57`).
    That is not time-uniform when hours are missing, and at 30d / 90d the precipitation series
    shows 1 hour in 6 or 24, so the chart understates rain.
-2. **Bug: `/historical` GDD uses the UTC date and year** (WX-VIEW-API-005). The accumulation starts at Jan 1 of
-   the UTC range-start year and ends on `now.date_naive()` in UTC (`historical.rs:96-99`).
-   Intent is the server's local date and year.
-3. **Divergence: one-answer and lag disclosure on the Environmental page** (WX-VIEW-PAGE-007 to 010). The 10 cm "Pre-emergent" 55 °F
+2. **Divergence: one-answer and lag disclosure on the Environmental page** (WX-VIEW-PAGE-007 to 010). The 10 cm "Pre-emergent" 55 °F
    and GDD "Crabgrass" 200 reference lines restate timing-window questions at the wrong depth
    and with a fixed number (`frontend/src/pages/Environmental.tsx:394-395`, `:435-436`). The
    80 % RH line is labelled "Disease risk" (`:410-411`), although disease risk comes from the
    per-disease models. The page shows `last_updated` (`:187-189`) but not `soil_observed_at`,
    and has no stale-soil banner (only the dashboard has one). Forecast cards include partial
    first and last days (`:285`). The moisture gauge flags only wet soil, not drought.
-4. **Divergence: `/historical` failure is silent** (WX-VIEW-PAGE-006). The page's `getHistorical` catch only clears the
+3. **Divergence: `/historical` failure is silent** (WX-VIEW-PAGE-006). The page's `getHistorical` catch only clears the
    loading flag (`frontend/src/pages/Environmental.tsx:117-119`), so a failed load shows no
    error: the section is empty on first load, and after a range change the charts keep the
    previous range's data under the new selector.
-5. **Divergence: probe covers gold only** (WX-VIEW-PROBE-001). An unreadable silver file still reports `soildata: true`
-   (`backend/src/datasources/weather.rs:252-263`), although silver backs the live reading and
+4. **Divergence: probe covers gold only** (WX-VIEW-PROBE-001). An unreadable silver file still reports `soildata: true`
+   (`backend/src/datasources/weather.rs:252-262`), although silver backs the live reading and
    `/historical`.
-6. **Legacy naming.** The `soildata` health key names the lake.
-7. **Technical debt.** `frontend/src/pages/Environmental.tsx` is 587 lines (limit 300), and its
+5. **Legacy naming.** The `soildata` health key names the lake.
+6. **Technical debt.** `frontend/src/pages/Environmental.tsx` is 587 lines (limit 300), and its
    `Environmental` component is ~410 lines. `get_historical` is ~100 lines. No tests cover the
    `/historical` handler or the lake probe.
 

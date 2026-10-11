@@ -36,7 +36,7 @@ impl Rule for IrrigationForecastRule {
         // Only the forecast *amount* counts: a 50% chance of a trace won't relieve dry soil.
         // Calculate total precipitation expected in next 5 days
         let total_precip: f64 = forecast
-            .next_days(5)
+            .next_days(chrono::Local::now().date_naive(), 5)
             .iter()
             .map(|d| d.total_precipitation_mm)
             .sum();

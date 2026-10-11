@@ -90,13 +90,13 @@ Design: [agronomic-rules-design.md](agronomic-rules-design.md). Prefix `RULE`. F
 - [x] **RULE-BUDGET-001**: The nitrogen budget and the nitrogen guard shall count only lawn nitrogen as defined by `Application::turf_nitrogen_lbs()` (turf applications with both an N percentage and a rate), so plant fertilizer and applications missing either value count nothing.
 - [x] **RULE-BUDGET-002**: The system shall use these recommended annual nitrogen targets in lb N/1000 sq ft: tall fescue 3.5, Kentucky bluegrass 4.0, perennial ryegrass 3.0, fine fescue 2.0, Mixed 3.0.
 - [x] **RULE-BUDGET-003**: When `GET /api/v1/nitrogen-budget` is called, the system shall return the target, applied, remaining (never below 0), percent of target (capped at 999), the grass type's min–max range, and each counted application sorted by date, for the requested calendar year (default: the server's local current year).
-- [ ] **RULE-BUDGET-005**: The nitrogen budget endpoint and the nitrogen guard shall both count only applications dated on or before the server's local today, so a future-dated entry counts against neither.
+- [x] **RULE-BUDGET-005**: The nitrogen budget endpoint and the nitrogen guard shall both count only applications dated on or before the server's local today, so a future-dated entry counts against neither.
 - [x] **RULE-BUDGET-004**: If `GET /api/v1/nitrogen-budget` is called with no lawn profile, then the system shall return 404; if called with a year chrono cannot represent, then 400.
 
 ## Growing degree days and the crabgrass model
 
 - [x] **RULE-GDD-001**: The system shall take each day's GDD (base 50°F) from the weather lake's gold `gdd50` value and only sum it, never recompute it.
-- [ ] **RULE-GDD-002**: When supplying year-to-date GDD to the rules, the system shall sum gold `gdd50` from Jan 1 of the server's local current year through the server's local today.
+- [x] **RULE-GDD-002**: When supplying year-to-date GDD to the rules, the system shall sum gold `gdd50` from Jan 1 of the server's local current year through the server's local today.
 - [x] **RULE-GDD-003**: When accumulating a GDD history, the system shall reset the running total at each calendar year.
 - [x] **RULE-GDD-004**: The crabgrass model shall report PreGermination below 75 GDD, ApproachingGermination from 75 to below 150, GerminationLikely from 150 to below 200, and PostGermination at 200 or more, with a germination threshold of 200.
 - [x] **RULE-GDD-005**: The crabgrass model shall be informational only; no recommendation shall read it.

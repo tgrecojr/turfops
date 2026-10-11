@@ -3,7 +3,7 @@ use crate::error::{Result, TurfOpsError};
 use crate::models::{
     celsius_to_fahrenheit, DataSource, EnvironmentalReading, EnvironmentalSummary, Trend,
 };
-use chrono::{DateTime, Duration, NaiveDate, NaiveDateTime, Utc};
+use chrono::{DateTime, Datelike, Duration, NaiveDate, NaiveDateTime, Utc};
 use duckdb::Connection;
 
 mod climatology;
@@ -234,14 +234,13 @@ impl WeatherLakeClient {
         .await
     }
 
-    /// Year-to-date cumulative GDD (base 50°F) — sum of daily `gdd50` from Jan 1 to today.
-    pub async fn fetch_gdd_ytd(&self, year: i32) -> Result<Option<f64>> {
+    /// Year-to-date cumulative GDD (base 50°F): the sum of daily `gdd50` from Jan 1 of
+    /// `today`'s year through `today` (the lawn's local date). `None` with no rows.
+    // @spec RULE-GDD-002
+    pub async fn fetch_gdd_ytd(&self, today: NaiveDate) -> Result<Option<f64>> {
+        let year = today.year();
         let jan1 = NaiveDate::from_ymd_opt(year, 1, 1)
             .ok_or_else(|| TurfOpsError::InvalidData(format!("Invalid year: {year}")))?;
-        let today = Utc::now().date_naive();
-        if today < jan1 {
-            return Ok(None);
-        }
         let rows = self.fetch_daily_gdd(jan1, today).await?;
         if rows.is_empty() {
             return Ok(None);
@@ -336,5 +335,47 @@ fn calculate_trend(readings: &[EnvironmentalReading]) -> Trend {
         Trend::Falling
     } else {
         Trend::Stable
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::DataLakeConfig;
+    use duckdb::Connection;
+
+    // @spec RULE-GDD-002
+    #[tokio::test]
+    async fn gdd_ytd_runs_through_the_lawns_today_in_the_lawns_year() {
+        let gold =
+            std::env::temp_dir().join(format!("turfops_gddytd_{}.parquet", std::process::id()));
+        let gold_s = gold.to_string_lossy().to_string();
+        Connection::open_in_memory()
+            .unwrap()
+            .execute_batch(&format!(
+                "COPY (
+                    SELECT * FROM (VALUES
+                        (DATE '2025-12-30', 60.0, 40.0, 1.0, 24),
+                        (DATE '2025-12-31', 60.0, 40.0, 2.0, 24),
+                        (DATE '2026-01-01', 60.0, 40.0, 4.0, 24)
+                    ) t(day, air_temp_max_f, air_temp_min_f, gdd50, hours_observed)
+                 ) TO '{gold_s}' (FORMAT PARQUET)"
+            ))
+            .unwrap();
+        let client = WeatherLakeClient::new(
+            &DataLakeConfig {
+                silver_weather_path: "unused.parquet".into(),
+                gold_weather_path: gold_s,
+            },
+            3761,
+        );
+
+        // New Year's Eve evening on the lawn: still 2025, and Jan 1's row does not count.
+        let total = client
+            .fetch_gdd_ytd(NaiveDate::from_ymd_opt(2025, 12, 31).unwrap())
+            .await
+            .unwrap();
+        let _ = std::fs::remove_file(&gold);
+        assert_eq!(total, Some(3.0));
     }
 }

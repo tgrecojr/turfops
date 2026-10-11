@@ -1,8 +1,9 @@
 //! Builds the daily weather series the disease models run on: observed lake days,
 //! with today's remainder and the coming days filled in from the 3-hourly forecast.
 
+use crate::clock::Clock;
 use crate::models::{DailyWeather, ForecastPoint, AFTERNOON_HOURS, DAWN_HOURS};
-use chrono::{Duration, NaiveDate, Timelike};
+use chrono::{NaiveDate, Timelike};
 use std::collections::BTreeMap;
 
 /// Hours each OpenWeatherMap forecast point stands for.
@@ -20,16 +21,19 @@ fn fahrenheit_to_celsius(f: f64) -> f64 {
     (f - 32.0) * 5.0 / 9.0
 }
 
-/// Aggregate 3-hourly forecast points into local calendar days.
-pub fn forecast_days(points: &[ForecastPoint], utc_offset_minutes: i32) -> Vec<DailyWeather> {
-    let offset = Duration::minutes(utc_offset_minutes as i64);
+/// Aggregate 3-hourly forecast points into the lawn's local calendar days, each point on
+/// the local date (and hour) of its own time.
+// @spec DIS-MODEL-DAY-003
+pub fn forecast_days(points: &[ForecastPoint], clock: &Clock) -> Vec<DailyWeather> {
     let mut by_day: BTreeMap<NaiveDate, Vec<&ForecastPoint>> = BTreeMap::new();
     for point in points {
-        let local_date = (point.timestamp.naive_utc() + offset).date();
-        by_day.entry(local_date).or_default().push(point);
+        by_day
+            .entry(clock.local_date(point.timestamp))
+            .or_default()
+            .push(point);
     }
 
-    let local_hour = |p: &&ForecastPoint| (p.timestamp.naive_utc() + offset).hour();
+    let local_hour = |p: &&ForecastPoint| clock.local(p.timestamp).hour();
     by_day
         .into_iter()
         .map(|(date, pts)| {
@@ -134,6 +138,11 @@ mod tests {
         assert!((dew_point_c(25.0, 60.0) - 16.7).abs() < 0.1);
     }
 
+    fn eastern() -> Clock {
+        Clock::Zone(chrono_tz::America::New_York)
+    }
+
+    // @spec DIS-MODEL-DAY-003
     #[test]
     fn forecast_points_bucket_by_local_date() {
         // 02:00 UTC on the 21st is 22:00 on the 20th at UTC-4.
@@ -141,7 +150,7 @@ mod tests {
             point(21, 2, 68.0, 95.0, 0.0),
             point(21, 12, 77.0, 60.0, 1.0),
         ];
-        let days = forecast_days(&points, -240);
+        let days = forecast_days(&points, &eastern());
         assert_eq!(days.len(), 2);
         assert_eq!(days[0].date, date(9, 20));
         assert_eq!(days[0].hours_rh90, 3.0);
@@ -153,6 +162,29 @@ mod tests {
         // 22:00 local is neither dawn nor afternoon; 08:00 local (12:00 UTC) is dawn.
         assert!(!days[0].covers_dawn && !days[0].covers_afternoon);
         assert!(days[1].covers_dawn && !days[1].covers_afternoon);
+    }
+
+    // @spec DIS-MODEL-DAY-003
+    #[test]
+    fn forecast_points_follow_daylight_saving() {
+        // DST ends 2026-11-01 06:00 UTC. 04:00 UTC Nov 2 is 11 pm EST Nov 1 (a fixed EDT
+        // offset would say midnight Nov 2); 12:00 UTC Nov 2 is 7 am EST, a dawn hour.
+        let at = |d: u32, h: u32| {
+            let mut p = point(1, 0, 50.0, 50.0, 0.0);
+            p.timestamp = Utc.with_ymd_and_hms(2026, 11, d, h, 0, 0).unwrap();
+            p
+        };
+        let days = forecast_days(&[at(2, 4), at(2, 12)], &eastern());
+        assert_eq!(days.len(), 2);
+        assert_eq!(
+            days[0].date,
+            chrono::NaiveDate::from_ymd_opt(2026, 11, 1).unwrap()
+        );
+        assert_eq!(
+            days[1].date,
+            chrono::NaiveDate::from_ymd_opt(2026, 11, 2).unwrap()
+        );
+        assert!(days[1].covers_dawn);
     }
 
     #[test]

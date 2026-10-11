@@ -1,7 +1,8 @@
+use crate::clock::Clock;
 use crate::config::Config;
 use crate::datasources::{HomeAssistantClient, OpenWeatherMapClient, WeatherLakeClient};
 use crate::models::{DataSource, EnvironmentalReading, EnvironmentalSummary, WeatherForecast};
-use chrono::{Datelike, Duration, Utc};
+use chrono::{Duration, Utc};
 use sqlx::PgPool;
 use tokio::time::Instant;
 
@@ -28,6 +29,7 @@ pub struct DataSyncService {
     current_forecast: Option<WeatherForecast>,
     last_sensor_refresh: Option<Instant>,
     last_forecast_refresh: Option<Instant>,
+    clock: Clock,
 }
 
 impl DataSyncService {
@@ -54,7 +56,7 @@ impl DataSyncService {
             .filter(|c| c.enabled && !c.api_key.is_empty())
             .map(|c| {
                 tracing::info!("OpenWeatherMap client configured for forecast data");
-                OpenWeatherMapClient::new(c.clone())
+                OpenWeatherMapClient::new(c.clone(), config.clock)
             });
 
         if openweathermap_client.is_none() {
@@ -78,6 +80,7 @@ impl DataSyncService {
             current_forecast: None,
             last_sensor_refresh: None,
             last_forecast_refresh: None,
+            clock: config.clock,
         }
     }
 
@@ -213,9 +216,8 @@ impl DataSyncService {
             self.last_sensor_refresh = Some(Instant::now());
 
             // Populate GDD YTD by summing the gold layer's precomputed daily gdd50
-            let current_year = Utc::now().year();
             if let Some(ref client) = self.weather_client {
-                match client.fetch_gdd_ytd(current_year).await {
+                match client.fetch_gdd_ytd(self.clock.today()).await {
                     Ok(gdd) => {
                         summary.gdd_base50_ytd = gdd;
                     }

@@ -9,7 +9,6 @@ use chrono::NaiveDate;
 pub struct LakeDailyWeather {
     /// Ascending by date. The most recent day is usually partial (the lake lags).
     pub days: Vec<DailyWeather>,
-    pub utc_offset_minutes: i32,
 }
 
 /// Magnus dew point (°C) as a SQL expression over the silver columns.
@@ -71,22 +70,7 @@ impl WeatherLakeClient {
                 });
             }
 
-            let offset_sql = format!(
-                "SELECT CAST(date_diff('minute', obs_ts_utc, obs_ts_local) AS INTEGER) \
-                 FROM {src} WHERE CAST(wbanno AS INTEGER) = ? \
-                 ORDER BY obs_ts_utc DESC LIMIT 1"
-            );
-            let mut stmt = conn.prepare(&offset_sql)?;
-            let mut rows = stmt.query(duckdb::params![station])?;
-            let utc_offset_minutes = match rows.next()? {
-                Some(row) => row.get::<_, Option<i32>>(0)?.unwrap_or(0),
-                None => 0,
-            };
-
-            Ok(LakeDailyWeather {
-                days,
-                utc_offset_minutes,
-            })
+            Ok(LakeDailyWeather { days })
         })
         .await
     }
@@ -139,7 +123,6 @@ mod tests {
         let lake = client.fetch_daily_disease_inputs(start).await.unwrap();
         std::fs::remove_file(&path).ok();
 
-        assert_eq!(lake.utc_offset_minutes, -240);
         assert_eq!(lake.days.len(), 3);
 
         let first = &lake.days[0];

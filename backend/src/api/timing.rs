@@ -34,6 +34,11 @@ pub async fn get_timing_windows(
     Ok(Json(compute(&state, &profile).await?))
 }
 
+/// First day of the climate record: Jan 1, `HISTORY_YEARS` before the lawn's current year.
+pub(crate) fn climate_start(today: NaiveDate) -> Option<NaiveDate> {
+    NaiveDate::from_ymd_opt(today.year() - timing::HISTORY_YEARS, 1, 1)
+}
+
 /// The memoized climate record, read from the lake when missing or older than the TTL.
 pub(crate) async fn climate_record(
     state: &AppState,
@@ -44,7 +49,7 @@ pub(crate) async fn climate_record(
             return Ok(record.clone());
         }
     }
-    let start = NaiveDate::from_ymd_opt(Utc::now().year() - timing::HISTORY_YEARS, 1, 1)
+    let start = climate_start(state.clock.today())
         .ok_or_else(|| TurfOpsError::InvalidData("Invalid history start".into()))?;
     let record = Arc::new(client.fetch_climate_record(start).await?);
     *state.climate_cache.write().await = Some((Instant::now(), record.clone()));
@@ -61,10 +66,9 @@ async fn compute(state: &AppState, profile: &LawnProfile) -> Result<TimingRespon
         TurfOpsError::DataSourceUnavailable("weather data lake not configured".into())
     })?;
 
-    // The station's date, not the server's: the container clock is usually UTC, which
-    // runs a day ahead of the lawn every evening.
+    // @spec TIME-ENG-039
     let record = climate_record(state, &client).await?;
-    let today = record.local_today();
+    let today = state.clock.today();
     let days = &record.days;
 
     let profile_id = profile
@@ -170,10 +174,9 @@ async fn plan_for(
         .ok_or_else(|| {
             TurfOpsError::DataSourceUnavailable("weather data lake not configured".into())
         })?;
-    // The station's date, not the server's: the container clock is usually UTC, which
-    // runs a day ahead of the lawn every evening.
+    // @spec TIME-ENG-039
     let record = climate_record(state, &client).await?;
-    let today = record.local_today();
+    let today = state.clock.today();
     let days = &record.days;
 
     // The log spans that decide done/blocked reach from the previous mid-November
@@ -231,6 +234,16 @@ fn data_notes(assessment: &Assessment, profile: &LawnProfile, has_forecast: bool
 mod tests {
     use super::*;
     use crate::models::timing::{FreezeDates, SoilNow};
+
+    // @spec TIME-ENG-039
+    #[test]
+    fn the_climate_record_starts_from_the_lawns_year() {
+        let new_years_eve = NaiveDate::from_ymd_opt(2025, 12, 31).unwrap();
+        assert_eq!(
+            climate_start(new_years_eve),
+            NaiveDate::from_ymd_opt(2025 - timing::HISTORY_YEARS, 1, 1)
+        );
+    }
 
     fn assessment(data_fresh: bool, years: usize) -> Assessment {
         Assessment {

@@ -57,14 +57,15 @@ async fn compute(
         TurfOpsError::DataSourceUnavailable("weather data lake not configured".into())
     })?;
 
-    // The lake's local date can differ from the server's, so anchor the fetch a day early.
-    let fetch_start = Utc::now().date_naive() - Duration::days(disease::LOOKBACK_DAYS + 1);
+    // @spec DIS-MODEL-DAY-001
+    // Lake days are keyed by the same Eastern calendar `TZ` gives, so no extra margin.
+    let today = state.clock.today();
+    let fetch_start = today - Duration::days(disease::LOOKBACK_DAYS);
     let lake = client.fetch_daily_disease_inputs(fetch_start).await?;
-    let today = (Utc::now().naive_utc() + Duration::minutes(lake.utc_offset_minutes as i64)).date();
 
     let forecast_days = forecast
         .as_ref()
-        .map(|f| weather_days::forecast_days(&f.hourly, lake.utc_offset_minutes))
+        .map(|f| weather_days::forecast_days(&f.hourly, &state.clock))
         .unwrap_or_default();
     let series = weather_days::build_series(lake.days, forecast_days);
 

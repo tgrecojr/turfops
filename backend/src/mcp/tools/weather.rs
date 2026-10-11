@@ -9,7 +9,7 @@ use crate::datasources::weather::ClimateDay;
 use crate::error::TurfOpsError;
 use crate::mcp::TurfOpsMcp;
 use crate::models::{celsius_to_fahrenheit, DailyWeather};
-use chrono::{Duration, NaiveDate, Utc};
+use chrono::{Duration, NaiveDate};
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::CallToolResult;
 use rmcp::{tool, tool_router, ErrorData};
@@ -85,13 +85,19 @@ impl TurfOpsMcp {
         let client = client.ok_or_else(|| {
             TurfOpsError::DataSourceUnavailable("weather data lake not configured".into())
         })?;
-        let start = Utc::now().date_naive() - Duration::days(days);
+        let start = history_start(self.state.clock.today(), days);
         let (lake, climate) = tokio::try_join!(
             client.fetch_daily_disease_inputs(start),
             api::timing::climate_record(&self.state, &client),
         )?;
         Ok(join_days(&lake.days, &climate.days, start))
     }
+}
+
+/// First day of a `days`-long history window ending on the lawn's `today`.
+// @spec MCP-HIST-002
+fn history_start(today: NaiveDate, days: i64) -> NaiveDate {
+    today - Duration::days(days)
 }
 
 /// Merge the silver daily aggregates with the climate record, one row per date from
@@ -152,6 +158,12 @@ mod tests {
 
     fn d(s: &str) -> NaiveDate {
         NaiveDate::parse_from_str(s, "%Y-%m-%d").unwrap()
+    }
+
+    // @spec MCP-HIST-002
+    #[test]
+    fn the_history_window_counts_back_from_the_lawns_today() {
+        assert_eq!(history_start(d("2025-12-31"), 30), d("2025-12-01"));
     }
 
     fn observed(date: &str, mean_c: f64, precip_mm: f64, hours: f64) -> DailyWeather {

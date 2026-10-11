@@ -419,20 +419,17 @@ endpoint does not read the plan; the page fetches both.
    10 cm completion checks do not exclude applications with a `plant_id`, so a plant
    feeding in April completes `spring_nitrogen` (`backend/src/logic/seasonal_plan.rs:217-221`).
    Intent: only turf applications complete turf activities.
-9. **Timing activities' clock.** Their statuses are computed on the Timing windows'
-   station-local date, not the server-local date this component uses; that divergence is
-   owned and tracked by the timing-windows LLD.
-10. **Lock held during fill.** The handler holds the sync service read lock across up to
+9. **Lock held during fill.** The handler holds the sync service read lock across up to
     eleven lake reads.
-11. **Calendar bars are color-only.** Day-cell bars encode status by color (tooltip has
+10. **Calendar bars are color-only.** Day-cell bars encode status by color (tooltip has
     the name only); the detail panel and plan page carry text labels.
-12. **Size limits.** `backend/src/logic/seasonal_plan.rs` is 756 lines (limit 300) with
+11. **Size limits.** `backend/src/logic/seasonal_plan.rs` is 756 lines (limit 300) with
     `build_activities` near 390 lines; `get_seasonal_plan` is ~140 lines;
     `frontend/src/pages/Calendar.tsx` is 687 lines and `SeasonalPlan.tsx` 512 lines;
     `backend/src/db/queries.rs` (shared) is 609 lines.
-13. **Stringly-typed contracts.** Activity ids are the merge key and `"Plant
+12. **Stringly-typed contracts.** Activity ids are the merge key and `"Plant
     Maintenance"` is the plant discriminator; neither is an enum.
-14. **Divergence: a year can settle before its last days arrive, on a UTC boundary**
+13. **Divergence: a year can settle before its last days arrive, on a UTC boundary**
     (PLAN-CACHE-005). The settle test
     `MIN(computed_at) >= make_date(year + 1, 1, 1)` (`backend/src/db/queries.rs:553`)
     compares against midnight in the Postgres session time zone, which is UTC under
@@ -441,29 +438,29 @@ endpoint does not read the plan; the page fetches both.
     Dec 30–31 are in the lake, and a late crossing (e.g. 45 °F falling) is never recorded.
     Intent: settled only after year end by the server-local date and once the lake has
     reported through Dec 31.
-15. **Divergence: a completed `fall_herbicide` can vanish** (PLAN-ACT-018). The overseed check
+14. **Divergence: a completed `fall_herbicide` can vanish** (PLAN-ACT-018). The overseed check
     `(median − overseed date).num_days() < 60` (`backend/src/logic/seasonal_plan.rs:519-525`)
     is also true for an `Overseed` logged after the median (negative difference), so any
     later seeding removes the activity, even when a fall `PostEmergent` already completed
     it. Intent: only a seeding in the 60 days before the window hides it, and never a
     completed one.
-16. **Divergence: fallback `pre_emergent` counts a fall application** (PLAN-ACT-019).
+15. **Divergence: fallback `pre_emergent` counts a fall application** (PLAN-ACT-019).
     When the timing windows are unavailable, the 10 cm `pre_emergent` is Completed by
     any `PreEmergent` in the year
     (`backend/src/logic/seasonal_plan.rs:185-187`), so a fall pre-emergent completes the
     spring one. Intent: only a January–June `PreEmergent` completes it.
-17. **Concurrent first loads.** Two requests filling the same unsettled year both run
+16. **Concurrent first loads.** Two requests filling the same unsettled year both run
     `replace_threshold_crossings` (`backend/src/db/queries.rs:574-600`); the second
     insert hits the `(year, threshold_name)` key, the error is only logged as a warning
     and that year is skipped for that request (`backend/src/api/seasonal_plan.rs:49-65`).
-18. **Divergence: `spring_nitrogen` has no historical end** (PLAN-ACT-012). It is built
+17. **Divergence: `spring_nitrogen` has no historical end** (PLAN-ACT-012). It is built
     with no closing aggregate (`make_window(&start, end_date, None)`), so its
     `latest_historical` is empty. Intent: the latest `soil_65f_rising` crossing.
-19. **Divergence: pages count from the browser's clock** (PLAN-UI-001, PLAN-UI-007,
+18. **Divergence: pages count from the browser's clock** (PLAN-UI-001, PLAN-UI-007,
     PLAN-CALUI-001, PLAN-MERGE-008). `SeasonalPlan.tsx` and `Calendar.tsx` take the
     default year, month and countdown from `new Date()`, and the plan response carries no
     server-local date. Intent: the pages use the server's date from the API.
-20. **Rule state unavailable** (PLAN-ACT-022). When a covering rule cannot evaluate (its
+19. **Rule state unavailable** (PLAN-ACT-022). When a covering rule cannot evaluate (its
     inputs are missing, RULE-ENG-003), the activity falls back to its typical-date status,
     marked as an estimate, the same labeled calendar fallback the timing windows use.
 

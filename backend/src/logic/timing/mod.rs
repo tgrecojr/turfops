@@ -139,7 +139,8 @@ fn forecast_points(days: &[ClimateDay], forecast: &[DailyForecast]) -> Vec<SoilP
     let air = continuous_air(days, forecast, training_start);
     let (history, outlook): (Vec<_>, Vec<_>) = air.iter().partition(|(d, _)| *d < last_soil.date);
     // `outlook` starts on the last observed day so the model's error there is known.
-    let predictions = predict_soil_temps(&model, &history, &outlook);
+    // The timing outlook ignores per-prediction confidence, so its "today" does not matter.
+    let predictions = predict_soil_temps(&model, &history, &outlook, last_soil.date);
     let anchor = predictions
         .iter()
         .find(|p| p.date == last_soil.date)

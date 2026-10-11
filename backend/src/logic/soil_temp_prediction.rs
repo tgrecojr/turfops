@@ -103,10 +103,13 @@ pub fn fit_model(daily_pairs: &[(NaiveDate, f64, f64)]) -> Option<SoilTempModel>
 /// `recent_daily_air` = recent actual daily avg air temps (date, temp_f), most recent last.
 /// `forecast_daily_air` = OWM forecast daily avg air temps (date, temp_f), chronological.
 /// The model uses air temp from `lag_days` before each prediction date.
+/// `today` is the lawn's local date; each prediction's confidence depends on its days out.
+// @spec WX-OUTLOOK-MODEL-007
 pub fn predict_soil_temps(
     model: &SoilTempModel,
     recent_daily_air: &[(NaiveDate, f64)],
     forecast_daily_air: &[(NaiveDate, f64)],
+    today: NaiveDate,
 ) -> Vec<SoilTempPrediction> {
     let lag = model.lag_days as i64;
     let mut predictions = Vec::new();
@@ -137,7 +140,7 @@ pub fn predict_soil_temps(
         let predicted_soil_temp = model.slope * air_temp + model.intercept;
 
         // Confidence based on model quality + forecast distance
-        let days_out = (*forecast_date - Utc::now().date_naive()).num_days();
+        let days_out = (*forecast_date - today).num_days();
         let confidence = compute_confidence(model.r_squared, days_out);
 
         predictions.push(SoilTempPrediction {
@@ -288,15 +291,15 @@ pub fn build_forecast(
     recent_daily_air: &[(NaiveDate, f64)],
     forecast_daily_air: &[(NaiveDate, f64)],
     current_soil_temp_f: f64,
+    today: NaiveDate,
 ) -> Option<SoilTempForecast> {
     let model = fit_model(daily_pairs)?;
-    let predictions = predict_soil_temps(&model, recent_daily_air, forecast_daily_air);
+    let predictions = predict_soil_temps(&model, recent_daily_air, forecast_daily_air, today);
 
     if predictions.is_empty() {
         return None;
     }
 
-    let today = Utc::now().date_naive();
     let threshold_crossings = predict_threshold_crossings(current_soil_temp_f, &predictions, today);
 
     Some(SoilTempForecast {
@@ -411,7 +414,12 @@ mod tests {
             (NaiveDate::from_ymd_opt(2026, 3, 18).unwrap(), 55.0),
         ];
 
-        let preds = predict_soil_temps(&model, &recent, &forecast);
+        let preds = predict_soil_temps(
+            &model,
+            &recent,
+            &forecast,
+            NaiveDate::from_ymd_opt(2026, 3, 16).unwrap(),
+        );
         assert_eq!(preds.len(), 2);
         // 0.8 * 50 + 10 = 50
         assert!((preds[0].predicted_soil_temp_f - 50.0).abs() < 0.1);
@@ -440,7 +448,12 @@ mod tests {
             (NaiveDate::from_ymd_opt(2026, 3, 18).unwrap(), 58.0),
         ];
 
-        let preds = predict_soil_temps(&model, &recent, &forecast);
+        let preds = predict_soil_temps(
+            &model,
+            &recent,
+            &forecast,
+            NaiveDate::from_ymd_opt(2026, 3, 16).unwrap(),
+        );
         // 3/17 prediction uses air from 3/15 (lag=2): 0.8*48 + 10 = 48.4
         assert!(!preds.is_empty());
         assert!((preds[0].predicted_soil_temp_f - 48.4).abs() < 0.1);
@@ -561,6 +574,56 @@ mod tests {
         let pairs: Vec<(NaiveDate, f64, f64)> = vec![];
         let recent: Vec<(NaiveDate, f64)> = vec![];
         let forecast: Vec<(NaiveDate, f64)> = vec![];
-        assert!(build_forecast(&pairs, &recent, &forecast, 50.0).is_none());
+        assert!(build_forecast(
+            &pairs,
+            &recent,
+            &forecast,
+            50.0,
+            NaiveDate::from_ymd_opt(2026, 3, 16).unwrap()
+        )
+        .is_none());
+    }
+
+    // @spec WX-OUTLOOK-MODEL-007
+    #[test]
+    fn confidence_counts_days_out_from_the_given_today() {
+        let model = SoilTempModel {
+            slope: 1.0,
+            intercept: 0.0,
+            lag_days: 0,
+            r_squared: 0.9,
+            training_window_days: 30,
+            fitted_at: Utc::now(),
+        };
+        let d = |day| NaiveDate::from_ymd_opt(2025, 6, day).unwrap();
+        let forecast = vec![(d(2), 70.0), (d(5), 70.0)];
+        let preds = predict_soil_temps(&model, &[], &forecast, d(1));
+        assert_eq!(preds[0].confidence, PredictionConfidence::High); // 1 day out
+        assert_eq!(preds[1].confidence, PredictionConfidence::Low); // 4 days out
+    }
+
+    // @spec WX-OUTLOOK-MODEL-007
+    #[test]
+    fn crossings_count_days_from_the_given_today() {
+        let d = |day| NaiveDate::from_ymd_opt(2025, 6, day).unwrap();
+        // Soil tracks air exactly over the training month.
+        let pairs: Vec<(NaiveDate, f64, f64)> = (0..20)
+            .map(|i| {
+                (
+                    d(1) - chrono::Duration::days(20 - i),
+                    50.0 + i as f64,
+                    50.0 + i as f64,
+                )
+            })
+            .collect();
+        let forecast = vec![(d(2), 74.0), (d(3), 76.0)];
+        let outlook = build_forecast(&pairs, &[], &forecast, 70.0, d(1)).unwrap();
+        let heat = outlook
+            .threshold_crossings
+            .iter()
+            .find(|c| c.threshold_temp_f == 75.0)
+            .expect("75 °F crossing");
+        assert_eq!(heat.estimated_crossing_date, d(3));
+        assert_eq!(heat.days_until_crossing, 2);
     }
 }
