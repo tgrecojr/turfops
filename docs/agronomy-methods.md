@@ -66,7 +66,9 @@ Annual lawn targets, lbs N / 1000 sq ft (minimum – maximum, recommended):
 | Fine fescue | 1.0 – 3.0 | 2.0 |
 | Mixed (cool-season) | 2.0 – 4.0 | 3.0 |
 
-A feeding's N is rate × N% for lawn applications only (plant fertilizer is excluded). A
+Feeding advice states lbs N / 1000 sq ft and, only when the lawn profile records a lawn
+size, the total for the lawn. A feeding's N is rate × N% for lawn applications only
+(plant fertilizer is excluded). A
 logged feeding is lawn Fertilizer whose N is unrecorded or above 0, so potash-only
 (0-0-x) and plant fertilizer do not count. Every "apply N" recommendation, whatever its
 source (the spring and fall feedings, red thread's "feed the lawn"), goes on hold while
@@ -78,8 +80,11 @@ advice is shown on the Soil Tests page and is not part of the recommendation fee
 
 Each disease has its own model over a daily weather series: observed days from the lake
 (a usable day needs ≥ 12 hours plus both its pre-dawn 03–08 and afternoon 13–17 hours)
-and the rest of today plus the outlook from the forecast. Scores are native to each
-model; **only the tier is comparable across diseases.**
+and the rest of today plus the outlook from the forecast. The forecast fills only hours
+after the lake's newest observation, so no hour is counted twice. The headline is the
+latest usable day up to today (at most 6 days back); a disease with no usable day in
+that span is left out, and a data note names it. Scores are native to each model;
+**only the tier is comparable across diseases.**
 
 | Disease | Model | Moderate | High | Severe |
 |---------|-------|----------|------|--------|
@@ -92,10 +97,13 @@ model; **only the tier is comparable across diseases.**
 Lawn history raises only the headline tier: overseeding within 60 days raises gray leaf
 spot, and no feeding (lawn fertilizer carrying nitrogen) within 60 days raises red thread.
 
-**Actions.** Low: none. Moderate: monitor (with a heads-up when a High / Severe day is
-forecast within 3 days). High / Severe: apply a preventative, unless a logged fungicide
-rated Good or better on that disease is still inside its residual (21 days systemic,
-14 days contact, 7 days shorter under Severe), which reads `Protected`. Strobilurins
+**Actions.** Low: none. Moderate: monitor. At Low and Moderate alike, a usable forecast
+day within 3 days at High / Severe brings a heads-up (a partial forecast day never
+does), with coverage judged on that day at that day's tier. Red thread never gets a
+fungicide heads-up. High / Severe: apply a preventative, unless a logged fungicide
+rated Good or better on that disease is still inside its residual (21 days single-site
+systemic, 14 days multi-site and phosphonate, 7 days shorter under Severe), which reads
+`Protected`. Strobilurins
 protect against Pythium at High but not at Severe. Red thread's remedy is nitrogen, not a
 spray. The curative program is always shown so the owner can decide from what they see;
 TurfOps has no symptom input.
@@ -104,8 +112,12 @@ TurfOps has no symptom input.
 matrix checked against University of Kentucky PPA-1 (2024): ratings 4 / 3.5 →
 Excellent, 3 / 2.5 → Good, 2 / 1.5 → Fair. Ratings are per FRAC class; a class whose
 actives disagree is left out for that disease rather than averaged. The suggested class
-is the best non-restricted option that is not the class used last; a product on the
-shelf only breaks ties between equally good options. Multi-site classes: mancozeb = M3,
+is the best non-restricted option that is not a class used last; every single-site
+class of the newest fungicide application this year counts as used last, so each class
+of a premix does. A product on the shelf only breaks ties between equally good options.
+Two or more consecutive applications of one single-site class bring a rotation warning,
+and each disease's plan adds "Rotate to" its own suggested class, never one its program
+excludes. Multi-site classes: mancozeb = M3,
 chlorothalonil = M5. TurfOps never gives application rates; the label governs.
 
 ## Recommendations and the shelf
@@ -114,6 +126,9 @@ chlorothalonil = M5. TurfOps never gives application rates; the label governs.
   herbicide timing, targets, amendment kind). The shelf is matched strictly: a product
   without the asked-for fact recorded does not count. Status: OnHand, Low (only
   Low-stock products fit), NotOnHand, Partial (some needs covered).
+- Advice that needs nothing new declares no need: a `Protected` disease alert (the lawn
+  is covered) and the missed spring pre-emergent warning (post-emergent control is the
+  advice) never put a product on the shopping list.
 - Stock is hand-set In stock / Low / Out; there are no quantities. `archived` means no
   longer used.
 - Dismissing or addressing a recommendation is not permanent. It comes back when it

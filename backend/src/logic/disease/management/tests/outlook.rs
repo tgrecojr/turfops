@@ -69,3 +69,39 @@ fn a_low_day_still_gets_the_heads_up() {
     let red = super::plan(Disease::RedThread, RiskTier::Low, &daily, today, &ctx);
     assert!(!red.headline.contains("preventative"), "{}", red.headline);
 }
+
+// @spec DIS-MGMT-PROT-007
+#[test]
+fn red_thread_never_gets_a_fungicide_heads_up() {
+    let today = date(5, 10);
+    let daily = [forecast(5, 12, RiskTier::Severe)];
+    let plan = plan(
+        Disease::RedThread,
+        RiskTier::Moderate,
+        &daily,
+        today,
+        &DiseaseContext::default(),
+    );
+    assert!(!plan.headline.contains("preventative"), "{}", plan.headline);
+    assert!(!plan.headline.contains("FRAC"), "{}", plan.headline);
+}
+
+// @spec DIS-MGMT-PROT-008
+#[test]
+fn a_partial_forecast_day_does_not_raise_the_outlook() {
+    let today = date(7, 20);
+    let mut tail = forecast(7, 23, RiskTier::Severe);
+    tail.partial = true;
+    let plan = plan(
+        Disease::BrownPatch,
+        RiskTier::Low,
+        &[tail],
+        today,
+        &DiseaseContext::default(),
+    );
+    assert!(
+        !plan.headline.contains("forecast to reach"),
+        "{}",
+        plan.headline
+    );
+}

@@ -14,7 +14,7 @@ Design: [agronomic-rules-design.md](agronomic-rules-design.md). Prefix `RULE`. F
 - [x] **RULE-ENG-006**: The rules shall treat a `Mixed` grass type as a cool-season lawn and give it every cool-season rule.
 - [x] **RULE-ENG-007**: Rule advice text shall not state a product's label rate or any rate for a pesticide; grub control and broadleaf herbicide advice shall name active ingredients and defer to the label.
 - [x] **RULE-ENG-008**: When a rule gives feeding advice, it shall state the nitrogen amount in lb N per 1,000 sq ft and, when the lawn profile records a lawn size, the matching total for the lawn.
-- [ ] **RULE-ENG-009**: If the lawn profile records no lawn size, then feeding advice shall omit the lawn total rather than assume a size.
+- [x] **RULE-ENG-009**: If the lawn profile records no lawn size, then feeding advice shall omit the lawn total rather than assume a size.
 - [ ] **RULE-ENG-010**: The rules shall expose, for each seasonal-plan activity they also cover (spring nitrogen, the fall feedings and winterizer, spring and fall broadleaf herbicide, grub control), the activity's current-season state, so the seasonal plan takes its status from the same evaluation the feed uses (PLAN-ACT-021).
 
 ## Spring nitrogen
@@ -101,7 +101,7 @@ Design: [agronomic-rules-design.md](agronomic-rules-design.md). Prefix `RULE`. F
 - [x] **RULE-GDD-004**: The crabgrass model shall report PreGermination below 75 GDD, ApproachingGermination from 75 to below 150, GerminationLikely from 150 to below 200, and PostGermination at 200 or more, with a germination threshold of 200.
 - [x] **RULE-GDD-005**: The crabgrass model shall be informational only; no recommendation shall read it.
 - [x] **RULE-GDD-006**: When `GET /api/v1/gdd` is called, the system shall return the year's running GDD history, its current total and the crabgrass model for the requested year (default: the server's local current year), through today for the current year and Jan 1–Dec 31 for other years; if the year cannot be represented, then it shall return 400.
-- [ ] **RULE-GDD-007**: If no weather lake is configured, then `GET /api/v1/gdd` shall return a data-unavailable error instead of a zero total and a PreGermination status.
+- [x] **RULE-GDD-007**: If no weather lake is configured, then `GET /api/v1/gdd` shall return a data-unavailable error instead of a zero total and a PreGermination status.
 
 ## Dashboard widgets
 

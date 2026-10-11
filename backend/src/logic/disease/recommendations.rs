@@ -78,6 +78,11 @@ fn to_recommendation(risk: &DiseaseRisk, ctx: &DiseaseContext) -> Recommendation
 /// wants a fungicide in one of the program's eligible classes (unrestricted, not the
 /// class used last).
 fn need_for(risk: &DiseaseRisk, ctx: &DiseaseContext) -> Option<ProductNeed> {
+    // @spec DIS-MGMT-REC-006
+    // A covered lawn has nothing to buy.
+    if risk.management.action == ManagementAction::Protected {
+        return None;
+    }
     if risk.disease == Disease::RedThread {
         return super::red_thread::nitrogen_hungry(ctx).then(|| {
             ProductNeed::new("nitrogen fertilizer", ProductCategory::Fertilizer)
@@ -231,5 +236,26 @@ mod tests {
         });
         assert!(fed.feeding.is_none(), "stay-the-course is not a feeding");
         assert!(fed.needs.is_empty());
+    }
+
+    // @spec DIS-MGMT-REC-006
+    #[test]
+    fn a_protected_lawn_needs_no_fungicide() {
+        let today = date(7, 20);
+        let ctx = DiseaseContext {
+            fungicide_apps: vec![crate::models::FungicideRecord {
+                date: date(7, 15),
+                product: "Heritage G".into(),
+                class: Some(crate::models::FracClass::Frac11),
+            }],
+            ..Default::default()
+        };
+        let risks = assess_all(&hot_humid(today), today, &ctx);
+        let protected: Vec<_> = to_recommendations(&risks, &ctx)
+            .into_iter()
+            .filter(|r| r.severity == crate::models::Severity::Info)
+            .collect();
+        assert!(!protected.is_empty(), "a Protected recommendation surfaced");
+        assert!(protected.iter().all(|r| r.needs.is_empty()));
     }
 }

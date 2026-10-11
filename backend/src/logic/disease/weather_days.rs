@@ -24,9 +24,19 @@ fn fahrenheit_to_celsius(f: f64) -> f64 {
 /// Aggregate 3-hourly forecast points into the lawn's local calendar days, each point on
 /// the local date (and hour) of its own time.
 // @spec DIS-MODEL-DAY-003
-pub fn forecast_days(points: &[ForecastPoint], clock: &Clock) -> Vec<DailyWeather> {
+/// Points at or before `after` (the newest lake observation) are dropped: those hours
+/// are already observed.
+pub fn forecast_days(
+    points: &[ForecastPoint],
+    clock: &Clock,
+    after: Option<chrono::DateTime<chrono::Utc>>,
+) -> Vec<DailyWeather> {
     let mut by_day: BTreeMap<NaiveDate, Vec<&ForecastPoint>> = BTreeMap::new();
-    for point in points {
+    // @spec DIS-MODEL-DAY-007
+    for point in points
+        .iter()
+        .filter(|p| after.is_none_or(|t| p.timestamp > t))
+    {
         by_day
             .entry(clock.local_date(point.timestamp))
             .or_default()
@@ -150,7 +160,7 @@ mod tests {
             point(21, 2, 68.0, 95.0, 0.0),
             point(21, 12, 77.0, 60.0, 1.0),
         ];
-        let days = forecast_days(&points, &eastern());
+        let days = forecast_days(&points, &eastern(), None);
         assert_eq!(days.len(), 2);
         assert_eq!(days[0].date, date(9, 20));
         assert_eq!(days[0].hours_rh90, 3.0);
@@ -174,7 +184,7 @@ mod tests {
             p.timestamp = Utc.with_ymd_and_hms(2026, 11, d, h, 0, 0).unwrap();
             p
         };
-        let days = forecast_days(&[at(2, 4), at(2, 12)], &eastern());
+        let days = forecast_days(&[at(2, 4), at(2, 12)], &eastern(), None);
         assert_eq!(days.len(), 2);
         assert_eq!(
             days[0].date,
@@ -215,5 +225,20 @@ mod tests {
         forecast.is_forecast = true;
         let series = build_series(vec![observed.clone()], vec![forecast]);
         assert_eq!(series, vec![observed]);
+    }
+
+    // @spec DIS-MODEL-DAY-007
+    #[test]
+    fn hours_the_lake_has_reported_are_not_counted_again() {
+        // Lake reported through 14:00 UTC; the 12:00 forecast point is already observed.
+        let last_observed = Utc.with_ymd_and_hms(2026, 9, 21, 14, 0, 0).unwrap();
+        let points = [
+            point(21, 12, 70.0, 95.0, 0.0),
+            point(21, 15, 72.0, 95.0, 0.0),
+            point(21, 18, 74.0, 95.0, 0.0),
+        ];
+        let days = forecast_days(&points, &eastern(), Some(last_observed));
+        let total: f64 = days.iter().map(|d| d.hours_covered).sum();
+        assert_eq!(total, 6.0, "only the 15:00 and 18:00 points remain");
     }
 }

@@ -12,8 +12,6 @@ pub(super) fn build_early_fall_rec(
     profile: &LawnProfile,
     env: &EnvironmentalSummary,
 ) -> Recommendation {
-    let lawn_size = profile.lawn_size_sqft.unwrap_or(DEFAULT_LAWN_SIZE_SQFT);
-
     let mut rec = Recommendation::new(
         "fall_fert_early",
         RecommendationCategory::Fertilizer,
@@ -60,7 +58,7 @@ pub(super) fn build_early_fall_rec(
              Use quick-release or balanced nitrogen (K-State recommends quick-release for fall). \
              Good NPK choices: 30-0-0, 29-5-4, 27-3-3, or any 3:1:1 / 4:1:2 ratio. \
              Water in lightly if no rain expected.",
-            amount_text(EARLY_FALL_N_RATE_LBS_PER_KSQFT, lawn_size)
+            amount_text(EARLY_FALL_N_RATE_LBS_PER_KSQFT, profile.lawn_size_sqft)
         ))
         .with_feeding(EARLY_FALL_N_RATE_LBS_PER_KSQFT)
 }
@@ -71,8 +69,6 @@ pub(super) fn build_mid_fall_rec(
     profile: &LawnProfile,
     env: &EnvironmentalSummary,
 ) -> Recommendation {
-    let lawn_size = profile.lawn_size_sqft.unwrap_or(DEFAULT_LAWN_SIZE_SQFT);
-
     let severity = if app_count == 0 {
         Severity::Warning // Missed early fall app
     } else {
@@ -128,7 +124,7 @@ pub(super) fn build_mid_fall_rec(
             "Apply {}. \
              A slow-release or balanced fertilizer works well. \
              This is the most important feeding of the year - don't skip it!",
-            amount_text(MID_FALL_N_RATE_LBS_PER_KSQFT, lawn_size)
+            amount_text(MID_FALL_N_RATE_LBS_PER_KSQFT, profile.lawn_size_sqft)
         ))
         .with_feeding(MID_FALL_N_RATE_LBS_PER_KSQFT)
 }
@@ -138,8 +134,6 @@ pub(super) fn build_late_fall_rec(
     app_count: usize,
     profile: &LawnProfile,
 ) -> Recommendation {
-    let lawn_size = profile.lawn_size_sqft.unwrap_or(DEFAULT_LAWN_SIZE_SQFT);
-
     let severity = if app_count == 0 {
         Severity::Warning // Missed all fall apps - at least get winterizer
     } else {
@@ -188,7 +182,7 @@ pub(super) fn build_late_fall_rec(
         "Apply {}. \
          Quick-release nitrogen is fine for winterizer since you want immediate uptake. \
          Apply before ground freezes, even if grass looks dormant.",
-        amount_text(WINTERIZER_N_RATE_LBS_PER_KSQFT, lawn_size)
+        amount_text(WINTERIZER_N_RATE_LBS_PER_KSQFT, profile.lawn_size_sqft)
     ))
     .with_feeding(WINTERIZER_N_RATE_LBS_PER_KSQFT)
 }

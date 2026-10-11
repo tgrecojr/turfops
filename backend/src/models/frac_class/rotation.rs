@@ -85,16 +85,12 @@ pub fn analyze_fungicide_rotation(
     // Build warning if consecutive same-class >= 2
     let rotation_warning = if consecutive_same_class >= 2 {
         let last = last_class.unwrap(); // safe: consecutive >= 2 means last_class is Some
-        let mut warning = format!(
+        let warning = format!(
             "Your last {} applications were {} — resistance risk increases with consecutive \
              same-class use.",
             consecutive_same_class, last
         );
-        if let Some(next) = &recommended_next {
-            let products = next.common_products();
-            let product_example = products.first().copied().unwrap_or("(see label)");
-            warning.push_str(&format!(" Rotate to {} (e.g., {}).", next, product_example));
-        }
+        // Which class to rotate to depends on the disease; each disease's plan adds it.
         Some(warning)
     } else if total_apps_this_season >= 3 && last_class.is_some() {
         // General heads-up at 3+ apps even without consecutive same-class

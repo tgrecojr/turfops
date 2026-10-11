@@ -13,6 +13,15 @@ pub enum Disease {
 }
 
 impl Disease {
+    /// Every disease TurfOps models.
+    pub const ALL: [Disease; 5] = [
+        Disease::BrownPatch,
+        Disease::DollarSpot,
+        Disease::PythiumBlight,
+        Disease::GrayLeafSpot,
+        Disease::RedThread,
+    ];
+
     /// Stable slug used in URLs and recommendation ids.
     pub fn slug(&self) -> &'static str {
         match self {
@@ -116,6 +125,9 @@ pub struct DiseaseContext {
     pub fungicide_apps: Vec<FungicideRecord>,
     /// Season-level resistance warning from the rotation analysis.
     pub rotation_warning: Option<String>,
+    /// The warning is about consecutive use of one class, so each disease's plan names
+    /// its own class to rotate to.
+    pub rotation_streak: bool,
     /// Fungicides on the shelf (usable ones only), so the pick can prefer what is owned.
     pub shelf: Vec<super::ShelfFungicide>,
 }

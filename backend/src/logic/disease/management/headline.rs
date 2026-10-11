@@ -17,14 +17,19 @@ pub(super) struct Outlook {
     pub protection: Option<ProtectionStatus>,
 }
 
-/// First forecast day within the outlook window at High or above.
+/// First usable forecast day within the outlook window at High or above. A partial day
+/// (a few hours at the end of the feed) is not evidence of risk.
+// @spec DIS-MGMT-PROT-008
 pub(super) fn outlook_escalation(daily: &[DailyRisk], today: NaiveDate) -> Option<&DailyRisk> {
     daily.iter().find(|d| {
-        d.date > today && d.date <= today + Duration::days(OUTLOOK_DAYS) && d.tier >= RiskTier::High
+        !d.partial
+            && d.date > today
+            && d.date <= today + Duration::days(OUTLOOK_DAYS)
+            && d.tier >= RiskTier::High
     })
 }
 
-fn pick_text(recommended: Option<FracClass>) -> String {
+pub(super) fn pick_text(recommended: Option<FracClass>) -> String {
     match recommended {
         Some(class) => {
             let example = class

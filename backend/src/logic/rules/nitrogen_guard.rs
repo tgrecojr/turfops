@@ -5,7 +5,6 @@
 //! (3.25 lb vs. fine fescue's 3.0 lb maximum). The feed runs this pass once, after every
 //! source, over the recommendations their source marked as feedings.
 
-use super::thresholds::DEFAULT_LAWN_SIZE_SQFT;
 use crate::models::nitrogen_budget::annual_n_target;
 use crate::models::{Application, DataSource, LawnProfile, Recommendation, Severity};
 use chrono::{Datelike, NaiveDate};
@@ -36,7 +35,12 @@ pub fn rate_text(n_lbs_per_ksqft: f64) -> String {
 /// A feeding's amount as every feeding source states it in its text: "about 3.75 lb of
 /// nitrogen for your 5000 sq ft lawn (0.75 lb N/1000 sq ft)". The guard re-renders this
 /// exact phrase when it caps a feeding.
-pub fn amount_text(n_lbs_per_ksqft: f64, lawn_sqft: f64) -> String {
+// @spec RULE-ENG-009
+pub fn amount_text(n_lbs_per_ksqft: f64, lawn_sqft: Option<f64>) -> String {
+    // With no lawn size recorded, a total would be invented: state the rate alone.
+    let Some(lawn_sqft) = lawn_sqft else {
+        return rate_text(n_lbs_per_ksqft);
+    };
     format!(
         "about {} lb of nitrogen for your {:.0} sq ft lawn ({})",
         lbs(lawn_sqft / 1000.0 * n_lbs_per_ksqft),
@@ -46,7 +50,7 @@ pub fn amount_text(n_lbs_per_ksqft: f64, lawn_sqft: f64) -> String {
 }
 
 /// Re-state a feeding's amount as `capped` wherever the source stated its own `n`.
-fn cap_amount(rec: &mut Recommendation, n: f64, capped: f64, lawn_sqft: f64) {
+fn cap_amount(rec: &mut Recommendation, n: f64, capped: f64, lawn_sqft: Option<f64>) {
     let restate = |text: &str| -> String {
         text.replace(&amount_text(n, lawn_sqft), &amount_text(capped, lawn_sqft))
             .replace(&rate_text(n), &rate_text(capped))
@@ -84,7 +88,7 @@ pub fn apply(
     let applied = applied_this_year(history, today);
     let remaining = target.recommended_lbs_per_1000sqft - applied;
 
-    let lawn_sqft = profile.lawn_size_sqft.unwrap_or(DEFAULT_LAWN_SIZE_SQFT);
+    let lawn_sqft = profile.lawn_size_sqft;
     for rec in recommendations.iter_mut() {
         let Some(feeding) = rec.feeding else {
             continue;
@@ -164,12 +168,12 @@ mod tests {
             RecommendationCategory::Fertilizer,
             Severity::Warning,
             "Main Fall Feeding",
-            format!("Feed now: {}.", amount_text(1.0, 5000.0)),
+            format!("Feed now: {}.", amount_text(1.0, Some(5000.0))),
         )
         .with_data_point(RATE_POINT, rate_text(1.0), DataSource::Agronomic.as_str())
         .with_action(format!(
             "Apply {}. Use slow-release nitrogen.",
-            amount_text(1.0, 5000.0)
+            amount_text(1.0, Some(5000.0))
         ))
         .with_feeding(1.0)
     }
@@ -219,8 +223,8 @@ mod tests {
             today(),
         );
         let rec = &recs[0];
-        let original = amount_text(1.0, 5000.0);
-        let capped = amount_text(0.5, 5000.0);
+        let original = amount_text(1.0, Some(5000.0));
+        let capped = amount_text(0.5, Some(5000.0));
         let action = rec.suggested_action.as_deref().unwrap_or_default();
         assert!(!rec.description.contains(&original), "{}", rec.description);
         assert!(!action.contains(&original), "{action}");
@@ -318,5 +322,13 @@ mod tests {
             .data_points
             .iter()
             .any(|d| d.label == "N budget remaining"));
+    }
+
+    // @spec RULE-ENG-009
+    #[test]
+    fn without_a_lawn_size_the_amount_is_per_thousand_square_feet_only() {
+        let text = amount_text(0.75, None);
+        assert_eq!(text, rate_text(0.75));
+        assert!(!text.contains("lawn"), "{text}");
     }
 }

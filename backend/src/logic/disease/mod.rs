@@ -52,7 +52,7 @@ pub fn assess_all(
 /// Enough hours — and the right ones. Twelve hours of afternoon and evening (all a
 /// forecast-only "today" has left by late morning) carry no dawn low and none of the humid
 /// night, which is most of what these models score; a day that ends at noon has no high.
-fn is_usable(day: &DailyWeather) -> bool {
+pub(crate) fn is_usable(day: &DailyWeather) -> bool {
     day.hours_covered >= MIN_USABLE_HOURS && day.covers_dawn && day.covers_afternoon
 }
 

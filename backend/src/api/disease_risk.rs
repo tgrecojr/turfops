@@ -2,7 +2,7 @@ use crate::db::{product_queries, queries};
 use crate::error::{Source, TurfOpsError};
 use crate::logic::disease::{self, weather_days};
 use crate::models::{
-    DailyWeather, DiseaseContext, DiseaseRiskResponse, LawnProfile, ProductCategory,
+    DailyWeather, Disease, DiseaseContext, DiseaseRiskResponse, LawnProfile, ProductCategory,
     Recommendation, ShelfFungicide, ShelfProduct, StockStatus,
 };
 use crate::state::AppState;
@@ -63,7 +63,7 @@ async fn compute(
 
     let forecast_days = forecast
         .as_ref()
-        .map(|f| weather_days::forecast_days(&f.hourly, &state.clock))
+        .map(|f| weather_days::forecast_days(&f.hourly, &state.clock, lake.latest_observed))
         .unwrap_or_default();
     let series = weather_days::build_series(lake.days, forecast_days);
 
@@ -95,14 +95,25 @@ async fn compute(
     })
     .collect();
 
-    let mut data_notes = data_notes(&series, today, forecast.is_some());
     // Every tracked disease is a cool-season turf disease.
-    let diseases = if profile.grass_type.is_cool_season() {
+    let cool_season = profile.grass_type.is_cool_season();
+    let diseases = if cool_season {
         disease::assess_all(&series, today, &ctx)
     } else {
-        data_notes.push("Disease models cover cool-season turf only.".into());
         Vec::new()
     };
+    let omitted: Vec<Disease> = if cool_season {
+        Disease::ALL
+            .into_iter()
+            .filter(|d| !diseases.iter().any(|r| r.disease == *d))
+            .collect()
+    } else {
+        Vec::new()
+    };
+    let mut data_notes = data_notes(&series, today, forecast.is_some(), &omitted);
+    if !cool_season {
+        data_notes.push("Disease models cover cool-season turf only.".into());
+    }
 
     let response = DiseaseRiskResponse {
         generated_at: Utc::now(),
@@ -115,11 +126,19 @@ async fn compute(
 }
 
 /// Plain-language caveats about the inputs behind this response.
-fn data_notes(series: &[DailyWeather], today: NaiveDate, has_forecast: bool) -> Vec<String> {
+fn data_notes(
+    series: &[DailyWeather],
+    today: NaiveDate,
+    has_forecast: bool,
+    omitted: &[Disease],
+) -> Vec<String> {
+    // @spec DIS-MODEL-API-004, DIS-MODEL-API-005
+    // "Usable" is the headline's own rule (hours, dawn and afternoon), so a note explains
+    // every fallback the headline makes.
     let mut notes = Vec::new();
     let latest_observed = series
         .iter()
-        .filter(|d| !d.is_forecast && d.hours_covered >= disease::MIN_USABLE_HOURS)
+        .filter(|d| !d.is_forecast && disease::is_usable(d))
         .map(|d| d.date)
         .max();
     match latest_observed {
@@ -132,7 +151,7 @@ fn data_notes(series: &[DailyWeather], today: NaiveDate, has_forecast: bool) -> 
 
     let today_usable = series
         .iter()
-        .any(|d| d.date == today && d.hours_covered >= disease::MIN_USABLE_HOURS);
+        .any(|d| d.date == today && disease::is_usable(d));
     if !today_usable {
         notes.push(
             "Station data lags by up to a day and too little of today remains in the forecast, \
@@ -143,7 +162,23 @@ fn data_notes(series: &[DailyWeather], today: NaiveDate, has_forecast: bool) -> 
     if !has_forecast {
         notes.push("Forecast unavailable — no outlook days are shown.".into());
     }
+    for d in omitted {
+        notes.push(format!(
+            "{} is left out: no recent day has enough station data to score it.",
+            sentence_case(d.name())
+        ));
+    }
     notes
+}
+
+/// "Gray Leaf Spot" → "Gray leaf spot".
+fn sentence_case(name: &str) -> String {
+    let lower = name.to_lowercase();
+    let mut chars = lower.chars();
+    match chars.next() {
+        Some(first) => first.to_uppercase().chain(chars).collect(),
+        None => String::new(),
+    }
 }
 
 #[cfg(test)]
@@ -156,15 +191,42 @@ mod tests {
         let today = date(9, 20);
         let mut series = run_of(today, 3, |d| day(d, 20.0, 15.0, 25.0, 80.0));
         series[2].is_forecast = true;
-        assert!(data_notes(&series, today, true).is_empty());
+        assert!(data_notes(&series, today, true, &[]).is_empty());
     }
 
     #[test]
     fn notes_flag_stale_lake_thin_today_and_missing_forecast() {
         let today = date(9, 20);
         let series = run_of(date(9, 17), 3, |d| day(d, 20.0, 15.0, 25.0, 80.0));
-        let notes = data_notes(&series, today, false);
+        let notes = data_notes(&series, today, false, &[]);
         assert_eq!(notes.len(), 3);
         assert!(notes[0].contains("2026-09-17"));
+    }
+
+    // @spec DIS-MODEL-API-004
+    #[test]
+    fn today_without_dawn_hours_is_not_usable_for_the_notes_either() {
+        let today = date(9, 20);
+        let mut series = run_of(today, 3, |d| day(d, 20.0, 15.0, 25.0, 80.0));
+        // Twelve hours of today, but none of them dawn: the headline falls back.
+        series[2].hours_covered = 12.0;
+        series[2].covers_dawn = false;
+        let notes = data_notes(&series, today, true, &[]);
+        assert!(
+            notes.iter().any(|n| n.contains("most recent complete day")),
+            "{notes:?}"
+        );
+    }
+
+    // @spec DIS-MODEL-API-005
+    #[test]
+    fn a_disease_left_out_is_named() {
+        let today = date(9, 20);
+        let series = run_of(today, 3, |d| day(d, 20.0, 15.0, 25.0, 80.0));
+        let notes = data_notes(&series, today, true, &[Disease::GrayLeafSpot]);
+        assert!(
+            notes.iter().any(|n| n.contains("Gray leaf spot")),
+            "{notes:?}"
+        );
     }
 }
