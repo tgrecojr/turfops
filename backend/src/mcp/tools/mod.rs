@@ -16,9 +16,24 @@ use serde_json::Value;
 use std::future::Future;
 
 /// A tool result carrying `value` as JSON text.
+/// A body that will not serialize is a tool error the model can read, logged as an error,
+/// never a JSON-RPC protocol error.
+// @spec MCP-ERR-007
 fn json_result<T: Serialize>(value: &T) -> Result<CallToolResult, ErrorData> {
-    Ok(CallToolResult::success(vec![ContentBlock::json(value)?]))
+    match ContentBlock::json(value) {
+        Ok(content) => Ok(CallToolResult::success(vec![content])),
+        Err(err) => {
+            tracing::error!(error = %err.message, "MCP tool result is not serializable");
+            Ok(CallToolResult::error(vec![ContentBlock::text(
+                INTERNAL_ERROR,
+            )]))
+        }
+    }
 }
+
+/// What the model is told when TurfOps itself failed; the detail is in the log.
+pub(super) const INTERNAL_ERROR: &str =
+    "TurfOps hit an internal error answering this; details are in the server log.";
 
 /// A failed handler as a tool-level error the model can read and relay. Only messages
 /// written for users pass through; anything else (SQL, lake internals) stays in the log.
@@ -55,8 +70,7 @@ fn error_message(err: TurfOpsError) -> String {
         }
         other => {
             tracing::error!(error = %other, "MCP tool failed");
-            "TurfOps hit an internal error answering this; details are in the server log."
-                .to_string()
+            INTERNAL_ERROR.to_string()
         }
     }
 }
@@ -130,6 +144,23 @@ mod tests {
         let msg = error_message(TurfOpsError::DataLake(err));
         assert!(msg.contains("weather data lake could not be read"));
         assert!(!msg.contains("/data/"));
+    }
+
+    /// A body whose serialization fails, as a map with non-string keys does.
+    struct Unserializable;
+    impl Serialize for Unserializable {
+        fn serialize<S: serde::Serializer>(&self, _: S) -> Result<S::Ok, S::Error> {
+            Err(serde::ser::Error::custom("not JSON"))
+        }
+    }
+
+    // @spec MCP-ERR-007
+    #[test]
+    fn an_unserializable_body_is_a_tool_error_not_a_protocol_error() {
+        let result = json_result(&Unserializable).expect("never a JSON-RPC error");
+        assert_eq!(result.is_error, Some(true));
+        let text = serde_json::to_string(&result.content).unwrap();
+        assert!(text.contains("internal error"), "{text}");
     }
 
     #[test]

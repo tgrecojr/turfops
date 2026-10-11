@@ -282,7 +282,7 @@ fn a_failed_forecast_fetch_is_retried_after_five_minutes_not_on_every_request() 
     assert!(state.due(noon() + Duration::minutes(5)).sensors);
 }
 
-// @spec SYNC-CONN-006
+// @spec SYNC-CONN-006, MCP-SNAP-009
 #[test]
 fn a_probe_result_is_reused_for_five_minutes_up_or_down() {
     let mut cache = ProbeCache::default();

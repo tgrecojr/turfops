@@ -15,7 +15,6 @@ use rmcp::model::CallToolResult;
 use rmcp::{tool, tool_router, ErrorData};
 use schemars::JsonSchema;
 use serde::Deserialize;
-use std::str::FromStr;
 
 const DEFAULT_LIMIT: i64 = 20;
 const MAX_LIMIT: i64 = 100;
@@ -46,8 +45,9 @@ impl TurfOpsMcp {
     #[tool(
         description = "The application log, newest first: what was applied or done, when, \
                        product name and linked shelf `product_id`, rate, N-P-K, FRAC classes \
-                       for fungicides, notes and the weather at the time. Filter by type and \
-                       date range. Use to answer 'when did I last…' and to check what a \
+                       for fungicides, notes, and the plant it was for (`plant_id`, or \
+                       `plant_name` once that plant was deleted). Filter by type and date \
+                       range; for the weather on a date, use `weather_history`. Use to answer 'when did I last…' and to check what a \
                        season already has logged (e.g. an overseed blocks pre-emergent).",
         annotations(read_only_hint = true)
     )]
@@ -124,32 +124,30 @@ impl TurfOpsMcp {
         end_exclusive: NaiveDate,
         limit: i64,
     ) -> Result<Vec<Application>, TurfOpsError> {
-        let app_type = app_type
-            .map(|t| {
-                ApplicationType::from_str(t).map_err(|_| {
-                    TurfOpsError::InvalidData(format!("Unknown application type: {t}"))
-                })
-            })
-            .transpose()?;
+        let app_type = type_filter(app_type)?;
         let profile = queries::get_default_lawn_profile(&self.state.pool)
             .await?
             .ok_or_else(|| TurfOpsError::NotFound("No lawn profile found".into()))?;
         let profile_id = profile
             .id
             .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
-        let apps = queries::get_applications_for_profile_in_range(
+        queries::get_applications_in_range_page(
             &self.state.pool,
             profile_id,
+            app_type,
             start,
             end_exclusive,
+            limit,
         )
-        .await?;
-        Ok(apps
-            .into_iter()
-            .filter(|a| app_type.is_none_or(|t| a.application_type == t))
-            .take(limit as usize)
-            .collect())
+        .await
     }
+}
+
+/// The `type` argument as an application type.
+/// Worded as `GET /applications` words it, with or without a date range.
+// @spec MCP-TOOL-018
+fn type_filter(raw: Option<&str>) -> Result<Option<ApplicationType>, TurfOpsError> {
+    raw.map(api::applications::parse_type_filter).transpose()
 }
 
 /// `[since, until]` as a half-open `[start, end)` range for the SQL query, or `None`
@@ -190,6 +188,22 @@ mod tests {
 
     fn d(s: &str) -> NaiveDate {
         NaiveDate::parse_from_str(s, "%Y-%m-%d").unwrap()
+    }
+
+    // @spec MCP-TOOL-018
+    #[test]
+    fn an_unknown_type_reads_as_the_list_endpoint_does() {
+        match type_filter(Some("Watering")) {
+            Err(TurfOpsError::InvalidData(msg)) => {
+                assert_eq!(msg, "Unknown application type filter: Watering")
+            }
+            other => panic!("expected a filter error, got ok={}", other.is_ok()),
+        }
+        assert_eq!(
+            type_filter(Some("grub control")).unwrap(),
+            Some(ApplicationType::GrubControl)
+        );
+        assert_eq!(type_filter(None).unwrap(), None);
     }
 
     #[test]
