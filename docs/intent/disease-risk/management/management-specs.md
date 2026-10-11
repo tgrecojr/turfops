@@ -21,14 +21,14 @@ Design: [management-design.md](management-design.md). Parent: [disease-risk](../
 - [x] **DIS-MGMT-PROT-004**: The system shall count a logged restricted option (chlorothalonil, M5) as protection while never recommending it.
 - [x] **DIS-MGMT-PROT-005**: When a day from tomorrow through today + 3 has a daily tier of High or above, the system shall give a heads-up for the first such day at both Low and Moderate headline tiers, judging coverage on that day at that day's tier, and stating either the pick or "<product> covers … through about <date>".
 - [x] **DIS-MGMT-PROT-006**: If there is no forecast, then the system shall give no outlook heads-up.
-- [ ] **DIS-MGMT-PROT-007**: The system shall never give red thread a fungicide heads-up, at any headline tier.
-- [ ] **DIS-MGMT-PROT-008**: When looking for an outlook day, the system shall consider only usable days (the risk-models usable-day rule), never a partial forecast day.
+- [x] **DIS-MGMT-PROT-007**: The system shall never give red thread a fungicide heads-up, at any headline tier.
+- [x] **DIS-MGMT-PROT-008**: When looking for an outlook day, the system shall consider only usable days (the risk-models usable-day rule), never a partial forecast day.
 
 ## Recommended class
 
 - [x] **DIS-MGMT-PICK-001**: When picking a class for a program, the system shall consider only options that are not restricted and not the disease's last-used class (and, for the curative program, only curative options), and pick among those with the highest efficacy.
 - [x] **DIS-MGMT-PICK-002**: When several eligible options share the highest efficacy, the system shall prefer a class with a usable fungicide on the shelf, otherwise the first in the matrix's preference order; the shelf shall never outrank efficacy or rotation.
-- [ ] **DIS-MGMT-PICK-003**: The system shall treat as last used every single-site class, among the disease's options, of the newest lawn fungicide application this calendar year that has such a class, so each class of a premix counts as last used.
+- [x] **DIS-MGMT-PICK-003**: The system shall treat as last used every single-site class, among the disease's options, of the newest lawn fungicide application this calendar year that has such a class, so each class of a premix counts as last used.
 - [x] **DIS-MGMT-PICK-004**: Each program shall mark its recommended option, flag the last-used one, and list the shelf products on hand for each option's class.
 - [x] **DIS-MGMT-PICK-005**: The system shall treat as the shelf every Fungicide-category product that is not archived and not Out, counted by its recorded FRAC classes.
 
@@ -45,7 +45,7 @@ Design: [management-design.md](management-design.md). Parent: [disease-risk](../
 - [x] **DIS-MGMT-FRAC-002**: The system shall create one fungicide record per resolved class, so a premix protects and counts toward rotation for each class it contains.
 - [x] **DIS-MGMT-FRAC-003**: If a logged fungicide resolves to no class, then the system shall give it no protection and no rotation credit.
 - [x] **DIS-MGMT-FRAC-004**: When this calendar year's lawn fungicides include two or more consecutive applications of the same single-site class, the system shall add a rotation warning to the plan notes; with three or more applications and no such streak, a note to track FRAC classes.
-- [ ] **DIS-MGMT-FRAC-005**: When the rotation warning names a class to rotate to, it shall name each disease's own recommended class, never a class that is not among that disease's eligible options.
+- [x] **DIS-MGMT-FRAC-005**: When the rotation warning names a class to rotate to, it shall name each disease's own recommended class, never a class that is not among that disease's eligible options.
 
 ## Feed recommendations
 
@@ -54,7 +54,7 @@ Design: [management-design.md](management-design.md). Parent: [disease-risk](../
 - [x] **DIS-MGMT-REC-003**: When emitting a disease recommendation other than red thread whose action is not Protected, the system shall declare a Fungicide need for every preventative option that is not restricted and not last used.
 - [x] **DIS-MGMT-REC-004**: While red thread is nitrogen-hungry and its recommendation tells the owner to feed, the system shall mark it as a feeding for the nitrogen guard and declare a nitrogen-fertilizer need (a Fertilizer whose nitrogen is above 0 or unrecorded); once fed, red thread's recommendation shall carry neither the mark nor a need.
 - [x] **DIS-MGMT-REC-005**: If the disease-risk computation fails while building the feed, then the system shall log a warning and contribute no disease recommendations.
-- [ ] **DIS-MGMT-REC-006**: When a disease recommendation's action is Protected, the system shall declare no product need.
+- [x] **DIS-MGMT-REC-006**: When a disease recommendation's action is Protected, the system shall declare no product need.
 
 ## FRAC classes endpoint
 

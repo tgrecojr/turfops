@@ -56,13 +56,24 @@ pub(crate) async fn climate_record(
     Ok(record)
 }
 
-async fn compute(state: &AppState, profile: &LawnProfile) -> Result<TimingResponse, TurfOpsError> {
+/// The lake client and the forecast's full days: the inputs the Timing page and the
+/// seasonal plan's timing activities both evaluate the windows with.
+async fn lake_and_forecast(
+    state: &AppState,
+) -> Result<(WeatherLakeClient, Option<Vec<DailyForecast>>), TurfOpsError> {
     let (client, forecast) = {
         let mut service = state.sync_service.write().await;
         let summary = service.get_or_refresh().await?;
         (service.weather_client().cloned(), summary.forecast)
     };
     let client = client.ok_or_else(|| TurfOpsError::not_configured(Source::WeatherLake))?;
+    // Only full days: a partial day's (high + low) / 2 is an evening or a night, not a mean.
+    let full_days = forecast.map(|f| f.full_days().cloned().collect());
+    Ok((client, full_days))
+}
+
+async fn compute(state: &AppState, profile: &LawnProfile) -> Result<TimingResponse, TurfOpsError> {
+    let (client, forecast) = lake_and_forecast(state).await?;
 
     // @spec TIME-ENG-039
     let record = climate_record(state, &client).await?;
@@ -80,11 +91,7 @@ async fn compute(state: &AppState, profile: &LawnProfile) -> Result<TimingRespon
     )
     .await?;
 
-    // Only full days: a partial day's (high + low) / 2 is an evening or a night, not a mean.
-    let full_days: Vec<DailyForecast> = forecast
-        .as_ref()
-        .map(|f| f.full_days().cloned().collect())
-        .unwrap_or_default();
+    let full_days: Vec<DailyForecast> = forecast.clone().unwrap_or_default();
     let daily_forecast = full_days.as_slice();
     let assessment = timing::assess(&timing::Inputs {
         today,
@@ -163,13 +170,10 @@ async fn plan_for(
     profile: &LawnProfile,
     year: i32,
 ) -> Result<Vec<PlannedActivity>, TurfOpsError> {
-    let client = state
-        .sync_service
-        .read()
-        .await
-        .weather_client()
-        .cloned()
-        .ok_or_else(|| TurfOpsError::not_configured(Source::WeatherLake))?;
+    // @spec TIME-PLAN-007
+    // The same inputs as the Timing page, forecast included, so the plan's status matches
+    // the window's state there.
+    let (client, forecast) = lake_and_forecast(state).await?;
     // @spec TIME-ENG-039
     let record = climate_record(state, &client).await?;
     let today = state.clock.today();
@@ -189,7 +193,8 @@ async fn plan_for(
     )
     .await?;
 
-    let data = timing::SeasonData::build(days, &[], today.year());
+    let data =
+        timing::SeasonData::build(days, forecast.as_deref().unwrap_or_default(), today.year());
     let season = data.season(days, today);
     Ok(timing::plan::activities(
         &season,

@@ -47,7 +47,7 @@ Design: [timing-windows-design.md](timing-windows-design.md). Method: `docs/timi
 - [x] **TIME-ENG-025**: While the season's data is stale, the system shall count only confirmed soil runs and resolve every other soil boundary from its typical date.
 - [x] **TIME-ENG-026**: The system shall resolve a before-first-freeze boundary for the current season from the median of the history years' freeze-anchored dates, as Typical, passed once that date is on or before today, never from this year's or a forecast freeze.
 - [x] **TIME-ENG-027**: When a GDD boundary has been reached this season, the system shall resolve it as Observed and passed; otherwise it shall resolve it from its typical date.
-- [ ] **TIME-ENG-028**: When resolving an earliest-of boundary, the system shall take the earliest-dated passed option that is not Tentative, else the earliest-dated Tentative option, else the earliest-dated unpassed option, else an undated unpassed boundary, so a confirmed close is never downgraded by an earlier tentative one.
+- [x] **TIME-ENG-028**: When resolving an earliest-of boundary, the system shall take the earliest-dated passed option that is not Tentative, else the earliest-dated Tentative option, else the earliest-dated unpassed option, else an undated unpassed boundary, so a confirmed close is never downgraded by an earlier tentative one.
 - [x] **TIME-ENG-029**: When resolving a boundary from its typical date, the system shall use the median as a not-passed estimate while the median is ahead or while the data is fresh and the station has not yet reported a day past the median.
 - [x] **TIME-ENG-030**: When resolving a boundary from its typical date with the scan range ended or the data stale, the system shall use the median as passed.
 - [x] **TIME-ENG-031**: If a boundary's typical date has passed, the data is fresh and the station has reported past it, and no crossing has occurred, then the system shall mark the boundary overdue with no date and not passed.
@@ -89,7 +89,7 @@ Design: [timing-windows-design.md](timing-windows-design.md). Method: `docs/timi
 - [x] **TIME-FEED-005**: While fall seeding is Open, Ideal or Closing, the system shall emit the `aeration` recommendation, unless the lawn was aerated since Jul 1 of the season year or fall seeding is Done or Blocked: Warning for clay or clay-loam soil not aerated in 12 months, Advisory when not aerated in 12 months otherwise, Info when aerated within 12 months.
 - [x] **TIME-FEED-006**: When reconciling the rules' `broadleaf_fall`, the system shall remove it when fall seeding is Done, cap it at Advisory with the prefix "Only if you are NOT seeding" while fall seeding is NotYet, OpeningSoon, Open, Ideal or Closing, and leave it unchanged when fall seeding is Blocked or Closed.
 - [x] **TIME-FEED-007**: If computing the timing windows fails while building the feed, then the system shall log the error and add no timing recommendation, no aeration recommendation and no fall broadleaf reconciliation.
-- [ ] **TIME-FEED-008**: When emitting the missed spring pre-emergent Warning (spring pre-emergent Closed within the last 21 days), the system shall declare no product need.
+- [x] **TIME-FEED-008**: When emitting the missed spring pre-emergent Warning (spring pre-emergent Closed within the last 21 days), the system shall declare no product need.
 
 ## Seasonal-plan activities
 
@@ -99,7 +99,7 @@ Design: [timing-windows-design.md](timing-windows-design.md). Method: `docs/timi
 - [x] **TIME-PLAN-004**: The system shall list in `owned_ids` every seasonal-plan id the timing windows answer for, including blocked ones, so the plan removes their 10 cm versions.
 - [x] **TIME-PLAN-005**: When the plan's fall overseeding activity is built, it shall carry the same seed amount per 1,000 sq ft as the fall seeding recommendation.
 - [x] **TIME-PLAN-006**: If the weather lake is unavailable or there are no timing activities, then the timing plan builder shall return nothing, so the seasonal plan keeps its own activities.
-- [ ] **TIME-PLAN-007**: When building timing activities for the season being lived now, the system shall evaluate the windows with the same inputs as the Timing page, forecast included, so each activity's status matches the window's state on the page.
+- [x] **TIME-PLAN-007**: When building timing activities for the season being lived now, the system shall evaluate the windows with the same inputs as the Timing page, forecast included, so each activity's status matches the window's state on the page.
 
 ## Timing page and dashboard widget
 

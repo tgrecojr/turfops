@@ -36,7 +36,7 @@ The component is one leaf. Its EARS are grouped into five spec areas under the `
 | Input | Supplied by | Contract this component relies on |
 |---|---|---|
 | `ClimateRecord { days: Vec<ClimateDay> }` | Weather data access (`datasources/weather/climatology.rs::fetch_climate_record`) | Ascending local days from `climate_start(today)` = Jan 1 of (the lawn's current year − `HISTORY_YEARS`) (`api/timing.rs`). Each day has optional `soil_temp_5_f` (silver hourly mean, ≥ 12 h, sentinels dropped, °F), `air_min_f` / `air_avg_f` / `gdd50` (gold, `hours_observed ≥ 12`). Any field may be missing. |
-| Daily forecast | Data sync (`get_or_refresh().forecast`) | Only `WeatherForecast::full_days()` is used (`api/timing.rs:86-90`), because a partial day's (high + low) / 2 is not a daily mean. |
+| Daily forecast | Data sync (`get_or_refresh().forecast`) | Only `WeatherForecast::full_days()` is used, because a partial day's (high + low) / 2 is not a daily mean. `api/timing.rs::lake_and_forecast` (lines 61-73) supplies the lake client and these full days to both the Timing page (`compute`) and the seasonal plan (`plan_for`), so both evaluate the windows from the same inputs. |
 | Application log | Applications (`queries::get_applications_for_profile_in_range`) | The feed handler reads 550 days back (`HISTORY_LOOKBACK_DAYS`), which reaches the previous July. The plan handler reads Nov 1 of year − 1 through Mar 1 of year + 1. |
 | Lawn profile | Lawn profile CRUD | `grass_type` selects windows and establishment buffers. `lawn_size_sqft` sizes the seed note. |
 | Air→soil regression | `logic/soil_temp_prediction::{fit_model, predict_soil_temps}` | Lagged linear fit (lag 0–7 d). Returns `None` with fewer than 14 pairs or R² < 0.3. |
@@ -117,7 +117,7 @@ The thresholds are constants in `windows.rs` and match `docs/timing-windows.md` 
 | Soil, no usable run (none, or an unconfirmed run with stale data) | From typical (below), with the crossing's `scan_to` |
 | `BeforeFirstFreeze` | Always `Typical`: the median of the per-year freeze-anchored dates, passed once that date ≤ today. The current season never uses this year's or a forecast freeze. |
 | `Gdd` | Reached this season → `Observed`, passed. Otherwise from typical, with scan end Jul 31. |
-| `Earliest` | Resolve each option. Take the earliest-dated *passed* option, else the earliest-dated unpassed option, else `{date: None, Typical, not passed}`. |
+| `Earliest` | Resolve each option (`earliest_of`). Take the earliest-dated passed option that is not `Tentative`, else the earliest-dated `Tentative` option, else the earliest-dated unpassed option, else `{date: None, Typical, not passed}`. A confirmed close (an Observed 200 GDD, say) therefore wins over an earlier tentative soil touch, and the window reads Closed rather than Closing. |
 
 **From typical** (`from_typical`):
 - If the median is still ahead, or data is fresh and the station has not yet reported past the median (`last_observed < median`, the lake-lag case), the median is the estimate and the boundary is not passed.
@@ -200,7 +200,7 @@ As a result, a spring pre-emergent never blocks fall seeding, a fall overseeding
    - Everything else produces nothing.
    - The id is `timing_<slug>_<season_year>`. The category is PreEmergent or Overseeding.
    - The title is "name — headline", the description is `detail`, the action is `guidance` (plus, for fall seeding, a seed-amount note: the overseeding amount per 1,000 sq ft and the total seed for `lawn_size_sqft`, from `rules/thresholds.rs::OVERSEED_RATE_LBS_PER_KSQFT`, `recommendations.rs:76-83`), and the data points are the 5 cm mean plus Opens, Ideal until and Closes.
-   - `ProductNeed`: Herbicide · PreEmergent for the pre-emergent windows. Seed with the lawn's species targets for the seeding windows (Mixed accepts KBG / TTTF / PRG / fine fescue).
+   - `ProductNeed`: Herbicide · PreEmergent for the pre-emergent windows. Seed with the lawn's species targets for the seeding windows (Mixed accepts KBG / TTTF / PRG / fine fescue). The missed spring pre-emergent Warning (state Closed) declares no need: its guidance is post-emergent control, so pre-emergent never reaches the shopping list after the window has closed.
 2. `companions::aeration`: the `aeration` recommendation while fall seeding is Open, Ideal or Closing.
    - Silent when the lawn was aerated since Jul 1 of the season year, and silent when seeding is Done or Blocked.
    - Warning for clay or clay-loam soil not aerated in 12 months. Advisory when not aerated in 12 months otherwise. Info when aerated within 12 months.
@@ -220,7 +220,7 @@ If `compute` fails, the error is logged and the feed is left as the other source
 - **Omitted activities:** a window blocked by the log is left out, and aeration goes with seeding. An activity is also left out when its opens or closes has no typical date.
 - `owned_ids(grass)` lists every plan id the windows answer for, including blocked ones. The plan handler removes those ids from its own 10 cm activities before adding the timing ones, so a blocked window's legacy twin cannot reappear.
 - When the lake is unavailable or there are no activities, `plan_activities` returns `None` and the plan keeps its own versions. The seasonal-plan component owns that merge.
-- The plan path builds `SeasonData` **without the forecast** (`api/timing.rs:196`).
+- The plan path evaluates the windows with the same inputs as the Timing page, the forecast's full days included (`SeasonData::build(days, forecast, …)`, `api/timing.rs:196-197`), so the current season's status matches the window's state on the page.
 
 **MCP:** the `timing_windows` tool and `lawn_snapshot` call `get_timing_windows` and drop `series` (`mcp/trim.rs::timing_without_series`).
 
@@ -316,26 +316,23 @@ A failed fetch shows `describeError(e)` (Web UI's human-readable errors): with n
 
 ### Deferred
 1. **A single extreme day can confirm a crossing.** The trailing 5-day mean carries one outlier for 5 days, so `detect` can confirm it (`series.rs:94-157`). The owner has not decided whether to require the raw daily value to hold as well.
-2. **Divergence: a missed spring pre-emergent still shops for pre-emergent** (TIME-FEED-008). The 21-day Warning carries a PreEmergent `ProductNeed`, so the shopping list can say "buy pre-emergent" after the window closed, while the guidance says to plan post-emergent control (`recommendations.rs:44, 111, 131-134`). Intent: the missed-window Warning declares no need.
-3. **Divergence: the plan is evaluated without the forecast** (TIME-PLAN-007; `api/timing.rs:196`). Intent: the plan uses the page's evaluation, forecast included. `detect` keeps an unconfirmed run only if it reaches the end of the series (`series.rs:117+`), so a Tentative observed run that the forecast breaks can be Tentative in the plan and absent on the Timing page. The plan status can then disagree with the page (Active vs. Upcoming).
-4. **Divergence: a composite close can read Closing after a firm close** (TIME-ENG-028). Intent: a passed non-Tentative option wins over an earlier Tentative one. `Earliest` takes the earliest *passed* option. A Tentative soil crossing dated before an Observed GDD crossing makes the window Closing rather than Closed (`evaluate.rs:164-171`, `:220-247`).
-5. **A composite can hide an overdue trigger.** When one option is overdue (undated) and the other has a future typical date, the composite shows the other date as its estimate; the undated option is filtered out (`evaluate.rs:164-176`).
-6. **GDD coverage short-circuit.** `gdd_reached` returns `None` at the first day the target is met if coverage is below 80 %, and does not look at later days (`climatology.rs:91-93`). The boundary then falls back to typical and can go overdue for the rest of the season.
-7. **No single-flight on a memo miss.** Concurrent cache misses each read the 15-year record (`api/timing.rs:47-55`).
-8. **Both applications logged.** When Overseed and PreEmergent are both logged in one fall, both windows read Done, since Done is checked before Blocked (`mod.rs:171-175`). The contradiction is not surfaced.
-9. **Latent: `compute` propagates `get_or_refresh` errors** (`api/timing.rs:60-63`). The refresh logs and swallows every source failure today (`logic/data_sync.rs`), so a failed forecast already reaches the windows as no forecast with its data note (TIME-ENG-045). An error the refresh might return in future would fail the endpoint, though the lake read is independent.
-10. **Index-based lag in the regression** (divergence, WX-OUTLOOK-MODEL-001). The shared regression (`soil_temp_prediction::fit_model`) aligns pairs by index, not by date, so gaps in the 30-day training data (the 2026 probe dropout) misalign the lag. Intent: aligned by date, fixed in the shared function. The joined air series and the anchor (`continuous_air`, `forecast_points`) are to move into the shared regression functions so the 10 cm outlook uses them too (WX-OUTLOOK-MODEL-008).
-11. **Technical debt:**
-    - `logic/timing/evaluate.rs` is 320 lines (over 300).
-    - `companions::aeration` is 83 lines, and `api/timing.rs::compute` and `evaluate::resolve` are each just over 50.
+2. **A composite can hide an overdue trigger.** When one option is overdue (undated) and the other has a future typical date, the composite shows the other date as its estimate; the undated option is filtered out (`evaluate.rs:174-195`).
+3. **GDD coverage short-circuit.** `gdd_reached` returns `None` at the first day the target is met if coverage is below 80 %, and does not look at later days (`climatology.rs:91-93`). The boundary then falls back to typical and can go overdue for the rest of the season.
+4. **No single-flight on a memo miss.** Concurrent cache misses each read the 15-year record (`api/timing.rs:47-55`).
+5. **Both applications logged.** When Overseed and PreEmergent are both logged in one fall, both windows read Done, since Done is checked before Blocked (`mod.rs:171-175`). The contradiction is not surfaced.
+6. **Latent: the page and the plan propagate `get_or_refresh` errors** (`api/timing.rs::lake_and_forecast`, line 66). The refresh logs and swallows every source failure today (`logic/data_sync.rs`), so a failed forecast already reaches the windows as no forecast with its data note (TIME-ENG-045). An error the refresh might return in future would fail the endpoint and drop the timing activities from the seasonal plan, though the lake read is independent.
+7. **Index-based lag in the regression** (divergence, WX-OUTLOOK-MODEL-001). The shared regression (`soil_temp_prediction::fit_model`) aligns pairs by index, not by date, so gaps in the 30-day training data (the 2026 probe dropout) misalign the lag. Intent: aligned by date, fixed in the shared function. The joined air series and the anchor (`continuous_air`, `forecast_points`) are to move into the shared regression functions so the 10 cm outlook uses them too (WX-OUTLOOK-MODEL-008).
+8. **Technical debt:**
+    - `logic/timing/evaluate.rs` is 353 lines (over 300).
+    - `companions::aeration` is 83 lines.
     - The default export of `SoilSeasonChart.tsx` is about 145 lines.
     - The doc comment on `fall_freeze_history` says "Oct–Dec data", but the check runs from Sep 15 to the freeze.
     - The `BoundaryView.label` example says "falls" while labels say "cools".
-12. **Stale method doc** (`docs/timing-windows.md`):
+9. **Stale method doc** (`docs/timing-windows.md`):
     - It says "warm-season and mixed lawns get the two pre-emergent windows only" (line 93). Mixed is cool-season and gets the seeding windows; the Mixed wording needs fixing.
     - Its log table lists PreEmergent Jul 1 – Dec 31 as blocking dormant seeding. The code extends that span to Feb 28 of the following year (`log.rs:25`).
-13. Fall fertilizer, herbicide and winterizer plan activities still time off 10 cm crossings in the seasonal-plan component. Whether they should hang off windows is undecided.
-14. **Promotion trigger.** This stays one leaf while the consumers (feed, plan, companions) are fixed mappings from window state and change together with the engine. Promote it to a sub-HLD when more consumers hang off the windows (item 13) or a second forecast source (`docs/plans/open-meteo-forecast.md`) is adopted. The split is `window-engine` (TIME-ENG + TIME-LOG) and `window-consumers` (TIME-FEED + TIME-PLAN), both under "one answer everywhere"; the UI stays with whichever owns the response it renders.
+10. Fall fertilizer, herbicide and winterizer plan activities still time off 10 cm crossings in the seasonal-plan component. Whether they should hang off windows is undecided.
+11. **Promotion trigger.** This stays one leaf while the consumers (feed, plan, companions) are fixed mappings from window state and change together with the engine. Promote it to a sub-HLD when more consumers hang off the windows (item 10) or a second forecast source (`docs/plans/open-meteo-forecast.md`) is adopted. The split is `window-engine` (TIME-ENG + TIME-LOG) and `window-consumers` (TIME-FEED + TIME-PLAN), both under "one answer everywhere"; the UI stays with whichever owns the response it renders.
 
 ## References
 

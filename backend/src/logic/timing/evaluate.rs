@@ -161,21 +161,33 @@ pub fn resolve(boundary: &Boundary, season: &Season, season_year: i32) -> Resolv
                 .iter()
                 .map(|o| resolve(o, season, season_year))
                 .collect();
-            let first = |passed: bool| {
-                resolved
-                    .iter()
-                    .filter(|r| r.passed == passed && r.date.is_some())
-                    .min_by_key(|r| r.date)
-                    .cloned()
-            };
-            first(true).or_else(|| first(false)).unwrap_or(Resolved {
-                date: None,
-                source: DateSource::Typical,
-                passed: false,
-                days_held: None,
-            })
+            earliest_of(&resolved)
         }
     }
+}
+
+/// An earliest-of boundary's resolution from its options' resolutions: the earliest firm
+/// (non-Tentative) passed option, else the earliest Tentative one, else the earliest
+/// unpassed one, so a confirmed close is never turned back into Closing by an earlier
+/// tentative touch.
+// @spec TIME-ENG-028
+fn earliest_of(resolved: &[Resolved]) -> Resolved {
+    let first = |keep: &dyn Fn(&Resolved) -> bool| {
+        resolved
+            .iter()
+            .filter(|r| r.date.is_some() && keep(r))
+            .min_by_key(|r| r.date)
+            .cloned()
+    };
+    first(&|r| r.passed && r.source != DateSource::Tentative)
+        .or_else(|| first(&|r| r.passed))
+        .or_else(|| first(&|r| !r.passed))
+        .unwrap_or(Resolved {
+            date: None,
+            source: DateSource::Typical,
+            passed: false,
+            days_held: None,
+        })
 }
 
 pub fn view(boundary: &Boundary, season: &Season, season_year: i32) -> BoundaryView {
@@ -316,5 +328,26 @@ mod tests {
         let resolved = resolve(&seeding.closes, &season, 2026);
         assert_eq!(resolved.source, DateSource::Typical);
         assert_eq!(resolved.date, Some(closes.median));
+    }
+
+    // @spec TIME-ENG-028
+    #[test]
+    fn a_confirmed_close_beats_an_earlier_tentative_one() {
+        let d = |m, day| NaiveDate::from_ymd_opt(2026, m, day).unwrap();
+        let tentative_soil = Resolved {
+            date: Some(d(4, 28)),
+            source: DateSource::Tentative,
+            passed: true,
+            days_held: Some(2),
+        };
+        let observed_gdd = Resolved {
+            date: Some(d(5, 2)),
+            source: DateSource::Observed,
+            passed: true,
+            days_held: None,
+        };
+        let close = earliest_of(&[tentative_soil, observed_gdd]);
+        assert_eq!(close.source, DateSource::Observed);
+        assert_eq!(close.date, Some(d(5, 2)));
     }
 }

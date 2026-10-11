@@ -276,8 +276,6 @@ fn build_ready_to_fertilize(
     profile: &LawnProfile,
     gdd_ytd: Option<f64>,
 ) -> Recommendation {
-    let lawn_size = profile.lawn_size_sqft.unwrap_or(DEFAULT_LAWN_SIZE_SQFT);
-
     let gdd_note = if let Some(gdd) = gdd_ytd {
         if gdd >= SPRING_N_GDD_ESTABLISHED {
             format!(
@@ -341,7 +339,7 @@ fn build_ready_to_fertilize(
          Use slow-release nitrogen to avoid surge growth. \
          This should be your ONLY spring nitrogen - save the heavy feeding for fall. \
          Verify you've mowed 2-3 times first to confirm grass is actively growing.",
-        amount_text(SPRING_N_RATE_LBS_PER_KSQFT, lawn_size)
+        amount_text(SPRING_N_RATE_LBS_PER_KSQFT, profile.lawn_size_sqft)
     ))
     .with_feeding(SPRING_N_RATE_LBS_PER_KSQFT)
 }

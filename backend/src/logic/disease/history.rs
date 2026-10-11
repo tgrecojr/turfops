@@ -52,12 +52,14 @@ pub fn context_from_history(history: &[Application], today: NaiveDate) -> Diseas
         .collect();
     fungicide_apps.sort_by_key(|app| std::cmp::Reverse(app.date));
 
+    let rotation = analyze_fungicide_rotation(history, today);
     DiseaseContext {
         days_since_overseed: days_since(&|a| a.application_type == ApplicationType::Overseed),
         // @spec DIS-MODEL-AMP-001
         days_since_fertilizer: days_since(&Application::is_feeding),
         fungicide_apps,
-        rotation_warning: analyze_fungicide_rotation(history, today).rotation_warning,
+        rotation_warning: rotation.rotation_warning,
+        rotation_streak: rotation.consecutive_same_class >= 2,
         shelf: Vec::new(),
     }
 }

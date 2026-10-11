@@ -100,7 +100,8 @@ fn rotation_consecutive_same_class() {
     assert!(advice.rotation_warning.is_some());
     let warning = advice.rotation_warning.unwrap();
     assert!(warning.contains("FRAC 11"));
-    assert!(warning.contains("Rotate to"));
+    // The class to rotate to is named per disease by the management plan.
+    assert!(!warning.contains("Rotate to"));
 }
 
 #[test]

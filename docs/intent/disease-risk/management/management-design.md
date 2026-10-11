@@ -22,9 +22,9 @@ Guiding principles:
 | `plan`, action, protection, last used, recommended class, options, shelf note | `backend/src/logic/disease/management/mod.rs` |
 | Headline text and the outlook | `logic/disease/management/headline.rs` |
 | Efficacy matrix, cultural practices, intervals, notes | `logic/disease/management/programs.rs` |
-| Fungicide fields of `DiseaseContext` (records, rotation warning) | `logic/disease/history.rs` |
+| Fungicide fields of `DiseaseContext` (records, rotation warning, streak flag) | `logic/disease/history.rs` |
 | Feed recommendations and product needs | `logic/disease/recommendations.rs`; bridge `api::disease_risk::recommendations` |
-| Shelf loading into the context | `api/disease_risk.rs` (`compute`, lines 82-97) |
+| Shelf loading into the context | `api/disease_risk.rs` (`compute`, lines 80-96) |
 | FRAC classes, product resolution, rotation analysis | `backend/src/models/frac_class.rs`, `models/frac_class/rotation.rs` |
 | Data types | `backend/src/models/disease_management.rs` |
 | `GET /frac-classes` | `backend/src/api/frac_classes.rs` |
@@ -37,7 +37,7 @@ Guiding principles:
 - the cultural practices;
 - a preventative and a curative program, each with when, interval, guidance and options;
 - the active `ProtectionStatus`;
-- notes: the program notes, then the season rotation warning, then a fixed label note.
+- notes: the program notes, then the season rotation warning (ending "Rotate to <this disease's recommended class>, e.g. <product>." when it is a consecutive-use warning and the disease has a pick), then a fixed label note.
 
 **Action by tier** (`action_for`):
 
@@ -62,17 +62,17 @@ Residual windows (`protection_days`):
 
 A restricted option (chlorothalonil) still counts as protection when it was logged. `protects_at_severe = false` marks chemistry that counts at High but not at Severe. Only strobilurins (FRAC 11) on Pythium carry it.
 
-**Last used** (`last_used_class`): every single-site class, among this disease's options, of the newest lawn fungicide application this calendar year that has one, so each class of a premix counts (today only the first matching class counts; Deferred 5).
+**Last used** (`last_used_class`): every single-site class, among this disease's options, of the newest lawn fungicide application this calendar year that has one. A premix arrives as one record per class, all sharing its date and product, so records with the newest such record's date and product form one application and each of its classes counts as last used. `recommended_class` and `options` take the resulting `&[FracClass]`.
 
 **Recommended class** (`recommended_class`): the eligible options are those that are not restricted and not last used. For the curative pick, they must also be curative. Among the eligible options with the highest efficacy, an owned class wins, otherwise the first in list order. Each program marks one option `recommended`, flags the `last_used` one, and lists `on_hand` shelf products by class.
 
-**Outlook** (`headline::outlook_escalation`): the first day after today, up to today + 3, whose daily tier is ≥ High. Coverage for that day is judged by re-running `active_protection(…, day.tier, day.date)`, so it is checked on that date at that tier. Without a forecast there are no outlook days, so there is no heads-up.
+**Outlook** (`headline::outlook_escalation`): the first day after today, up to today + 3, that is not `partial` and whose daily tier is ≥ High. A partial day (a few forecast hours at the end of the feed) is not evidence of risk. Coverage for that day is judged by re-running `active_protection(…, day.tier, day.date)`, so it is checked on that date at that tier. Without a forecast there are no outlook days, so there is no heads-up. Red thread's outlook is computed over no days, so it never gets a fungicide heads-up at any tier.
 
 **Headline** (`headline::headline`):
 
 | Action | Text |
 |---|---|
-| NoAction | With an outlook day (not red thread): "No action needed today, but risk is forecast to reach <tier> on <date>…" followed by the pick, or "…but <product> covers … through about <date>". Otherwise: conditions don't favor the disease. |
+| NoAction | With an outlook day: "No action needed today, but risk is forecast to reach <tier> on <date>…" followed by the pick, or "…but <product> covers … through about <date>". Otherwise: conditions don't favor the disease. |
 | Monitor | The same heads-up with the lead "No fungicide needed yet". Otherwise: tighten cultural practices and watch the outlook. |
 | Cultural | Fed ≤ 60 days ago: "stay the course". Otherwise: "Feed the lawn: about 0.5 lb N/1000 sq ft…", the amount stated through the nitrogen guard's `rate_text(red_thread::FEEDING_N_LBS)` so the guard can restate it when it caps the feeding; a fungicide is rarely needed. |
 | Protected | Product, class, applied date, "covers … through about <date>", and the rotation pick for when it lapses. Under Severe it adds "scout anyway". |
@@ -99,7 +99,7 @@ Chlorothalonil is not labeled for US residential lawns. It is listed only so tha
 - `frac_classes_for_product(name)` matches case-insensitive substrings against `PRODUCT_PATTERNS`. Premixes (Headway, Pillar, Armada → 11 + 3) come first in the table. Every distinct class matched is returned, in table order. Only products whose actives are certain belong in the table.
 - `classes_of(app)` returns the application's recorded `frac_classes` when non-empty, otherwise the classes its name resolves to. An empty result means unknown.
 - `context_from_history` emits one `FungicideRecord` per class, newest first, so a premix protects, and counts toward rotation, for each class it contains. An unrecognized product keeps one class-less record, which earns nothing.
-- `analyze_fungicide_rotation(history, today)` (`frac_class/rotation.rs`) reads this calendar year's lawn fungicides in date order, using single-site classes only. Two or more consecutive applications containing the last class produce a warning that names a rotation target from a fixed order (11, 3, 1, 7). Three or more applications without such a streak produce a general "track FRAC classes" note. The warning goes into every disease's `notes`.
+- `analyze_fungicide_rotation(history, today)` (`frac_class/rotation.rs`) reads this calendar year's lawn fungicides in date order, using single-site classes only. The last class is the first single-site class of the newest application that has one. Two or more consecutive applications containing it produce a warning naming the class and the count, and set `DiseaseContext.rotation_streak`. Three or more applications without such a streak produce a general "track FRAC classes" note. The analysis names no class to rotate to, since that depends on the disease: the warning goes into every disease's `notes`, and under a streak each disease's plan appends "Rotate to <its own recommended class>, e.g. <product>." A disease with no eligible pick gets the warning alone.
 
 The shelf (`DiseaseContext.shelf`) holds products in category `Fungicide` that are not archived and not `Out`. A product counts by its recorded `frac_classes`.
 
@@ -152,22 +152,17 @@ The bridge `api::disease_risk::recommendations()` reuses the page's `compute`. W
 ### Resolved
 
 1. ✅ The shelf is only the last tiebreak in `recommended_class`, after efficacy and rotation (owner decision).
-2. ✅ Nitrogen amounts in the cultural practices (`programs.rs`) and in red thread's `Cultural` headline (`headline.rs:93-100`) are agronomic amounts and are intended. No fungicide rate appears in code text. Program guidance refers to the label's rate without a number (`management/mod.rs:77, 90`), and the label note says none are given (`management/mod.rs:22-23`).
+2. ✅ Nitrogen amounts in the cultural practices (`programs.rs`) and in red thread's `Cultural` headline (`headline.rs:96-106`) are agronomic amounts and are intended. No fungicide rate appears in code text. Program guidance refers to the label's rate without a number (`management/mod.rs:92, 105`), and the label note says none are given (`management/mod.rs:22-23`).
 
 ### Deferred
 
-1. **Divergence: rotation warning contradicts the per-disease pick** (DIS-MGMT-FRAC-005). Intent: it names each disease's own pick. `recommend_rotation` uses one fixed order for every disease (11, 3, 1, 7) (`frac_class/rotation.rs:122-131`). Its warning is pushed into *every* disease's notes (`management/mod.rs:50-52`). On dollar spot, which has no FRAC 11 option, or on Pythium, it can say "Rotate to FRAC 11 (e.g., azoxystrobin)" next to a program that says otherwise.
-2. **Divergence: red thread fungicide heads-up at Moderate** (DIS-MGMT-PROT-007). Intent: red thread never gets a fungicide heads-up. The `Monitor` branch of `headline::headline` has no red-thread exception, though the `NoAction` branch does (`headline.rs:75-86`). A Moderate red thread with a forecast High day therefore says "have a preventative on hand: FRAC 11…", which contradicts "the remedy is nitrogen".
-3. **Divergence: partial forecast days in the outlook** (DIS-MGMT-PROT-008). Intent: only usable days count. `outlook_escalation` does not skip `partial` days (`headline.rs:21-25`), so a final forecast day with only a few hours can trigger a heads-up.
-4. **Divergence: Protected recommendations still declare a fungicide need** (DIS-MGMT-REC-006). Intent: no need while Protected. `need_for` ignores the action (`recommendations.rs:80-104`). A Protected (Info) recommendation can therefore put a fungicide on the shopping list.
-5. **Divergence: premix rotation is partial** (DIS-MGMT-PICK-003). Intent: every class of the newest application counts as last used. `last_used_class` takes the first matching class of the newest application, in table order (`management/mod.rs:116-125`). `analyze_fungicide_rotation` takes `first()` of the newest application's classes (`rotation.rs:67`). For Headway (11 + 3), FRAC 3 is never "last used". The consecutive streak does count the premix for the class it tracks (`rotation.rs:71-77`).
-6. **Classes that never protect.** M3 (mancozeb), FRAC 14 (PCNB) and FRAC 12 (outside brown patch) resolve from product names (`frac_class.rs:135-142`) but appear in no program. A logged mancozeb application therefore protects against nothing.
-7. **Shelf excludes `Other`.** Only `Fungicide`-category products are loaded into `DiseaseContext.shelf` (`api/disease_risk.rs:83-98`), even though inventory lets `Other` accept anything. A fungicide filed under `Other` never counts as on hand.
-8. **Calendar-year rotation.** "Last used" and the rotation streak reset on Jan 1 (`management/mod.rs:122`, `rotation.rs:37`). This fits cool-season disease timing but is not stated to the owner. The year comes from risk-models' `today`, the lawn's local date.
-9. **Efficacy limits** (owner caveats): about 45 single-active rows were checked, and no combination products. Ratings are per class. PPA-1 is revised periodically.
-10. **Pre-season DMI window.** A preventative DMI window (140–175 GDD from Feb 15) is a possible Seasonal Plan follow-up.
-11. **Methods doc out of sync.** `docs/agronomy-methods.md` § Disease risk mentions the forecast heads-up only for Moderate (the code also gives it at Low). It also gives the 14-day residual only as "contact", while the code applies it to phosphonate (P07) as well.
-12. **Tech debt** against the 50-line / 300-line limits: `management::plan` (~78 lines), `headline::headline` (~94), `analyze_fungicide_rotation` (~91), and `management/tests.rs` (342 lines).
+1. **Streak tracks one class of a premix.** `analyze_fungicide_rotation` takes the first single-site class of the newest application as the class to track (`rotation.rs:67`). After Banner Maxx (3) then Headway (11 + 3), it tracks FRAC 11 and misses the two consecutive FRAC 3 applications. The picker's last-used set (`last_used_class`) counts every class of the premix.
+2. **Classes that never protect.** M3 (mancozeb), FRAC 14 (PCNB) and FRAC 12 (outside brown patch) resolve from product names (`frac_class.rs:135-142`) but appear in no program. A logged mancozeb application therefore protects against nothing.
+3. **Shelf excludes `Other`.** Only `Fungicide`-category products are loaded into `DiseaseContext.shelf` (`api/disease_risk.rs:80-96`), even though inventory lets `Other` accept anything. A fungicide filed under `Other` never counts as on hand.
+4. **Calendar-year rotation.** "Last used" and the rotation streak reset on Jan 1 (`management/mod.rs:138`, `rotation.rs:37`). This fits cool-season disease timing but is not stated to the owner. The year comes from risk-models' `today`, the lawn's local date.
+5. **Efficacy limits** (owner caveats): about 45 single-active rows were checked, and no combination products. Ratings are per class. PPA-1 is revised periodically.
+6. **Pre-season DMI window.** A preventative DMI window (140–175 GDD from Feb 15) is a possible Seasonal Plan follow-up.
+7. **Tech debt** against the 50-line / 300-line limits: `management::plan`, `headline::headline` (~94 lines), `analyze_fungicide_rotation` (~91), and `management/tests.rs` (over 300 lines). `FungicideRotationAdvice.recommended_next` (`recommend_rotation`, a fixed 11, 3, 1, 7 order) is computed but read only by tests.
 
 ## References
 
