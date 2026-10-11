@@ -25,7 +25,8 @@ pub struct LawnConfig {
     pub grass_type: String,
     pub usda_zone: String,
     pub soil_type: Option<String>,
-    pub lawn_size_sqft: Option<f64>,
+    /// `LAWN_SIZE_SQFT` as given; parsed (with a warning when invalid) when seeding.
+    pub lawn_size_sqft: Option<String>,
     pub irrigation_type: Option<String>,
 }
 
@@ -183,9 +184,7 @@ impl Config {
                 grass_type: env_or("LAWN_GRASS_TYPE", "TallFescue"),
                 usda_zone: env_or("LAWN_USDA_ZONE", "7a"),
                 soil_type: std::env::var("LAWN_SOIL_TYPE").ok(),
-                lawn_size_sqft: std::env::var("LAWN_SIZE_SQFT")
-                    .ok()
-                    .and_then(|s| s.parse().ok()),
+                lawn_size_sqft: std::env::var("LAWN_SIZE_SQFT").ok(),
                 irrigation_type: std::env::var("LAWN_IRRIGATION_TYPE").ok(),
             },
             noaa: NoaaConfig {
@@ -283,5 +282,104 @@ impl Config {
                 token: crate::mcp::parse_token(std::env::var("MCP_TOKEN").ok())?,
             },
         })
+    }
+}
+
+impl LawnConfig {
+    /// The lawn profile the `LAWN_*` settings describe, and a warning for each value that
+    /// could not be used.
+    // @spec APP-PROF-006
+    pub fn seed_profile(&self) -> (crate::models::LawnProfile, Vec<String>) {
+        use crate::models::{GrassType, IrrigationType, LawnProfile, SoilType};
+        use std::str::FromStr;
+        let mut warnings = Vec::new();
+        let mut warn = |var: &str, value: &str, fallback: &str| {
+            warnings.push(format!("{var}={value:?} isn't a valid value; {fallback}."));
+        };
+
+        let grass_type = GrassType::from_str(&self.grass_type).unwrap_or_else(|_| {
+            warn("LAWN_GRASS_TYPE", &self.grass_type, "using TallFescue");
+            GrassType::TallFescue
+        });
+        let mut profile = LawnProfile::new(self.name.clone(), grass_type, self.usda_zone.clone());
+        if let Some(raw) = &self.soil_type {
+            profile.soil_type = SoilType::from_str(raw).ok();
+            if profile.soil_type.is_none() {
+                warn("LAWN_SOIL_TYPE", raw, "leaving the soil type unset");
+            }
+        }
+        if let Some(raw) = &self.irrigation_type {
+            profile.irrigation_type = IrrigationType::from_str(raw).ok();
+            if profile.irrigation_type.is_none() {
+                warn(
+                    "LAWN_IRRIGATION_TYPE",
+                    raw,
+                    "leaving the irrigation type unset",
+                );
+            }
+        }
+        if let Some(raw) = &self.lawn_size_sqft {
+            profile.lawn_size_sqft = raw.trim().parse::<f64>().ok().filter(|n| *n > 0.0);
+            if profile.lawn_size_sqft.is_none() {
+                warn("LAWN_SIZE_SQFT", raw, "leaving the lawn size unset");
+            }
+        }
+        (profile, warnings)
+    }
+}
+
+#[cfg(test)]
+mod seed_tests {
+    use super::*;
+    use crate::models::GrassType;
+
+    fn lawn() -> LawnConfig {
+        LawnConfig {
+            name: "Main Lawn".into(),
+            grass_type: "TallFescue".into(),
+            usda_zone: "7a".into(),
+            soil_type: Some("Clay".into()),
+            lawn_size_sqft: Some("5000".into()),
+            irrigation_type: Some("InGround".into()),
+        }
+    }
+
+    // @spec APP-PROF-006
+    #[test]
+    fn each_unusable_lawn_setting_is_named_and_skipped() {
+        let (profile, warnings) = lawn().seed_profile();
+        assert!(warnings.is_empty(), "{warnings:?}");
+        assert_eq!(profile.lawn_size_sqft, Some(5000.0));
+
+        let bad = LawnConfig {
+            grass_type: "Bluegras".into(),
+            soil_type: Some("Mud".into()),
+            lawn_size_sqft: Some("5,000 sq ft".into()),
+            irrigation_type: Some("Sprinklers".into()),
+            ..lawn()
+        };
+        let (profile, warnings) = bad.seed_profile();
+        assert_eq!(profile.grass_type, GrassType::TallFescue);
+        assert_eq!(
+            (
+                profile.soil_type,
+                profile.irrigation_type,
+                profile.lawn_size_sqft
+            ),
+            (None, None, None)
+        );
+        for (var, value) in [
+            ("LAWN_GRASS_TYPE", "Bluegras"),
+            ("LAWN_SOIL_TYPE", "Mud"),
+            ("LAWN_SIZE_SQFT", "5,000 sq ft"),
+            ("LAWN_IRRIGATION_TYPE", "Sprinklers"),
+        ] {
+            assert!(
+                warnings
+                    .iter()
+                    .any(|w| w.contains(var) && w.contains(value)),
+                "{var}: {warnings:?}"
+            );
+        }
     }
 }

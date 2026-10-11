@@ -73,7 +73,7 @@ A grass type stored in the DB that cannot be parsed reads back as `TallFescue` w
 
 **Mowing** is an ordinary turf-only type with no cut-height field. It appears in the list and the calendar like any other entry. No rule reads mowing entries.
 
-`Application::is_turf()` is true when `plant_id` is null **and** the type is not PlantRequired. Lawn models (disease history, rotation, fall feeding, nitrogen) filter on it, so a plant application never protects or feeds the lawn.
+`Application::is_turf()` is true when `plant_id` is null, `plant_name` is null (the entry was never for a plant that has since been deleted) **and** the type is not PlantRequired. Lawn models (disease history, rotation, fall feeding, nitrogen) filter on it, so a plant application never protects or feeds the lawn.
 
 ### Nitrogen accounting
 
@@ -95,6 +95,7 @@ Consumers are the nitrogen budget endpoint, the nitrogen guard and soil-test adv
 | `rate_per_1000sqft`, `coverage_sqft`, `nitrogen_pct`, `phosphorus_pct`, `potassium_pct` | Optional numbers. Rate and coverage may not be negative; an N, P or K percentage may not exceed 100 (400 with a plain message naming the field). |
 | `frac_classes` | Optional `TEXT[]`; fungicides only (see *FRAC classes*). |
 | `plant_id` | Optional plant target; FK `ON DELETE SET NULL`. |
+| `plant_name` | Set only when the entry's plant is deleted: that plant's name, so the entry stays landscape history (never `is_turf()`) and the log can show "<name> (deleted)". System-owned; never taken from a request. |
 | `follow_up_date` | Optional; must be ≥ `application_date`. |
 | `notes` | Free text. |
 | `created_at` | Set on create, preserved on update. |
@@ -111,7 +112,7 @@ Migrations live in `backend/src/db/migrations/`. The ones this component owns:
 
 | Migration | Effect |
 |---|---|
-| `20240101000000_initial_schema.sql` | `lawn_profiles`, `applications` (core columns plus the weather snapshot columns). |
+| `20240101000000_initial_schema.sql` | `lawn_profiles`, `applications` (core columns plus weather snapshot columns, since dropped). |
 | `20240101000001_indexes.sql` | `idx_applications_lawn_profile_id`, `idx_applications_date`. |
 | `20240101000002_add_constraints.sql` | Enum CHECKs on the profile and `chk_application_type`; `idx_applications_profile_date`. |
 | `20240101000005_add_npk_and_gdd.sql` | `nitrogen_pct`, `phosphorus_pct`, `potassium_pct`. |
@@ -120,12 +121,13 @@ Migrations live in `backend/src/db/migrations/`. The ones this component owns:
 | `20260921000000_application_unique_by_product.sql` | The current duplicate guards (below). |
 | `20260921000200_application_frac_classes.sql` | `frac_classes TEXT[]`. |
 | `20260922000100_application_product.sql` | `product_id` FK (`ON DELETE SET NULL`) + index. Depends on INV's `products` table. |
+| `20261011000100_applications_cleanup.sql` | Drops the weather snapshot columns; adds `plant_name` and backfills `'Deleted plant'` on plant-required rows already orphaned; renames rows that collide under the normalised name; rebuilds both duplicate indexes (below). |
 
 Every enum is stored as its serde variant name (`enum_to_db_string`). A new `ApplicationType` therefore needs a migration that widens `chk_application_type`. A stored type the code cannot parse reads back as `Other` with a warning.
 
 ### Duplicate key
 
-Two unique indexes, `applications_unique_turf` (rows with no plant) and `applications_unique_plant` (rows with a plant, which adds `plant_id` to the key), cover profile, type, date and the **normalised product name**:
+Two unique indexes, `applications_unique_turf` (rows with no plant and no `plant_name`) and `applications_unique_plant` (rows with a plant, which adds `plant_id` to the key), cover profile, type, date and the **normalised product name**:
 
 ```sql
 lower(regexp_replace(btrim(COALESCE(product_name, '')), '\s+', ' ', 'g'))
@@ -135,13 +137,15 @@ A null and an empty product name collide. Case, leading and trailing whitespace 
 
 That message is reserved for these two indexes: the error mapping checks the violated constraint's name. A unique violation on any other constraint is not an application duplicate; its owning handler reports it, or it is an internal error.
 
-Deleting a plant never fails on these indexes. Its entries lose their plant link (`ON DELETE SET NULL`) and stay in the log as history, so their placement under the key must not let them collide with each other or with lawn entries; the plant delete has no way to resolve such a conflict and the owner has nothing to correct.
+Deleting a plant never fails on these indexes. `plant_queries::delete_plant` first writes the plant's name into `plant_name` on its entries, then deletes the plant, in one transaction; the entries lose their plant link (`ON DELETE SET NULL`) and, carrying `plant_name`, fall outside both indexes. They stay in the log as history and can collide with nothing; the plant delete has no way to resolve such a conflict and the owner has nothing to correct.
+
+The migration that introduced the normalised key renames rows that already collided under it rather than fail: the first entry (lowest id) keeps its name and each later one gets ` (#<id>)` appended. A migration runs at startup, so failing it would stop the server over data the owner can simply edit.
 
 ### Query functions (`backend/src/db/queries.rs`)
 
 | Function | Order / filter | Used by |
 |---|---|---|
-| `get_applications_page` | type filter in SQL **before** LIMIT/OFFSET; `application_date DESC, id DESC` | `GET /applications`, MCP `applications` tool |
+| `get_applications_page` | type and scope (`LogScope`: turf = no plant and no `plant_name`) filters in SQL **before** LIMIT/OFFSET; `application_date DESC, id DESC` | `GET /applications`, MCP `applications` tool |
 | `get_applications_for_profile` | `application_date DESC`, limit/offset | recommendation feed (newest 1000), dashboard (newest 5) |
 | `get_applications_for_profile_in_range` | `[start, end)` on `application_date` | nitrogen budget, disease risk, timing, seasonal plan, soil tests, MCP |
 | `get_applications_or_follow_ups_in_range` | applied **or** follow-up due in range | calendar |
@@ -159,11 +163,11 @@ Unknown FRAC codes stored in `frac_classes` are dropped with a warning on read r
 | PUT | `/api/v1/applications/{id}` | `CreateApplicationRequest` (full replace) | 200 `Application` | 404 unknown application; 400; 409 |
 | DELETE | `/api/v1/applications/{id}` | n/a | 204 | 404 unknown application |
 
-The list's `limit` defaults to 50 and is clamped to 1–200. A negative `offset` becomes 0. `type` is parsed with the lenient `FromStr` (`pre-emergent`, `grub control`, `mow` all work). `scope` is `turf` (no plant) or `landscape` (has a plant); absent means both. Both filters are SQL `WHERE` clauses applied before LIMIT/OFFSET, so a page is always full of matching rows.
+The list's `limit` defaults to 50 and is clamped to 1–200. A negative `offset` becomes 0. `type` is parsed with the lenient `FromStr` (`pre-emergent`, `grub control`, `mow` all work). `scope` is `turf` (no plant and no deleted-plant marker) or `landscape` (has a plant, or had one that was deleted); absent means both. Both filters are SQL `WHERE` clauses applied before LIMIT/OFFSET, so a page is always full of matching rows.
 
-**Create and update validation**, in order: parse type → parse date (`%Y-%m-%d`) → scope check against `plant_id` → numeric ranges (rate and coverage ≥ 0; N, P, K ≤ 100) → parse and check `follow_up_date ≥ application_date` → resolve the shelf link → write. Create and update share one `validate()`. Every error body is `{"error": "<message>"}` in the owner's words, naming fields as the form shows them (the date, the plant, the follow-up date) and never a request field name or a format string: an unparseable date reads `The date "<value>" isn't a valid date. Pick it from the calendar.`, a plant-required type without a plant `<type> is logged against a landscape plant. Pick the plant.`, a turf-only type with one `<type> is a lawn application and can't be linked to a plant.`, and an early follow-up `The follow-up date must be on or after the application date.` A stored profile row without an id is an internal inconsistency (`TurfOpsError::Internal`): 500 with the generic server-error sentence, the detail logged. The scope check has one exception on update: an entry whose plant was deleted (a plant-required type stored with no plant) may be saved without a plant as long as its type is unchanged, so a deleted plant's history stays editable.
+**Create and update validation**, in order: parse type → parse date (`%Y-%m-%d`) → scope check against `plant_id` → numeric ranges (rate and coverage ≥ 0; N, P, K ≤ 100) → parse and check `follow_up_date ≥ application_date` → resolve the shelf link → write. Create and update share one `validate()`. Every error body is `{"error": "<message>"}` in the owner's words, naming fields as the form shows them (the date, the plant, the follow-up date) and never a request field name or a format string: an unparseable date reads `The date "<value>" isn't a valid date. Pick it from the calendar.`, a plant-required type without a plant `<type> is logged against a landscape plant. Pick the plant.`, a turf-only type with one `<type> is a lawn application and can't be linked to a plant.`, and an early follow-up `The follow-up date must be on or after the application date.` A stored profile row without an id is an internal inconsistency (`TurfOpsError::Internal`): 500 with the generic server-error sentence, the detail logged. The scope check has one exception on update: an entry whose plant was deleted (stored with `plant_name` and no plant) may be saved without a plant as long as its type is unchanged, so a deleted plant's history stays editable.
 
-**Update is a full replace** of every user field. An omitted optional field is cleared; only `lawn_profile_id` and `created_at` come from the existing row. When the update changes or clears `follow_up_date`, the handler deletes the stored answer for `application_followup_<id>`: the reminder for a new date is a new commitment and starts unanswered.
+**Update is a full replace** of every user field. An omitted optional field is cleared; only `lawn_profile_id`, `created_at` and the system-owned `plant_name` marker come from the existing row. When the update changes or clears `follow_up_date`, the handler deletes the stored answer for `application_followup_<id>`: the reminder for a new date is a new commitment and starts unanswered.
 
 **Delete** of an id that does not exist returns 404, like update, so a stale page learns the entry is already gone.
 
@@ -252,7 +256,7 @@ The page edits the profile: name and USDA zone are required, plus grass type, so
 - **No profile row:** the application endpoints and `GET /profile` return 404, and pages point the owner to Settings, where saving creates the profile (`PUT /profile`). Startup normally prevents this.
 - **Shelf unreachable in the form:** `ProductPicker` treats a failed product list as an empty shelf and shows the free-text field. Logging still works.
 - **FRAC lookup fails:** the picker works by hand. The backend falls back to the name when no classes are recorded.
-- **Plant deleted:** the delete always succeeds. `plant_id` becomes null and the row keeps its type, so PlantRequired entries are still not `is_turf()` and stay out of lawn models, and they remain editable without a plant.
+- **Plant deleted:** the delete always succeeds. Each entry gets the plant's name in `plant_name`, `plant_id` becomes null and the row keeps its type, so it is never `is_turf()`, stays out of lawn models whatever its type, shows as "<name> (deleted)" and remains editable without a plant.
 - **Product deleted:** `product_id` becomes null and `product_name` remains.
 - **Unparseable stored values:** type becomes `Other`, unknown FRAC codes are dropped, an unknown grass type reads as `TallFescue`. Each logs a warning, and the read never fails.
 
@@ -277,6 +281,8 @@ The page edits the profile: name and USDA zone are required, plus grass type, so
 | Follow-up completion | Cleared by an application of the same type and plant scope dated after the original and from 7 days before the follow-up date | Any later entry; explicit "done" toggle; same product required | Infers completion from the log rather than a toggle, but only an entry in the follow-up's own window is the planned re-application. |
 | Rescheduled follow-up | Changing or clearing the follow-up date deletes the stored answer | Keep the answer (it never expires) | A dismissal answered the old date; the new date is a new commitment that should surface. |
 | Weather on an entry | None stored; read the lake by date | Snapshot columns filled at log time | The lake already holds every day's conditions; a snapshot taken when the entry is typed records the wrong day for a back-dated entry. |
+| Marking a deleted plant's entries | A `plant_name` column written in the same transaction as the plant delete | A boolean flag; keeping `plant_id` with no FK; deleting the entries | The name keeps the history readable ("Viburnum (deleted)"), a dangling id would break joins and the FK, and deleting the entries loses history. |
+| Rows that collide under a tightened duplicate key | The migration renames later rows (` (#id)`) | Fail the migration; delete the duplicates | Owner decision: a migration must never stop the server over data the owner can edit later, and must never delete it. |
 | Numeric validation | 400 for negative rate or coverage and N/P/K above 100; future dates allowed | No checks; reject future dates | Impossible values would corrupt nitrogen accounting; a future date is a legitimate planned entry and consumers already bound by today. |
 | Unknown `product_id` | 400 "That product is no longer on your shelf" | 404 `Product <id> not found` | The request is valid except for a stale pick; 404 reads as "the URL is wrong" and the message tells the owner what to do. |
 | DELETE of an unknown id | 404 | 204 (idempotent) | Matches PUT and tells a stale page the entry is already gone. |
@@ -297,24 +303,10 @@ The page edits the profile: name and USDA zone are required, plus grass type, so
 
 ### Deferred
 1. **File and function size.** `backend/src/db/queries.rs` is 609 lines and mixes profile, application, recommendation-state and threshold-crossing queries; the latter two belong to other components. `frontend/src/pages/Applications.tsx` is 846 lines (`ApplicationForm` is ~370 of them) and `pages/Settings.tsx` is 330, all over the 300-line limit. `create_application` and `update_application` each run ~55 lines, just over the 50-line limit. All three files should be split.
-2. **Divergence: the duplicate key compares names exactly** (APP-DUP-001). `20260921000000_application_unique_by_product.sql` keys on `COALESCE(product_name, '')`, so `"Heritage G"` and `"heritage g "` are different entries. Intent: the key normalises case and leading, trailing and repeated whitespace.
-3. **Divergence: the weather snapshot still exists** (APP-LOG-010, APP-API-005). The four snapshot columns, the `WeatherSnapshot` model and the request field remain, nothing fills them, and PUT keeps a stored snapshot when the request has none (`api/applications.rs:271`). Intent: a migration drops the columns and the field is removed from the model, request and response.
-4. **Divergence: plant deletion can fail, and its entries cannot be edited** (APP-LOG-011, APP-LOG-012, APP-FORM-002, APP-FORM-004). `ON DELETE SET NULL` (`20260425000000_plants.sql:25`) moves plant rows into `applications_unique_turf`, so two same-day, same-type, same-name entries on two deleted plants make the plant delete fail with the application-duplicate 409. The scope check requires a `plant_id` for PlantRequired types (`api/applications.rs:217`), and the form blocks the save the same way. Intent: the delete always succeeds and the orphaned entries save without a plant while their type is unchanged.
-5. **Divergence: every unique violation maps to the application-duplicate message** (APP-DUP-003). `error.rs:58` checks only `is_unique_violation()`. Intent: only the two application indexes produce that message.
-6. **Divergence: no numeric validation** (APP-API-010). Negative rates or coverage and N/P/K above 100 are accepted (`api/applications.rs:105-148`). Intent: 400 with a plain message naming the field; future dates stay accepted.
-7. **Divergence: DELETE returns 204 for an unknown id** (APP-API-011; `api/applications.rs:293-299`). Intent: 404, like PUT.
-8. **Divergence: an unknown `product_id` returns 404 `Product <id> not found`** (APP-LINK-001; `api/applications/product_link.rs:20-23`). Intent: 400 `That product is no longer on your shelf`.
-9. **Divergence: the Scope toggle filters client-side over server pages** (APP-LIST-003, APP-API-012). "Landscape" can show "No applications found" while older pages still hold plant entries (`Applications.tsx:110-115`), and `GET /applications` has no `scope` parameter. Intent: the server filters by scope before paging.
-10. **Feed reads only the newest 1000 entries** (`RULE_HISTORY_LIMIT`, `api/recommendation_feed.rs:19`), ordered by date with no id tie-break (`db/queries.rs:104`). Follow-ups older than that are never evaluated, though the 90-day stale window makes this unlikely to matter.
-11. **Divergence: rescheduling keeps a dismissed follow-up hidden** (APP-FOLLOW-008). The id is stable across edits and its answer never expires (`models/recommendation_state.rs:33`), and the update handler does not touch it. Intent: changing or clearing the follow-up date deletes the stored answer.
-12. **`irrigation_type` is unused by any logic.** `usda_zone` reaches only LLM prompts. Keep both as descriptive data, or wire them in?
-13. **`/frac-classes` ownership.** It serves this component's form, but it exposes disease risk's curated resolver. Decide which LLD owns the endpoint.
-14. **Divergence: changing the type keeps an incompatible product link** (APP-FORM-010). Nothing clears `productId` when the type changes, and the picker keeps the linked product in its options (`ProductPicker.tsx:57-60`), so saving returns the 400 category error (`product_link.rs:24`). Intent: the form drops the link and keeps the name as free text.
-15. **Divergence: a failed "Mark In stock" reads as a failed save** (APP-FORM-011). The catch shows the error and skips `onSaved`, so the form stays open and resubmitting a create returns 409 (`Applications.tsx:444-457`). Intent: the save stands and the stock failure is reported on its own.
-16. **Divergence: follow-up completion accepts any later entry** (APP-FOLLOW-003). `follow_up_completed` (`logic/follow_up.rs:16-23`) counts an entry dated the day after the original, long before the follow-up's lead-in. Intent: only entries dated from `follow_up − 7 d` onward complete it.
-17. **Divergence: invalid optional `LAWN_*` values are dropped silently** (APP-PROF-006). A bad soil type, irrigation type (`main.rs:296-312`) or size (`config.rs:186-188`) gets no warning; only a bad grass type does. Intent: every invalid value logs a warning naming the variable.
-18. **Browser and server dates can differ.** If the browser is in a different timezone from the server's `TZ`, the form's default date (and the +2/+4/+6 week shortcuts) can be a day off the server's "today" around midnight. Harmless in the single-owner setup; the form could default from a server-supplied date instead.
-19. **Divergence: a deleted plant's applications become lawn entries** (APP-LOG-002, APP-LOG-009). Deleting a plant sets `plant_id` to null (`ON DELETE SET NULL`), and `is_turf()` treats a null `plant_id` with a non-plant-required type as lawn, so a deleted shrub's Fertilizer or Fungicide entry starts counting toward lawn nitrogen, feedings and disease protection. Intent: a landscape application never counts toward the lawn, whatever its type; each entry keeps a record that it was for a plant (the plant's name).
+2. **Feed reads only the newest 1000 entries** (`RULE_HISTORY_LIMIT`, `api/recommendation_feed.rs:19`), ordered by date with no id tie-break (`db/queries.rs:104`). Follow-ups older than that are never evaluated, though the 90-day stale window makes this unlikely to matter.
+3. **`irrigation_type` is unused by any logic.** `usda_zone` reaches only LLM prompts. Keep both as descriptive data, or wire them in?
+4. **`/frac-classes` ownership.** It serves this component's form, but it exposes disease risk's curated resolver. Decide which LLD owns the endpoint.
+5. **Browser and server dates can differ.** If the browser is in a different timezone from the server's `TZ`, the form's default date (and the +2/+4/+6 week shortcuts) can be a day off the server's "today" around midnight. Harmless in the single-owner setup; the form could default from a server-supplied date instead.
 
 ## References
 

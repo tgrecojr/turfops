@@ -42,11 +42,12 @@ export interface Application {
 	rate_per_1000sqft: number | null;
 	coverage_sqft: number | null;
 	notes: string | null;
-	weather_snapshot: WeatherSnapshot | null;
 	nitrogen_pct: number | null;
 	phosphorus_pct: number | null;
 	potassium_pct: number | null;
 	plant_id?: number | null;
+	/** The plant this entry was for, kept after that plant was deleted. */
+	plant_name?: string | null;
 	follow_up_date?: string | null;
 	/** FRAC classes recorded for a fungicide (e.g. ["Frac11", "Frac3"]). */
 	frac_classes?: string[] | null;
@@ -195,13 +196,6 @@ export interface Plant {
 	plan_model: string;
 	created_at: string;
 	updated_at: string;
-}
-
-export interface WeatherSnapshot {
-	soil_temp_10cm_f: number | null;
-	ambient_temp_f: number | null;
-	humidity_percent: number | null;
-	soil_moisture: number | null;
 }
 
 export interface EnvironmentalSummary {

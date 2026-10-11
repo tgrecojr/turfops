@@ -7,6 +7,7 @@ import {
 	STOCK_STATUS_LABELS,
 } from "../types/inventory";
 import { categoriesFor } from "../types/inventoryCompat";
+import { keepsProductLink } from "./applications/formRules";
 
 const MANUAL = "manual";
 
@@ -50,6 +51,18 @@ export default function ProductPicker({
 			cancelled = true;
 		};
 	}, []);
+
+	// A type the linked product's category can't be logged under drops the link and keeps
+	// the name as free text.
+	// @spec APP-FORM-010
+	useEffect(() => {
+		if (productId == null || !products) return;
+		const linked = products.find((p) => p.id === productId);
+		if (linked && !keepsProductLink(appType, linked.category)) {
+			setManual(true);
+			onPick(null);
+		}
+	}, [appType, productId, products, onPick]);
 
 	const options = useMemo(() => {
 		if (!products) return [];

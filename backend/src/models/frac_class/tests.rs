@@ -54,7 +54,7 @@ fn make_fungicide_app(product: Option<&str>, days_ago: i64) -> Application {
         rate_per_1000sqft: None,
         coverage_sqft: None,
         notes: None,
-        weather_snapshot: None,
+        plant_name: None,
         nitrogen_pct: None,
         phosphorus_pct: None,
         potassium_pct: None,

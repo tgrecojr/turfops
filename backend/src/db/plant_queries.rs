@@ -140,11 +140,24 @@ pub async fn update_plant_plan(
     Ok(())
 }
 
+/// Delete a plant, first writing its name onto its applications so they stay landscape
+/// history (never lawn entries) once the link is gone. The rows then sit outside both
+/// application duplicate indexes, so the delete cannot collide with anything.
+// @spec APP-LOG-009, APP-LOG-011
 pub async fn delete_plant(pool: &PgPool, id: i64) -> Result<()> {
+    let mut tx = pool.begin().await?;
+    sqlx::query(
+        r#"UPDATE applications a SET plant_name = p.common_name
+           FROM plants p WHERE p.id = $1 AND a.plant_id = p.id"#,
+    )
+    .bind(id)
+    .execute(&mut *tx)
+    .await?;
     sqlx::query("DELETE FROM plants WHERE id = $1")
         .bind(id)
-        .execute(pool)
+        .execute(&mut *tx)
         .await?;
+    tx.commit().await?;
     Ok(())
 }
 

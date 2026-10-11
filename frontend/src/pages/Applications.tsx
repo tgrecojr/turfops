@@ -8,20 +8,25 @@ import {
 	updateApplication,
 } from "../api/client";
 import { describeError } from "../api/errors";
+import {
+	formProblem,
+	plantField,
+	saveThenRestock,
+} from "../components/applications/formRules";
 import FracClassPicker from "../components/FracClassPicker";
 import ProductPicker from "../components/ProductPicker";
 import { appTypeBadgeStyle, sharedStyles } from "../styles/shared";
 import type { Application, ApplicationType, Plant } from "../types";
-import {
-	APPLICATION_TYPE_LABELS,
-	canTargetPlant,
-	isPlantRequiredApplicationType,
-	isTurfOnlyApplicationType,
-} from "../types";
+import { APPLICATION_TYPE_LABELS, isTurfOnlyApplicationType } from "../types";
 import type { Product } from "../types/inventory";
 import { addDaysISO, todayLocalISO } from "../utils/dates";
 
 type ScopeFilter = "all" | "turf" | "landscape";
+
+/** The list's `scope` query parameter; All asks for both. */
+function scopeParam(scope: ScopeFilter): "turf" | "landscape" | undefined {
+	return scope === "all" ? undefined : scope;
+}
 
 const PAGE_SIZE = 50;
 
@@ -62,7 +67,12 @@ export default function Applications() {
 
 	const fetchApps = useCallback(async () => {
 		try {
-			const data = await getApplications(filter || undefined, PAGE_SIZE, 0);
+			const data = await getApplications(
+				filter || undefined,
+				PAGE_SIZE,
+				0,
+				scopeParam(scopeFilter),
+			);
 			setApps(data);
 			setHasMore(data.length === PAGE_SIZE);
 			setError(null);
@@ -72,7 +82,7 @@ export default function Applications() {
 		} finally {
 			setLoading(false);
 		}
-	}, [filter]);
+	}, [filter, scopeFilter]);
 
 	useEffect(() => {
 		fetchApps();
@@ -85,6 +95,7 @@ export default function Applications() {
 				filter || undefined,
 				PAGE_SIZE,
 				apps.length,
+				scopeParam(scopeFilter),
 			);
 			setApps((prev) => [...prev, ...data]);
 			setHasMore(data.length === PAGE_SIZE);
@@ -109,12 +120,8 @@ export default function Applications() {
 		return map;
 	}, [plants]);
 
-	const visibleApps = useMemo(() => {
-		if (scopeFilter === "all") return apps;
-		if (scopeFilter === "landscape")
-			return apps.filter((a) => a.plant_id != null);
-		return apps.filter((a) => a.plant_id == null);
-	}, [apps, scopeFilter]);
+	// @spec APP-LIST-003: the server filters by scope before paging.
+	const visibleApps = apps;
 
 	const handleDelete = async (id: number) => {
 		if (!confirm("Delete this application?")) return;
@@ -129,10 +136,12 @@ export default function Applications() {
 		}
 	};
 
-	const handleSaved = () => {
+	/** The entry saved; `problem` is a follow-on failure (the stock update) to report. */
+	const handleSaved = async (problem?: string) => {
 		setShowForm(false);
 		setEditing(null);
-		fetchApps();
+		await fetchApps();
+		if (problem) setError(problem);
 	};
 
 	const handleEdit = (app: Application) => {
@@ -259,6 +268,8 @@ export default function Applications() {
 									{app.plant_id != null ? (
 										(plantNameById.get(app.plant_id) ??
 										`Plant #${app.plant_id}`)
+									) : app.plant_name ? (
+										`${app.plant_name} (deleted)`
 									) : (
 										<span style={styles.turfTag}>Turf</span>
 									)}
@@ -329,7 +340,7 @@ function ApplicationForm({
 }: {
 	initial?: Application | null;
 	plants: Plant[];
-	onSaved: () => void;
+	onSaved: (problem?: string) => void;
 	onCancel: () => void;
 	onError: (msg: string) => void;
 }) {
@@ -375,9 +386,10 @@ function ApplicationForm({
 	);
 	const [submitting, setSubmitting] = useState(false);
 
-	const plantRequired = isPlantRequiredApplicationType(appType);
+	const plant = plantField(appType, initial);
+	const plantRequired = plant.required;
 	const turfOnly = isTurfOnlyApplicationType(appType);
-	const plantSelectable = canTargetPlant(appType);
+	const plantSelectable = plant.shown;
 
 	// When type changes, drop any incompatible plant selection.
 	useEffect(() => {
@@ -405,16 +417,16 @@ function ApplicationForm({
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		if (plantRequired && !plantId) {
-			onError("Select which plant this action is for.");
-			return;
-		}
-		if (followUpEnabled && !followUpDate) {
-			onError("Pick a follow-up date or uncheck the follow-up option.");
-			return;
-		}
-		if (followUpEnabled && followUpDate < date) {
-			onError("Follow-up date must be on or after the application date.");
+		const problem = formProblem({
+			type: appType,
+			plantId,
+			initial,
+			followUpEnabled,
+			followUpDate,
+			date,
+		});
+		if (problem) {
+			onError(problem);
 			return;
 		}
 		setSubmitting(true);
@@ -438,20 +450,30 @@ function ApplicationForm({
 					: undefined,
 		};
 		try {
-			if (isEdit && initial?.id != null) {
-				await updateApplication(initial.id, payload);
-			} else {
-				await createApplication(payload);
-			}
-			if (
-				picked?.stock_status === "Out" &&
-				confirm(
-					`${picked.name} is marked Out in your inventory. Mark it In stock?`,
-				)
-			) {
-				await markProductInStock(picked);
-			}
-			onSaved();
+			const restock =
+				picked?.stock_status === "Out"
+					? () => {
+							if (
+								!confirm(
+									`${picked.name} is marked Out in your inventory. Mark it In stock?`,
+								)
+							)
+								return Promise.resolve();
+							return markProductInStock(picked);
+						}
+					: null;
+			const { stockError } = await saveThenRestock(
+				() =>
+					isEdit && initial?.id != null
+						? updateApplication(initial.id, payload)
+						: createApplication(payload),
+				restock,
+			);
+			onSaved(
+				stockError
+					? `Saved. Couldn't mark ${picked?.name} In stock: ${describeError(stockError)}`
+					: undefined,
+			);
 		} catch (err) {
 			onError(describeError(err));
 		} finally {

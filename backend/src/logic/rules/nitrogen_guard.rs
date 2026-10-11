@@ -258,7 +258,7 @@ mod tests {
             rate_per_1000sqft: Some(lbs_n * 100.0 / 20.0),
             coverage_sqft: None,
             notes: None,
-            weather_snapshot: None,
+            plant_name: None,
             nitrogen_pct: Some(20.0),
             phosphorus_pct: None,
             potassium_pct: None,

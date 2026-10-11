@@ -52,6 +52,15 @@ const DUPLICATE_MESSAGE: &str =
 
 pub type Result<T> = std::result::Result<T, TurfOpsError>;
 
+/// Whether a unique violation on `constraint` is an application-log duplicate.
+// @spec APP-DUP-003
+pub(crate) fn is_application_duplicate(constraint: Option<&str>) -> bool {
+    matches!(
+        constraint,
+        Some("applications_unique_turf" | "applications_unique_plant")
+    )
+}
+
 /// The sentence the owner sees when `source` cannot answer: what is unavailable, what it
 /// affects and what to do.
 fn outage_message(source: Source, outage: &Outage) -> String {
@@ -151,7 +160,9 @@ impl TurfOpsError {
             | TurfOpsError::InvalidData(msg)
             | TurfOpsError::Conflict(msg) => msg.clone(),
             TurfOpsError::Unavailable { origin, outage } => outage_message(*origin, outage),
-            TurfOpsError::Database(sqlx::Error::Database(db)) if db.is_unique_violation() => {
+            TurfOpsError::Database(sqlx::Error::Database(db))
+                if db.is_unique_violation() && is_application_duplicate(db.constraint()) =>
+            {
                 DUPLICATE_MESSAGE.to_string()
             }
             _ => SERVER_ERROR_MESSAGE.to_string(),
@@ -221,7 +232,9 @@ impl IntoResponse for TurfOpsError {
                 }
                 StatusCode::SERVICE_UNAVAILABLE
             }
-            TurfOpsError::Database(sqlx::Error::Database(db)) if db.is_unique_violation() => {
+            TurfOpsError::Database(sqlx::Error::Database(db))
+                if db.is_unique_violation() && is_application_duplicate(db.constraint()) =>
+            {
                 StatusCode::CONFLICT
             }
             TurfOpsError::Conflict(_) => StatusCode::CONFLICT,
@@ -301,6 +314,17 @@ mod tests {
         assert!(msg.contains("couldn't identify this product"), "{msg}");
         assert!(msg.contains("Pick a category"), "{msg}");
         assert!(!msg.contains("raw model output"));
+    }
+
+    // @spec APP-DUP-003
+    #[test]
+    fn only_the_application_indexes_are_application_duplicates() {
+        assert!(is_application_duplicate(Some("applications_unique_turf")));
+        assert!(is_application_duplicate(Some("applications_unique_plant")));
+        assert!(!is_application_duplicate(Some(
+            "seasonal_crossing_years_pkey"
+        )));
+        assert!(!is_application_duplicate(None));
     }
 
     // @spec INV-API-013
