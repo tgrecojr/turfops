@@ -8,9 +8,11 @@ services:
       # Required: compose refuses to start when DB_PASSWORD is unset (set it in .env).
       POSTGRES_PASSWORD: ${DB_PASSWORD:?}
     ports:
-      - "5433:5432"
+      # Loopback only: a local `cargo run` can use it, the network cannot.
+      - "127.0.0.1:5433:5432"
     volumes:
-      - turfops_data:/var/lib/postgresql/data
+      # PostgreSQL 18 images keep the cluster under /var/lib/postgresql/18/docker.
+      - turfops_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U turfops"]
       interval: 5s
