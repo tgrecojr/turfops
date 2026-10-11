@@ -276,6 +276,8 @@ export interface ProductNeed {
 	targets: ProductTarget[];
 	amendment_kinds: AmendmentKind[];
 	optional: boolean;
+	/** Only a product carrying nitrogen (N above 0 or unrecorded) fits: a feeding's need. */
+	requires_nitrogen: boolean;
 }
 
 export type InventoryState = "OnHand" | "Low" | "NotOnHand" | "Partial";

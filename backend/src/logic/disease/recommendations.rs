@@ -62,6 +62,11 @@ fn to_recommendation(risk: &DiseaseRisk, ctx: &DiseaseContext) -> Recommendation
         );
     }
     rec = rec.with_action(action);
+    // @spec DIS-MGMT-REC-004
+    // Red thread's "feed the lawn" is a feeding, so the nitrogen guard holds and caps it.
+    if risk.disease == Disease::RedThread && super::red_thread::nitrogen_hungry(ctx) {
+        rec = rec.with_feeding(super::red_thread::FEEDING_N_LBS);
+    }
     match need_for(risk, ctx) {
         Some(need) => rec.with_need(need),
         None => rec,
@@ -74,8 +79,10 @@ fn to_recommendation(risk: &DiseaseRisk, ctx: &DiseaseContext) -> Recommendation
 /// class used last).
 fn need_for(risk: &DiseaseRisk, ctx: &DiseaseContext) -> Option<ProductNeed> {
     if risk.disease == Disease::RedThread {
-        return super::red_thread::nitrogen_hungry(ctx)
-            .then(|| ProductNeed::new("nitrogen fertilizer", ProductCategory::Fertilizer));
+        return super::red_thread::nitrogen_hungry(ctx).then(|| {
+            ProductNeed::new("nitrogen fertilizer", ProductCategory::Fertilizer)
+                .requiring_nitrogen()
+        });
     }
     let classes: Vec<_> = risk
         .management
@@ -195,5 +202,34 @@ mod tests {
             ..Default::default()
         };
         assert!(red_thread_needs(&fed).is_empty());
+    }
+
+    // @spec DIS-MGMT-REC-004
+    #[test]
+    fn red_thread_is_a_marked_feeding_only_while_the_lawn_is_hungry() {
+        let today = date(10, 5);
+        let red_thread = |ctx: &DiseaseContext| {
+            let risks = assess_all(&cool_wet(today), today, ctx);
+            to_recommendations(&risks, ctx)
+                .into_iter()
+                .find(|r| r.id == "disease_red_thread")
+                .expect("red thread surfaced")
+        };
+        let hungry = red_thread(&DiseaseContext {
+            days_since_fertilizer: Some(75),
+            ..Default::default()
+        });
+        assert!(
+            hungry.feeding.is_some(),
+            "feed-the-lawn advice is a feeding"
+        );
+        assert!(hungry.needs.iter().all(|n| n.requires_nitrogen) && !hungry.needs.is_empty());
+
+        let fed = red_thread(&DiseaseContext {
+            days_since_fertilizer: Some(3),
+            ..Default::default()
+        });
+        assert!(fed.feeding.is_none(), "stay-the-course is not a feeding");
+        assert!(fed.needs.is_empty());
     }
 }

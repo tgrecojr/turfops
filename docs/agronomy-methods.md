@@ -66,10 +66,13 @@ Annual lawn targets, lbs N / 1000 sq ft (minimum – maximum, recommended):
 | Fine fescue | 1.0 – 3.0 | 2.0 |
 | Mixed (cool-season) | 2.0 – 4.0 | 3.0 |
 
-A feeding's N is rate × N% for lawn applications only (plant fertilizer is excluded).
-"Apply N" recommendations go on hold while fertilizer is blocked (saturated soil, heat)
-or a Warning-level heat forecast is active, are capped to the remaining budget, and
-become "target reached" at zero.
+A feeding's N is rate × N% for lawn applications only (plant fertilizer is excluded). A
+logged feeding is lawn Fertilizer whose N is unrecorded or above 0, so potash-only
+(0-0-x) and plant fertilizer do not count. Every "apply N" recommendation, whatever its
+source (the spring and fall feedings, red thread's "feed the lawn"), goes on hold while
+fertilizer is blocked (saturated soil, heat) or a Warning-level heat forecast is active,
+is capped to the remaining budget, and becomes "target reached" at zero. Soil-test
+advice is shown on the Soil Tests page and is not part of the recommendation feed.
 
 ## Disease risk
 
@@ -87,7 +90,7 @@ model; **only the tier is comparable across diseases.**
 | Red thread | Suitability index (experimental) | ≥ 25 | ≥ 50 | ≥ 75 |
 
 Lawn history raises only the headline tier: overseeding within 60 days raises gray leaf
-spot, and no fertilizer within 60 days raises red thread.
+spot, and no feeding (lawn fertilizer carrying nitrogen) within 60 days raises red thread.
 
 **Actions.** Low: none. Moderate: monitor (with a heads-up when a High / Severe day is
 forecast within 3 days). High / Severe: apply a preventative, unless a logged fungicide

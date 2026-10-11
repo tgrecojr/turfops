@@ -147,7 +147,7 @@ Completion is per window. A spring pruning does not complete a fall pruning task
 
 ## Recommendations
 
-`generate_plant_maintenance_recommendations(plants, applications, env, today)` is one of the sources in the **Recommendation feed** (`api/recommendation_feed.rs::all`). The feed passes up to 1000 recent applications, the current `EnvironmentalSummary` and `today`, the server's local date (`Local::now().date_naive()`, governed by `TZ`, `api/recommendation_feed.rs:54`). Every window, lead-in and completion check compares `NaiveDate`s against that one date; nothing in this component derives a date from UTC. For each plant and each task:
+`generate_plant_maintenance_recommendations(plants, applications, env, today)` is one of the sources in the **Recommendation feed** (`api/recommendation_feed.rs::all`). The feed passes up to 1000 recent applications, the current `EnvironmentalSummary` and `today`, the lawn's local date from the app's `Clock` (`state.clock.today()`, resolved from `TZ`, `api/recommendation_feed.rs:54`). Every window, lead-in and completion check compares `NaiveDate`s against that one date; nothing in this component derives a date from UTC. For each plant and each task:
 
 1. Resolve `window_on`. Skip the task if today is before the lead-in or after the end.
 2. Skip it if the task is complete for this window.
@@ -250,7 +250,7 @@ The API client (`frontend/src/api/client.ts`) exports `updatePlant` for the edit
 2. ✅ Completion is scoped to one window, counting from 30 days before it opens (owner decision).
 3. ✅ OpenRouter calls carry `HTTP-Referer` and `X-Title` attribution headers (owner decision).
 4. ✅ Agronomic amounts in plan text are intended: the Mulching suggestion's depth (`logic/plant_maintenance.rs:238`) and any nutrient amount in a task description are care advice, not label rates.
-5. ✅ "Today" is the server's local date. The feed and the seasonal plan both pass `Local::now().date_naive()` (`api/recommendation_feed.rs:54`, `api/seasonal_plan.rs:138`). The only `Utc::now()` in this component stamps `plan_generated_at` (`api/plants.rs:92`), an instant rather than a date gate, and the watering forecast horizon (now + 48 h) compares instants. The Landscape page's planting-date input has no default, so the browser's date never enters a gate.
+5. ✅ "Today" is the server's local date. The feed passes the app `Clock`'s date (`state.clock.today()`, `api/recommendation_feed.rs:54`) and the seasonal plan passes `Local::now().date_naive()` (`api/seasonal_plan.rs:138`), both the lawn's local date under `TZ`. The only `Utc::now()` in this component stamps `plan_generated_at` (`api/plants.rs:92`), an instant rather than a date gate, and the watering forecast horizon (now + 48 h) compares instants. The Landscape page's planting-date input has no default, so the browser's date never enters a gate.
 6. ✅ Plant Fertilizing tasks are not lawn feedings: plant fertilizer is outside the lawn nitrogen budget, so the nitrogen guard neither holds nor caps them.
 
 ### Deferred

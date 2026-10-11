@@ -124,9 +124,19 @@ pub struct Recommendation {
     /// The shelf's answer to `needs`, filled by the feed's enrichment pass.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub inventory: Option<super::InventoryStatus>,
+    /// Set by the source when the advice is to apply nitrogen to the lawn now; the
+    /// nitrogen guard acts on exactly these. Internal to the feed, never serialized.
+    #[serde(skip)]
+    pub feeding: Option<Feeding>,
     pub created_at: DateTime<Utc>,
     pub dismissed: bool,
     pub addressed: bool,
+}
+
+/// The feeding mark: the nitrogen (lb N / 1000 sq ft) the source suggests.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Feeding {
+    pub n_lbs_per_ksqft: f64,
 }
 
 impl Recommendation {
@@ -148,6 +158,7 @@ impl Recommendation {
             suggested_action: None,
             needs: Vec::new(),
             inventory: None,
+            feeding: None,
             created_at: Utc::now(),
             dismissed: false,
             addressed: false,
@@ -166,6 +177,12 @@ impl Recommendation {
         source: &str,
     ) -> Self {
         self.data_points.push(DataPoint::new(label, value, source));
+        self
+    }
+
+    /// Mark this as a feeding that suggests `n_lbs_per_ksqft` of nitrogen.
+    pub fn with_feeding(mut self, n_lbs_per_ksqft: f64) -> Self {
+        self.feeding = Some(Feeding { n_lbs_per_ksqft });
         self
     }
 

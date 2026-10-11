@@ -11,7 +11,7 @@ Every piece of advice TurfOps gives is a `Recommendation`, and every surface tha
 
 The feed owns four things:
 
-1. **The shape of a recommendation** (`models/recommendation.rs`): id, category, severity, text, data points and product needs.
+1. **The shape of a recommendation** (`models/recommendation.rs`): id, category, severity, text, data points, product needs and the feeding mark.
 2. **The order of the pipeline**: every source, then the nitrogen guard, then the shelf, then the owner's answers, then one sort by severity. That order keeps ids and severities fixed by the time answers are applied, and gives every surface the same order.
 3. **The answered-state policy** (`models/recommendation_state.rs`): what "Mark Addressed" and "Dismiss" mean and how long they last.
 4. **The surfaces that list the feed**: the Recommendations page, the dashboard's Active Alerts (`AlertCard`), and the dashboard's layout as a composition of widgets that other components own.
@@ -34,10 +34,11 @@ The answered state follows one principle. A click answers *this alert at this se
 | `suggested_action` | string? | source | |
 | `needs` | `[ProductNeed]` | source (`with_need`) | Empty means nothing to fetch. Always serialized. |
 | `inventory` | `InventoryStatus?` | product inventory | Omitted from the JSON when absent. |
+| `feeding` | `Feeding { n_lbs_per_ksqft }?` | source (`with_feeding`), then nitrogen guard | The feeding mark: set when the advice is to apply nitrogen to the lawn now, carrying the suggested lb N/1000 sq ft. The guard acts on exactly these and lowers the amount when it caps one. Internal to the feed: never serialized (`#[serde(skip)]`) and absent from the TypeScript type. |
 | `created_at` | timestamp | feed | Stamped at construction (`Utc::now()`), so it marks the evaluation time, not when the advice first appeared. |
 | `dismissed`, `addressed` | bool | feed | Set only by the answered-state pass. `is_active()` is `!dismissed && !addressed`. |
 
-Recommendations are built with `Recommendation::new(id, category, severity, title, description)` followed by `with_explanation`, `with_data_point`, `with_action` and `with_need`. A source declares what its action calls for with `with_need(ProductNeed)`; product inventory decides how the shelf answers it.
+Recommendations are built with `Recommendation::new(id, category, severity, title, description)` followed by `with_explanation`, `with_data_point`, `with_action`, `with_need` and `with_feeding`. A source declares what its action calls for with `with_need(ProductNeed)`; product inventory decides how the shelf answers it. A source marks a feeding with `with_feeding(n)`; agronomic rules decide what the guard does with it.
 
 ### Severity
 
@@ -70,7 +71,7 @@ Ids are owned by the sources. The feed depends on these properties:
 
 ## Pipeline
 
-`recommendation_feed::all(state, profile, summary)` builds the feed in five stages, in a fixed order: every source, the nitrogen guard, the inventory pass, the answered state, the sort. `active` is `all` with answered items removed.
+`recommendation_feed::all(state, profile, summary)` builds the feed in five stages, in a fixed order: every source, the nitrogen guard, the inventory pass, the answered state, the sort. `all` does the I/O: it reads the log, gathers the sources, loads the shelf and the answered rows, then hands everything to the pure `assemble(recs, &Stages { profile, history, today, products, answers, now })`, which runs stages 2–5 and is unit-tested without a database. `active` is `all` with answered items removed.
 
 ```mermaid
 flowchart TD
@@ -96,18 +97,10 @@ flowchart TD
 4. **Answers apply last.** The escalation check compares the answered severity against the severity the owner would see now, after the nitrogen guard. A feeding rec answered while "on hold" (Info) comes back once the hold lifts and it returns to Advisory or Warning.
 5. **The feed is sorted once, last.** A stable sort by descending severity, so ties keep source order. Every surface uses this order and none reorders it: the dashboard takes the first three active recommendations, the Recommendations page lists the feed as returned, and the shopping list and MCP tools relay it.
 
-### Divergence: guard placement
-
-The code diverges from the designed pipeline in three ways:
-
-- The nitrogen guard runs inside `RulesEngine::evaluate` (`logic/rules/engine.rs:49-54`), over the rule recommendations only, before the other sources are appended (`api/recommendation_feed.rs:46-79`), and finds feedings by a fixed id list (`FEEDING_IDS` in `nitrogen_guard.rs`) rather than a source's mark. Red thread's "feed the lawn" is never held or capped (Deferred 1).
-- The feed still appends soil-test advice (`soil_test_ph`, `soil_test_npk`, `soil_test_micro_*`) as a last source (`recommendation_feed.rs:72-78`), unguarded and with its own "N budget remaining" point (`:172-179`) (Deferred 2).
-- The feed is returned in source order; only the dashboard sorts, by itself (`api/dashboard.rs:51-52`) (Deferred 3).
-
 ### Inputs and dates
 
 - The application log is read once (`queries::get_applications_for_profile`, newest first, 1000 rows) and shared by every source. Mowing is an application, so a shorter history would push this season's treatments out of view within weeks.
-- `today` is the server's local date, `Local::now()` (governed by `TZ`, which deployment sets to the lawn's timezone), as the HLD requires. The feed uses it for plant tasks and follow-ups (`recommendation_feed.rs:54`), and the nitrogen guard uses it for the budget year. Sources that compute their own date internally are held to the same clock by their own LLDs.
+- `today` is the lawn's local date from the app's `Clock` (`state.clock.today()`, resolved once from `TZ`, which deployment sets to the lawn's timezone), as the HLD requires. The feed uses it for plant tasks and follow-ups (`recommendation_feed.rs:54`) and passes it to the nitrogen guard for the budget year. Sources that compute their own date internally are held to the same clock by their own LLDs.
 - The answered-state check uses `Utc::now()` only as an instant, to measure elapsed episode time against `updated_at`; it gates no calendar date.
 - The shelf is `product_queries::list_products_for_profile(.., include_archived = false)`.
 
@@ -221,7 +214,7 @@ The dashboard is a composition. The feed owns only the Active Alerts column and 
 | Nitrogen guard placement | A feed stage after every source, before inventory, over every rec its source marked as a feeding | Inside the rules engine over rule recs only; each source guarding its own feeding advice; a fixed id list | Feeding advice from any source must be held during a fertilizer block or heat stress and capped to the annual budget; guarding once, over the assembled feed, means a new feeding source cannot escape it. A source's mark, not an id list, because one id can carry feeding and non-feeding advice (red thread). Running before inventory lets a "target reached" rec drop its need before the shelf is consulted |
 | Where the feed is sorted | Once, as the last stage of the feed | Each surface sorts for itself; source order | Every surface, MCP included, lists advice in the same order, and the dashboard's three alerts are the top of the page by construction |
 | Answers apply last | After nitrogen guard and inventory enrich | Apply answers before enrichment | Enrichment never changes ids or severities, so escalation compares against what the owner would see now (HLD) |
-| "Today" | Server local date (`Local::now()`, `TZ` = lawn timezone) | UTC date; station-local date from the lake's UTC offset; browser date | One configured clock gives every component the same lawn-local day (HLD) |
+| "Today" | The lawn's local date from the app's `Clock` (`TZ` = lawn timezone) | UTC date; station-local date from the lake's UTC offset; browser date | One configured clock gives every component the same lawn-local day (HLD) |
 | Rows without a stored severity | Expire only, never escalate | Treat as Info (escalate on anything); delete | Answers recorded without a severity can't be compared safely `[inferred]` |
 | De-escalation | Keeps the answer | Re-show on any severity change | Only rising risk warrants interrupting the owner again `[inferred]` |
 | Restore | Delete the row (PATCH both false) | A separate DELETE route; a third "restored" flag | Owner decision: "Show dismissed" list with Undo. The absence of a row is the cleanest "never answered" `[inferred]` |
@@ -237,26 +230,23 @@ The dashboard is a composition. The feed owns only the Active Alerts column and 
 
 1. ✅ Dismiss / Addressed use escalation + expiry, with a "Show dismissed" list and Undo (Restore). Disease episodes follow the fungicide residual window and seasonal answers are gone before the same season next year.
 2. ✅ Rules do not encode years in ids for expiry purposes. The state policy handles episodes.
-3. ✅ The nitrogen guard is a feed stage over every feeding recommendation, after every source and before inventory and answers (see Pipeline). The code's placement is a divergence, tracked in Deferred 1.
+3. ✅ The nitrogen guard is a feed stage over every feeding recommendation, after every source and before inventory and answers (see Pipeline).
 4. ✅ Soil-test advice is not a feed source (HLD); the Soil Tests page and MCP `soil_test_advice` are its surfaces. If it rejoins the feed, `soil_test_npk` is marked as a feeding only when it asks for nitrogen, and the guard caps only its nitrogen part (soil-tests LLD).
-5. ✅ The feed's "today" is the server's local date (`Local::now()`). A source that dates its own work on another clock diverges in that source's LLD, not here.
+5. ✅ The feed's "today" is the lawn's local date from the app's `Clock` (`TZ`). A source that dates its own work on another clock diverges in that source's LLD, not here.
 
 ### Deferred
 
-1. **Divergence: the nitrogen guard covers rule recs only, by id.** It runs inside `RulesEngine::evaluate` (`logic/rules/engine.rs:49-54`) and matches a fixed rule-id set (`nitrogen_guard.rs:11-16`), so `disease_red_thread`'s "feed the lawn" is never held or capped. Fix: sources mark feedings, and the guard runs as its own stage in `recommendation_feed::all` after every source, over marked recommendations (FEED-PIPE-004).
-2. **Divergence: soil-test advice is in the feed.** `recommendation_feed::all` appends `soil_test_recommendations` (`api/recommendation_feed.rs:72-78`, builders at `:99-259`, with `amendment_need` and `micronutrient_need`), so soil-test alerts reach the dashboard, page, shopping list and MCP feed. Fix: stop adding them (FEED-PIPE-018). The builders are soil-tests content; if soil-test advice rejoins the feed they belong in soil-tests code.
-3. **Divergence: the feed is not sorted.** `recommendation_feed::all` returns source order; the dashboard sorts its own copy (`api/dashboard.rs:51-52`), while the Recommendations page (`pages/Recommendations.tsx:101`), the shopping list and MCP get source order, so a Critical disease alert can sit below Info rule recs. Fix: sort in the feed (FEED-PIPE-009) and drop the dashboard's own sort.
-4. **No de-duplication of ids.** If two sources ever emit the same id, both appear, one answer hides both, and the React keys collide (`recommendation_feed.rs:46-79`; `Recommendations.tsx:101`, `:270`). This is unenforced.
-5. **Divergence: episode class follows category, not intent** (FEED-STATE-010). A landscape-plant Watering task ("during dry spells") is PlantMaintenance, so its answer holds 120 d like seasonal work, not 7 d like weather (`models/recommendation_state.rs:32-48`). Intent: Watering tasks get the 7-day weather episode. `FrostWarning` has a weather episode but no producer. `Fungicide`, `SoilTempForecast` and `General` are variants no production source emits.
-6. **PATCH accepts any id and any flag combination** (`api/recommendations.rs:53-79`). It accepts unknown ids, `dismissed` and `addressed` both true, and a missing `severity` on a first answer, which stores NULL and disables escalation for that row. There is no 404 and no validation.
-7. **Answered rows are never pruned** (`db/queries.rs:316-375`). Expired rows, and rows for ids a source no longer emits (deleted applications or plants, past `timing_*_<year>`), accumulate.
-8. **Answered list shows only what still fires.** An answered rec whose source stopped emitting it disappears from "Show dismissed" but keeps its row. If the source re-emits it within the episode, it stays hidden (`recommendation_feed.rs:87-94`). This is intended per episode, but not stated in the UI.
-9. **Mixed failure policy.** DB errors on applications, plants, products or answers fail the whole feed (`recommendation_feed.rs:44`, `:53`, `:83`, `:87`), while a soil-test query error is silently swallowed (`:72`). "Profile missing ID" maps to 400 (`:39-41`) although the request is not at fault.
-10. **Repeated computation per dashboard poll.** `/dashboard` computes the feed, which includes disease and timing. The page also fetches `/disease-risk`, `/timing-windows` and the shopping list, which recomputes the feed again. All of this runs every 30 s.
-11. **Shopping list hidden with the widget grid.** `ShoppingListPanel` sits inside a grid that renders only when another widget has data (`pages/Dashboard.tsx:245-250`). If GDD, nitrogen, soil forecast, disease and timing all fail, the shopping list is hidden too.
-12. **Data Points table React key** is `${label}-${source}` (`Recommendations.tsx:199`). Several "On hand" points from Inventory share a key.
-13. **Size limits.** `pages/Recommendations.tsx` (396 lines) and `pages/Dashboard.tsx` (372) exceed the 300-line limit. `recommendation_feed::all` (~64 lines), `soil_test_recommendations` (~119), and the `Recommendations` and `Dashboard` components exceed the 50-line function limit.
-14. **`created_at` is the evaluation time**, so it cannot express how long advice has been standing.
+1. **No de-duplication of ids.** If two sources ever emit the same id, both appear, one answer hides both, and the React keys collide (`recommendation_feed.rs:46-68`; `Recommendations.tsx:101`, `:270`). This is unenforced.
+2. **Divergence: episode class follows category, not intent** (FEED-STATE-010). A landscape-plant Watering task ("during dry spells") is PlantMaintenance, so its answer holds 120 d like seasonal work, not 7 d like weather (`models/recommendation_state.rs:32-48`). Intent: Watering tasks get the 7-day weather episode. `FrostWarning` has a weather episode but no producer. `Fungicide`, `SoilTempForecast` and `General` are variants no production source emits.
+3. **PATCH accepts any id and any flag combination** (`api/recommendations.rs:53-79`). It accepts unknown ids, `dismissed` and `addressed` both true, and a missing `severity` on a first answer, which stores NULL and disables escalation for that row. There is no 404 and no validation.
+4. **Answered rows are never pruned** (`db/queries.rs:316-375`). Expired rows, and rows for ids a source no longer emits (deleted applications or plants, past `timing_*_<year>`), accumulate.
+5. **Answered list shows only what still fires.** An answered rec whose source stopped emitting it disappears from "Show dismissed" but keeps its row. If the source re-emits it within the episode, it stays hidden (`recommendation_feed.rs:112-121`). This is intended per episode, but not stated in the UI.
+6. **"Profile missing ID" maps to 400** (`recommendation_feed.rs:39-41`) although the request is not at fault.
+7. **Repeated computation per dashboard poll.** `/dashboard` computes the feed, which includes disease and timing. The page also fetches `/disease-risk`, `/timing-windows` and the shopping list, which recomputes the feed again. All of this runs every 30 s.
+8. **Shopping list hidden with the widget grid.** `ShoppingListPanel` sits inside a grid that renders only when another widget has data (`pages/Dashboard.tsx:245-250`). If GDD, nitrogen, soil forecast, disease and timing all fail, the shopping list is hidden too.
+9. **Data Points table React key** is `${label}-${source}` (`Recommendations.tsx:199`). Several "On hand" points from Inventory share a key.
+10. **Size limits.** `pages/Recommendations.tsx` (396 lines) and `pages/Dashboard.tsx` (372) exceed the 300-line limit. `recommendation_feed::all` (~51 lines) and the `Recommendations` and `Dashboard` components exceed the 50-line function limit.
+11. **`created_at` is the evaluation time**, so it cannot express how long advice has been standing.
 
 ## References
 
@@ -264,7 +254,7 @@ The dashboard is a composition. The feed owns only the Active Alerts column and 
 - `backend/src/api/recommendation_feed.rs`, `backend/src/api/recommendations.rs`, `backend/src/api/dashboard.rs`
 - `backend/src/models/recommendation.rs`, `backend/src/models/recommendation_state.rs` (unit tests cover escalation, each episode class, follow-ups, NULL severity, cleared rows)
 - `backend/src/db/queries.rs` (recommendation state queries); `backend/src/db/migrations/20240101000003_recommendation_states.sql`, `20260921000100_recommendation_state_severity.sql`
-- `backend/src/logic/rules/engine.rs`, `backend/src/logic/rules/nitrogen_guard.rs` (guard logic, owned by agronomic rules; its current placement inside the engine is the divergence in Deferred 1)
+- `backend/src/logic/rules/nitrogen_guard.rs` (guard logic, owned by agronomic rules; run by `assemble`)
 - `backend/src/api/timing.rs` `apply_to_feed`; `backend/src/api/disease_risk.rs` `recommendations`; `backend/src/logic/inventory.rs` `enrich`
 - Consumers: `backend/src/api/inventory.rs` (shopping list), `backend/src/mcp/tools/lawn.rs`
 - `frontend/src/pages/Recommendations.tsx`, `frontend/src/components/AlertCard.tsx`, `frontend/src/pages/Dashboard.tsx`, `frontend/src/api/client.ts`, `frontend/src/types/index.ts`

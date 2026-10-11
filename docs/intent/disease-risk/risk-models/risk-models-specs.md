@@ -35,7 +35,7 @@ A "usable day" has at least 12 covered hours, at least one hour from 03–08 loc
 
 ## History amplifiers
 
-- [ ] **DIS-MODEL-AMP-001**: When building the disease context, the system shall read only lawn applications dated on or before today, ignoring plant applications, and record the days since the latest Overseed and since the latest feeding (feeding as defined by Applications (`Application::is_feeding()`: a turf Fertilizer application with nitrogen unrecorded or above 0)).
+- [x] **DIS-MODEL-AMP-001**: When building the disease context, the system shall read only lawn applications dated on or before today, ignoring plant applications, and record the days since the latest Overseed and since the latest feeding (feeding as defined by Applications (`Application::is_feeding()`: a turf Fertilizer application with nitrogen unrecorded or above 0)).
 - [x] **DIS-MODEL-AMP-002**: When an Overseed application is logged within the last 60 days and gray leaf spot's headline tier is at least Moderate, the system shall raise gray leaf spot's headline tier one step.
 - [x] **DIS-MODEL-AMP-003**: When no feeding is logged within the last 60 days and red thread's headline tier is at least Moderate, the system shall raise red thread's headline tier one step.
 - [x] **DIS-MODEL-AMP-004**: When an amplifier raises a headline tier, the system shall raise it at most to Severe, leave the daily tiers unchanged, and set the tier note "Raised from <tier> — …"; the raised tier is the one every consumer reads.

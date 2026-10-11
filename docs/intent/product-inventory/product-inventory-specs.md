@@ -67,7 +67,7 @@ A product's **facts** are its owner-owned, matchable fields (category, form, lab
 - [x] **INV-NEED-002**: A product shall fit a need only when its category is among the need's categories (an empty list fits nothing) and it meets every constrained axis: shares a FRAC class when the need lists any, shares a target when the need lists any, has the need's herbicide timing or Both when the need gives one, and has an amendment kind among the need's when the need lists any.
 - [x] **INV-NEED-003**: A product with no FRAC class, target, herbicide timing or amendment kind recorded shall not fit a need that constrains that axis.
 - [x] **INV-NEED-004**: A product shall match a need only when it fits the need, is not archived and its stock is not Out; a Low product matches.
-- [ ] **INV-NEED-005**: Where a need requires nitrogen (the nitrogen-fertilizer need of a feeding), a product shall fit it only when the product's recorded N is above 0 or its N is unrecorded, so a recorded 0-0-x product never satisfies a feeding.
+- [x] **INV-NEED-005**: Where a need requires nitrogen (the nitrogen-fertilizer need of a feeding), a product shall fit it only when the product's recorded N is above 0 or its N is unrecorded, so a recorded 0-0-x product never satisfies a feeding.
 - [D] **INV-NEED-006**: Where a recommendation source declares a need as alternatives (each its own categories and constrained axes, such as the soil-test magnesium need: a Supplement with a Magnesium target, or a SoilAmendment of kind DolomiticLime), a product shall fit the need when it fits any one alternative.
 
 ## Inventory status and the feed's inventory pass

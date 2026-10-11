@@ -21,6 +21,8 @@ const RAIN_DAY_MM: f64 = 2.5;
 const RAIN_DAY_SUITABILITY: f64 = 0.5;
 /// No fertilizer within this many days ⇒ treat the lawn as nitrogen-hungry.
 const NITROGEN_DEFICIT_DAYS: i64 = 60;
+/// The feeding red thread's remedy suggests (lb N / 1000 sq ft).
+pub(crate) const FEEDING_N_LBS: f64 = 0.5;
 
 fn temp_suitability(day: &DailyWeather) -> f64 {
     let (lo, opt_lo, opt_hi, hi) = TEMP_CURVE_C;

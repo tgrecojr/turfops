@@ -1,8 +1,9 @@
+use super::nitrogen_guard::{amount_text, rate_text, RATE_POINT};
 use super::thresholds::*;
 use super::Rule;
 use crate::models::{
-    Application, ApplicationType, DataSource, EnvironmentalSummary, LawnProfile, ProductCategory,
-    ProductNeed, Recommendation, RecommendationCategory, Severity,
+    Application, DataSource, EnvironmentalSummary, LawnProfile, ProductCategory, ProductNeed,
+    Recommendation, RecommendationCategory, Severity,
 };
 use chrono::{Datelike, Local, NaiveDate};
 
@@ -34,7 +35,6 @@ impl Rule for SpringNitrogenRule {
         }
 
         let today = Local::now().date_naive();
-        let current_year = today.year();
 
         // Only relevant in late winter/early spring (Feb - May)
         let month = today.month();
@@ -48,18 +48,7 @@ impl Rule for SpringNitrogenRule {
         // GDD data
         let gdd_ytd = env.gdd_base50_ytd;
 
-        // Check for spring fertilizer applications
-        let spring_start = NaiveDate::from_ymd_opt(current_year, 2, 1)?;
-        let spring_fert_apps: Vec<&Application> = history
-            .iter()
-            .filter(|app| {
-                app.application_type == ApplicationType::Fertilizer
-                    && app.application_date.year() == current_year
-                    && app.application_date >= spring_start
-            })
-            .collect();
-
-        let has_spring_fert = !spring_fert_apps.is_empty();
+        let has_spring_fert = !spring_feedings(history, today).is_empty();
 
         // A4: May 1 hard cutoff (Missouri g6705)
         if month == 5 {
@@ -104,6 +93,22 @@ impl Rule for SpringNitrogenRule {
             None
         }
     }
+}
+
+// @spec RULE-SPRING-010
+/// This spring's feedings: from Feb 1 of `today`'s year through `today`.
+fn spring_feedings(history: &[Application], today: NaiveDate) -> Vec<&Application> {
+    let Some(spring_start) = NaiveDate::from_ymd_opt(today.year(), 2, 1) else {
+        return Vec::new();
+    };
+    history
+        .iter()
+        .filter(|app| {
+            app.is_feeding()
+                && app.application_date >= spring_start
+                && app.application_date <= today
+        })
+        .collect()
 }
 
 fn build_too_early_warning(soil_temp: f64) -> Recommendation {
@@ -272,7 +277,6 @@ fn build_ready_to_fertilize(
     gdd_ytd: Option<f64>,
 ) -> Recommendation {
     let lawn_size = profile.lawn_size_sqft.unwrap_or(DEFAULT_LAWN_SIZE_SQFT);
-    let n_needed = lawn_size / 1000.0 * SPRING_N_RATE_LBS_PER_KSQFT;
 
     let gdd_note = if let Some(gdd) = gdd_ytd {
         if gdd >= SPRING_N_GDD_ESTABLISHED {
@@ -303,9 +307,11 @@ fn build_ready_to_fertilize(
     .with_explanation(format!(
         "With soil at {:.0}°F+, roots are active and can utilize applied nitrogen. \
          Spring feeding should be LIGHT compared to fall - cool-season grass does \
-         most of its feeding in autumn. A light spring application ({:.1} lb N/1000 sqft) \
+         most of its feeding in autumn. A light spring application ({}) \
          supports spring growth without pushing excessive top growth that weakens the plant.{}",
-        SPRING_N_MIN_SOIL_F, SPRING_N_RATE_LBS_PER_KSQFT, gdd_note
+        SPRING_N_MIN_SOIL_F,
+        rate_text(SPRING_N_RATE_LBS_PER_KSQFT),
+        gdd_note
     ))
     .with_data_point(
         "Soil Temp",
@@ -313,8 +319,8 @@ fn build_ready_to_fertilize(
         DataSource::SoilData.as_str(),
     )
     .with_data_point(
-        "Recommended Rate",
-        format!("{:.1} lb N/1000 sqft", SPRING_N_RATE_LBS_PER_KSQFT),
+        RATE_POINT,
+        rate_text(SPRING_N_RATE_LBS_PER_KSQFT),
         DataSource::Agronomic.as_str(),
     );
 
@@ -326,25 +332,24 @@ fn build_ready_to_fertilize(
         );
     }
 
-    rec = rec.with_need(ProductNeed::new(
-        "nitrogen fertilizer",
-        ProductCategory::Fertilizer,
-    ));
-    rec = rec.with_action(format!(
-        "Apply ~{:.1} lbs of nitrogen for your {:.0} sqft lawn ({:.1} lb N/1000 sqft). \
+    // @spec RULE-GUARD-002, RULE-SPRING-008
+    rec.with_need(
+        ProductNeed::new("nitrogen fertilizer", ProductCategory::Fertilizer).requiring_nitrogen(),
+    )
+    .with_action(format!(
+        "Apply {}. \
          Use slow-release nitrogen to avoid surge growth. \
          This should be your ONLY spring nitrogen - save the heavy feeding for fall. \
          Verify you've mowed 2-3 times first to confirm grass is actively growing.",
-        n_needed, lawn_size, SPRING_N_RATE_LBS_PER_KSQFT
-    ));
-
-    rec
+        amount_text(SPRING_N_RATE_LBS_PER_KSQFT, lawn_size)
+    ))
+    .with_feeding(SPRING_N_RATE_LBS_PER_KSQFT)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{EnvironmentalReading, GrassType};
+    use crate::models::{ApplicationType, EnvironmentalReading, GrassType};
 
     fn base_env(soil_avg: f64) -> EnvironmentalSummary {
         let reading = EnvironmentalReading::new(DataSource::SoilData);
@@ -367,6 +372,70 @@ mod tests {
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),
         }
+    }
+
+    fn app(
+        kind: ApplicationType,
+        date: NaiveDate,
+        n_pct: Option<f64>,
+        plant: Option<i64>,
+    ) -> Application {
+        Application {
+            id: None,
+            lawn_profile_id: 1,
+            application_type: kind,
+            product_name: None,
+            application_date: date,
+            rate_per_1000sqft: Some(3.0),
+            coverage_sqft: None,
+            notes: None,
+            weather_snapshot: None,
+            nitrogen_pct: n_pct,
+            phosphorus_pct: None,
+            potassium_pct: None,
+            plant_id: plant,
+            follow_up_date: None,
+            frac_classes: None,
+            product_id: None,
+            created_at: chrono::Utc::now(),
+        }
+    }
+
+    // @spec RULE-SPRING-010
+    #[test]
+    fn only_a_lawn_feeding_counts_as_fed_this_spring() {
+        let d = |m, day| NaiveDate::from_ymd_opt(2026, m, day).unwrap();
+        let today = d(4, 10);
+        let fert = ApplicationType::Fertilizer;
+        let ignored = [
+            app(fert, d(3, 1), Some(0.0), None), // potash only
+            app(
+                ApplicationType::PlantFertilizer,
+                d(3, 1),
+                Some(10.0),
+                Some(4),
+            ),
+            app(fert, d(3, 1), Some(10.0), Some(4)), // shrub feeding
+            app(fert, d(4, 20), Some(24.0), None),   // future-dated
+            app(fert, d(1, 20), Some(24.0), None),   // before Feb 1
+        ];
+        assert!(spring_feedings(&ignored, today).is_empty());
+        let fed = [app(fert, d(3, 15), None, None)]; // analysis not recorded
+        assert_eq!(spring_feedings(&fed, today).len(), 1);
+    }
+
+    // @spec RULE-GUARD-002, RULE-SPRING-008
+    #[test]
+    fn ready_to_feed_is_a_marked_feeding_that_needs_nitrogen() {
+        let rec = build_ready_to_fertilize(55.0, &base_profile(), Some(100.0));
+        assert_eq!(
+            rec.feeding.map(|f| f.n_lbs_per_ksqft),
+            Some(SPRING_N_RATE_LBS_PER_KSQFT)
+        );
+        assert!(rec.needs.iter().all(|n| n.requires_nitrogen) && !rec.needs.is_empty());
+        // Advice against feeding is never a feeding.
+        assert!(build_may_cutoff_warning(52.0).feeding.is_none());
+        assert!(build_too_early_warning(45.0).feeding.is_none());
     }
 
     #[test]
