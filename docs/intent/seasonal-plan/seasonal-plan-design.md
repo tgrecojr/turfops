@@ -70,11 +70,11 @@ activity is a plant task (the Landscape plants component sets it).
 returns the gold layer's daily `soil_temp_10_f_mean` for one calendar year, keeping only
 days with `hours_observed >= 12` and a non-null mean, ordered by day. This is a Weather
 data access contract; a year with fewer than 30 such days is not analyzed
-(`backend/src/api/seasonal_plan.rs`).
+(`analyze_year`, `backend/src/logic/seasonal_plan/crossings.rs`).
 
 ### Crossing detection
 
-`find_threshold_crossings` (`backend/src/logic/seasonal_plan.rs`) computes a trailing
+`find_threshold_crossings` (`backend/src/logic/seasonal_plan/crossings.rs`) computes a trailing
 7-row mean over the returned days (stamped on the 7th row) and looks for **held runs**:
 consecutive calendar days on which the mean is at or past a threshold in its direction.
 A run is a crossing once it holds for 5 days, dated on its first day; a mean back across
@@ -193,16 +193,16 @@ The handler evaluates the rules with the same inputs as the recommendation feed.
 
 Every other activity, and every activity in any other plan year, uses
 `compute_status(completed, start, end, today)`: Completed if logged, else Missed if
-`today > end`, Active if `today >= start`, otherwise Upcoming. `today` is the server's
-local date (`chrono::Local`, governed by `TZ`, which deployment sets to the lawn's
-timezone), read inside `build_seasonal_plan` (`backend/src/logic/seasonal_plan.rs:155`).
-The same clock picks the default `year` and the fill range in the handler.
+`today > end`, Active if `today >= start`, otherwise Upcoming. `today` is the lawn's
+local date from the app clock (`backend/src/clock.rs`, resolved once from `TZ`), which
+the handler passes to `build_seasonal_plan`. The same date picks the default `year`, the
+fill range and the settled judgment in the handler.
 
 ## Crossing Cache
 
 Table `seasonal_threshold_crossings` (migrations
 `backend/src/db/migrations/20240101000006_seasonal_plan_cache.sql`,
-`20260921000300_threshold_crossings_station.sql`):
+`20260921000300_threshold_crossings_station.sql`) holds the crossings:
 
 | Column | Type | Notes |
 |---|---|---|
@@ -210,43 +210,65 @@ Table `seasonal_threshold_crossings` (migrations
 | `threshold_name` | TEXT | PK part |
 | `crossing_date` | DATE | |
 | `avg_soil_temp_f` | DOUBLE PRECISION | trailing mean on the crossing day |
-| `computed_at` | TIMESTAMPTZ | default `NOW()`; drives settlement |
+| `computed_at` | TIMESTAMPTZ | default `NOW()` |
 | `station_wbanno` | INTEGER NULL | station the row was computed for |
+
+Table `seasonal_crossing_years` (`20261011000000_seasonal_crossing_years.sql`) holds one
+**marker** per computed year, written even when the year yields no crossings:
+
+| Column | Type | Notes |
+|---|---|---|
+| `station_wbanno` | INTEGER | PK part |
+| `year` | INTEGER | PK part |
+| `settled` | BOOLEAN | the year's crossings are final |
+| `computed_at` | TIMESTAMPTZ | when the year was last computed |
+
+A year is **settled** (`year_settled(year, today, lake_latest)`) when it was computed on
+or after Jan 1 of the following year by the lawn's local date and the lake had by then
+reported a day dated Dec 31 of that year or later. The app judges this when it computes
+the year and stores the answer in the marker; the database clock never decides it. The
+lake lags about a day, so the calendar alone would settle a year before its last days
+arrive and lose a late crossing (e.g. 45 °F falling). Keeping markers apart from the
+crossing rows means aggregation never reads one as a crossing, and a year with no
+crossings still settles instead of being re-read from the lake on every load.
 
 Queries (`backend/src/db/queries.rs`):
 
-- `delete_crossings_for_other_stations(station)` deletes rows whose station `IS DISTINCT
-  FROM` the configured one, so legacy rows with no station are discarded too. The key is
-  not per-station; one station is kept by deletion.
-- `get_settled_crossing_years(station)` returns the **settled** years: those whose rows
-  (or settled marker) were all computed on or after Jan 1 of the following year by the
-  server's local date, never a UTC or database-session midnight, at a time when the lake
-  had reported a day dated Dec 31 of that year or later. The lake lags about a day, so
-  the calendar alone would settle a year before its last days arrive and lose a late
-  crossing (e.g. 45 °F falling).
-- A year the fill computes with **no crossing rows** (nothing crossed, or fewer than 30
-  usable days) records a settled marker for that year and station, kept apart from the
-  crossing rows so aggregation never reads it as a crossing. Without it such a year
-  would never settle and would be re-read from the lake on every load.
-- `replace_threshold_crossings(year, station, crossings)` deletes the year and inserts the
-  new rows in one transaction, so a threshold that no longer crosses disappears.
+- `delete_crossings_for_other_stations(station)` deletes crossing rows whose station `IS
+  DISTINCT FROM` the configured one (so legacy rows with no station go too) and markers
+  for other stations, in one transaction. The crossing key is not per-station; one
+  station is kept by deletion.
+- `get_settled_crossing_years(station)` returns the years whose marker is settled.
+- `replace_threshold_crossings(year, station, crossings, settled)` deletes the year's
+  crossings, inserts the new rows and upserts the year's marker in one transaction, so
+  a threshold that no longer crosses disappears.
+- `get_cached_settled_years()` returns every settled marker's year, whatever its station,
+  for when no lake is configured to name one.
 - `get_threshold_crossings()` returns every cached row, ordered by year and date.
 
 ### Fill rule (per request, in the handler)
 
-When a weather lake client is configured:
+When a weather lake client is configured (`fill_crossing_cache`,
+`backend/src/api/seasonal_plan.rs`):
 
-1. Delete rows for other stations.
-2. For each year in `current_year − 10 ..= current_year` that is not settled, read the
-   year's gold daily 10 cm means and, if there are ≥30 days, replace the year's rows;
-   a year that yields no rows gets a settled marker.
-3. Read failures and cache-write failures are logged (`warn`) and skipped; the plan is
-   built from whatever is cached.
+1. Delete rows and markers for other stations.
+2. For each year in `current_year − 10 ..= current_year` that is not settled, **newest
+   first**, read the year's gold daily 10 cm means and run `analyze_year`: its crossings
+   (none below 30 days) and whether it is settled, judged with the newest lake date read
+   so far. Reading newest first means the current year's read supplies the lake's latest
+   date before any earlier year is judged. The year's crossings and marker are then
+   replaced.
+3. Read failures and cache-write failures are logged (`warn`) and skipped, keeping that
+   year's cached rows; the plan is built from whatever is cached.
+4. The settled years are read back and passed to `build_seasonal_plan`, which lets the
+   voting years among them vote.
 
 The consequence is that past years are computed once, after they end and the lake has
 reported through Dec 31; the year in progress, and the previous year until both hold, are
-recomputed on every load (a local parquet read). With no lake client configured, the fill is skipped
-entirely and the cached rows are used as they are.
+recomputed on every load (a local parquet read). Crossing rows cached without a marker
+count as unsettled and are recomputed once. With no lake client configured, the fill is
+skipped and the cache is used as it is: every settled marker it holds
+(`get_cached_settled_years`; only one station's markers survive a fill).
 
 ## The Merge (`GET /api/v1/seasonal-plan`)
 
@@ -358,12 +380,13 @@ endpoint does not read the plan; the page fetches both.
 | Fallback when timing is unavailable | Keep the 10 cm activities | Drop the activities | A lake outage should degrade, not blank the plan [inferred] |
 | Aeration | Shares the fall seeding window | Its own 65 → 50 °F 10 cm window | Owner decision: aeration follows the fall seeding window. |
 | Amounts in `ActivityDetails.rate` | lb N/1,000 sq ft on feedings, seed per 1,000 sq ft on seeding, "Label rate" (no number) on pesticides | No amounts at all; typical label rates for every product | Nutrient and seed amounts are agronomy, independent of the product, and the plan cannot express a feeding schedule without them. A pesticide's amount is set by its label, the legal authority, so the plan never states one (HLD non-goal "Label rates"). |
-| Clock for "today" and the plan year | Server-local date (`chrono::Local`, `TZ` = lawn timezone) | UTC date; station-local date from the lake's offset; browser date | Every agronomic date is a lawn-local calendar day, and one configured clock gives every component the same day (HLD key decision). |
+| Clock for "today" and the plan year | The app clock's local date (`TZ` = lawn timezone) | UTC date; station-local date from the lake's offset; browser date | Every agronomic date is a lawn-local calendar day, and one configured clock gives every component the same day (HLD key decision). |
 | Per-year crossing cache | Postgres table, settled after year end, current year recomputed per load | Compute every request; settle on first write | Past years never change; the year in progress must pick up later crossings, which settling on first write would freeze at their first view. |
 | Station scoping | Store `station_wbanno`, delete other stations' rows | Station in the primary key | One station per deployment; deletion keeps the key simple [inferred] |
 | Crossing signal | First 5-day-held run of a 7-row trailing mean of gold 10 cm daily means; runs starting right after a gap dropped | 5 cm silver (as Timing); one step across the threshold with no hold | Gold carries 10 cm daily means precomputed, and no 5 cm thresholds are defined for these activities [inferred]. A single step across dates a passing warm or cold spell, and a run after a hole dates a sensor outage; reading the record as Timing does keeps the two methods consistent. |
 | Which years vote | At most 10 most recent complete (settled) years before the plan year | Every cached year, including the plan year and the year in progress | A prediction must not include the outcome it predicts, and a partial year has only its early crossings, which biases late thresholds early. Ten years bounds the sample as the fill does. |
-| Settlement | Computed after year end by server-local date **and** lake reported through Dec 31; empty years get a marker | Calendar alone; settle only years with rows | The lake lags a day, so the calendar alone loses late-December crossings; without a marker an empty year never settles and is re-read on every load. |
+| Settlement | Computed after year end by the lawn's local date **and** lake reported through Dec 31; empty years get a marker | Calendar alone; settle only years with rows | The lake lags a day, so the calendar alone loses late-December crossings; without a marker an empty year never settles and is re-read on every load. |
+| Where "settled" is stored | A per-year marker table whose `settled` flag the app sets when it computes the year | A SQL test over `computed_at` (`MIN(computed_at) >= make_date(year + 1, 1, 1)`) | The judgment needs the lawn's calendar and the lake's newest date, neither of which the database knows; a SQL date test runs on the database session's midnight. |
 | Mapping history onto the plan year | Month and day | Day-of-year ordinal | Ordinals shift every date after Feb 28 by a day across leap years, and ordinal 366 has no place in a non-leap year. |
 | Status of rule-covered activities this season | From the covering agronomic rule's state | Date-based status from 10 cm medians | One answer everywhere: the plan must not say Active while the feed is silent, or the reverse; the rules see live soil, GDD and the nitrogen guard. |
 | Completion source | Turf applications only | Any application of the type | Plant work (a shrub insecticide, a plant feeding) does nothing for the lawn. |
@@ -383,7 +406,7 @@ endpoint does not read the plan; the page fetches both.
 4. ✅ `ActivityDetails.rate` carries agronomic amounts (lb N/1,000 sq ft, seed per
    1,000 sq ft) and the Seasonal Plan page shows them in its "Rate:" row; pesticide
    activities say only "Label rate".
-5. ✅ 10 cm statuses, the default year and the fill range use the server-local date.
+5. ✅ 10 cm statuses, the default year and the fill range use the lawn's local date.
 
 ### Deferred
 
@@ -394,80 +417,24 @@ endpoint does not read the plan; the page fetches both.
    while the feed is silent, or the reverse. Intent: for the current season their status
    comes from the covering rule's state; the rules exposing that state is owned by
    Agronomic rules.
-2. **Divergence: no hold or gap handling in crossing detection** (PLAN-CROSS-003,
-   PLAN-CROSS-004, PLAN-CROSS-005, PLAN-CROSS-008, PLAN-CROSS-009). One step of the
-   trailing mean across a threshold dates a crossing (`backend/src/logic/seasonal_plan.rs:56`,
-   `:75`), and a run after a data hole is kept. Intent: a crossing holds 5 consecutive
-   days, is dated on the run's first day, and is dropped when its run starts right after
-   a missing date.
-3. **Divergence: the planned year votes on itself** (PLAN-CROSS-010).
-   `aggregate_crossings` takes every cached year (`backend/src/logic/seasonal_plan.rs:97-105`)
-   and the handler passes all cached rows (`backend/src/api/seasonal_plan.rs:87`). Intent:
-   only the at most 10 most recent complete years before the plan year vote.
-4. **Divergence: history bound and `data_years_used`** (PLAN-CROSS-010).
-   `get_threshold_crossings` returns every cached year, so the sample grows past ten
-   years and `data_years_used` counts the partial current year. Intent:
-   `data_years_used` counts only the voting years.
-5. **Divergence: unsettleable years** (PLAN-CACHE-008). A year with no crossings, or
-   fewer than 30 usable days, writes no rows (`backend/src/api/seasonal_plan.rs:49-73`),
-   so it never appears in `get_settled_crossing_years` (`backend/src/db/queries.rs:548-561`)
-   and is re-read from the lake on every load. Intent: such a year records a settled
-   marker.
-6. **Divergence: ordinal normalization** (PLAN-CROSS-006). Mapping by day-of-year shifts
-   leap-year dates by one day, and ordinal 366 into a non-leap target falls back to the
-   original date with its original year (`backend/src/logic/seasonal_plan.rs:102-103`),
-   which mis-sorts it in the median. Intent: map by month and day.
-7. **Divergence: `spring_herbicide` clamp** (PLAN-ACT-017). `clamp_year` caps the day at
-   28, so a window edge on the 29th–31st moves earlier. Intent: only the year changes.
-8. **Divergence: plant applications count for turf completion** (PLAN-ACT-020,
-   PLAN-ACT-004, PLAN-ACT-005 through PLAN-ACT-008, PLAN-ACT-010, PLAN-ACT-011). The
-   10 cm completion checks do not exclude applications with a `plant_id`, so a plant
-   feeding in April completes `spring_nitrogen` (`backend/src/logic/seasonal_plan.rs:217-221`).
-   Intent: only turf applications complete turf activities.
-9. **Lock held during fill.** The handler holds the sync service read lock across up to
-    eleven lake reads.
-10. **Calendar bars are color-only.** Day-cell bars encode status by color (tooltip has
-    the name only); the detail panel and plan page carry text labels.
-11. **Size limits.** `backend/src/logic/seasonal_plan.rs` is 756 lines (limit 300) with
-    `build_activities` near 390 lines; `get_seasonal_plan` is ~140 lines;
-    `frontend/src/pages/Calendar.tsx` is 689 lines and `SeasonalPlan.tsx` 514 lines;
-    `backend/src/db/queries.rs` (shared) is 609 lines.
-12. **Stringly-typed contracts.** Activity ids are the merge key and `"Plant
-    Maintenance"` is the plant discriminator; neither is an enum.
-13. **Divergence: a year can settle before its last days arrive, on a UTC boundary**
-    (PLAN-CACHE-005). The settle test
-    `MIN(computed_at) >= make_date(year + 1, 1, 1)` (`backend/src/db/queries.rs:553`)
-    compares against midnight in the Postgres session time zone, which is UTC under
-    Compose (the `db` service sets no `TZ`) rather than the server-local date. The lake
-    also lags about a day, so a request just after the boundary can settle a year before
-    Dec 30–31 are in the lake, and a late crossing (e.g. 45 °F falling) is never recorded.
-    Intent: settled only after year end by the server-local date and once the lake has
-    reported through Dec 31.
-14. **Divergence: a completed `fall_herbicide` can vanish** (PLAN-ACT-018). The overseed check
-    `(median − overseed date).num_days() < 60` (`backend/src/logic/seasonal_plan.rs:519-525`)
-    is also true for an `Overseed` logged after the median (negative difference), so any
-    later seeding removes the activity, even when a fall `PostEmergent` already completed
-    it. Intent: only a seeding in the 60 days before the window hides it, and never a
-    completed one.
-15. **Divergence: fallback `pre_emergent` counts a fall application** (PLAN-ACT-019).
-    When the timing windows are unavailable, the 10 cm `pre_emergent` is Completed by
-    any `PreEmergent` in the year
-    (`backend/src/logic/seasonal_plan.rs:185-187`), so a fall pre-emergent completes the
-    spring one. Intent: only a January–June `PreEmergent` completes it.
-16. **Concurrent first loads.** Two requests filling the same unsettled year both run
-    `replace_threshold_crossings` (`backend/src/db/queries.rs:574-600`); the second
-    insert hits the `(year, threshold_name)` key, the error is only logged as a warning
-    and that year is skipped for that request (`backend/src/api/seasonal_plan.rs:49-65`).
-17. **Divergence: `spring_nitrogen` has no historical end** (PLAN-ACT-012). It is built
-    with no closing aggregate (`make_window(&start, end_date, None)`), so its
-    `latest_historical` is empty. Intent: the latest `soil_65f_rising` crossing.
-18. **Divergence: pages count from the browser's clock** (PLAN-UI-001, PLAN-UI-007,
-    PLAN-CALUI-001, PLAN-MERGE-008). `SeasonalPlan.tsx` and `Calendar.tsx` take the
-    default year, month and countdown from `new Date()`, and the plan response carries no
-    server-local date. Intent: the pages use the server's date from the API.
-19. **Rule state unavailable** (PLAN-ACT-022). When a covering rule cannot evaluate (its
-    inputs are missing, RULE-ENG-003), the activity falls back to its typical-date status,
-    marked as an estimate, the same labeled calendar fallback the timing windows use.
+2. **Lock held during fill.** The handler holds the sync service read lock across up to
+   eleven lake reads.
+3. **Calendar bars are color-only.** Day-cell bars encode status by color (tooltip has
+   the name only); the detail panel and plan page carry text labels.
+4. **Size limits.** `frontend/src/pages/Calendar.tsx` is 689 lines and `SeasonalPlan.tsx`
+   514 lines; `backend/src/db/queries.rs` (shared) is over 600 lines.
+5. **Stringly-typed contracts.** Activity ids are the merge key and `"Plant
+   Maintenance"` is the plant discriminator; neither is an enum.
+6. **Concurrent first loads.** Two requests filling the same unsettled year both run
+   `replace_threshold_crossings`; the second insert can hit the `(year, threshold_name)`
+   key, the error is only logged as a warning and that year is skipped for that request.
+7. **Divergence: pages count from the browser's clock** (PLAN-UI-001, PLAN-UI-007,
+   PLAN-CALUI-001, PLAN-MERGE-008). `SeasonalPlan.tsx` and `Calendar.tsx` take the
+   default year, month and countdown from `new Date()`, and the plan response carries no
+   server-local date. Intent: the pages use the server's date from the API.
+8. **Rule state unavailable** (PLAN-ACT-022). When a covering rule cannot evaluate (its
+   inputs are missing, RULE-ENG-003), the activity falls back to its typical-date status,
+   marked as an estimate, the same labeled calendar fallback the timing windows use.
 
 ## References
 

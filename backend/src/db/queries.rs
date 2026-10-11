@@ -542,15 +542,12 @@ pub async fn get_threshold_crossings(pool: &PgPool) -> Result<Vec<ThresholdCross
         .collect())
 }
 
-/// Years whose cached crossings are final for `station`: computed after the year ended.
-/// A year still in progress (or computed mid-year) is never settled, so its later
-/// crossings are picked up on the next load.
+/// Years whose cached crossings are final for `station`: their marker was written settled
+/// (computed after the year ended, with the lake past its December 31).
 pub async fn get_settled_crossing_years(pool: &PgPool, station: i32) -> Result<Vec<i32>> {
     let rows = sqlx::query_scalar::<_, i32>(
-        r#"SELECT year FROM seasonal_threshold_crossings
-           WHERE station_wbanno = $1
-           GROUP BY year
-           HAVING MIN(computed_at) >= make_date(year + 1, 1, 1)
+        r#"SELECT year FROM seasonal_crossing_years
+           WHERE station_wbanno = $1 AND settled
            ORDER BY year ASC"#,
     )
     .bind(station)
@@ -559,23 +556,42 @@ pub async fn get_settled_crossing_years(pool: &PgPool, station: i32) -> Result<V
     Ok(rows)
 }
 
+/// Every year with a settled marker, whatever its station: the cache as it is, for when
+/// no lake is configured to name the station.
+pub async fn get_cached_settled_years(pool: &PgPool) -> Result<Vec<i32>> {
+    let rows = sqlx::query_scalar::<_, i32>(
+        "SELECT DISTINCT year FROM seasonal_crossing_years WHERE settled ORDER BY year ASC",
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
+}
+
 /// Drop crossings computed for a different station (or before the station was recorded).
 pub async fn delete_crossings_for_other_stations(pool: &PgPool, station: i32) -> Result<()> {
+    let mut tx = pool.begin().await?;
     sqlx::query(
         "DELETE FROM seasonal_threshold_crossings WHERE station_wbanno IS DISTINCT FROM $1",
     )
     .bind(station)
-    .execute(pool)
+    .execute(&mut *tx)
     .await?;
+    sqlx::query("DELETE FROM seasonal_crossing_years WHERE station_wbanno <> $1")
+        .bind(station)
+        .execute(&mut *tx)
+        .await?;
+    tx.commit().await?;
     Ok(())
 }
 
-/// Replace a year's cached crossings, so a threshold that no longer crosses disappears.
+/// Replace a year's cached crossings, so a threshold that no longer crosses disappears,
+/// and record the year's marker (written even when there are no crossings).
 pub async fn replace_threshold_crossings(
     pool: &PgPool,
     year: i32,
     station: i32,
     crossings: &[ThresholdCrossing],
+    settled: bool,
 ) -> Result<()> {
     let mut tx = pool.begin().await?;
     sqlx::query("DELETE FROM seasonal_threshold_crossings WHERE year = $1")
@@ -596,6 +612,17 @@ pub async fn replace_threshold_crossings(
         .execute(&mut *tx)
         .await?;
     }
+    sqlx::query(
+        r#"INSERT INTO seasonal_crossing_years (station_wbanno, year, settled, computed_at)
+           VALUES ($1, $2, $3, NOW())
+           ON CONFLICT (station_wbanno, year)
+           DO UPDATE SET settled = EXCLUDED.settled, computed_at = EXCLUDED.computed_at"#,
+    )
+    .bind(station)
+    .bind(year)
+    .bind(settled)
+    .execute(&mut *tx)
+    .await?;
     tx.commit().await?;
     Ok(())
 }
