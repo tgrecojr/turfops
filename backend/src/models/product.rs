@@ -1,5 +1,6 @@
 //! A product on the shelf. `facts` are the user-owned, matchable columns; `profile` is the
 //! LLM's description (optional — a product may be entered by hand and profiled later).
+mod checks;
 mod enums;
 mod profile;
 

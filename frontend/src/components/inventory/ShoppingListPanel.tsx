@@ -2,13 +2,13 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { getShoppingList } from "../../api/client";
 import { describeError } from "../../api/errors";
-import { SEVERITY_COLORS, SEVERITY_SYMBOLS } from "../../types";
 import type { ShoppingItem } from "../../types/inventory";
 import {
 	PRODUCT_CATEGORY_LABELS,
 	SHOPPING_KIND_LABELS,
 	STOCK_STATUS_LABELS,
 } from "../../types/inventory";
+import { severityChip } from "../severity";
 
 interface Props {
 	/** Compact: top items + a link (dashboard). Full: every item with its reasons. */
@@ -79,11 +79,17 @@ export default function ShoppingListPanel({ compact = false }: Props) {
 }
 
 function Row({ item, compact }: { item: ShoppingItem; compact: boolean }) {
-	const color = SEVERITY_COLORS[item.urgency];
+	const chip = severityChip(item.urgency);
 	return (
 		<div style={styles.row}>
-			<span style={{ ...styles.urgency, color }} title={item.urgency}>
-				{SEVERITY_SYMBOLS[item.urgency]}
+			<span
+				style={{
+					...styles.urgency,
+					color: chip.color,
+					backgroundColor: chip.backgroundColor,
+				}}
+			>
+				{chip.text}
 			</span>
 			<span style={styles.main}>
 				<span style={styles.label}>
@@ -145,9 +151,12 @@ const styles: Record<string, React.CSSProperties> = {
 		borderTop: "1px solid #edf2f7",
 	},
 	urgency: {
-		fontSize: "0.85rem",
-		width: 14,
-		textAlign: "center",
+		fontSize: "0.7rem",
+		fontWeight: 600,
+		padding: "1px 7px",
+		borderRadius: 10,
+		whiteSpace: "nowrap",
+		alignSelf: "flex-start",
 		marginTop: 1,
 	},
 	main: { flex: 1, minWidth: 0, display: "flex", flexDirection: "column" },

@@ -28,6 +28,16 @@ export const PRODUCT_TARGET_LABELS: Record<ProductTarget, string> = {
 	Zoysia: "Zoysia",
 };
 
+const NUTRIENTS: ProductTarget[] = [
+	"Iron",
+	"Manganese",
+	"Magnesium",
+	"Zinc",
+	"Boron",
+	"Copper",
+	"Calcium",
+];
+
 /** Targets that make sense for a category — the edit form shows only these. */
 export const TARGETS_BY_CATEGORY: Record<ProductCategory, ProductTarget[]> = {
 	InsectControl: [
@@ -39,17 +49,10 @@ export const TARGETS_BY_CATEGORY: Record<ProductCategory, ProductTarget[]> = {
 		"Mosquitoes",
 	],
 	Herbicide: ["Broadleaf", "Crabgrass", "Nutsedge", "Poa", "Moss"],
-	Supplement: [
-		"Iron",
-		"Manganese",
-		"Magnesium",
-		"Zinc",
-		"Boron",
-		"Copper",
-		"Calcium",
-	],
-	Fertilizer: ["Iron", "Manganese", "Magnesium", "Zinc"],
-	SoilAmendment: ["Calcium", "Magnesium"],
+	// @spec INV-UI-007 — the families `ProductTarget::fits_category` keeps on save.
+	Supplement: NUTRIENTS,
+	Fertilizer: NUTRIENTS,
+	SoilAmendment: [],
 	Seed: ["Kbg", "Ttf", "Prg", "FineFescue", "Bermuda", "Zoysia"],
 	Fungicide: [],
 	Surfactant: [],
