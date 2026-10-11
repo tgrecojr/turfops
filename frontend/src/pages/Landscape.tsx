@@ -5,6 +5,7 @@ import {
 	listPlants,
 	refreshPlantPlan,
 } from "../api/client";
+import { describeError } from "../api/errors";
 import { sharedStyles } from "../styles/shared";
 import type { MaintenanceTask, Plant, PlantType } from "../types";
 import {
@@ -38,7 +39,8 @@ export default function Landscape() {
 			setPlants(data);
 			setError(null);
 		} catch (e) {
-			setError(e instanceof Error ? e.message : "Failed to load plants");
+			// @spec PLANT-UI-010, PLANT-UI-011
+			setError(describeError(e));
 		} finally {
 			setLoading(false);
 		}
@@ -93,7 +95,7 @@ export default function Landscape() {
 				return next;
 			});
 		} catch (e) {
-			setError(e instanceof Error ? e.message : "Failed to delete");
+			setError(describeError(e));
 		} finally {
 			setDeletingId(null);
 		}
@@ -105,7 +107,7 @@ export default function Landscape() {
 			const updated = await refreshPlantPlan(id);
 			setPlants((prev) => prev.map((p) => (p.id === id ? updated : p)));
 		} catch (e) {
-			setError(e instanceof Error ? e.message : "Failed to regenerate plan");
+			setError(describeError(e));
 		} finally {
 			setRefreshingId(null);
 		}
@@ -343,7 +345,7 @@ function AddPlantForm({
 			});
 			onCreated(created);
 		} catch (err) {
-			onError(err instanceof Error ? err.message : "Failed to create plant");
+			onError(describeError(err));
 		} finally {
 			setSubmitting(false);
 		}

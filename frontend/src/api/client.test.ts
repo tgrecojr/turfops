@@ -1,0 +1,100 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { fetchJson } from "./client";
+import { ApiError } from "./errors";
+
+function respond(status: number, body: string, type = "application/json") {
+	vi.stubGlobal(
+		"fetch",
+		vi.fn(
+			async () =>
+				new Response(body || null, {
+					status,
+					headers: { "Content-Type": type },
+				}),
+		),
+	);
+}
+
+afterEach(() => {
+	vi.unstubAllGlobals();
+	vi.useRealTimers();
+});
+
+// @spec UI-ERR-004
+describe("fetchJson errors", () => {
+	it("keeps the status and unwraps the server's error message", async () => {
+		respond(
+			409,
+			JSON.stringify({ error: "An identical entry is already logged." }),
+		);
+		const err = await fetchJson<never>("/api/v1/x").catch((e: ApiError) => e);
+		expect(err).toBeInstanceOf(ApiError);
+		expect(err.status).toBe(409);
+		expect(err.message).toBe("An identical entry is already logged.");
+	});
+
+	it("never carries a raw non-JSON body", async () => {
+		respond(502, "<html>Bad Gateway from proxy</html>", "text/html");
+		const err = await fetchJson<never>("/api/v1/x").catch((e: ApiError) => e);
+		expect(err).toBeInstanceOf(ApiError);
+		expect(err.status).toBe(502);
+		expect(err.message).not.toMatch(/<html>/);
+	});
+
+	it("marks a request its timeout cancelled", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(
+				(_url: string, init?: RequestInit) =>
+					new Promise((_resolve, reject) => {
+						init?.signal?.addEventListener("abort", () =>
+							reject(new DOMException("aborted", "AbortError")),
+						);
+					}),
+			),
+		);
+		const err = await fetchJson<never>("/api/v1/x", undefined, 10).catch(
+			(e: ApiError) => e,
+		);
+		expect(err).toBeInstanceOf(ApiError);
+		expect(err.timedOut).toBe(true);
+	});
+});
+
+// @spec UI-ERR-008
+describe("fetchJson cancellation", () => {
+	it("passes a caller's own cancellation through instead of calling it a timeout", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(
+				(_url: string, init?: RequestInit) =>
+					new Promise((_resolve, reject) => {
+						init?.signal?.addEventListener("abort", () =>
+							reject(new DOMException("aborted", "AbortError")),
+						);
+					}),
+			),
+		);
+		const caller = new AbortController();
+		const pending = fetchJson<never>("/api/v1/x", {
+			signal: caller.signal,
+		}).catch((e: unknown) => e);
+		caller.abort();
+		const err = await pending;
+		expect(err).not.toBeInstanceOf(ApiError);
+		expect((err as DOMException).name).toBe("AbortError");
+	});
+});
+
+// @spec UI-API-003
+describe("fetchJson success", () => {
+	it("resolves an empty 2xx body as no value", async () => {
+		respond(200, "");
+		await expect(fetchJson("/api/v1/x")).resolves.toBeUndefined();
+	});
+
+	it("parses a JSON body", async () => {
+		respond(200, JSON.stringify({ ok: true }));
+		await expect(fetchJson("/api/v1/x")).resolves.toEqual({ ok: true });
+	});
+});

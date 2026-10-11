@@ -1,5 +1,5 @@
 use crate::clock::Clock;
-use crate::error::TurfOpsError;
+use crate::error::{Source, TurfOpsError};
 use crate::logic::gdd;
 use crate::models::{HistoricalData, TimeSeriesPoint};
 use crate::state::AppState;
@@ -37,9 +37,9 @@ pub async fn get_historical(
     };
 
     let service = state.sync_service.read().await;
-    let client = service.weather_client().ok_or_else(|| {
-        TurfOpsError::DataSourceUnavailable("Weather data lake not configured".into())
-    })?;
+    let client = service
+        .weather_client()
+        .ok_or_else(|| TurfOpsError::not_configured(Source::WeatherLake))?;
 
     // fetch_range returns newest-first; reverse to ascending for charting.
     let mut readings = client.fetch_range(start, now).await?;

@@ -1,5 +1,5 @@
 use crate::config::{HomeAssistantConfig, TemperatureUnit};
-use crate::error::{Result, TurfOpsError};
+use crate::error::{Result, Source, TurfOpsError};
 use crate::models::{celsius_to_fahrenheit, DataSource, EnvironmentalReading};
 use chrono::Utc;
 use serde::Deserialize;
@@ -92,25 +92,24 @@ impl HomeAssistantClient {
             .send()
             .await
             .map_err(|e| {
-                TurfOpsError::DataSourceUnavailable(format!(
-                    "Home Assistant request to {} failed: {}",
-                    url, e
-                ))
+                TurfOpsError::unavailable(
+                    Source::PatioSensor,
+                    format!("Home Assistant request to {} failed: {}", url, e),
+                )
             })?;
 
         if !response.status().is_success() {
-            return Err(TurfOpsError::DataSourceUnavailable(format!(
-                "Home Assistant GET {} returned {}",
-                url,
-                response.status()
-            )));
+            return Err(TurfOpsError::unavailable(
+                Source::PatioSensor,
+                format!("Home Assistant GET {} returned {}", url, response.status()),
+            ));
         }
 
         let entity: EntityState = response.json().await.map_err(|e| {
-            TurfOpsError::DataSourceUnavailable(format!(
-                "Failed to parse Home Assistant response: {}",
-                e
-            ))
+            TurfOpsError::unavailable(
+                Source::PatioSensor,
+                format!("Failed to parse Home Assistant response: {}", e),
+            )
         })?;
 
         Ok(entity.state.parse::<f64>().ok())
@@ -125,7 +124,7 @@ impl HomeAssistantClient {
             .header("Authorization", format!("Bearer {}", self.config.token))
             .send()
             .await
-            .map_err(|e| TurfOpsError::DataSourceUnavailable(format!("Home Assistant: {}", e)))?;
+            .map_err(|e| TurfOpsError::unavailable(Source::PatioSensor, e))?;
 
         Ok(response.status().is_success())
     }

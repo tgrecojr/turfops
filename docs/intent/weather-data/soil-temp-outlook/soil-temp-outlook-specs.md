@@ -27,7 +27,7 @@ The "10 cm outlook" is this leaf's projection of station 10 cm soil temperature 
 
 - [x] **WX-OUTLOOK-API-001**: When `GET /api/v1/soil-temp-forecast` succeeds, the system shall return the predictions, the threshold crossings, model information (R², lag, training days, quality, with no coefficients) and the generation time.
 - [x] **WX-OUTLOOK-API-002**: If there is no forecast or no lake client, then `GET /api/v1/soil-temp-forecast` shall return 503.
-- [ ] **WX-OUTLOOK-API-003**: If there are fewer than 14 training pairs, no current 10 cm reading, no usable fit, or no prediction, then `GET /api/v1/soil-temp-forecast` shall return 503 with a plain-language message (for example "Not enough recent station data to project soil temperature"), not a 400.
+- [x] **WX-OUTLOOK-API-003**: If there are fewer than 14 training pairs, no current 10 cm reading, no usable fit, or no prediction, then `GET /api/v1/soil-temp-forecast` shall return 503 with a plain-language message (for example "Not enough recent station data to project soil temperature"), not a 400.
 
 ## UI
 

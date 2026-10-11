@@ -6,6 +6,7 @@ import {
 	getSoilTests,
 	updateSoilTest,
 } from "../api/client";
+import { describeError } from "../api/errors";
 import { sharedStyles } from "../styles/shared";
 import type { NutrientLevel, SoilTest, SoilTestSummary } from "../types";
 import { NUTRIENT_LEVEL_COLORS } from "../types";
@@ -51,7 +52,8 @@ export default function SoilTests() {
 				setSummary(null);
 			}
 		} catch (e) {
-			setError(e instanceof Error ? e.message : "Failed to load data");
+			// @spec SOIL-UI-013
+			setError(describeError(e));
 		} finally {
 			setLoading(false);
 		}
@@ -144,13 +146,7 @@ export default function SoilTests() {
 			setFormOpen(false);
 			await loadData();
 		} catch (e) {
-			setError(
-				e instanceof Error
-					? e.message
-					: editingId
-						? "Failed to update soil test"
-						: "Failed to create soil test",
-			);
+			setError(describeError(e));
 		} finally {
 			setSubmitting(false);
 		}
@@ -161,7 +157,7 @@ export default function SoilTests() {
 			await deleteSoilTest(id);
 			await loadData();
 		} catch (e) {
-			setError(e instanceof Error ? e.message : "Failed to delete");
+			setError(describeError(e));
 		}
 	};
 

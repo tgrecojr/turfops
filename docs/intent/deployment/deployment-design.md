@@ -29,7 +29,7 @@ Three stages, every base image pinned by digest (Renovate maintains the digests)
 | `backend-build` | `rust:1.98-slim-trixie` | `cargo build --release` → `/app/target/release/turfops-backend` |
 | runtime | `cgr.dev/chainguard/glibc-dynamic:latest@sha256:…` | `/app/turfops-backend`, `/app/static`, `/usr/share/zoneinfo` |
 
-**No install scripts.** The frontend stage installs with `--ignore-scripts`, the same policy as the supply-chain scan, so no package's lifecycle script runs in the image build. No dependency in the lockfile declares an install script; one that genuinely needs it would be named in the Dockerfile with the reason (Deferred 12).
+**No install scripts.** The frontend stage installs with `--ignore-scripts`, the same policy as the supply-chain scan, so no package's lifecycle script runs in the image build. No dependency in the lockfile declares an install script; one that genuinely needs it would be named in the Dockerfile with the reason (Deferred 11).
 
 **Native toolchain.** The build stage installs `g++` because the `duckdb` crate is built with `bundled` (its C++ amalgamation compiles into the binary) and `tzdata` only so its files can be copied forward.
 
@@ -58,7 +58,7 @@ Three stages, every base image pinned by digest (Renovate maintains the digests)
 | `db` | `postgres:18-alpine@sha256:…` | `127.0.0.1:5433:5432` | `POSTGRES_DB` / `POSTGRES_USER` = `turfops`; `POSTGRES_PASSWORD: ${DB_PASSWORD:?}`; volume `turfops_data:/var/lib/postgresql`; healthcheck `pg_isready -U turfops` every 5 s, 5 retries |
 | `app` | `build: .` (Dockerfile) | `3000:3000` | `depends_on: db: condition: service_healthy`; lake mount `${DATALAKE_HOST_PATH:-/data}:/data:ro` |
 
-Both services `restart: unless-stopped`. Host port 5433 exposes Postgres for a local `cargo run` against the Compose database (`README.md`, Local development); it is bound to the loopback interface, so other machines on the network cannot reach the database (Deferred 16).
+Both services `restart: unless-stopped`. Host port 5433 exposes Postgres for a local `cargo run` against the Compose database (`README.md`, Local development); it is bound to the loopback interface, so other machines on the network cannot reach the database (Deferred 15).
 
 **Postgres data volume.** The PostgreSQL 18 image keeps its cluster in a version-specific directory (`/var/lib/postgresql/18/docker`) under the volume root `/var/lib/postgresql`. The named volume is mounted at that root, so a fresh `docker compose up` initializes the database and the data survives recreating the container (Deferred 1).
 
@@ -121,7 +121,7 @@ Every fallback caused by an unusable non-empty value logs a warning naming the s
 | Startup failure | Behavior |
 |---|---|
 | `DATABASE_PASSWORD` unset or empty; `MCP_TOKEN` too short; `TZ` set but not a timezone | `Config` error returned from `main`; exit non-zero |
-| Postgres unreachable | retried with backoff for about a minute, so a database that starts a little later (a host reboot, or a run without Compose's `depends_on`) is picked up; still unreachable → error returned from `main`, exit non-zero (Deferred 18) |
+| Postgres unreachable | retried with backoff for about a minute, so a database that starts a little later (a host reboot, or a run without Compose's `depends_on`) is picked up; still unreachable → error returned from `main`, exit non-zero (Deferred 17) |
 | Migration fails | error returned from `main`; exit non-zero (no retry: a failing migration fails the same way again) |
 | Invalid `CORS_ALLOWED_ORIGIN` | panic in `build_cors_layer` |
 | Port already bound | `TcpListener::bind` error; exit non-zero |
@@ -134,12 +134,13 @@ Every fallback caused by an unusable non-empty value logs a warning naming the s
 The REST routes (30 paths, 41 method handlers under `/api/v1`, listed in `main.rs` and owned by each feature LLD) are built first, then wrapped, in order, with:
 
 1. `RequestBodyLimitLayer(1 MiB)`.
-2. The CORS layer (`build_cors_layer`): unset → allow only `http://localhost:<SERVER_PORT>`; `*` → `CorsLayer::permissive()`; otherwise that one origin. Methods GET/POST/PUT/PATCH/DELETE, any header.
+2. `api::json_errors::with_json_errors` (`backend/src/api/json_errors.rs`): a catch-all route `/api/v1/{*path}` that answers JSON 404 "There is no such API endpoint.", and a `map_response` middleware that rewrites any 4xx/5xx response whose body is not JSON (axum's rejections and the 413 from the body limit) into the `{"error"}` shape (see HTTP Error Contract).
+3. The CORS layer (`build_cors_layer`): unset → allow only `http://localhost:<SERVER_PORT>`; `*` → `CorsLayer::permissive()`; otherwise that one origin. Methods GET/POST/PUT/PATCH/DELETE, any header.
 
 After the layers, two things are added that the layers therefore do **not** cover:
 
 - **`/mcp`** (MCP server): merged only when `MCP_TOKEN` is set, guarded by its own bearer middleware. It is server-to-server, so it sits outside CORS. Its internals belong to the MCP server LLD.
-- **SPA fallback** (Web UI): when `STATIC_DIR/index.html` exists at startup, `ServeDir(STATIC_DIR)` with `index.html` as the not-found service becomes the router fallback, so any unmatched path, including an unknown `/api/v1/...` path, returns the SPA shell. Without `index.html` the app runs API-only and logs a warning.
+- **SPA fallback** (Web UI): when `STATIC_DIR/index.html` exists at startup, `ServeDir(STATIC_DIR)` with `index.html` as the not-found service becomes the router fallback, so any unmatched path outside `/api/v1/` returns the SPA shell; an unknown `/api/v1/...` path has already been answered by the JSON 404 route. Without `index.html` the app runs API-only and logs a warning.
 
 ## Database Pool and Migrations (`backend/src/db/pool.rs`)
 
@@ -156,13 +157,17 @@ All handler errors are `TurfOpsError` and render as JSON `{"error": "<message>"}
 |---|---|---|---|
 | `NotFound(msg)` | 404 | `msg` | no |
 | `InvalidData(msg)` | 400 | `msg` | no |
-| `DataSourceUnavailable(msg)` | 503 | `msg` verbatim | no |
+| `Unavailable { origin, outage }` | 503 | a fixed sentence for the source and the outage (below) | WARN with the detail, for `Down(detail)` |
 | `Database` violating `applications_unique_turf` / `applications_unique_plant` | 409 | fixed duplicate-application text | no |
 | `Database` violating any other unique index | 409 | generic plain-language conflict text (the record conflicts with one that already exists) | no |
-| `Config(msg)` | 500 | `An internal error occurred` | ERROR |
-| `Database` (other), `DataLake`, `Http`, `Io`, `Json` | 500 | `An internal error occurred` | ERROR |
+| `Config(msg)`, `Internal(msg)` | 500 | `SERVER_ERROR_MESSAGE`: "Something went wrong on the server. Try again; the details are in the server log." | ERROR |
+| `Database` (other), `DataLake`, `Http`, `Io`, `Json` | 500 | `SERVER_ERROR_MESSAGE` | ERROR |
 
-The duplicate-application text tells the owner how to fix the entry (edit the existing one, or rename the product), so it is used only for the two indexes it describes; the constraint name decides which message applies, and any other unique index gets the generic text rather than advice that does not fit (Deferred 9). Extractor failures (malformed JSON, a non-numeric `{id}`, a body over 1 MiB) are axum's built-in plain-text rejections, not this JSON shape.
+`owner_message()` builds the `error` text; `IntoResponse` picks the status and does the logging. `Internal` marks the server's own data being inconsistent (a stored profile row without an id, for example).
+
+**Data-source outages.** `Source` names a source as the owner knows it: `WeatherLake`, `Forecast` (OpenWeatherMap), `PatioSensor` (Home Assistant), `PlanAssistant` (OpenRouter for plant care plans), `ProductAssistant` (OpenRouter answering for a shelf product) and `SoilOutlook` (the 10 cm projection). `Outage` says why: `NotConfigured`, `Disabled`, `Down(detail)` or `NotEnoughData`. Sources build these through `TurfOpsError::unavailable(source, detail)`, `not_configured(source)`, `disabled(source)` and `not_enough_data(source)`; `for_products()` re-labels a `PlanAssistant` outage as `ProductAssistant` so the product endpoints word it for products. Each source and outage pair has one sentence saying what is unavailable, what it affects and what to do, for example "The weather data lake isn't configured, so soil, disease, timing and history data are unavailable. Set DATALAKE_ROOT and restart TurfOps." A `Down` detail (an upstream status and body, a raw model output, a lake task error) is logged and never part of the response.
+
+The duplicate-application text tells the owner how to fix the entry (edit the existing one, or rename the product), so it is used only for the two indexes it describes; the constraint name decides which message applies, and any other unique index gets the generic text rather than advice that does not fit (Deferred 8). Requests that fail before a handler runs get the same shape through `with_json_errors`, one plain sentence per status: 400 (malformed JSON, a non-numeric `{id}`) "The request couldn't be read. Check the form and try again.", 405 "That action isn't supported here.", 413 (a body over 1 MiB) "That request is too large to accept.", 415 "The request must be sent as JSON.", 422 "Some fields are missing or not valid. Check the form and try again.", any 5xx the server-error sentence. A response that is already JSON passes through unchanged.
 
 ## Health Endpoint (`backend/src/api/health.rs`)
 
@@ -180,12 +185,12 @@ The duplicate-application text tells the owner how to fix the entry (edit the ex
 
 | Workflow | Trigger | Gates / output |
 |---|---|---|
-| `ci.yml` | push / PR to `main` | Backend: `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test`. Frontend (Node 26): `npm ci`, `npx tsc --noEmit`, `npm run lint`. Calls `supply-chain.yml`. |
+| `ci.yml` | push / PR to `main` | Backend: `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test`. Frontend (Node 26): `npm ci`, `npx tsc --noEmit`, `npm run lint`, `npm test` (Vitest). Calls `supply-chain.yml`. |
 | `supply-chain.yml` | reusable | `npm ci --ignore-scripts`; `npm audit signatures`; Socket scan of `./frontend` with `--org grecolabs` (skipped when `SOCKET_SECURITY_API_KEY` is absent, as on bot PRs); OSV scan of all lockfiles; `cargo audit`. |
 | `docker-publish.yml` | push / PR to `main`, `v*` tags | Runs the supply-chain scan, then builds the image (GHA cache). PRs build without pushing, which is what exercises `npm run build`. Otherwise pushes to GHCR (`latest` on main, semver, `sha`), signs keylessly with cosign, attaches an SPDX SBOM and build-provenance attestations. |
 | `ghcr-retention.yml` | Mondays 06:00 UTC / manual | Keeps `latest` plus the 5 newest tagged versions; deletes untagged manifests. |
 
-**Advisory ignores.** `backend/.cargo/audit.toml` (cargo audit) and `backend/osv-scanner.toml` (OSV) name an advisory only while its crate is in `Cargo.lock`, each with a written justification; an ignore whose crate has left the lockfile is deleted, so it cannot silently hide a future advisory of the same ID (Deferred 11).
+**Advisory ignores.** `backend/.cargo/audit.toml` (cargo audit) and `backend/osv-scanner.toml` (OSV) name an advisory only while its crate is in `Cargo.lock`, each with a written justification; an ignore whose crate has left the lockfile is deleted, so it cannot silently hide a future advisory of the same ID (Deferred 10).
 
 **Renovate.** Runs off-hours on weekdays and anytime on weekends (America/New_York), at most 3 open PRs, creating them immediately and rebasing when behind. Docker images are digest-pinned. Minor and patch updates are grouped, wait 3 days (1 day for common images such as `postgres`) and auto-merge; digest updates auto-merge at any time; majors are labeled `major-update` and wait for review. Weekly lock-file maintenance runs Monday before 4 am; vulnerability alerts are labeled `security`.
 
@@ -212,7 +217,7 @@ The duplicate-application text tells the owner how to fix the entry (edit the ex
 | npm lifecycle scripts in the image build | `npm ci --ignore-scripts` | Run install scripts | Matches the supply-chain scan's policy; install scripts are a common malware vector and no dependency needs one. |
 | Migrations | Embedded, run at every startup before bind | Separate migration job; manual `sqlx migrate run` | One binary is always in step with its schema; single-instance deploy has no migration race. [inferred] |
 | Query style | sqlx runtime queries | `query!` compile-time macros | Builds need no live DB or offline metadata in CI or Docker. [inferred] |
-| Error exposure | Generic 500 text, details only in logs; 4xx/503 carry the handler's message | Echo all error text | Hides DB and internal details from clients. [inferred] |
+| Error exposure | Every `error` is written for the owner: 4xx carry the handler's message, a 503 a fixed sentence per source and outage, a 500 one generic sentence; upstream and internal details only in logs | Echo all error text; pass the source's own error string through | Hides DB, upstream and internal details from clients, and the owner learns what is unavailable and what to do instead of reading a provider's response body. |
 | Unique-violation message | Duplicate-application text only for the two application indexes; generic conflict text otherwise | One message for every unique violation | The duplicate text gives fix-it advice specific to the application log, which would mislead for any other record. |
 | Health semantics | Always 200 with `ok` / `degraded` | 503 when the DB is down | Clients get a readable status body; integrations are reported, not fatal. [inferred] |
 | Release integrity | cosign keyless signing, SBOM, provenance on every pushed image | Unsigned images | Verifiable supply chain for the deployed image. [inferred] |
@@ -229,26 +234,25 @@ The duplicate-application text tells the owner how to fix the entry (edit the ex
 1. **Divergence: Postgres 18 volume path** (DEPLOY-COMPOSE-009). Intent: mount `turfops_data` at the PostgreSQL 18 image's volume root `/var/lib/postgresql`. `docker-compose.yml` still mounts the pre-18 path `/var/lib/postgresql/data`, which does not match the 18 image's layout (cluster under `/var/lib/postgresql/18/docker`).
 2. **No container healthcheck.** The Dockerfile has no `HEALTHCHECK` and the `app` service none in Compose, against the project's Docker rule. The distroless image has no shell or curl, so it would need a binary subcommand or an external probe of `/api/v1/health`.
 3. **Divergence: implicit non-root user** (DEPLOY-IMAGE-009). Intent: the runtime image declares `USER 65532:65532`. The Dockerfile declares no `USER` and relies on the Chainguard base image's default uid 65532.
-4. **Divergence: no graceful shutdown** (DEPLOY-START-006). Intent: on SIGTERM, stop accepting connections and let in-flight requests finish before exiting. `axum::serve` gets no shutdown signal (`backend/src/main.rs:235`; tokio's `signal` feature is enabled but unused), so in-flight requests are cut on SIGTERM. Still open: there is no panic hook beyond the default. `build_cors_layer` (`main.rs:266`) and the OWM client builder (`datasources/openweathermap.rs:110`) use `expect`, so a bad CORS origin ends startup in a panic, not in the `Config` error every other refused setting produces.
+4. **Divergence: no graceful shutdown** (DEPLOY-START-006). Intent: on SIGTERM, stop accepting connections and let in-flight requests finish before exiting. `axum::serve` gets no shutdown signal (`backend/src/main.rs:240`; tokio's `signal` feature is enabled but unused), so in-flight requests are cut on SIGTERM. Still open: there is no panic hook beyond the default. `build_cors_layer` (`main.rs:271`) and the OWM client builder (`datasources/openweathermap.rs:110`) use `expect`, so a bad CORS origin ends startup in a panic, not in the `Config` error every other refused setting produces.
 5. **Divergence: silent fallbacks** (DEPLOY-CONFIG-012). Intent: every unusable non-empty value logs a warning naming the setting and its default. These fall back with no warning: `SERVER_HOST`, `DB_MAX_CONNECTIONS`, `OWM_LATITUDE` / `OWM_LONGITUDE`, `LAWN_SOIL_TYPE`, `LAWN_SIZE_SQFT`, `LAWN_IRRIGATION_TYPE`, `HA_TEMPERATURE_UNIT`, `RUST_LOG`. Still open: `STATIC_DIR` and `DB_MAX_CONNECTIONS` are read outside `Config::from_env`, and an OWM key with unset or unparseable coordinates forecasts for 0°, 0° (`backend/src/config.rs:241-242`).
 6. **`OPENROUTER_MODEL` default is not a valid OpenRouter id.** The repo default `anthropic/claude-haiku-4-5` (hyphen) is rejected by OpenRouter; the id is `anthropic/claude-haiku-4.5`. A deployment that uses OpenRouter must set `OPENROUTER_MODEL` to a valid id until the default is corrected.
 7. **Divergence: boolean flags are exact-match** (DEPLOY-CONFIG-013). Intent: `true`, `1` or `yes` in any case turn a flag on. `OWM_ENABLED` / `OPENROUTER_ENABLED` enable only on `true`; `TRUE` or `1` disables (`config.rs:243,251`).
-8. **Unknown API paths return the SPA.** With static serving on, `GET /api/v1/<typo>` returns `index.html` with 200 rather than a JSON 404 (`main.rs:213-221`).
-9. **Divergence: error-shape gaps** (DEPLOY-HTTP-010, DEPLOY-HTTP-011). Intent: extractor failures answer with the JSON `{"error"}` shape, and only the two application indexes get the duplicate-application text. Extractor rejections (malformed JSON, a non-numeric `{id}`) and the 413 body-limit response are axum's plain text; nothing in `src` customizes rejections. Every unique violation gets the duplicate-application 409 text (`backend/src/error.rs:58`), whichever index raised it.
-10. **`/mcp` has no explicit body limit or CORS.** It is merged after `RequestBodyLimitLayer` and the CORS layer (`main.rs:197-205`). CORS is intentional; a body limit is not addressed.
-11. **Divergence: stale advisory ignore** (DEPLOY-CI-009). Intent: an ignore exists only while its crate is in `Cargo.lock`. `backend/.cargo/audit.toml` still ignores RUSTSEC-2023-0071, but `rsa` no longer appears in `Cargo.lock`; the ignore is to be deleted.
-12. **Divergence: build-script policy differs** (DEPLOY-IMAGE-010). Intent: the image's frontend install uses `--ignore-scripts`, like the supply-chain scan. The Dockerfile's `npm ci` runs lifecycle scripts.
-13. **CI does not build the frontend.** `ci.yml` type-checks and lints; only the PR image build in `docker-publish.yml` runs `npm run build`. The frontend has no test step.
-14. **`.dockerignore` patterns are root-anchored.** `target/`, `src/` and `*.md` match only top-level paths, so `backend/target` (tens of GB locally) is not excluded. BuildKit transfers only paths the Dockerfile copies, which keeps this harmless today. Widening `*.md` to `**/*.md` would break the MCP docs copy.
-15. **`main.rs` is 322 lines,** over the 300-line limit; the route table is the natural split (for example `api::router()`).
-16. **Divergence: Postgres port on all interfaces** (DEPLOY-COMPOSE-007). Intent: publish 5433 on `127.0.0.1` only. `docker-compose.yml` publishes `5433:5432` on all interfaces, so the database is reachable from the network wherever the example runs.
-17. **Divergence: an empty `DATABASE_PASSWORD` is accepted** (DEPLOY-CONFIG-002). Intent: unset or empty refuses to start with a configuration error naming the setting. `env_required` only rejects an unset variable (`backend/src/config.rs:174-175`, read at `:278`); only Compose's `${DB_PASSWORD:?}` blocks an empty one, so a non-Compose run connects with a blank password.
-18. **Divergence: no retry when Postgres is unreachable at boot** (DEPLOY-START-007). Intent: retry with backoff for about a minute before exiting. `create_pool` fails on the first connect error (`backend/src/db/pool.rs:11-15`) and `main` exits, so recovery depends on a restart policy; a run without one stays down.
+8. **Divergence: every unique violation gets the duplicate-application text** (DEPLOY-HTTP-011). Intent: only `applications_unique_turf` / `applications_unique_plant` get it, and any other unique index a generic conflict message. `owner_message()` and `IntoResponse` match any unique violation (`backend/src/error.rs`), whichever index raised it.
+9. **`/mcp` has no explicit body limit or CORS.** It is merged after `RequestBodyLimitLayer` and the CORS layer (`main.rs:199-210`). CORS is intentional; a body limit is not addressed.
+10. **Divergence: stale advisory ignore** (DEPLOY-CI-009). Intent: an ignore exists only while its crate is in `Cargo.lock`. `backend/.cargo/audit.toml` still ignores RUSTSEC-2023-0071, but `rsa` no longer appears in `Cargo.lock`; the ignore is to be deleted.
+11. **Divergence: build-script policy differs** (DEPLOY-IMAGE-010). Intent: the image's frontend install uses `--ignore-scripts`, like the supply-chain scan. The Dockerfile's `npm ci` runs lifecycle scripts.
+12. **CI does not build the frontend.** `ci.yml` type-checks, lints and runs the Vitest suite; only the PR image build in `docker-publish.yml` runs `npm run build`.
+13. **`.dockerignore` patterns are root-anchored.** `target/`, `src/` and `*.md` match only top-level paths, so `backend/target` (tens of GB locally) is not excluded. BuildKit transfers only paths the Dockerfile copies, which keeps this harmless today. Widening `*.md` to `**/*.md` would break the MCP docs copy.
+14. **`main.rs` is 327 lines,** over the 300-line limit; the route table is the natural split (for example `api::router()`).
+15. **Divergence: Postgres port on all interfaces** (DEPLOY-COMPOSE-007). Intent: publish 5433 on `127.0.0.1` only. `docker-compose.yml` publishes `5433:5432` on all interfaces, so the database is reachable from the network wherever the example runs.
+16. **Divergence: an empty `DATABASE_PASSWORD` is accepted** (DEPLOY-CONFIG-002). Intent: unset or empty refuses to start with a configuration error naming the setting. `env_required` only rejects an unset variable (`backend/src/config.rs:174-175`, read at `:278`); only Compose's `${DB_PASSWORD:?}` blocks an empty one, so a non-Compose run connects with a blank password.
+17. **Divergence: no retry when Postgres is unreachable at boot** (DEPLOY-START-007). Intent: retry with backoff for about a minute before exiting. `create_pool` fails on the first connect error (`backend/src/db/pool.rs:11-15`) and `main` exits, so recovery depends on a restart policy; a run without one stays down.
 
 ## References
 
 - `Dockerfile`, `docker-compose.yml`, `.dockerignore`, `.gitignore`, `renovate.json`
-- `backend/src/main.rs`, `backend/src/config.rs`, `backend/src/error.rs`, `backend/src/db/pool.rs`, `backend/src/db/migrations/`, `backend/src/api/health.rs`, `backend/src/mcp/config.rs`, `backend/src/mcp/resources.rs`
+- `backend/src/main.rs`, `backend/src/config.rs`, `backend/src/error.rs`, `backend/src/api/json_errors.rs`, `backend/src/db/pool.rs`, `backend/src/db/migrations/`, `backend/src/api/health.rs`, `backend/src/mcp/config.rs`, `backend/src/mcp/resources.rs`
 - `backend/Cargo.toml`, `backend/.cargo/audit.toml`, `backend/osv-scanner.toml`, `backend/.env.example`
 - `.github/workflows/ci.yml`, `supply-chain.yml`, `docker-publish.yml`, `ghcr-retention.yml`
 - `README.md` (Environment Variables, Docker Build, local development)

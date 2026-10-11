@@ -8,6 +8,8 @@ mod logic;
 mod mcp;
 mod models;
 mod state;
+#[cfg(test)]
+mod test_support;
 
 use crate::config::Config;
 use crate::datasources::OpenRouterClient;
@@ -194,7 +196,10 @@ async fn main() -> anyhow::Result<()> {
             "/api/v1/soil-tests/{id}",
             put(api::soil_tests::update_soil_test).delete(api::soil_tests::delete_soil_test),
         )
-        .layer(RequestBodyLimitLayer::new(1024 * 1024)) // 1MB request body limit
+        .layer(RequestBodyLimitLayer::new(1024 * 1024)); // 1MB request body limit
+                                                         // Every /api/v1 error is JSON with a plain message, including unknown paths and
+                                                         // requests rejected before a handler runs.
+    let app = api::json_errors::with_json_errors(app)
         .layer(build_cors_layer(&config))
         .with_state(state.clone());
 

@@ -1,5 +1,5 @@
 use crate::config::OpenRouterConfig;
-use crate::error::{Result, TurfOpsError};
+use crate::error::{Result, Source, TurfOpsError};
 use crate::models::plant::{PlantMaintenancePlan, PlantType};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -82,9 +82,7 @@ impl OpenRouterClient {
         temperature: f64,
     ) -> Result<T> {
         if !self.config.enabled {
-            return Err(TurfOpsError::DataSourceUnavailable(
-                "OpenRouter is disabled".into(),
-            ));
+            return Err(TurfOpsError::disabled(Source::PlanAssistant));
         }
 
         let body = json!({
@@ -126,36 +124,43 @@ impl OpenRouterClient {
             .json(&body)
             .send()
             .await
-            .map_err(|e| TurfOpsError::DataSourceUnavailable(format!("OpenRouter: {}", e)))?;
+            .map_err(|e| TurfOpsError::unavailable(Source::PlanAssistant, e.without_url()))?;
 
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
-            return Err(TurfOpsError::DataSourceUnavailable(format!(
-                "OpenRouter returned {}: {}",
-                status, body
-            )));
+            // @spec PLANT-AI-007
+            return Err(TurfOpsError::unavailable(
+                Source::PlanAssistant,
+                format!("OpenRouter returned {}: {}", status, body),
+            ));
         }
 
         let raw: serde_json::Value = response.json().await.map_err(|e| {
-            TurfOpsError::DataSourceUnavailable(format!("OpenRouter response parse: {}", e))
+            TurfOpsError::unavailable(
+                Source::PlanAssistant,
+                format!("OpenRouter response parse: {}", e.without_url()),
+            )
         })?;
 
         let content = raw
             .pointer("/choices/0/message/content")
             .and_then(|v| v.as_str())
             .ok_or_else(|| {
-                TurfOpsError::DataSourceUnavailable(format!(
-                    "OpenRouter response missing content: {}",
-                    raw
-                ))
+                TurfOpsError::unavailable(
+                    Source::PlanAssistant,
+                    format!("OpenRouter response missing content: {}", raw),
+                )
             })?;
 
         serde_json::from_str::<T>(content).map_err(|e| {
-            TurfOpsError::DataSourceUnavailable(format!(
-                "OpenRouter {} JSON invalid: {} (raw: {})",
-                schema_name, e, content
-            ))
+            TurfOpsError::unavailable(
+                Source::PlanAssistant,
+                format!(
+                    "OpenRouter {} JSON invalid: {} (raw: {})",
+                    schema_name, e, content
+                ),
+            )
         })
     }
 }
@@ -195,10 +200,32 @@ pub(super) mod tests {
             .build()
             .unwrap();
         let result = rt.block_on(client.generate_plant_plan(req));
-        assert!(matches!(
-            result,
-            Err(TurfOpsError::DataSourceUnavailable(_))
-        ));
+        assert!(matches!(result, Err(TurfOpsError::Unavailable { .. })));
+    }
+
+    // @spec PLANT-AI-007, INV-API-012
+    #[tokio::test]
+    async fn a_failed_completion_keeps_the_upstream_body_out_of_the_owner_message() {
+        let mut cfg = sample_config();
+        cfg.base_url = crate::test_support::stub_http(
+            500,
+            r#"{"error":{"message":"secret upstream detail"}}"#,
+        )
+        .await;
+        let client = OpenRouterClient::new(cfg);
+        let err = client
+            .generate_plant_plan(PlantPlanRequest {
+                input: "hydrangea",
+                usda_zone: "7a",
+                plant_type: PlantType::Shrub,
+                location: None,
+            })
+            .await
+            .unwrap_err();
+        let msg = err.owner_message();
+        assert!(!msg.contains("secret upstream detail"), "{msg}");
+        assert!(!msg.contains("500"), "no status code: {msg}");
+        assert!(msg.contains("plan assistant"), "{msg}");
     }
 
     #[test]

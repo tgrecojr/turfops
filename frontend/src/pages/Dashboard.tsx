@@ -7,6 +7,7 @@ import {
 	getSoilTempForecast,
 	getTimingWindows,
 } from "../api/client";
+import { describeError } from "../api/errors";
 import AlertCard from "../components/AlertCard";
 import DiseaseRiskWidget from "../components/disease/DiseaseRiskWidget";
 import Gauge from "../components/Gauge";
@@ -82,7 +83,7 @@ export default function Dashboard() {
 			}
 		} catch (e) {
 			if (!controller.signal.aborted) {
-				setError(e instanceof Error ? e.message : "Failed to load dashboard");
+				setError(describeError(e));
 			}
 		} finally {
 			if (!controller.signal.aborted) {

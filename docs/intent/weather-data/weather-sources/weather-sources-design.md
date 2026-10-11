@@ -42,9 +42,10 @@ only when they are configured.
 
 - **One connection per query.** DuckDB connections are not `Sync`, so `WeatherLakeClient::run`
   opens a fresh in-memory connection inside `spawn_blocking` and scans the parquet directly.
-  Nothing is pooled or cached at this layer. A task join failure becomes
-  `DataSourceUnavailable`, and DuckDB errors become `TurfOpsError::DataLake` (HTTP 500 with a
-  generic body).
+  Nothing is pooled or cached at this layer. A task join failure becomes a weather-lake outage
+  (`TurfOpsError::unavailable(Source::WeatherLake, …)`: HTTP 503 with the owner sentence that the
+  lake can't be read, the join error logged only), and DuckDB errors become
+  `TurfOpsError::DataLake` (HTTP 500 with the generic server-error sentence, details logged).
 - **Paths** are trusted config, interpolated with single quotes escaped (`parquet()`). All
   user-influenced values (station, dates, timestamps) are bound parameters.
 - **Units.** Silver °C is converted to °F at ingestion (`celsius_to_fahrenheit`,
@@ -117,7 +118,11 @@ Each one is independent. A non-numeric state (for example `unavailable`) or a fa
 logs a warning and leaves that field `None`, and the call itself still succeeds. Temperature is
 converted when `HA_TEMPERATURE_UNIT=celsius`. The reading is stamped with the server clock and
 has `source = HomeAssistant`. HA provides only the latest state, with no history, so ambient
-history comes from the station. `test_connection` returns whether `GET /api/` succeeds.
+history comes from the station. `test_connection` returns whether `GET /api/` succeeds. Each
+entity read reports a failed request, non-success status or unparseable body as a patio-sensor
+outage (`unavailable(Source::PatioSensor, detail)`); its detail (URL, status, parse error) is
+for the log, and its owner sentence says only that the patio sensor (Home Assistant) can't be
+reached.
 
 ## OpenWeatherMap Forecast
 
@@ -147,13 +152,15 @@ and landscape plants:
 | `rain_expected_within(h, mm)` | `Some` when total precipitation in `next_hours(h)` ≥ `mm` **or** any slot's `pop` ≥ 0.5 |
 | `max_temp_next_days(today, n)` | Highest daily high in `next_days(today, n)` |
 
-Errors: a transport, status or parse failure returns `DataSourceUnavailable`. The request URL
-carries the key as `appid=` in its query string, and reqwest's error text includes the URL, so
-every reqwest error from `fetch_forecast` and `test_connection` goes through `request_error`,
-which formats `e.without_url()`, and the JSON-decode error is formatted the same way. No error
-text, log line or response can therefore carry the key. A non-success status includes the
-response body in the message (Deferred 1). Data sync logs the error and keeps the previous
-forecast within its reuse limit.
+Errors: a transport, status or parse failure returns a forecast outage
+(`unavailable(Source::Forecast, detail)`), whose response text is the fixed sentence that the
+weather forecast (OpenWeatherMap) is unavailable and forecast-based advice is limited. The
+detail (the upstream status and response body, the transport or parse error) is logged only.
+The request URL carries the key as `appid=` in its query string, and reqwest's error text
+includes the URL, so every reqwest error from `fetch_forecast` and `test_connection` goes
+through `request_error`, which formats `e.without_url()`, and the JSON-decode error is
+formatted the same way. No error text, log line or response can therefore carry the key. Data
+sync logs the error and keeps the previous forecast within its reuse limit.
 
 ## Environmental Data Model
 
@@ -181,11 +188,11 @@ is `SoilData`, labelled "NOAA USCRN", and the patio sensor's is "Patio Sensor".
 
 | Failure | Effect at the source contracts |
 |---|---|
-| Lake unreadable | `fetch_*` returns `DataLake` or `DataSourceUnavailable`. Data sync keeps its last good summary |
+| Lake unreadable | `fetch_*` returns `DataLake` (500) or a weather-lake outage (503). Data sync keeps its last good summary |
 | Lake stalled (no new rows) | The live reading carries the old stamp, and data sync stops using it as current after 72 h. Every daily contract simply ends earlier |
 | Individual soil hours missing | The live reading falls back per sensor within 24 h. Daily 5 cm means need ≥ 12 valid hours. Gold-backed contracts gate on `hours_observed`, which counts rows rather than soil hours |
 | Home Assistant down or entity unavailable | That field is `None`. The 7-day means are unaffected because they come from the station |
-| OpenWeatherMap down | `DataSourceUnavailable`. Consumers lose the forecast once data sync's reuse window expires |
+| OpenWeatherMap down | A forecast outage. Consumers lose the forecast once data sync's reuse window expires |
 
 ## Decisions & Alternatives
 
@@ -214,14 +221,10 @@ is `SoilData`, labelled "NOAA USCRN", and the patio sensor's is "Patio Sensor".
 
 ### Deferred
 
-1. **Divergence: upstream response bodies in forecast errors** (WX-SRC-OWM-006). A non-success
-   status formats the response body into the `DataSourceUnavailable` message
-   (`backend/src/datasources/openweathermap.rs`, `fetch_forecast`). Intent: the message is plain
-   language naming the forecast as unavailable, and upstream bodies go to the log only.
-2. **Divergence: forecast at 0,0** (WX-SRC-CFG-003). With only `OWM_API_KEY` set, latitude and
+1. **Divergence: forecast at 0,0** (WX-SRC-CFG-003). With only `OWM_API_KEY` set, latitude and
    longitude silently default to 0 (`backend/src/config.rs:241-242`). Intent: the forecast is not
    enabled, and the log says why.
-3. **Open-Meteo forecast swap (parked).** Adopt only when a trigger in
+2. **Open-Meteo forecast swap (parked).** Adopt only when a trigger in
    `docs/plans/open-meteo-forecast.md` appears: a recurring "most recent complete day" banner on
    Disease Risk, 3-hourly quantization visibly biting, a 5-day horizon too short for the Timing
    outlook, or OWM unreliability. Two decisions stay open: remove OWM or keep it as a fallback,
@@ -229,29 +232,29 @@ is `SoilData`, labelled "NOAA USCRN", and the patio sensor's is "Patio Sensor".
    3 × points` and the disease 3 h step must become data-driven, and Open-Meteo soil variables
    must not be requested. A failure cool-down for the forecast is wanted independently of the
    swap; it belongs to data sync (its Deferred 3).
-4. **USCRN soil dropout (lake-side).** Investigation in
+3. **USCRN soil dropout (lake-side).** Investigation in
    `docs/plans/uscrn-soil-dropout-investigation.md`. Preferred gap-fill order: USCRN 5-minute
    `subhourly01` (measured 5 cm), then the app's air → soil regression, then Open-Meteo with a
    per-month bias correction. If gold gains per-sensor hour counts, the gold-backed contracts
    should gate on them instead of `hours_observed`.
-5. **Weather HTTP API draft** (`docs/weather-data-api-spec.md`): not adopted, because the HLD
+4. **Weather HTTP API draft** (`docs/weather-data-api-spec.md`): not adopted, because the HLD
    chose in-place reads. Its operation #1 still describes the live reading as "newest row
    LIMIT 1", which is out of date.
-6. **Divergence: summary with no silver rows** (WX-SRC-LAKE-013). `fetch_summary` returns early with
+5. **Divergence: summary with no silver rows** (WX-SRC-LAKE-013). `fetch_summary` returns early with
    `soil_temp_trend = Stable` (the `Trend` default, `backend/src/models/environmental.rs:126`),
    not `Unknown` (`weather.rs:110-112`). The 7-day window is the 168 h before now, so with the
    lake lag it holds about 6 days of data.
-7. **Per-sensor values older than the stamp.** `fetch_latest` stamps the reading with
+6. **Per-sensor values older than the stamp.** `fetch_latest` stamps the reading with
    `max(obs_ts_utc)` of any column (`weather/latest.rs:45-49`), so a soil value can be up to
    24 h older than `soil_observed_at`. The 72 h rule and the dashboard banner judge only the
    stamp.
-8. **Home Assistant staleness.** The reading is stamped with the server clock
-    (`backend/src/datasources/homeassistant.rs:80`) and the entity's `last_changed` is ignored,
-    so a stuck sensor reads as current.
-9. **Gold has no station filter.** This silently breaks if gold ever holds more than one
-    station or `NOAA_STATION_WBANNO` is changed.
-10. **Legacy naming.** `DataSource::SoilData` (labelled "NOAA USCRN") names the lake.
-11. **Technical debt.** `backend/src/datasources/weather.rs` is 381 lines with its tests
+7. **Home Assistant staleness.** The reading is stamped with the server clock
+   (`backend/src/datasources/homeassistant.rs:80`) and the entity's `last_changed` is ignored,
+   so a stuck sensor reads as current.
+8. **Gold has no station filter.** This silently breaks if gold ever holds more than one
+   station or `NOAA_STATION_WBANNO` is changed.
+9. **Legacy naming.** `DataSource::SoilData` (labelled "NOAA USCRN") names the lake.
+10. **Technical debt.** `backend/src/datasources/weather.rs` is 383 lines with its tests
     (limit 300). `aggregate_day` in `openweathermap.rs` is over 50 lines (~55). No tests cover
     `calculate_trend` / `fetch_summary`, `fetch_range` or the Home Assistant client.
 

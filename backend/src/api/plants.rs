@@ -1,6 +1,6 @@
 use crate::datasources::openrouter::PlantPlanRequest;
 use crate::db::{plant_queries, queries};
-use crate::error::TurfOpsError;
+use crate::error::{Source, TurfOpsError};
 use crate::models::plant::{Plant, PlantType};
 use crate::state::AppState;
 use axum::extract::{Path, State};
@@ -43,11 +43,7 @@ pub async fn create_plant(
     let openrouter = state
         .openrouter
         .as_ref()
-        .ok_or_else(|| {
-            TurfOpsError::DataSourceUnavailable(
-                "OpenRouter not configured — set OPENROUTER_API_KEY to add plants".into(),
-            )
-        })?
+        .ok_or_else(|| TurfOpsError::not_configured(Source::PlanAssistant))?
         .clone();
 
     let profile = queries::get_default_lawn_profile(&state.pool)
@@ -182,11 +178,7 @@ pub async fn refresh_plant_plan(
     let openrouter = state
         .openrouter
         .as_ref()
-        .ok_or_else(|| {
-            TurfOpsError::DataSourceUnavailable(
-                "OpenRouter not configured — cannot refresh plant plan".into(),
-            )
-        })?
+        .ok_or_else(|| TurfOpsError::not_configured(Source::PlanAssistant))?
         .clone();
 
     let plant = plant_queries::get_plant(&state.pool, id)

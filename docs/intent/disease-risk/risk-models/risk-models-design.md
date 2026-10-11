@@ -107,7 +107,7 @@ Pythium's peak dew point is shown as a factor but not scored (`pythium.rs`). The
 
 ## Response and Data Notes
 
-`GET /api/v1/disease-risk` returns `DiseaseRiskResponse { generated_at, today, station, diseases[], data_notes[] }`. It responds 404 with no lawn profile and 503 when the lake is not configured. A lake, sync or DB error is returned as an error. `compute` builds the series and the context, runs `assess_all` and assembles `data_notes`. It returns the context alongside the response so the feed bridge (management) reuses the same run.
+`GET /api/v1/disease-risk` returns `DiseaseRiskResponse { generated_at, today, station, diseases[], data_notes[] }`. It responds 404 with no lawn profile and 503 when the lake is not configured (`not_configured(Source::WeatherLake)`, the owner sentence naming the lake). A lake, sync or DB error is returned as an error. `compute` builds the series and the context, runs `assess_all` and assembles `data_notes`. It returns the context alongside the response so the feed bridge (management) reuses the same run.
 
 `data_notes` (`api/disease_risk.rs:119-148`) are plain-language caveats about the inputs:
 

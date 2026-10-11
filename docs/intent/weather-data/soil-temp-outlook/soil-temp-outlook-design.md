@@ -30,14 +30,14 @@ Principles:
 (pure logic):
 
 1. **Training data.** Weather sources' `fetch_daily_paired_averages` over the last 30 days
-   (gold 10 cm and air daily means). Fewer than 14 pairs returns 400.
+   (gold 10 cm and air daily means). Fewer than 14 pairs is not enough data (503, below).
 2. **Current soil.** `current.soil_temp_10_f` from data sync's `get_or_refresh` (this takes the
-   sync write lock). If it is missing, the endpoint returns 400.
+   sync write lock). If it is missing, that is not enough data (503).
 3. **Forecast air.** For each `full_days()` forecast day, `(high + low) / 2`. If there are none,
-   it returns 503.
+   that is a forecast outage (503 naming the weather forecast).
 4. **Fit** (`fit_model`). Least-squares `soil[i + lag] = slope × air[i] + intercept` for lag
    0–7 days, aligned by array position. Each lag needs ≥ 10 aligned pairs. The lag with the best
-   R² is kept, and an R² below 0.3 means no model (400).
+   R² is kept, and an R² below 0.3 means no model (not enough data, 503).
 5. **Predict** (`predict_soil_temps`). For each forecast day, the driver is the air temperature
    `lag` days earlier: the observed pair series first, then forecast air. With lag 0 the day's
    own forecast is used. **A day whose driver is in neither series is skipped.** Values are
@@ -102,7 +102,7 @@ a cross-segment change that pauses for timing windows.
 
 | Method | Path | Behavior | Errors |
 |---|---|---|---|
-| GET | `/api/v1/soil-temp-forecast` | The pipeline above | 400 for insufficient pairs, no current soil reading, a poor fit, or no prediction made; 503 when there is no forecast or the lake client is missing; 500 for a lake error |
+| GET | `/api/v1/soil-temp-forecast` | The pipeline above | 503 `not_enough_data(Source::SoilOutlook)` for insufficient pairs, no current soil reading, a poor fit, or no prediction made: "Not enough recent station data to project soil temperature. Try again once the station has reported a few more days."; 503 forecast outage when there is no full forecast day; 503 lake-not-configured when the lake client is missing; 500 (generic server-error sentence) for a lake error |
 
 The MCP server exposes it as `soil_temp_outlook`.
 
@@ -110,7 +110,7 @@ The MCP server exposes it as `soil_temp_outlook`.
 |---|---|
 | Lake unreadable | 500 |
 | OpenWeatherMap down | 503 once data sync's forecast reuse window expires |
-| Under 14 daily pairs, poor fit, or every day skipped | 400. The Environmental page hides the section; the widget is not rendered |
+| Under 14 daily pairs, poor fit, or every day skipped | 503 with the not-enough-data sentence. The Environmental page hides the section; the widget is not rendered |
 
 ## UI Owned
 
@@ -153,8 +153,8 @@ estimated date, confidence badge), and up to two more follow. When none remain i
    anchored to the last observation and does not interpolate between the lake's last day and
    the first forecast day. A forecast day whose lagged driver falls in that hole is skipped
    (`soil_temp_prediction.rs:117-137`). If every day is skipped, `build_forecast` returns `None`
-   and the endpoint reports "poor data correlation" (`api/soil_temp_prediction.rs:77-79`), which
-   is misleading.
+   and the endpoint answers the not-enough-data 503 (`api/soil_temp_prediction.rs:77`), although
+   the station data is not thin.
 2. **First crossing step compares unlike values** (resolved by anchoring, WX-OUTLOOK-MODEL-008). Detection starts from the live 10 cm reading
    and steps to unanchored model output (`soil_temp_prediction.rs:215-220`), so model bias alone
    can produce a day-1 crossing.
@@ -164,13 +164,10 @@ estimated date, confidence badge), and up to two more follow. When none remain i
 4. **Divergence: approaching date uncapped** (WX-OUTLOOK-CROSS-005). Intent: no date past the forecast span. The "approaching" crossing is extrapolated linearly with no cap
    past the forecast span (`soil_temp_prediction.rs:255-279`), which can date a crossing the data
    does not support.
-5. **Divergence: error shapes** (WX-OUTLOOK-API-003). Intent: 503 with a plain-language message. Insufficient pairs, no current soil reading and a poor fit return 400
-   `InvalidData` (`api/soil_temp_prediction.rs:28-32`, `:41-43`, `:77-79`), although the client
-   sent nothing wrong.
-6. **Divergence: chart span follows the trend selector** (WX-OUTLOOK-UI-004). Intent: always the last 7 days. `PredictionChart` takes its "recent" line from the
+5. **Divergence: chart span follows the trend selector** (WX-OUTLOOK-UI-004). Intent: always the last 7 days. `PredictionChart` takes its "recent" line from the
    Environmental page's currently selected `/historical` range (last 168 points), so at 30d or
    90d the line covers weeks, not the last 7 days (`PredictionChart.tsx:33`).
-7. **Technical debt.** `backend/src/logic/soil_temp_prediction.rs` is 629 lines (about 312
+6. **Technical debt.** `backend/src/logic/soil_temp_prediction.rs` is 629 lines (about 312
    without tests; limit 300). Functions over 50 lines: `predict_threshold_crossings` (~83),
    `get_soil_temp_forecast` (~72).
 

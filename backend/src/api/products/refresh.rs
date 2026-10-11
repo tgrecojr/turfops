@@ -3,7 +3,7 @@
 use super::{active_profile, load};
 use crate::datasources::openrouter::ProductProfileRequest;
 use crate::db::product_queries;
-use crate::error::TurfOpsError;
+use crate::error::{Source, TurfOpsError};
 use crate::models::frac_class::frac_classes_for_product;
 use crate::models::product::*;
 use crate::state::AppState;
@@ -27,12 +27,7 @@ pub async fn refresh_product_profile(
     let openrouter = state
         .openrouter
         .as_ref()
-        .ok_or_else(|| {
-            TurfOpsError::DataSourceUnavailable(
-                "OpenRouter not configured — set OPENROUTER_API_KEY to generate product profiles"
-                    .into(),
-            )
-        })?
+        .ok_or_else(|| TurfOpsError::not_configured(Source::ProductAssistant))?
         .clone();
 
     let product = load(&state, id).await?;
@@ -46,7 +41,9 @@ pub async fn refresh_product_profile(
             grass_type: lawn.grass_type.as_str(),
             usda_zone: &lawn.usda_zone,
         })
-        .await?;
+        .await
+        // @spec INV-API-012
+        .map_err(TurfOpsError::for_products)?;
 
     product_queries::update_product_profile(&state.pool, id, &profile, openrouter.model()).await?;
 

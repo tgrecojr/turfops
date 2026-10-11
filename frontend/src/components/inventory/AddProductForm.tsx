@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { type CreateProductBody, createProduct } from "../../api/client";
+import { describeError } from "../../api/errors";
 import type {
 	ProductCategory,
 	ProductCreated,
@@ -65,7 +66,8 @@ export default function AddProductForm({
 			};
 			onCreated(await createProduct(body));
 		} catch (err) {
-			onError(err instanceof Error ? err.message : "Failed to add product");
+			// @spec INV-UI-013
+			onError(describeError(err));
 		} finally {
 			setSubmitting(false);
 		}

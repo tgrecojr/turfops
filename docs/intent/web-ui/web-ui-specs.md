@@ -30,7 +30,7 @@ Design: [web-ui-design.md](web-ui-design.md). Prefix `UI`. Facets: `SHELL` (entr
 
 - [x] **UI-API-001**: The web UI shall make every API request through the one typed client module (`api/client.ts`), which calls the relative base `/api/v1` and returns a typed promise per endpoint; no page or component shall call `fetch` itself.
 - [x] **UI-API-002**: The API client shall abort a request that exceeds its timeout: 30 seconds for the seasonal plan and the shopping list, 60 seconds for creating a plant, refreshing a plant's care plan, creating a product and refreshing a product profile, and 15 seconds for every other request.
-- [ ] **UI-API-003**: When an API response is 204 or any other 2xx response with an empty body, the API client shall resolve with no value instead of raising a JSON parse error; for any other 2xx response it shall resolve with the parsed JSON body.
+- [x] **UI-API-003**: When an API response is 204 or any other 2xx response with an empty body, the API client shall resolve with no value instead of raising a JSON parse error; for any other 2xx response it shall resolve with the parsed JSON body.
 - [x] **UI-API-004**: The API client shall URI-encode values taken from data or user text before putting them in a path or query string (the recommendation id in `PATCH /recommendations/:id`, the product name in `/frac-classes?product=`).
 - [ ] **UI-API-005**: When a caller passes its own headers to an API client request, the API client shall merge them with its default headers (`Content-Type: application/json`) instead of replacing the defaults.
 - [ ] **UI-API-006**: The API client shall apply its per-request timeout (UI-API-002) to every request even when the caller passes its own abort signal, so either the caller's signal or the timeout aborts the request and a caller can never remove the timeout.
@@ -39,15 +39,15 @@ Design: [web-ui-design.md](web-ui-design.md). Prefix `UI`. Facets: `SHELL` (entr
 
 - [x] **UI-ERR-001**: When an `/api/v1` handler fails, the API shall respond with the JSON body `{"error": "<message>"}` and status 404 (not found), 400 (invalid data), 409 (duplicate application-log entry), 503 (data source unavailable) or 500 (anything else).
 - [x] **UI-ERR-002**: If an `/api/v1` request fails for an internal reason (database, lake query, configuration, I/O or parse error), then the API shall log the detail and respond 500 with the error message "An internal error occurred".
-- [ ] **UI-ERR-003**: The API's `error` message shall be written for the owner and shall not contain upstream response bodies, raw LLM output, URLs or internal error text (OpenRouter, OpenWeatherMap, Home Assistant or lake details); that detail shall go to the log only.
-- [ ] **UI-ERR-004**: When an API request returns a non-2xx status, the API client shall raise an error that carries the HTTP status (for page logic) and the `error` message unwrapped from the `{"error": …}` body, never the raw body text.
-- [ ] **UI-ERR-005**: Every error message the web UI shows (pages, widgets and forms) shall be plain language saying what went wrong and, where there is one, what to do, and shall never show raw JSON, a bare HTTP status code, a stack trace, a file path or an upstream service's response body.
-- [ ] **UI-ERR-006**: When a profile-scoped API request returns 404 because no lawn profile exists, the web UI shall say the lawn profile is not set up and point the owner to Settings.
-- [ ] **UI-ERR-007**: When an API request returns 503, the web UI shall name the unavailable or unconfigured data source in plain words and say which features are affected.
-- [ ] **UI-ERR-008**: When an API request exceeds its timeout, the web UI shall say the request took too long and to try again, without the timeout in milliseconds.
-- [ ] **UI-ERR-009**: When an API request returns 400 or 409, the web UI shall show the server's `error` message as written, with no status prefix.
-- [ ] **UI-ERR-010**: When an API request returns 500, the web UI shall say that something went wrong on the server and to try again, without the response body.
-- [ ] **UI-ERR-011**: The web UI's error boundary shall not show the exception's message text, only "Something went wrong" and the Return to Dashboard action.
+- [x] **UI-ERR-003**: The API's `error` message shall be written for the owner and shall not contain upstream response bodies, raw LLM output, URLs or internal error text (OpenRouter, OpenWeatherMap, Home Assistant or lake details); that detail shall go to the log only.
+- [x] **UI-ERR-004**: When an API request returns a non-2xx status, the API client shall raise an error that carries the HTTP status (for page logic) and the `error` message unwrapped from the `{"error": …}` body, never the raw body text.
+- [x] **UI-ERR-005**: Every error message the web UI shows (pages, widgets and forms) shall be plain language saying what went wrong and, where there is one, what to do, and shall never show raw JSON, a bare HTTP status code, a stack trace, a file path or an upstream service's response body.
+- [x] **UI-ERR-006**: When a profile-scoped API request returns 404 because no lawn profile exists, the web UI shall say the lawn profile is not set up and point the owner to Settings.
+- [x] **UI-ERR-007**: When an API request returns 503, the web UI shall name the unavailable or unconfigured data source in plain words and say which features are affected.
+- [x] **UI-ERR-008**: When an API request exceeds its timeout, the web UI shall say the request took too long and to try again, without the timeout in milliseconds.
+- [x] **UI-ERR-009**: When an API request returns 400 or 409, the web UI shall show the server's `error` message as written, with no status prefix.
+- [x] **UI-ERR-010**: When an API request returns 500, the web UI shall say that something went wrong on the server and to try again, without the response body.
+- [x] **UI-ERR-011**: The web UI's error boundary shall not show the exception's message text, only "Something went wrong" and the Return to Dashboard action.
 
 ## Shared type mirror
 
@@ -82,8 +82,8 @@ Design: [web-ui-design.md](web-ui-design.md). Prefix `UI`. Facets: `SHELL` (entr
 - [x] **UI-BUILD-005**: The Vite dev server shall run on port 5173 and proxy `/api` to `http://localhost:3000`, so the SPA calls the API same-origin in development.
 - [x] **UI-BUILD-006**: The CI frontend job shall run `npm run lint` on every push to `main` and every pull request against `main`.
 - [ ] **UI-BUILD-007**: The CI frontend job shall type-check the app with `npx tsc -b` (the root `tsconfig.json` is a solution file, so `tsc --noEmit` checks no files).
-- [ ] **UI-BUILD-008**: The frontend shall have a Vitest test runner (`npm test`) whose suite covers at least the API client's error mapping: the HTTP status kept and the `error` message unwrapped from `{"error": …}` (UI-ERR-004), and the plain timeout message (UI-ERR-008).
-- [ ] **UI-BUILD-009**: The CI frontend job shall run the frontend tests (`npm test`) on every push to `main` and every pull request against `main`.
+- [x] **UI-BUILD-008**: The frontend shall have a Vitest test runner (`npm test`) whose suite covers at least the API client's error mapping: the HTTP status kept and the `error` message unwrapped from `{"error": …}` (UI-ERR-004), and the plain timeout message (UI-ERR-008).
+- [x] **UI-BUILD-009**: The CI frontend job shall run the frontend tests (`npm test`) on every push to `main` and every pull request against `main`.
 
 ## SPA serving and CORS
 
@@ -93,6 +93,6 @@ Design: [web-ui-design.md](web-ui-design.md). Prefix `UI`. Facets: `SHELL` (entr
 - [x] **UI-SRV-004**: While `CORS_ALLOWED_ORIGIN` is unset, blank or whitespace, the server shall allow cross-origin `/api/v1` requests only from `http://localhost:<SERVER_PORT>`, with methods GET, POST, PUT, PATCH and DELETE and any header.
 - [x] **UI-SRV-005**: Where `CORS_ALLOWED_ORIGIN` is `*`, the server shall allow any origin and log a warning at startup.
 - [x] **UI-SRV-006**: Where `CORS_ALLOWED_ORIGIN` names one origin, the server shall allow cross-origin `/api/v1` requests only from that origin, with methods GET, POST, PUT, PATCH and DELETE and any header.
-- [ ] **UI-SRV-008**: When a request path under `/api/v1/` matches no API route, the server shall respond 404 with the JSON API error body `{"error": "<message>"}` (UI-ERR-001), never the SPA's `index.html`, whether or not the SPA is bundled.
+- [x] **UI-SRV-008**: When a request path under `/api/v1/` matches no API route, the server shall respond 404 with the JSON API error body `{"error": "<message>"}` (UI-ERR-001), never the SPA's `index.html`, whether or not the SPA is bundled.
 - [ ] **UI-SRV-009**: If `CORS_ALLOWED_ORIGIN` is set to a value other than `*` that is not a valid origin, then the server shall refuse to start with a configuration error naming `CORS_ALLOWED_ORIGIN`, the same way it refuses other invalid settings, never by a panic.
 - [ ] **UI-SRV-010**: While `STATIC_DIR/index.html` does not exist, the server shall answer `GET /` with a plain page saying the frontend was not bundled into this build.

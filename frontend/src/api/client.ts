@@ -32,11 +32,31 @@ import type {
 } from "../types/inventory";
 import { factsOf } from "../types/inventory";
 import type { TimingResponse } from "../types/timing";
+import { ApiError, sentenceForStatus } from "./errors";
 
 const BASE = "/api/v1";
 const DEFAULT_TIMEOUT_MS = 15_000;
 
-async function fetchJson<T>(
+/** The server's `{"error": …}` message, or a plain sentence when the body has none. */
+function errorMessage(body: string, status: number): string {
+	try {
+		const parsed: unknown = JSON.parse(body);
+		if (
+			parsed &&
+			typeof parsed === "object" &&
+			"error" in parsed &&
+			typeof parsed.error === "string" &&
+			parsed.error
+		) {
+			return parsed.error;
+		}
+	} catch {
+		// Not JSON (a proxy's HTML page, plain text): never shown to the owner.
+	}
+	return sentenceForStatus(status);
+}
+
+export async function fetchJson<T>(
 	url: string,
 	init?: RequestInit,
 	timeoutMs = DEFAULT_TIMEOUT_MS,
@@ -50,22 +70,22 @@ async function fetchJson<T>(
 			signal: controller.signal,
 			...init,
 		});
-		if (!res.ok) {
-			const body = await res.text();
-			// Sanitize: strip potential stack traces/internal paths, limit length
-			const sanitized = body.length > 200 ? `${body.slice(0, 200)}...` : body;
-			const safeMessage = sanitized.replace(
-				/\/[^\s:]+\.(rs|js|ts):\d+/g,
-				"[internal]",
-			);
-			throw new Error(`${res.status}: ${safeMessage}`);
-		}
-		// 204 No Content
-		if (res.status === 204) return undefined as unknown as T;
-		return res.json();
+		// @spec UI-ERR-004, UI-API-003
+		const text = await res.text();
+		if (!res.ok) throw new ApiError(res.status, errorMessage(text, res.status));
+		// 204, or any 2xx with nothing in it, resolves with no value.
+		if (!text) return undefined as unknown as T;
+		return JSON.parse(text) as T;
 	} catch (e) {
-		if (e instanceof DOMException && e.name === "AbortError") {
-			throw new Error(`Request timed out after ${timeoutMs}ms`, { cause: e });
+		// @spec UI-ERR-008
+		// Only our own timer is a timeout; a caller cancelling its request (a superseded
+		// poll) is passed through as the abort it is.
+		if (
+			e instanceof DOMException &&
+			e.name === "AbortError" &&
+			controller.signal.aborted
+		) {
+			throw new ApiError(0, "The request timed out.", true);
 		}
 		throw e;
 	} finally {

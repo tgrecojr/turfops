@@ -32,7 +32,7 @@ pub async fn list_applications(
 
     let profile_id = profile
         .id
-        .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
+        .ok_or_else(|| TurfOpsError::Internal("lawn profile row without an id".into()))?;
 
     let limit = params
         .limit
@@ -79,6 +79,75 @@ pub struct CreateApplicationRequest {
     pub product_id: Option<i64>,
 }
 
+/// The checked type and dates of a create or update request.
+struct Validated {
+    application_type: ApplicationType,
+    application_date: NaiveDate,
+    follow_up_date: Option<NaiveDate>,
+}
+
+/// Check a create or update request's type, dates and plant link.
+// @spec APP-API-009
+fn validate(req: &CreateApplicationRequest) -> Result<Validated, TurfOpsError> {
+    let application_type = ApplicationType::from_str(&req.application_type).map_err(|_| {
+        TurfOpsError::InvalidData(format!(
+            "Unknown application type: {}",
+            req.application_type
+        ))
+    })?;
+
+    let application_date =
+        NaiveDate::parse_from_str(&req.application_date, "%Y-%m-%d").map_err(|_| {
+            TurfOpsError::InvalidData(format!(
+                "The date \"{}\" isn't a valid date. Pick it from the calendar.",
+                req.application_date
+            ))
+        })?;
+
+    match application_type.scope() {
+        ApplicationScope::PlantRequired if req.plant_id.is_none() => {
+            return Err(TurfOpsError::InvalidData(format!(
+                "{} is logged against a landscape plant. Pick the plant.",
+                application_type
+            )));
+        }
+        ApplicationScope::TurfOnly if req.plant_id.is_some() => {
+            return Err(TurfOpsError::InvalidData(format!(
+                "{} is a lawn application and can't be linked to a plant.",
+                application_type
+            )));
+        }
+        _ => {}
+    }
+
+    let follow_up_date = req
+        .follow_up_date
+        .as_deref()
+        .map(|s| {
+            NaiveDate::parse_from_str(s, "%Y-%m-%d").map_err(|_| {
+                TurfOpsError::InvalidData(format!(
+                    "The follow-up date \"{}\" isn't a valid date. Pick it from the calendar.",
+                    s
+                ))
+            })
+        })
+        .transpose()?;
+
+    if let Some(fu) = follow_up_date {
+        if fu < application_date {
+            return Err(TurfOpsError::InvalidData(
+                "The follow-up date must be on or after the application date.".into(),
+            ));
+        }
+    }
+
+    Ok(Validated {
+        application_type,
+        application_date,
+        follow_up_date,
+    })
+}
+
 /// Only a fungicide carries FRAC classes; an empty pick means "not recorded".
 fn fungicide_classes(
     application_type: ApplicationType,
@@ -95,61 +164,15 @@ pub async fn create_application(
         .await?
         .ok_or_else(|| TurfOpsError::NotFound("No lawn profile found".into()))?;
 
-    let application_type = ApplicationType::from_str(&req.application_type).map_err(|_| {
-        TurfOpsError::InvalidData(format!(
-            "Unknown application type: {}",
-            req.application_type
-        ))
-    })?;
-
-    let application_date =
-        NaiveDate::parse_from_str(&req.application_date, "%Y-%m-%d").map_err(|_| {
-            TurfOpsError::InvalidData(format!(
-                "Invalid date format: {}. Expected YYYY-MM-DD",
-                req.application_date
-            ))
-        })?;
-
-    match application_type.scope() {
-        ApplicationScope::PlantRequired if req.plant_id.is_none() => {
-            return Err(TurfOpsError::InvalidData(format!(
-                "Application type {} requires plant_id",
-                application_type
-            )));
-        }
-        ApplicationScope::TurfOnly if req.plant_id.is_some() => {
-            return Err(TurfOpsError::InvalidData(format!(
-                "Application type {} cannot be linked to a plant",
-                application_type
-            )));
-        }
-        _ => {}
-    }
-
-    let follow_up_date = req
-        .follow_up_date
-        .as_deref()
-        .map(|s| {
-            NaiveDate::parse_from_str(s, "%Y-%m-%d").map_err(|_| {
-                TurfOpsError::InvalidData(format!(
-                    "Invalid follow_up_date format: {}. Expected YYYY-MM-DD",
-                    s
-                ))
-            })
-        })
-        .transpose()?;
-
-    if let Some(fu) = follow_up_date {
-        if fu < application_date {
-            return Err(TurfOpsError::InvalidData(
-                "follow_up_date must be on or after application_date".into(),
-            ));
-        }
-    }
+    let Validated {
+        application_type,
+        application_date,
+        follow_up_date,
+    } = validate(&req)?;
 
     let lawn_profile_id = profile
         .id
-        .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
+        .ok_or_else(|| TurfOpsError::Internal("lawn profile row without an id".into()))?;
     let (product_id, product_name) = product_link::resolve(
         &state,
         lawn_profile_id,
@@ -198,57 +221,11 @@ pub async fn update_application(
         .await?
         .ok_or_else(|| TurfOpsError::NotFound(format!("Application {} not found", id)))?;
 
-    let application_type = ApplicationType::from_str(&req.application_type).map_err(|_| {
-        TurfOpsError::InvalidData(format!(
-            "Unknown application type: {}",
-            req.application_type
-        ))
-    })?;
-
-    let application_date =
-        NaiveDate::parse_from_str(&req.application_date, "%Y-%m-%d").map_err(|_| {
-            TurfOpsError::InvalidData(format!(
-                "Invalid date format: {}. Expected YYYY-MM-DD",
-                req.application_date
-            ))
-        })?;
-
-    match application_type.scope() {
-        ApplicationScope::PlantRequired if req.plant_id.is_none() => {
-            return Err(TurfOpsError::InvalidData(format!(
-                "Application type {} requires plant_id",
-                application_type
-            )));
-        }
-        ApplicationScope::TurfOnly if req.plant_id.is_some() => {
-            return Err(TurfOpsError::InvalidData(format!(
-                "Application type {} cannot be linked to a plant",
-                application_type
-            )));
-        }
-        _ => {}
-    }
-
-    let follow_up_date = req
-        .follow_up_date
-        .as_deref()
-        .map(|s| {
-            NaiveDate::parse_from_str(s, "%Y-%m-%d").map_err(|_| {
-                TurfOpsError::InvalidData(format!(
-                    "Invalid follow_up_date format: {}. Expected YYYY-MM-DD",
-                    s
-                ))
-            })
-        })
-        .transpose()?;
-
-    if let Some(fu) = follow_up_date {
-        if fu < application_date {
-            return Err(TurfOpsError::InvalidData(
-                "follow_up_date must be on or after application_date".into(),
-            ));
-        }
-    }
+    let Validated {
+        application_type,
+        application_date,
+        follow_up_date,
+    } = validate(&req)?;
 
     let (product_id, product_name) = product_link::resolve(
         &state,
@@ -296,4 +273,63 @@ pub async fn delete_application(
 ) -> Result<StatusCode, TurfOpsError> {
     queries::delete_application(&state.pool, id).await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+#[cfg(test)]
+mod validate_tests {
+    use super::*;
+
+    fn request(kind: &str, date: &str) -> CreateApplicationRequest {
+        CreateApplicationRequest {
+            application_type: kind.into(),
+            product_name: None,
+            application_date: date.into(),
+            rate_per_1000sqft: None,
+            coverage_sqft: None,
+            notes: None,
+            weather_snapshot: None,
+            nitrogen_pct: None,
+            phosphorus_pct: None,
+            potassium_pct: None,
+            plant_id: None,
+            follow_up_date: None,
+            frac_classes: None,
+            product_id: None,
+        }
+    }
+
+    fn message(req: CreateApplicationRequest) -> String {
+        match validate(&req) {
+            Err(TurfOpsError::InvalidData(msg)) => msg,
+            other => panic!("expected a validation error, got {:?}", other.is_ok()),
+        }
+    }
+
+    /// Request field names the owner never sees on the form.
+    fn names_no_request_field(msg: &str) {
+        for field in [
+            "plant_id",
+            "follow_up_date",
+            "application_date",
+            "YYYY-MM-DD",
+        ] {
+            assert!(!msg.contains(field), "{field} in {msg:?}");
+        }
+    }
+
+    // @spec APP-API-009
+    #[test]
+    fn validation_messages_use_the_forms_words() {
+        names_no_request_field(&message(request("PlantFertilizer", "2026-05-01")));
+
+        let mut bad_follow_up = request("Fertilizer", "2026-05-01");
+        bad_follow_up.follow_up_date = Some("05/20/2026".into());
+        names_no_request_field(&message(bad_follow_up));
+
+        let mut early_follow_up = request("Fertilizer", "2026-05-01");
+        early_follow_up.follow_up_date = Some("2026-04-20".into());
+        names_no_request_field(&message(early_follow_up));
+
+        names_no_request_field(&message(request("Fertilizer", "May 1")));
+    }
 }

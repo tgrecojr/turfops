@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
 import { getRecommendations, patchRecommendation } from "../api/client";
+import { describeError } from "../api/errors";
 import InventoryBadge from "../components/InventoryBadge";
 import { sharedStyles } from "../styles/shared";
 import type { Recommendation } from "../types";
@@ -21,7 +22,7 @@ export default function Recommendations() {
 			setAllRecs(data);
 			setError(null);
 		} catch (e) {
-			setError(e instanceof Error ? e.message : "Failed to load");
+			setError(describeError(e));
 		} finally {
 			setLoading(false);
 		}
@@ -49,7 +50,7 @@ export default function Recommendations() {
 			);
 			if (selected === rec.id) setSelected(null);
 		} catch (e) {
-			setError(e instanceof Error ? e.message : "Failed to update");
+			setError(describeError(e));
 		} finally {
 			setActionInFlight(null);
 		}
@@ -65,7 +66,7 @@ export default function Recommendations() {
 				),
 			);
 		} catch (e) {
-			setError(e instanceof Error ? e.message : "Failed to update");
+			setError(describeError(e));
 		} finally {
 			setActionInFlight(null);
 		}

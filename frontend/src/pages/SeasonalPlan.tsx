@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getSeasonalPlan } from "../api/client";
+import { describeError } from "../api/errors";
 import type {
 	ActivityStatus,
 	PlannedActivity,
@@ -174,7 +175,8 @@ export default function SeasonalPlan() {
 			}
 		} catch (e) {
 			if (!controller.signal.aborted) {
-				setError(e instanceof Error ? e.message : "Failed to load");
+				// @spec PLAN-UI-010
+				setError(describeError(e));
 			}
 		} finally {
 			if (!controller.signal.aborted) {

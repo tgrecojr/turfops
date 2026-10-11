@@ -34,7 +34,7 @@ and the `/health` endpoint itself.
 |---|---|---|---|
 | GET | `/api/v1/environmental` | Data sync's `get_or_refresh()`: the cached `EnvironmentalSummary`, refreshed when stale (`backend/src/api/environmental.rs`) | Propagates refresh errors (in practice none: source failures degrade inside the refresh) |
 | POST | `/api/v1/environmental/refresh` | `force_refresh()`: refetches every source | same |
-| GET | `/api/v1/historical?range=7d\|30d\|90d` | See below (`backend/src/api/historical.rs`) | 400 for a bad range; 503 when the lake client is missing; 500 for a lake error |
+| GET | `/api/v1/historical?range=7d\|30d\|90d` | See below (`backend/src/api/historical.rs`) | 400 for a bad range; 503 with the lake-not-configured sentence when the lake client is missing; 500 (generic server-error sentence, detail logged) for a lake error |
 
 ### `/historical`
 
@@ -66,8 +66,11 @@ that they ignore the staleness limits).
 - **Loading.** Loads `/environmental` and `/soil-temp-forecast` together. A forecast failure
   becomes `null` and hides its section. The page polls every 30 s **only while the tab is
   visible**, pauses when hidden, and refetches when the tab becomes visible. "Refresh Now"
-  calls the POST endpoint. Errors show in a banner, and stale responses are discarded with an
-  `AbortController`. `/historical` loads separately for the selected range.
+  calls the POST endpoint. Errors show in a banner as `describeError(e)` (Web UI's
+  human-readable errors), and stale responses are discarded with an `AbortController`.
+  `/historical` loads separately for the selected range; a failed load clears the trend charts
+  and shows its own plain-language error in their place, so a range change never leaves the
+  previous range's data under the new selector.
 - **Header.** "Last updated" (`last_updated`) and the soil trend.
 - **Gauges.** Four `Gauge`s (`frontend/src/components/Gauge.tsx`, configs in
   `components/gaugeConfigs.ts`). The bar is green, turns amber at `warn` and red at `critical`,
@@ -99,7 +102,7 @@ the only place precipitation becomes inches.
 
 | Failure | Effect |
 |---|---|
-| Lake unreadable | `/historical` returns 500. With no error shown, the trend section stays empty on first load or keeps the previous range's data (Deferred 3). The `soildata` dot turns false only if gold is unreadable. Current conditions stay at data sync's last good summary |
+| Lake unreadable | `/historical` returns 500. The trend section clears its charts and shows the server-error sentence. The `soildata` dot turns false only if gold is unreadable. Current conditions stay at data sync's last good summary |
 | Home Assistant down | Ambient and humidity gauges show `--`. History is unaffected |
 | OpenWeatherMap down | The 5-Day Forecast cards disappear once data sync's reuse window expires |
 | `/soil-temp-forecast` fails | Its section is hidden; the rest of the page renders |
@@ -127,20 +130,16 @@ the only place precipitation becomes inches.
    shows 1 hour in 6 or 24, so the chart understates rain.
 2. **Divergence: one-answer and lag disclosure on the Environmental page** (WX-VIEW-PAGE-007 to 010). The 10 cm "Pre-emergent" 55 °F
    and GDD "Crabgrass" 200 reference lines restate timing-window questions at the wrong depth
-   and with a fixed number (`frontend/src/pages/Environmental.tsx:394-395`, `:435-436`). The
-   80 % RH line is labelled "Disease risk" (`:410-411`), although disease risk comes from the
-   per-disease models. The page shows `last_updated` (`:187-189`) but not `soil_observed_at`,
+   and with a fixed number (`frontend/src/pages/Environmental.tsx:406-407`, `:447-448`). The
+   80 % RH line is labelled "Disease risk" (`:422-423`), although disease risk comes from the
+   per-disease models. The page shows `last_updated` (`:197-199`) but not `soil_observed_at`,
    and has no stale-soil banner (only the dashboard has one). Forecast cards include partial
-   first and last days (`:285`). The moisture gauge flags only wet soil, not drought.
-3. **Divergence: `/historical` failure is silent** (WX-VIEW-PAGE-006). The page's `getHistorical` catch only clears the
-   loading flag (`frontend/src/pages/Environmental.tsx:117-119`), so a failed load shows no
-   error: the section is empty on first load, and after a range change the charts keep the
-   previous range's data under the new selector.
-4. **Divergence: probe covers gold only** (WX-VIEW-PROBE-001). An unreadable silver file still reports `soildata: true`
+   first and last days (`:295`). The moisture gauge flags only wet soil, not drought.
+3. **Divergence: probe covers gold only** (WX-VIEW-PROBE-001). An unreadable silver file still reports `soildata: true`
    (`backend/src/datasources/weather.rs:252-262`), although silver backs the live reading and
    `/historical`.
-5. **Legacy naming.** The `soildata` health key names the lake.
-6. **Technical debt.** `frontend/src/pages/Environmental.tsx` is 587 lines (limit 300), and its
+4. **Legacy naming.** The `soildata` health key names the lake.
+5. **Technical debt.** `frontend/src/pages/Environmental.tsx` is 599 lines (limit 300), and its
    `Environmental` component is ~410 lines. `get_historical` is ~100 lines. No tests cover the
    `/historical` handler or the lake probe.
 

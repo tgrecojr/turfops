@@ -65,9 +65,9 @@ Queries live in `backend/src/db/plant_queries.rs`:
 | `create_plant` | Inserts and returns the id. `created_at` / `updated_at` come from DB defaults. |
 | `update_plant_metadata` | Reads the row, merges the partial update, writes metadata, sets `updated_at = NOW()`. Never touches the plan. 404 if missing. |
 | `update_plant_plan` | Replaces `maintenance_plan` and `plan_model` and sets `plan_generated_at` and `updated_at` to `NOW()`. |
-| `delete_plant` | `DELETE` by id. Reports whether a row was deleted, so the handler answers 404 for an unknown id (PLANT-API-013; see Deferred 11). |
+| `delete_plant` | `DELETE` by id. Reports whether a row was deleted, so the handler answers 404 for an unknown id (PLANT-API-013; see Deferred 10). |
 
-On read, an unknown `plant_type` string falls back to `Other` with a warning log. A `maintenance_plan` that does not deserialize is an `InvalidData` error for that row: reading that one plant by id returns 400, while listing skips the plant and logs a warning naming it, so one corrupt row cannot take down `GET /plants`, the recommendation feed or the seasonal plan (PLANT-DATA-006; see Deferred 12).
+On read, an unknown `plant_type` string falls back to `Other` with a warning log. A `maintenance_plan` that does not deserialize is an `InvalidData` error for that row: reading that one plant by id returns 400, while listing skips the plant and logs a warning naming it, so one corrupt row cannot take down `GET /plants`, the recommendation feed or the seasonal plan (PLANT-DATA-006; see Deferred 11).
 
 ## API Endpoints
 
@@ -82,7 +82,7 @@ On read, an unknown `plant_type` string falls back to `Other` with a warning log
 | DELETE | `/api/v1/plants/{id}` | — | 204 | 404 when no such plant |
 | POST | `/api/v1/plants/{id}/refresh-plan` | — | `Plant` with the new plan | 503, 404 |
 
-**Create flow.** The request is validated first (a name, a known plant type, a well-formed planting date), and only then is the OpenRouter client checked, so a malformed request gets 400 even when no key is configured (PLANT-API-004; see Deferred 19). A 400 is the owner's to fix and a 503 is the server's, and fixing the request first spares a second round trip once the assistant is available. The LLM input string is "common (scientific)" when both names are given, otherwise whichever one is non-empty. The prompt sends the profile's `usda_zone`, the owner-selected `plant_type` and the location. Planting date and notes are stored but not sent. After generation, an empty `common_name` falls back to the plan's `identified_name`, and an empty `scientific_name` falls back to the plan's. The plan is saved whatever its `identification_confidence`, including a Low-confidence plan with no tasks.
+**Create flow.** The request is validated first (a name, a known plant type, a well-formed planting date), and only then is the OpenRouter client checked, so a malformed request gets 400 even when no key is configured (PLANT-API-004; see Deferred 18). A 400 is the owner's to fix and a 503 is the server's, and fixing the request first spares a second round trip once the assistant is available. The LLM input string is "common (scientific)" when both names are given, otherwise whichever one is non-empty. The prompt sends the profile's `usda_zone`, the owner-selected `plant_type` and the location. Planting date and notes are stored but not sent. After generation, an empty `common_name` falls back to the plan's `identified_name`, and an empty `scientific_name` falls back to the plan's. The plan is saved whatever its `identification_confidence`, including a Low-confidence plan with no tasks.
 
 **Refresh flow** rebuilds the input from the stored names and location, generates a new plan and overwrites it in place. The task list can come back in a different order or length.
 
@@ -102,10 +102,10 @@ On read, an unknown `plant_type` string falls back to `Other` with a warning log
 
 `complete_json<T>(system_prompt, user_prompt, schema_name, schema, temperature)` is the single request path:
 
-1. If the client is disabled, it returns `DataSourceUnavailable("OpenRouter is disabled")` without calling out.
+1. If the client is disabled, it returns `TurfOpsError::disabled(Source::PlanAssistant)` without calling out: a 503 saying the plan assistant is turned off and that `OPENROUTER_ENABLED=true` turns it on.
 2. It POSTs `/chat/completions` with the system prompt marked `cache_control: ephemeral` (prompt caching), the user prompt, `response_format: json_schema` with `strict: true`, and the temperature.
 3. Every request carries a bearer key, **`HTTP-Referer: https://github.com/tgrecojr/turfops`** and **`X-Title: TurfOps`**, so OpenRouter's console attributes the traffic to this app.
-4. A transport error, a non-2xx status, an unparseable body, missing `choices[0].message.content`, or content that does not deserialize into `T` all map to `DataSourceUnavailable`, which the API returns as **503** with the message. Messages include the upstream status and body, or the raw model content.
+4. A transport error (formatted without the URL), a non-2xx status, an unparseable body, missing `choices[0].message.content`, or content that does not deserialize into `T` all map to `TurfOpsError::unavailable(Source::PlanAssistant, detail)`, which the API returns as **503** "The plan assistant couldn't answer just now. Try again in a few minutes." The detail (upstream status and body, or the raw model content) is logged at WARN and never reaches the response. Product endpoints re-word the same errors for products (`for_products()`, owned by Product inventory).
 
 The `Debug` impl for `OpenRouterConfig` redacts the key. Startup logs the configured model at INFO.
 
@@ -166,7 +166,7 @@ Completion is per window. A spring pruning does not complete a fall pruning task
 | action | Every task but Watering: do the task within the window, then log it under Applications with the type that completes it, linked to the plant, so the reminder clears. Watering: water during dry spells and use Mark Addressed once watered, since logging does not clear it (PLANT-REC-005; see Deferred 3). |
 | need | Fertilizing only: `ProductNeed("plant fertilizer", Fertilizer or Supplement)`, required (not optional) |
 
-**Product inventory** evaluates the need: it enriches the recommendation with on-hand status and may add it to the shopping list. The feed applies the owner's addressed and dismissed answers afterwards. Plant tasks fall in the feed's seasonal answer episode of 120 days, except Watering, whose answer lasts the 7-day weather episode because it reports a weather condition (FEED-STATE-010, owned by the Recommendation feed; see Deferred 13).
+**Product inventory** evaluates the need: it enriches the recommendation with on-hand status and may add it to the shopping list. The feed applies the owner's addressed and dismissed answers afterwards. Plant tasks fall in the feed's seasonal answer episode of 120 days, except Watering, whose answer lasts the 7-day weather episode because it reports a weather condition (FEED-STATE-010, owned by the Recommendation feed; see Deferred 12).
 
 ### Watering hold-back
 
@@ -184,7 +184,7 @@ The thresholds are the shared constants in `logic/rules/thresholds.rs` (owned by
 
 ## Seasonal Plan and Calendar Overlay
 
-`build_plant_activities(plants, applications, year, today)` is called by **Seasonal plan** (`api/seasonal_plan.rs`). Seasonal plan passes `today` as the server's local date (`api/seasonal_plan.rs:138`) and the applications dated from Oct 1 of `year − 1` through the last day of the latest window judged for `year`. That end reaches into `year + 1` when a window wraps the new year, so both a December completion of a window that wraps into `year` and a January completion of a window that opened in `year` and wraps out of it are visible (PLANT-PLAN-005; see Deferred 18). This component emits one `PlannedActivity` per task:
+`build_plant_activities(plants, applications, year, today)` is called by **Seasonal plan** (`api/seasonal_plan.rs`). Seasonal plan passes `today` as the server's local date (`api/seasonal_plan.rs:138`) and the applications dated from Oct 1 of `year − 1` through the last day of the latest window judged for `year`. That end reaches into `year + 1` when a window wraps the new year, so both a December completion of a window that wraps into `year` and a January completion of a window that opened in `year` and wraps out of it are visible (PLANT-PLAN-005; see Deferred 17). This component emits one `PlannedActivity` per task:
 
 - **Window.** When `year` is the current year, the window comes from `window_on(task, today)`. For any other year it is the window that opens in that year.
 - **Status.** Completed if `task_completed`; otherwise Missed if today is after the end, Active if today is on or after the start, and Upcoming before that. There is no lead-in here.
@@ -197,9 +197,9 @@ The Calendar and Seasonal Plan pages render these activities. The Calendar recog
 
 | Condition | Effect |
 |-----------|--------|
-| No `OPENROUTER_API_KEY` | Add and refresh return 503 "OpenRouter not configured". List, get, update, delete, the feed and the plan overlay work normally. |
-| `OPENROUTER_ENABLED=false` | The client exists, but add and refresh return 503 "OpenRouter is disabled". |
-| OpenRouter error, timeout or schema mismatch | 503 with the upstream detail. Nothing is written, and on refresh the old plan is kept. |
+| No `OPENROUTER_API_KEY` | Add and refresh return 503 `not_configured(PlanAssistant)`: the plan assistant isn't configured, set `OPENROUTER_API_KEY` and restart. List, get, update, delete, the feed and the plan overlay work normally. |
+| `OPENROUTER_ENABLED=false` | The client exists, but add and refresh return 503 saying the plan assistant is turned off and to set `OPENROUTER_ENABLED=true`. |
+| OpenRouter error, timeout or schema mismatch | 503 saying the plan assistant couldn't answer and to try again later; the upstream detail is logged. Nothing is written, and on refresh the old plan is kept. |
 | Lake or forecast unavailable | Watering reminders are not held back. All other tasks are unaffected. |
 | Malformed window string in a stored plan | That task is skipped in both the feed and the plan. |
 | Undeserializable stored plan | That plant is skipped, with a warning naming it, by `GET /plants`, the feed and the seasonal plan; every other plant keeps working. Reading that plant by id returns 400. |
@@ -213,8 +213,8 @@ The Calendar and Seasonal Plan pages render these activities. The Calendar recog
 - **Add form.** One name field, plant type (defaults to Shrub), location, planting date and notes. A client-side heuristic decides which name field to send: input that looks like "Genus species" (capitalized first word, at least two words) goes as `scientific_name`, anything else as `common_name`. The submit button reads "Generating plan…" while it waits, and a hint warns that generation takes 10–30 s. On success the new plant is appended and expanded.
 - **List.** Plants are sorted by common name, case-insensitive. Each row is a collapsible button (`aria-expanded`) showing name, scientific name, type, location, task count, the collapsed summary, and an identification-confidence badge. The badge's text always includes the level, so color is never the only cue.
 - **Expanded row.** Summary, planting date, notes when present, warnings, then the task list (type, window as "Mon D – Mon D", frequency, description, zone note). A footer shows when and by which model the plan was generated, with "Regenerate plan" and "Delete" (the latter confirmed with `confirm()`).
-- **Edit.** The owner can edit a plant's common name, scientific name, plant type, location, planting date and notes. Saving calls `PUT /plants/{id}` and never regenerates the plan; a changed name or type takes effect in the plan only on "Regenerate plan" (PLANT-UI-012, PLANT-UI-013; see Deferred 15).
-- **Errors.** Any failure sets a page-level error string from the API message.
+- **Edit.** The owner can edit a plant's common name, scientific name, plant type, location, planting date and notes. Saving calls `PUT /plants/{id}` and never regenerates the plan; a changed name or type takes effect in the plan only on "Regenerate plan" (PLANT-UI-012, PLANT-UI-013; see Deferred 14).
+- **Errors.** Any failure (load, add, regenerate, edit, delete) sets the page-level error to `describeError(e)` (Web UI): the server's plain-language message (a 503 names the plan assistant), "There is no lawn profile yet. Set one up in Settings…" when loading finds no lawn profile, and "That took too long to answer. Try again." when generation outlasts the 60 s client timeout. A status code or JSON body is never shown.
 
 The API client (`frontend/src/api/client.ts`) exports `updatePlant` for the edit form and `getPlant`. The Applications form's plant picker belongs to Applications. **MCP server** exposes a read-only `plants` tool that returns `GET /plants`.
 
@@ -262,18 +262,17 @@ The API client (`frontend/src/api/client.ts`) exports `updatePlant` for the edit
 6. **Divergence: lead-in is lost across the new year** (PLANT-REC-008). For a window opening in early January, the 7-day lead-in on Dec 25–31 never fires: `window_on` resolves to this year's already-passed window, not next year's (`logic/plant_maintenance.rs:55–59`, `:115–117`). Intent: the lead-in also checks next year's window.
 7. **Divergence: plan activity id and recommendation id disagree for wrapping windows** (PLANT-PLAN-003). In January, the plan's id carries the requested year (`logic/plant_maintenance.rs:243`) while the recommendation's id carries the year the window opened (`:114`). Intent: the plan activity uses the recommendation's id.
 8. **No guard against label or pesticide rates in LLM text.** The system prompt (`datasources/openrouter/plant.rs:4–25`) forbids only work needing a licensed applicator or heavy equipment. It does not tell the model to leave out product label rates, or rates for a pesticide on a PestInspection or Other task, yet task descriptions become recommendation descriptions (`logic/plant_maintenance.rs:131`) and plan-activity descriptions unchanged. This diverges from the HLD's label-rate rule.
-9. **Divergence: Upstream detail in client errors.** (HLD goal: human-readable errors; upstream detail belongs in the log). 503 bodies include the OpenRouter response body or the raw model content (`datasources/openrouter.rs:131–158`).
-10. **Profile scoping.** Get, update, delete and refresh act by id without checking the profile (`db/plant_queries.rs:22`, `:74`, `:143`). This is harmless for a single-lawn app.
-11. **Divergence: DELETE returns 204 for a nonexistent id** (PLANT-API-013). Neither the handler nor the query checks rows affected (`api/plants.rs:170–176`, `db/plant_queries.rs:143–149`). Intent: 404.
-12. **Divergence: one corrupt `maintenance_plan` fails every plant listing** (PLANT-DATA-006), and with it the feed and the seasonal plan (`db/plant_queries.rs:178–184`). Intent: listing skips that plant and logs a warning.
-13. **Divergence: Watering answers last 120 days** (FEED-STATE-010, owned by the Recommendation feed). `PlantMaintenance` falls to the seasonal episode (`models/recommendation_state.rs:46`), so answering a dry-spell reminder hides it for a whole season. Intent: the 7-day weather episode.
-14. **Attribution constants are hardcoded.** The owner's guidance prefers taking the app name from config or `Cargo.toml`.
-15. **Divergence: no UI for editing plants** (PLANT-UI-012, PLANT-UI-013). `updatePlant` exists in the client but no page uses it, and notes are never displayed. Intent: the Landscape page edits plant metadata and shows notes.
-16. **Size limits.** `pages/Landscape.tsx` is 648 lines, over the 300-line limit. Functions over 50 lines: `generate_plant_maintenance_recommendations` (88), `build_plant_activities` (65), `api::plants::create_plant` (82), `OpenRouterClient::complete_json` (85).
-17. **Doc-precision gap.** The thresholds are 2.5 mm and 25 mm, which are about 0.098" and 0.984". The docs say "≥ 0.1"" and "≥ 1"".
-18. **Divergence: past-year wrapping windows** (PLANT-PLAN-005). In a past year's plan, a window that wraps into January is judged with applications only through Dec 31 of that year (`api/seasonal_plan.rs:106`, `:143–151`), so a completion logged the following January is not seen and the task shows as Missed. Intent: the log reaches the window's end.
-19. **Divergence: validation order on add** (PLANT-API-004). The OpenRouter check runs before validation, so a request with neither name (or an unknown type) returns 503 when no key is configured, not 400 (`api/plants.rs:43–73`). Intent: validate first.
-20. **Prompt does not state the material-amount rule.** Plan text may express a nutrient amount as an amount of a fertilizer or amendment, never of a material that is also a pesticide active (Context, "Amounts in plan text"). The prompt (`datasources/openrouter/plant.rs:4–25`) says neither; fold this into the prompt fix for #8.
+9. **Profile scoping.** Get, update, delete and refresh act by id without checking the profile (`db/plant_queries.rs:22`, `:74`, `:143`). This is harmless for a single-lawn app.
+10. **Divergence: DELETE returns 204 for a nonexistent id** (PLANT-API-013). Neither the handler nor the query checks rows affected (`api/plants.rs:170–176`, `db/plant_queries.rs:143–149`). Intent: 404.
+11. **Divergence: one corrupt `maintenance_plan` fails every plant listing** (PLANT-DATA-006), and with it the feed and the seasonal plan (`db/plant_queries.rs:178–184`). Intent: listing skips that plant and logs a warning.
+12. **Divergence: Watering answers last 120 days** (FEED-STATE-010, owned by the Recommendation feed). `PlantMaintenance` falls to the seasonal episode (`models/recommendation_state.rs:46`), so answering a dry-spell reminder hides it for a whole season. Intent: the 7-day weather episode.
+13. **Attribution constants are hardcoded.** The owner's guidance prefers taking the app name from config or `Cargo.toml`.
+14. **Divergence: no UI for editing plants** (PLANT-UI-012, PLANT-UI-013). `updatePlant` exists in the client but no page uses it, and notes are never displayed. Intent: the Landscape page edits plant metadata and shows notes.
+15. **Size limits.** `pages/Landscape.tsx` is 650 lines, over the 300-line limit. Functions over 50 lines: `generate_plant_maintenance_recommendations` (88), `build_plant_activities` (65), `api::plants::create_plant` (82), `OpenRouterClient::complete_json` (85).
+16. **Doc-precision gap.** The thresholds are 2.5 mm and 25 mm, which are about 0.098" and 0.984". The docs say "≥ 0.1"" and "≥ 1"".
+17. **Divergence: past-year wrapping windows** (PLANT-PLAN-005). In a past year's plan, a window that wraps into January is judged with applications only through Dec 31 of that year (`api/seasonal_plan.rs:106`, `:143–151`), so a completion logged the following January is not seen and the task shows as Missed. Intent: the log reaches the window's end.
+18. **Divergence: validation order on add** (PLANT-API-004). The OpenRouter check runs before validation, so a request with neither name (or an unknown type) returns 503 when no key is configured, not 400 (`api/plants.rs:43–73`). Intent: validate first.
+19. **Prompt does not state the material-amount rule.** Plan text may express a nutrient amount as an amount of a fertilizer or amendment, never of a material that is also a pesticide active (Context, "Amounts in plan text"). The prompt (`datasources/openrouter/plant.rs:4–25`) says neither; fold this into the prompt fix for #8.
 
 ## References
 

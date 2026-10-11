@@ -33,7 +33,7 @@ Design: [weather-sources-design.md](weather-sources-design.md). Parent: [weather
 - [x] **WX-SRC-OWM-003**: The forecast shall treat a daily summary as a full day when it covers at least 18 hours, and `full_days()` shall return only full days, for every consumer that needs a daily mean or judges a whole day.
 - [x] **WX-SRC-OWM-004**: `next_hours(n)` shall include every point up to now + n hours, including the current slot; `next_days(n)` every summary up to today + n, partial days included; `rain_expected_within(h, mm)` shall report rain when the total in the next h hours is at least mm or any slot in them has probability ≥ 0.5; `max_temp_next_days(n)` the highest daily high over `next_days(n)`.
 - [x] **WX-SRC-OWM-005**: No error, log line or response produced by the forecast reader shall contain the OpenWeatherMap API key.
-- [ ] **WX-SRC-OWM-006**: If the forecast request fails, then the reader's error message shall be plain language naming the forecast as unavailable, keeping upstream response bodies for the log only.
+- [x] **WX-SRC-OWM-006**: If the forecast request fails, then the reader's error message shall be plain language naming the forecast as unavailable, keeping upstream response bodies for the log only.
 
 ## Environmental data model
 

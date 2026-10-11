@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { getShoppingList } from "../../api/client";
+import { describeError } from "../../api/errors";
 import { SEVERITY_COLORS, SEVERITY_SYMBOLS } from "../../types";
 import type { ShoppingItem } from "../../types/inventory";
 import {
@@ -31,10 +32,8 @@ export default function ShoppingListPanel({ compact = false }: Props) {
 				if (!cancelled) setItems(list.items);
 			})
 			.catch((e) => {
-				if (!cancelled)
-					setError(
-						e instanceof Error ? e.message : "Shopping list unavailable",
-					);
+				// @spec INV-UI-013
+				if (!cancelled) setError(describeError(e));
 			});
 		return () => {
 			cancelled = true;
