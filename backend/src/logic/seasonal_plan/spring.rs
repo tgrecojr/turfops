@@ -36,6 +36,7 @@ pub(super) fn spring_activities(
                 .into(),
             date_window: make_window(&start, end_date, end.as_ref()),
             status: compute_status(completed, start.median, end_date, today),
+            status_estimated: false,
             details: ActivityDetails {
                 soil_temp_trigger: Some("50-60°F (7-day avg at 10cm)".into()),
                 product_suggestions: vec![
@@ -68,6 +69,7 @@ pub(super) fn spring_activities(
                 .into(),
             date_window: make_window(&start, end_date, end.as_ref()),
             status: compute_status(completed, start.median, end_date, today),
+            status_estimated: false,
             details: ActivityDetails {
                 soil_temp_trigger: Some("55-65°F (7-day avg at 10cm)".into()),
                 product_suggestions: vec![
@@ -106,6 +108,7 @@ pub(super) fn spring_activities(
                 confidence: confidence_from_count(start_agg.sample_count),
             },
             status: compute_status(completed, start_date, end_date, today),
+            status_estimated: false,
             details: ActivityDetails {
                 soil_temp_trigger: Some("45-55°F (7-day avg at 10cm)".into()),
                 product_suggestions: vec![
@@ -145,6 +148,7 @@ pub(super) fn spring_activities(
                 .into(),
             date_window: make_window_with_dates(start_date, end_date, &start, end.as_ref()),
             status: compute_status(completed, start_date, end_date, today),
+            status_estimated: false,
             details: ActivityDetails {
                 soil_temp_trigger: Some("60-75°F (7-day avg at 10cm)".into()),
                 product_suggestions: vec![

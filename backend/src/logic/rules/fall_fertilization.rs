@@ -47,22 +47,8 @@ impl Rule for FallFertilizationRule {
         // Get soil temperature
         let soil_temp_avg = env.soil_temp_7day_avg_f?;
 
-        // A feeding is a lawn fertilizer that carried nitrogen (or whose analysis wasn't
-        // recorded) — not shrub fertilizer, and not 0-0-50 potash.
-        let feedings: Vec<&Application> = history
-            .iter()
-            .filter(|app| {
-                app.is_feeding()
-                    && app.application_date.year() == current_year
-                    && app.application_date <= today
-            })
-            .collect();
-
-        // Count fall feedings this year
-        let app_count = feedings
-            .iter()
-            .filter(|a| a.application_date >= window_start)
-            .count();
+        let feedings = feedings_this_year(history, today);
+        let app_count = fall_feeding_count(history, today);
 
         // Most recent feeding of any season: an Aug 30 application still spaces Sept's.
         let last_app_date = feedings.iter().map(|a| a.application_date).max();
@@ -107,6 +93,30 @@ impl Rule for FallFertilizationRule {
             FallPhase::TooLate => None,
         }
     }
+}
+
+/// This year's lawn feedings through today. A feeding is a lawn fertilizer that carried
+/// nitrogen (or whose analysis wasn't recorded) — not shrub fertilizer, not 0-0-50 potash.
+fn feedings_this_year(history: &[Application], today: NaiveDate) -> Vec<&Application> {
+    history
+        .iter()
+        .filter(|app| {
+            app.is_feeding()
+                && app.application_date.year() == today.year()
+                && app.application_date <= today
+        })
+        .collect()
+}
+
+/// Lawn feedings from Sep 1 of this year through today: the fall program's progress.
+pub(crate) fn fall_feeding_count(history: &[Application], today: NaiveDate) -> usize {
+    let Some(sep_1) = NaiveDate::from_ymd_opt(today.year(), 9, 1) else {
+        return 0;
+    };
+    feedings_this_year(history, today)
+        .iter()
+        .filter(|a| a.application_date >= sep_1)
+        .count()
 }
 
 #[derive(Debug)]

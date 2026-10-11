@@ -1,3 +1,4 @@
+use crate::logic::rules::plan_state::SeasonState;
 use crate::models::seasonal_plan::*;
 use crate::models::{Application, ApplicationType, GrassType};
 use chrono::{Datelike, NaiveDate};
@@ -11,6 +12,8 @@ mod crossing_tests;
 mod crossings;
 mod fall;
 mod spring;
+#[cfg(test)]
+mod status_tests;
 #[cfg(test)]
 mod test_support;
 #[cfg(test)]
@@ -70,8 +73,47 @@ pub fn build_seasonal_plan(
         activities,
         data_years_used: voters.len() as i32,
         generated_at: chrono::Utc::now(),
+        today,
     }
 }
+
+/// Give each rule-covered activity of the current season its status from the rules'
+/// state (`None`: the feed could not be assembled, so every covered activity keeps its
+/// typical-date status as an estimate).
+// @spec PLAN-ACT-021, PLAN-ACT-022
+pub fn apply_rule_states(
+    activities: &mut [PlannedActivity],
+    states: Option<&[(&str, SeasonState)]>,
+) {
+    for activity in activities.iter_mut() {
+        let Some(states) = states else {
+            activity.status_estimated |= RULE_COVERED.contains(&activity.id.as_str());
+            continue;
+        };
+        let Some((_, state)) = states.iter().find(|(id, _)| *id == activity.id) else {
+            continue;
+        };
+        match state {
+            SeasonState::Done => activity.status = ActivityStatus::Completed,
+            SeasonState::Due => activity.status = ActivityStatus::Active,
+            SeasonState::NotNeeded => activity.status = ActivityStatus::Skipped,
+            SeasonState::Passed => activity.status = ActivityStatus::Missed,
+            SeasonState::NotYet => activity.status = ActivityStatus::Upcoming,
+            SeasonState::Unknown => activity.status_estimated = true,
+        }
+    }
+}
+
+/// The plan activities an agronomic rule also covers (RULE-ENG-010).
+const RULE_COVERED: [&str; 7] = [
+    "spring_nitrogen",
+    "spring_herbicide",
+    "grub_preventative",
+    "early_fall_fert",
+    "mid_fall_fert",
+    "winterizer",
+    "fall_herbicide",
+];
 
 fn build_activities(
     year: i32,

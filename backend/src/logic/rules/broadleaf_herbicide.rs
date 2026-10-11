@@ -41,19 +41,9 @@ impl Rule for BroadleafHerbicideRule {
             return None;
         }
 
-        // Check if already applied post-emergent this season
         let current_year = today.year();
-        let already_applied_spring = history.iter().any(|app| {
-            app.application_type == ApplicationType::PostEmergent
-                && app.application_date.year() == current_year
-                && app.application_date.month() <= 4
-        });
-
-        let already_applied_fall = history.iter().any(|app| {
-            app.application_type == ApplicationType::PostEmergent
-                && app.application_date.year() == current_year
-                && app.application_date.month() >= 9
-        });
+        let already_applied_spring = applied_spring(history, current_year);
+        let already_applied_fall = applied_fall(history, current_year);
 
         let soil_temp_avg = env.soil_temp_7day_avg_f?;
 
@@ -87,6 +77,24 @@ impl Rule for BroadleafHerbicideRule {
 
         None
     }
+}
+
+/// A post-emergent logged Jan–Apr of `year`: the spring window's work is done.
+pub(crate) fn applied_spring(history: &[Application], year: i32) -> bool {
+    history.iter().any(|app| {
+        app.application_type == ApplicationType::PostEmergent
+            && app.application_date.year() == year
+            && app.application_date.month() <= 4
+    })
+}
+
+/// A post-emergent logged Sep–Dec of `year`: the fall window's work is done.
+pub(crate) fn applied_fall(history: &[Application], year: i32) -> bool {
+    history.iter().any(|app| {
+        app.application_type == ApplicationType::PostEmergent
+            && app.application_date.year() == year
+            && app.application_date.month() >= 9
+    })
 }
 
 fn build_spring_herbicide_rec(soil_temp: f64, gdd_ytd: Option<f64>) -> Recommendation {

@@ -54,7 +54,10 @@ impl TurfOpsMcp {
         description = "The year's lawn-care plan: each activity (pre-emergent, feedings, \
                        grub control, seeding, aeration, weed control, winterizer, plant \
                        tasks) with its predicted date window from historical soil-temp \
-                       crossings and its status (Upcoming / Active / Completed / Missed).",
+                       crossings and its status (Upcoming / Active / Completed / Skipped = \
+                       not needed this season / Missed). This season's feedings, weed \
+                       control and grub control take their status from the recommendations; \
+                       `status_estimated` marks a typical-date guess.",
         annotations(read_only_hint = true)
     )]
     async fn seasonal_plan(

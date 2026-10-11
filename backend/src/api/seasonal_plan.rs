@@ -1,8 +1,10 @@
 use crate::db::{plant_queries, queries};
 use crate::error::TurfOpsError;
 use crate::logic::plant_maintenance::build_plant_activities;
-use crate::logic::seasonal_plan::{analyze_year, build_seasonal_plan};
+use crate::logic::rules::plan_state::{season_states, SeasonInputs, SeasonState};
+use crate::logic::seasonal_plan::{analyze_year, apply_rule_states, build_seasonal_plan};
 use crate::models::seasonal_plan::SeasonalPlan;
+use crate::models::LawnProfile;
 use crate::state::AppState;
 use axum::extract::{Query, State};
 use axum::Json;
@@ -58,6 +60,10 @@ pub async fn get_seasonal_plan(
         profile.grass_type,
         today,
     );
+    if year == today.year() {
+        let states = rule_states(&state, &profile, today).await;
+        apply_rule_states(&mut plan.activities, states.as_deref());
+    }
 
     // Pre-emergent, seeding and aeration come from the timing windows (5 cm soil +
     // freeze dates) so the plan agrees with the Timing page. The plan's own 10 cm version
@@ -147,4 +153,33 @@ async fn fill_crossing_cache(state: &AppState, today: NaiveDate) -> Result<Vec<i
         }
     }
     queries::get_settled_crossing_years(&state.pool, station).await
+}
+
+/// The current season's rule states, judged on the same feed, conditions and log as the
+/// recommendations. `None` when the feed cannot be assembled (the plan then marks the
+/// covered activities as estimates).
+// @spec PLAN-ACT-021, PLAN-ACT-022
+async fn rule_states(
+    state: &AppState,
+    profile: &LawnProfile,
+    today: NaiveDate,
+) -> Option<Vec<(&'static str, SeasonState)>> {
+    let summary = {
+        let mut service = state.sync_service.write().await;
+        service.get_or_refresh().await
+    };
+    let summary = summary
+        .inspect_err(|e| tracing::warn!("Seasonal plan: no conditions for rule states: {e}"))
+        .ok()?;
+    let (feed, history) = super::recommendation_feed::all_with_history(state, profile, &summary)
+        .await
+        .inspect_err(|e| tracing::warn!("Seasonal plan: no feed for rule states: {e}"))
+        .ok()?;
+    Some(season_states(&SeasonInputs {
+        today,
+        env: &summary,
+        profile,
+        history: &history,
+        feed: &feed,
+    }))
 }

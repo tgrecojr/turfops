@@ -97,7 +97,7 @@ impl Rule for SpringNitrogenRule {
 
 // @spec RULE-SPRING-010
 /// This spring's feedings: from Feb 1 of `today`'s year through `today`.
-fn spring_feedings(history: &[Application], today: NaiveDate) -> Vec<&Application> {
+pub(crate) fn spring_feedings(history: &[Application], today: NaiveDate) -> Vec<&Application> {
     let Some(spring_start) = NaiveDate::from_ymd_opt(today.year(), 2, 1) else {
         return Vec::new();
     };

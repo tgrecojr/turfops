@@ -125,18 +125,38 @@ Cool-season only, Sep 1–Nov 30, needs the soil average. A *feeding* is an appl
 | Landscape plants | none | Fertilizing tasks (plant fertilizer is outside the lawn budget) |
 | Soil tests, only if soil-test advice rejoins the feed | `soil_test_npk` when it asks for N > 0 | `soil_test_npk` asking only for P or K |
 
-The mark is `Recommendation.feeding: Option<Feeding>` (`models/recommendation.rs`), set with `with_feeding(n)`, where `Feeding { n_lbs_per_ksqft }` is the nitrogen the source suggests. It is internal to the feed and never serialized. The guard reads the whole feed to find the blockers, edits only marked recommendations, and runs once, in `recommendation_feed::assemble`, after every source and before inventory enrichment and answered state, with the feed's `today`. Placing the pass there belongs to Recommendation feed; this component owns what the pass does and the marks on the rules' own feedings.
+The mark is `Recommendation.feeding: Option<Feeding>` (`models/recommendation.rs`), set with `with_feeding(n)`, where `Feeding { n_lbs_per_ksqft, target_reached }` carries the nitrogen the source suggests and whether the guard found the annual target already met. It is internal to the feed and never serialized. The guard reads the whole feed to find the blockers, edits only marked recommendations, and runs once, in `recommendation_feed::assemble`, after every source and before inventory enrichment and answered state, with the feed's `today`. Placing the pass there belongs to Recommendation feed; this component owns what the pass does and the marks on the rules' own feedings.
 
 For each feeding, in this order:
 
 1. **Budget data point.** The guard adds "N budget remaining: *r* of *target* lb/1000 sqft". It is the only author of this point; sources do not add their own. Remaining = the grass type's `recommended_lbs_per_1000sqft` − lawn N applied in today's calendar year up to and including today.
-2. **Target reached.** When remaining is under 0.05 lb, the nitrogen part of the advice is withdrawn: the title gains "— annual nitrogen target reached" and the description says to skip the nitrogen or use a product without it. When the advice is nitrogen only (every rule feeding, red thread), that is the whole action: severity drops to Info, `suggested_action` is cleared and `needs` is emptied, so the feeding never shops. A non-nitrogen part (P or K in soil-test advice) keeps its action, need and severity.
+2. **Target reached.** When remaining is under 0.05 lb, the nitrogen part of the advice is withdrawn: the title gains "— annual nitrogen target reached" and the description says to skip the nitrogen or use a product without it. When the advice is nitrogen only (every rule feeding, red thread), that is the whole action: severity drops to Info, `suggested_action` is cleared and `needs` is emptied, so the feeding never shops. A non-nitrogen part (P or K in soil-test advice) keeps its action, need and severity. The guard also sets the mark's `target_reached`, so readers of the feed (Plan States) can tell without parsing the title.
 3. **Cap.** When remaining is under the largest single feeding any rule suggests (`LARGEST_FEEDING_LBS`), the nitrogen amount is limited. If remaining is also under the feeding's own amount (`Feeding.n_lbs_per_ksqft`), `cap_amount` restates the source's `amount_text` and `rate_text` phrases in the description and suggested action with the remaining amount, sets the `RATE_POINT` value to it, and lowers the mark to it, so no part of the recommendation states more nitrogen than remains. In either case the description gains "keep this application at or under *remaining*" lb N. The lawn total uses the profile's `lawn_size_sqft`; with no size recorded, `amount_text(n, None)` states only the per-1,000 sq ft rate. Severity and any non-nitrogen part are unchanged.
 4. **Hold.** When `fertilizer_block` is present at any severity, or `heat_stress_forecast` is present at Warning or above, the whole recommendation is held, because no fertilizer of any kind should go down: severity becomes Info, the title is prefixed "On hold —" and the description explains the block. Hold and target-reached compose: both edits apply.
 
 The guard runs before answered state, so a dismissed `fertilizer_block` still holds feedings: dismissing the alert does not change the conditions that rule out fertilizer. It runs before inventory enrichment, so a target-reached feeding has no nitrogen need left and never reaches the shopping list for nitrogen.
 
 The target-reached branch clears the whole action and every need, which matches intent for nitrogen-only feedings, the only kind any source emits.
+
+## Plan States
+
+The seasonal plan shows a status for seven activities these rules also cover. For the current season it takes that status from the rules, so the plan and the feed give one answer. `plan_state::season_states` (`backend/src/logic/rules/plan_state.rs`) reports each activity's state from the same date, environmental summary, application log and assembled feed (after the nitrogen guard and the timing companions, with the owner's answers flagged but not removed), in this precedence:
+
+1. **Done**: the rule's own log check finds the work. The checks are the functions the rules themselves call (`spring_feedings`, `fall_feeding_count`, `applied_spring` / `applied_fall`, grub `applied_this_season`), so the plan cannot count work the rule would not.
+2. **Due**: the activity's recommendation is in the feed; **Not needed** when that recommendation is a feeding the guard marked `target_reached`.
+3. **Passed**: the rule's window is over.
+4. **Unknown**: an input the rule needs (soil average; for grub also live soil) is missing while its window could be open.
+5. **Not yet**: anything else, including a rule waiting inside its window.
+
+| Activity | Done | Due (feed id) | Passed | Unknown |
+|---|---|---|---|---|
+| `spring_nitrogen` | a lawn feeding Feb 1 → today | `spring_n_ready` | May 1 on, or soil average > 65 °F | soil average missing, Feb 1 – Apr 30 |
+| `early_fall_fert` / `mid_fall_fert` / `winterizer` | ≥ 1 / 2 / 3 lawn feedings Sep 1 → today | `fall_fert_early` / `fall_fert_mid` / `fall_fert_winterizer` | after September / October / November | soil average missing in that month |
+| `spring_herbicide` | the rule's spring check (PostEmergent Jan–Apr) | `broadleaf_spring` | May 1 on, or in April with GDD > 150 or missing (the spring window can no longer open) | soil average missing in Mar–Apr |
+| `fall_herbicide` | the rule's fall check (PostEmergent Sep–Dec) | `broadleaf_fall` | after Oct 31 | soil average missing, Sep 20 – Oct 31 |
+| `grub_preventative` | grub control or insecticide since Apr 1 | `grub_control_<year>`, `grub_control_late_<year>` | after Jul 4 with the GDD-extended window closed | soil average or live soil missing while the window is open |
+
+The fall phases count feedings, as the rule does: the mid-fall feeding is Done after any two fall feedings, whichever months they fell in. Reading Due from the feed rather than from `evaluate` makes the guard and the timing companions part of the answer: a feeding on hold is still Due, a fall broadleaf the companions dropped for seeding is not. The cool-season activities are reported only for a cool-season lawn; grub control is reported for any lawn. The plan's mapping of these states to statuses is owned by Seasonal plan.
 
 ## Lawn Nitrogen and the Annual Budget
 
@@ -224,6 +244,8 @@ Both widgets render on the Dashboard (`frontend/src/pages/Dashboard.tsx`). The d
 | Pre-emergent, seeding, aeration | Not rules; owned by Timing windows | 10 cm soil-temperature rules | One answer everywhere: they must agree with the 5 cm windows (HLD tenet). |
 | Crabgrass model | Informational status on the dashboard, no recommendation | Driving pre-emergent advice | Pre-emergent advice has one source (Timing windows). [inferred] |
 | Plan status for rule-covered activities | The rules expose each covered activity's current-season state and the seasonal plan reads it | The plan's own 10 cm triggers | One answer everywhere: the plan must not say Active while the feed is silent, or the reverse; timing activities already work this way (RULE-ENG-010, PLAN-ACT-021). |
+| What "Due" means for a plan state | The activity's recommendation is in the assembled feed | Re-running the rule's `evaluate` | The guard and the timing companions change what the owner is told (hold, target reached, dropped for seeding); only the assembled feed carries that. |
+| How the guard reports "target reached" | A flag on the feeding mark | Matching the title text | Readers of the feed need a contract, not a sentence that may be reworded. |
 | Rain delay and feedings | Rain delay is not a guard blocker; a feeding can stand beside a rain-delay alert | Holding feedings while `rain_delay` is active | Rain delay times an application within the next two days, while a feeding window spans weeks; together they read as "feed, after the rain", not as a contradiction. A fertilizer block or heat stress rules out fertilizer for days, so only those hold. |
 | Irrigation cancel test | Only forecast *amount* cancels the alert | Probability ≥ 50% cancels | A 50% chance of a trace does not relieve dry soil (code comment and test). [inferred] |
 
@@ -246,7 +268,7 @@ Both widgets render on the Dashboard (`frontend/src/pages/Dashboard.tsx`). The d
 6. `GddWidget` hard-codes 200 instead of using `crabgrass_model.germination_threshold` (`GddWidget.tsx:41,48,68`).
 7. Tests for spring nitrogen, broadleaf and the GDD branch of grub read the real clock and pass vacuously out of season. Only grub has `evaluate_on`.
 8. CLAUDE.md understates two rules: irrigation fires below 0.20 moisture (Advisory), not only below 0.10; and spring N has no "GDD 50–150" range: ≥ 50 promotes 50–55°F soil to ready, ≥ 150 only adds a note.
-9. **Size limits.** `spring_nitrogen.rs` (508 lines), `grub_control.rs` (347) and `nitrogen_guard.rs` (334) are over the 300-line limit. Functions over 50 lines: `GrubControlRule::evaluate_on` (~180), `FertilizerRule::evaluate` (~105), `FallFertilizationRule::evaluate` (~85), `build_ready_to_fertilize` (~73), `SpringNitrogenRule::evaluate` (~70), `HeatStressRule::build_recommendation` (~70), `BroadleafHerbicideRule::evaluate` (~69), `MowingHeightRule::evaluate` (~66), and the rain-delay, irrigation, application-window, fall-text builders and `nitrogen_guard::apply` (51–65 each).
+9. **Size limits.** `spring_nitrogen.rs` (508 lines), `nitrogen_guard.rs` (364), `grub_control.rs` (353) and `broadleaf_herbicide.rs` (302) are over the 300-line limit. Functions over 50 lines: `GrubControlRule::evaluate_on` (~180), `FertilizerRule::evaluate` (~105), `FallFertilizationRule::evaluate` (~85), `build_ready_to_fertilize` (~73), `SpringNitrogenRule::evaluate` (~70), `HeatStressRule::build_recommendation` (~70), `BroadleafHerbicideRule::evaluate` (~69), `MowingHeightRule::evaluate` (~66), and the rain-delay, irrigation, application-window, fall-text builders and `nitrogen_guard::apply` (51–65 each).
 
 ## References
 

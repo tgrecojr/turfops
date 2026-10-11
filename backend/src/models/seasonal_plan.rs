@@ -8,6 +8,8 @@ pub struct SeasonalPlan {
     pub activities: Vec<PlannedActivity>,
     pub data_years_used: i32,
     pub generated_at: chrono::DateTime<chrono::Utc>,
+    /// The lawn's local date the statuses were judged on, so pages count from it.
+    pub today: NaiveDate,
 }
 
 /// A single planned lawn care activity with predicted date window.
@@ -19,6 +21,9 @@ pub struct PlannedActivity {
     pub description: String,
     pub date_window: DateWindow,
     pub status: ActivityStatus,
+    /// The status is the typical-date estimate because the covering rule could not judge
+    /// the season (PLAN-ACT-022).
+    pub status_estimated: bool,
     pub details: ActivityDetails,
 }
 
@@ -41,11 +46,13 @@ pub enum WindowConfidence {
 }
 
 /// Activity status computed at response time from application history.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum ActivityStatus {
     Upcoming,
     Active,
     Completed,
+    /// Not needed this season: a covered feeding past the annual nitrogen target.
+    Skipped,
     Missed,
 }
 

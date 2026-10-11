@@ -37,34 +37,11 @@ impl GrubControlRule {
         history: &[Application],
     ) -> Option<Recommendation> {
         let current_year = today.year();
-
-        // Define the calendar application window
-        let window_start = NaiveDate::from_ymd_opt(current_year, 5, 15)?;
         let window_end = NaiveDate::from_ymd_opt(current_year, 7, 4)?;
-        let gdd_early_start = NaiveDate::from_ymd_opt(current_year, 4, 1)?;
-
-        // GDD-based window: GDD 500-1000, as early as Apr 1
         let gdd_ytd = env.gdd_base50_ytd;
-        let gdd_opens_window = gdd_ytd.is_some_and(|gdd| {
-            (GRUB_GDD_WINDOW_OPEN..GRUB_GDD_WINDOW_CLOSING).contains(&gdd)
-                && today >= gdd_early_start
-        });
 
         // Only relevant during the window (GDD-extended or calendar)
-        let in_window = gdd_opens_window || (today >= window_start && today <= window_end);
-        if !in_window {
-            return None;
-        }
-
-        // Check if already applied this year
-        let already_applied = history.iter().any(|app| {
-            (app.application_type == ApplicationType::GrubControl
-                || app.application_type == ApplicationType::Insecticide)
-                && app.application_date.year() == current_year
-                && app.application_date >= gdd_early_start
-        });
-
-        if already_applied {
+        if !window_open(today, gdd_ytd) || applied_this_season(history, today) {
             return None;
         }
 
@@ -209,6 +186,35 @@ impl GrubControlRule {
             None
         }
     }
+}
+
+/// The grub window: May 15 – Jul 4, or GDD 500–1000 from Apr 1 (the GDD-extended window).
+pub(crate) fn window_open(today: NaiveDate, gdd_ytd: Option<f64>) -> bool {
+    let year = today.year();
+    let (Some(start), Some(end), Some(gdd_early_start)) = (
+        NaiveDate::from_ymd_opt(year, 5, 15),
+        NaiveDate::from_ymd_opt(year, 7, 4),
+        NaiveDate::from_ymd_opt(year, 4, 1),
+    ) else {
+        return false;
+    };
+    let gdd_opens_window = gdd_ytd.is_some_and(|gdd| {
+        (GRUB_GDD_WINDOW_OPEN..GRUB_GDD_WINDOW_CLOSING).contains(&gdd) && today >= gdd_early_start
+    });
+    gdd_opens_window || (today >= start && today <= end)
+}
+
+/// A grub control or insecticide application logged since Apr 1 of this year.
+pub(crate) fn applied_this_season(history: &[Application], today: NaiveDate) -> bool {
+    let Some(gdd_early_start) = NaiveDate::from_ymd_opt(today.year(), 4, 1) else {
+        return false;
+    };
+    history.iter().any(|app| {
+        (app.application_type == ApplicationType::GrubControl
+            || app.application_type == ApplicationType::Insecticide)
+            && app.application_date.year() == today.year()
+            && app.application_date >= gdd_early_start
+    })
 }
 
 #[cfg(test)]

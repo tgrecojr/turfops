@@ -122,6 +122,7 @@ fn activity(
         },
         status: current_status(spec, season, year, done)
             .unwrap_or_else(|| status(done, opens.median, closes.median, season.today)),
+        status_estimated: false,
         details: ActivityDetails {
             soil_temp_trigger: Some(copy.trigger.into()),
             product_suggestions: copy.products.iter().map(|p| p.to_string()).collect(),
@@ -149,9 +150,10 @@ fn aeration(seeding: &PlannedActivity, applications: &[Application], year: i32) 
         status: if done {
             ActivityStatus::Completed
         } else {
-            seeding.status.clone()
+            seeding.status
         },
         date_window: window.clone(),
+        status_estimated: false,
         details: ActivityDetails {
             soil_temp_trigger: Some("Same window as fall seeding".into()),
             product_suggestions: vec![],

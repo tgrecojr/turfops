@@ -50,11 +50,11 @@ warm-season profile is unsupported.
 
 | Type | Fields | Notes |
 |---|---|---|
-| `SeasonalPlan` | `year`, `activities`, `data_years_used`, `generated_at`, `today` | `data_years_used` = the complete prior years that voted (PLAN-CROSS-010); `today` = server-local date the statuses were judged on |
-| `PlannedActivity` | `id`, `name`, `category`, `description`, `date_window`, `status`, `details` | `id` is the merge key; `category` is free text |
+| `SeasonalPlan` | `year`, `activities`, `data_years_used`, `generated_at`, `today` | `data_years_used` = the complete prior years that voted (PLAN-CROSS-010); `today` = the lawn's local date the statuses were judged on |
+| `PlannedActivity` | `id`, `name`, `category`, `description`, `date_window`, `status`, `status_estimated`, `details` | `id` is the merge key; `category` is free text; `status_estimated` marks a typical-date status given because the covering rule could not judge the season |
 | `DateWindow` | `predicted_start`, `predicted_end`, `earliest_historical?`, `latest_historical?`, `confidence` | dates are `NaiveDate` |
 | `WindowConfidence` | `High` · `Medium` · `Low` | from the sample count of the opening threshold |
-| `ActivityStatus` | `Upcoming` · `Active` · `Completed` · `Missed` | computed per request |
+| `ActivityStatus` | `Upcoming` · `Active` · `Completed` · `Skipped` · `Missed` | computed per request; `Skipped` ("Not needed this season") only for a covered feeding past the annual nitrogen target |
 | `ActivityDetails` | `soil_temp_trigger?`, `product_suggestions[]`, `rate?`, `notes?` | free text |
 | `ThresholdCrossing` | `year`, `threshold_name`, `crossing_date`, `avg_soil_temp_f` | cache row |
 | `DailySoilTempAvg` | `date`, `avg_temp_f` | input from the lake |
@@ -181,15 +181,32 @@ its status from that rule's state, not from its dates:
 | `spring_herbicide`, `fall_herbicide` | broadleaf herbicide |
 | `grub_preventative` | grub control |
 
-Work logged → Completed; work due now (the rule advises doing it) → Active; the rule's
-window has passed → Missed; otherwise Upcoming. The plan therefore never shows Active
-while the feed is silent on that work, or the reverse. The rules are triggered by live
-soil, GDD, calendar gates and the nitrogen guard, which a 10 cm climatology cannot
-reproduce; the plan keeps its 10 cm dates as the expected window and lets the rule say
-where the season actually stands. **Obligation on Agronomic rules:** each of these rules
-exposes, per activity, a state the plan can map (not yet / due now / passed / done)
-alongside its recommendation; that state and its meaning are owned by Agronomic rules.
-The handler evaluates the rules with the same inputs as the recommendation feed.
+The rules expose each covered activity's state (`logic/rules/plan_state.rs`
+`season_states`, owned and defined by Agronomic rules, RULE-ENG-010 to 015), judged on
+the same date, conditions, application log and assembled feed the recommendations come
+from. `apply_rule_states` maps it:
+
+| Rule state | Plan status |
+|---|---|
+| Done (the rule's own log check finds the work) | Completed |
+| Due (the activity's recommendation is in the feed) | Active |
+| Not needed (that recommendation is a feeding past the annual nitrogen target) | Skipped |
+| Passed (the rule's window is over) | Missed |
+| Not yet | Upcoming |
+| Unknown (an input the rule needs is missing) | the typical-date status, with `status_estimated` |
+
+The plan therefore never shows Active while the feed is silent on that work, or the
+reverse. The rules are triggered by live soil, GDD, calendar gates and the nitrogen guard,
+which a 10 cm climatology cannot reproduce; the plan keeps its 10 cm dates as the
+expected window and lets the rule say where the season actually stands.
+
+The handler (`rule_states`, `backend/src/api/seasonal_plan.rs`) runs only when the plan
+year is the lawn's current year: it takes the environmental summary (refreshed when
+stale, as the feed does) and `recommendation_feed::all_with_history`, the dashboard's
+feed with the owner's answers flagged but not removed, so a dismissed or addressed alert
+still counts as Due: an answer silences an alert, it is not a log entry. When the summary
+or the feed cannot be produced, every covered activity keeps its typical-date status with
+`status_estimated` set. On a warm-season lawn only grub control has a covering rule.
 
 Every other activity, and every activity in any other plan year, uses
 `compute_status(completed, start, end, today)`: Completed if logged, else Missed if
@@ -330,14 +347,15 @@ endpoint does not read the plan; the page fetches both.
   different day.
 - Subtitle: "Predicted activity windows based on N years of soil temperature data"
   (N = `data_years_used`).
-- Status summary chips (Active, Upcoming, Completed, Missed) with symbol + label
-  (○ ● ✓ ✗).
+- Status summary chips (Active, Upcoming, Completed, Skipped, Missed) with symbol +
+  label (● ○ ✓ – ✗; Skipped reads "Not needed").
 - Turf / Plants / All filter, shown only when any activity has category
   `"Plant Maintenance"`.
 - Vertical timeline of cards: status symbol + label, category, date range, name,
   description, a countdown ("Starts in N days", "N days remaining", "Window has passed",
-  "Done"), confidence dots, and an expandable Details block (trigger, rate, products,
-  notes, historical range).
+  "Done", "Not needed this season"), confidence dots, and an expandable Details block
+  (trigger, rate, products, notes, historical range). An estimated status reads
+  "· estimate" after its label.
 - Empty state distinguishes "no activities could be projected" from an empty filter.
 - A failed load shows `describeError(e)` (Web UI's human-readable errors): a missing lawn
   profile points to Settings, a timeout says to try again; never a status code or JSON body.
@@ -354,12 +372,16 @@ endpoint does not read the plan; the page fetches both.
   `[predicted_start, predicted_end]` contains the day, colored by status. Plant
   activities draw as thin outlined bars. Days inside any activity window get a tinted
   background.
-- Legend: Applications, Follow-up due, and the four status colors.
+- Legend: Applications, Follow-up due, and the five status colors, each with its symbol
+  and label.
 - Selecting a day opens a detail panel: Applications, Follow-ups Due, Turf Activities
-  (status badge with text, window, confidence, trigger, products, notes) and Plant
-  Maintenance (status, window, description, notes). The calendar does not show `rate`.
-- Status colors come from `ACTIVITY_STATUS_COLORS` in `frontend/src/types/index.ts`
-  (the plan page keeps an identical local copy).
+  (status badge with symbol and label, window, confidence, trigger, products, notes) and
+  Plant Maintenance (status, window, description, notes). The calendar does not show
+  `rate`.
+- Status is never color alone: each bar's title and accessible name read "<name> —
+  <symbol> <label>", with "(estimate)" when `status_estimated` is set.
+- Both pages take status symbols, labels, colors, countdowns and month/year navigation
+  from `frontend/src/components/plan/activityStatus.ts`.
 
 ## Degradation
 
@@ -370,6 +392,7 @@ endpoint does not read the plan; the page fetches both.
 | Climate record / timing evaluation fails | 10 cm activities for pre-emergent, seeding and aeration remain; no `fall_pre_emergent` |
 | Empty cache and no timing | Plan has only plant tasks (or nothing); page shows the empty state |
 | Plan request fails on Calendar | Applications still render, no bars |
+| Conditions or feed unavailable for the current season | Rule-covered activities keep their typical-date status, marked `status_estimated` |
 
 ## Decisions & Alternatives
 
@@ -389,6 +412,9 @@ endpoint does not read the plan; the page fetches both.
 | Where "settled" is stored | A per-year marker table whose `settled` flag the app sets when it computes the year | A SQL test over `computed_at` (`MIN(computed_at) >= make_date(year + 1, 1, 1)`) | The judgment needs the lawn's calendar and the lake's newest date, neither of which the database knows; a SQL date test runs on the database session's midnight. |
 | Mapping history onto the plan year | Month and day | Day-of-year ordinal | Ordinals shift every date after Feb 28 by a day across leap years, and ordinal 366 has no place in a non-leap year. |
 | Status of rule-covered activities this season | From the covering agronomic rule's state | Date-based status from 10 cm medians | One answer everywhere: the plan must not say Active while the feed is silent, or the reverse; the rules see live soil, GDD and the nitrogen guard. |
+| A feeding past the annual nitrogen target | Its own status, Skipped ("Not needed this season") | Treat it as rule-silent (Upcoming, then Missed); keep it Active | Missed reads as forgotten work and Active contradicts the feed's "skip this feeding"; not needing it is a distinct outcome. |
+| Owner's answers and plan status | Ignored: an answered alert still counts as Due | Addressed → Completed | An answer silences an alert and expires; only the log records work done. |
+| A covered activity the rule cannot judge | Typical-date status flagged `status_estimated` | Hide the status; Upcoming | The dates still carry information; the flag says it is the calendar's guess, as the timing windows label theirs. |
 | Completion source | Turf applications only | Any application of the type | Plant work (a shrub insecticide, a plant feeding) does nothing for the lawn. |
 | `fall_herbicide` and seeding | Hidden only by a seeding in the 60 days before the window, never when completed | Hidden by any seeding in the year | Only a seeding shortly before the window makes the herbicide unsafe for seedlings; a completed activity is history and stays visible. |
 | Pages' clock | Server's date from the API (`today`, default `year` / month) | Browser clock | Statuses are judged on the server's local date; countdowns and the default year must agree with them. |
@@ -410,31 +436,15 @@ endpoint does not read the plan; the page fetches both.
 
 ### Deferred
 
-1. **Divergence: rule-covered activities take date-based status** (PLAN-ACT-021).
-   `spring_nitrogen`, the two fall feedings, the winterizer, both broadleaf herbicide
-   activities and grub preventative compute status from 10 cm medians
-   (`backend/src/logic/seasonal_plan.rs` `compute_status`), so the plan can show Active
-   while the feed is silent, or the reverse. Intent: for the current season their status
-   comes from the covering rule's state; the rules exposing that state is owned by
-   Agronomic rules.
-2. **Lock held during fill.** The handler holds the sync service read lock across up to
+1. **Lock held during fill.** The handler holds the sync service read lock across up to
    eleven lake reads.
-3. **Calendar bars are color-only.** Day-cell bars encode status by color (tooltip has
-   the name only); the detail panel and plan page carry text labels.
-4. **Size limits.** `frontend/src/pages/Calendar.tsx` is 689 lines and `SeasonalPlan.tsx`
-   514 lines; `backend/src/db/queries.rs` (shared) is over 600 lines.
-5. **Stringly-typed contracts.** Activity ids are the merge key and `"Plant
+2. **Size limits.** `frontend/src/pages/Calendar.tsx` is over 650 lines and
+   `SeasonalPlan.tsx` near 480; `backend/src/db/queries.rs` (shared) is over 600 lines.
+3. **Stringly-typed contracts.** Activity ids are the merge key and `"Plant
    Maintenance"` is the plant discriminator; neither is an enum.
-6. **Concurrent first loads.** Two requests filling the same unsettled year both run
+4. **Concurrent first loads.** Two requests filling the same unsettled year both run
    `replace_threshold_crossings`; the second insert can hit the `(year, threshold_name)`
    key, the error is only logged as a warning and that year is skipped for that request.
-7. **Divergence: pages count from the browser's clock** (PLAN-UI-001, PLAN-UI-007,
-   PLAN-CALUI-001, PLAN-MERGE-008). `SeasonalPlan.tsx` and `Calendar.tsx` take the
-   default year, month and countdown from `new Date()`, and the plan response carries no
-   server-local date. Intent: the pages use the server's date from the API.
-8. **Rule state unavailable** (PLAN-ACT-022). When a covering rule cannot evaluate (its
-   inputs are missing, RULE-ENG-003), the activity falls back to its typical-date status,
-   marked as an estimate, the same labeled calendar fallback the timing windows use.
 
 ## References
 

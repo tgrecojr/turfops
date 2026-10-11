@@ -1,25 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getSeasonalPlan } from "../api/client";
 import { describeError } from "../api/errors";
+import {
+	countdown,
+	STATUS_META,
+	STATUS_ORDER,
+	statusText,
+	yearChoices,
+} from "../components/plan/activityStatus";
 import type {
-	ActivityStatus,
 	PlannedActivity,
 	SeasonalPlan as SeasonalPlanType,
 } from "../types";
-
-const STATUS_COLORS: Record<ActivityStatus, string> = {
-	Upcoming: "#3b82f6",
-	Active: "#22c55e",
-	Completed: "#6b7280",
-	Missed: "#ef4444",
-};
-
-const STATUS_ICONS: Record<ActivityStatus, string> = {
-	Upcoming: "○",
-	Active: "●",
-	Completed: "✓",
-	Missed: "✗",
-};
 
 const CONFIDENCE_DOTS: Record<string, string> = {
 	High: "●●●",
@@ -36,31 +28,17 @@ function formatDateRange(start: string, end: string): string {
 	return `${formatDate(start)} – ${formatDate(end)}`;
 }
 
-function daysFromNow(dateStr: string): number {
-	const d = new Date(`${dateStr}T12:00:00`);
-	const now = new Date();
-	now.setHours(12, 0, 0, 0);
-	return Math.round((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-}
-
-function ActivityCard({ activity }: { activity: PlannedActivity }) {
+function ActivityCard({
+	activity,
+	today,
+}: {
+	activity: PlannedActivity;
+	today: string;
+}) {
 	const [expanded, setExpanded] = useState(false);
-	const statusColor = STATUS_COLORS[activity.status];
-	const daysUntil = daysFromNow(activity.date_window.predicted_start);
-	const daysUntilEnd = daysFromNow(activity.date_window.predicted_end);
-
-	const timing =
-		activity.status === "Upcoming"
-			? daysUntil === 1
-				? "Starts tomorrow"
-				: `Starts in ${daysUntil} days`
-			: activity.status === "Active"
-				? daysUntilEnd <= 0
-					? "Window closing today"
-					: `${daysUntilEnd} days remaining`
-				: activity.status === "Missed"
-					? "Window has passed"
-					: "Done";
+	const statusColor = STATUS_META[activity.status].color;
+	// @spec PLAN-UI-007
+	const timing = countdown(activity, today);
 
 	return (
 		<div style={styles.card}>
@@ -82,7 +60,7 @@ function ActivityCard({ activity }: { activity: PlannedActivity }) {
 					<div style={styles.cardTop}>
 						<div>
 							<span style={{ ...styles.statusBadge, color: statusColor }}>
-								{STATUS_ICONS[activity.status]} {activity.status}
+								{statusText(activity)}
 							</span>
 							<span style={styles.category}>{activity.category}</span>
 						</div>
@@ -159,16 +137,17 @@ export default function SeasonalPlan() {
 	const [plan, setPlan] = useState<SeasonalPlanType | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
-	const [year, setYear] = useState(new Date().getFullYear());
+	// null until the owner picks a year: the first request asks for the server's year.
+	const [year, setYear] = useState<number | null>(null);
 	const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("All");
 	const abortRef = useRef<AbortController | null>(null);
 
-	const fetchPlan = useCallback(async (y: number) => {
+	const fetchPlan = useCallback(async (y: number | null) => {
 		abortRef.current?.abort();
 		const controller = new AbortController();
 		abortRef.current = controller;
 		try {
-			const result = await getSeasonalPlan(y);
+			const result = await getSeasonalPlan(y ?? undefined);
 			if (!controller.signal.aborted) {
 				setPlan(result);
 				setError(null);
@@ -188,9 +167,6 @@ export default function SeasonalPlan() {
 	useEffect(() => {
 		fetchPlan(year);
 	}, [year, fetchPlan]);
-
-	const currentYear = new Date().getFullYear();
-	const yearOptions = [currentYear - 1, currentYear, currentYear + 1];
 
 	if (loading) {
 		return (
@@ -213,6 +189,9 @@ export default function SeasonalPlan() {
 	}
 
 	if (!plan) return null;
+
+	// @spec PLAN-UI-001
+	const yearOptions = yearChoices(Number(plan.today.slice(0, 4)));
 
 	const filteredActivities = plan.activities.filter((a) => {
 		if (categoryFilter === "All") return true;
@@ -250,8 +229,8 @@ export default function SeasonalPlan() {
 							onClick={() => setYear(y)}
 							style={{
 								...styles.yearBtn,
-								backgroundColor: y === year ? "#3182ce" : "#e2e8f0",
-								color: y === year ? "#fff" : "#4a5568",
+								backgroundColor: y === plan.year ? "#3182ce" : "#e2e8f0",
+								color: y === plan.year ? "#fff" : "#4a5568",
 							}}
 						>
 							{y}
@@ -261,20 +240,19 @@ export default function SeasonalPlan() {
 			</div>
 
 			<div style={styles.statusSummary}>
-				{(
-					["Active", "Upcoming", "Completed", "Missed"] as ActivityStatus[]
-				).map((s) =>
+				{/* @spec PLAN-UI-004 */}
+				{STATUS_ORDER.map((s) =>
 					statusCounts[s] ? (
 						<span
 							key={s}
 							style={{
 								...styles.summaryBadge,
-								backgroundColor: `${STATUS_COLORS[s]}18`,
-								color: STATUS_COLORS[s],
-								borderColor: `${STATUS_COLORS[s]}40`,
+								backgroundColor: `${STATUS_META[s].color}18`,
+								color: STATUS_META[s].color,
+								borderColor: `${STATUS_META[s].color}40`,
 							}}
 						>
-							{STATUS_ICONS[s]} {statusCounts[s]} {s}
+							{STATUS_META[s].symbol} {statusCounts[s]} {STATUS_META[s].label}
 						</span>
 					) : null,
 				)}
@@ -301,15 +279,19 @@ export default function SeasonalPlan() {
 
 			<div style={styles.timeline}>
 				{filteredActivities.map((activity) => (
-					<ActivityCard key={activity.id} activity={activity} />
+					<ActivityCard
+						key={activity.id}
+						activity={activity}
+						today={plan.today}
+					/>
 				))}
 			</div>
 
 			{filteredActivities.length === 0 && (
 				<div style={styles.empty}>
 					{plan.activities.length === 0
-						? `No activities could be projected for ${year}. Insufficient historical data may be the cause.`
-						: `No ${categoryFilter.toLowerCase()} activities for ${year}.`}
+						? `No activities could be projected for ${plan.year}. Insufficient historical data may be the cause.`
+						: `No ${categoryFilter.toLowerCase()} activities for ${plan.year}.`}
 				</div>
 			)}
 		</div>

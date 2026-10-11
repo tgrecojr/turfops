@@ -36,6 +36,16 @@ pub async fn all(
     profile: &LawnProfile,
     summary: &EnvironmentalSummary,
 ) -> Result<Vec<Recommendation>, TurfOpsError> {
+    Ok(all_with_history(state, profile, summary).await?.0)
+}
+
+/// Every current recommendation together with the application log it was judged on, for
+/// readers that must judge the same log (the seasonal plan's rule states).
+pub async fn all_with_history(
+    state: &AppState,
+    profile: &LawnProfile,
+    summary: &EnvironmentalSummary,
+) -> Result<(Vec<Recommendation>, Vec<Application>), TurfOpsError> {
     let profile_id = profile
         .id
         .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
@@ -70,7 +80,7 @@ pub async fn all(
     let products =
         product_queries::list_products_for_profile(&state.pool, profile_id, None, false).await?;
     let rec_states = queries::get_recommendation_states(&state.pool).await?;
-    Ok(assemble(
+    let feed = assemble(
         recommendations,
         &Stages {
             profile,
@@ -80,7 +90,8 @@ pub async fn all(
             answers: &rec_states,
             now: Utc::now(),
         },
-    ))
+    );
+    Ok((feed, apps))
 }
 
 /// What the stages after the sources read.

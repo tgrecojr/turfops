@@ -62,6 +62,7 @@ fn cap_amount(rec: &mut Recommendation, n: f64, capped: f64, lawn_sqft: Option<f
     }
     rec.feeding = Some(crate::models::Feeding {
         n_lbs_per_ksqft: capped,
+        target_reached: false,
     });
 }
 
@@ -114,6 +115,11 @@ pub fn apply(
             );
             rec.suggested_action = None;
             rec.needs.clear();
+            // @spec RULE-GUARD-011
+            rec.feeding = Some(crate::models::Feeding {
+                target_reached: true,
+                ..feeding
+            });
         } else if remaining < LARGEST_FEEDING_LBS {
             if remaining < feeding.n_lbs_per_ksqft {
                 cap_amount(rec, feeding.n_lbs_per_ksqft, remaining, lawn_sqft);
@@ -296,6 +302,30 @@ mod tests {
         assert_eq!(recs[0].severity, Severity::Info);
         assert!(recs[0].title.contains("target reached"));
         assert!(recs[0].suggested_action.is_none());
+    }
+
+    // @spec RULE-GUARD-011
+    #[test]
+    fn target_reached_is_marked_on_the_feeding_itself() {
+        let mut spent = vec![feeding()];
+        let history = [fed(1.0, 4), fed(1.0, 9)];
+        apply(
+            &mut spent,
+            &profile(GrassType::FineFescue),
+            &history,
+            today(),
+        );
+        assert!(spent[0].feeding.is_some_and(|f| f.target_reached));
+
+        let mut capped = vec![feeding()];
+        let history = [fed(1.0, 4), fed(0.5, 9)];
+        apply(
+            &mut capped,
+            &profile(GrassType::FineFescue),
+            &history,
+            today(),
+        );
+        assert!(capped[0].feeding.is_some_and(|f| !f.target_reached));
     }
 
     #[test]
