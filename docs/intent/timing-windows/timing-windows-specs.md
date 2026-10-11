@@ -71,7 +71,7 @@ Design: [timing-windows-design.md](timing-windows-design.md). Method: `docs/timi
 - [x] **TIME-ENG-043**: The soil series shall cover every day of the current calendar year with this year observed, forecast, last year, and the typical year (mean of the history years, needing ≥ 3 years), all smoothed and rounded to 0.1°F.
 - [x] **TIME-ENG-044**: The response shall include a data note when soil data is stale or absent, when there are fewer than 5 history years, and when there is no forecast.
 - [x] **TIME-ENG-045**: If refreshing the environmental data (forecast) fails while computing the timing windows, then the system shall evaluate the windows without the forecast and add the no-forecast data note instead of failing the request.
-- [ ] **TIME-ENG-046**: When the climate record served is the last good read rather than a fresh one (SYNC-MEMO-002), the response shall include a data note saying so and when it was read.
+- [x] **TIME-ENG-046**: When the climate record served is the last good read rather than a fresh one (SYNC-MEMO-002), the response shall include a data note saying so and when it was read.
 
 ## Seed vs. pre-emergent exclusivity
 

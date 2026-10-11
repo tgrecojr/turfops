@@ -1,23 +1,17 @@
+mod probes;
+mod sync_state;
+#[cfg(test)]
+mod tests;
+
+use self::probes::{Probe, ProbeCache};
+use self::sync_state::{SensorReads, SyncState};
 use crate::clock::Clock;
 use crate::config::Config;
 use crate::datasources::{HomeAssistantClient, OpenWeatherMapClient, WeatherLakeClient};
-use crate::models::{DataSource, EnvironmentalReading, EnvironmentalSummary, WeatherForecast};
-use chrono::{Duration, Utc};
+use crate::models::EnvironmentalSummary;
+use chrono::Utc;
 use sqlx::PgPool;
-use tokio::time::Instant;
-
-/// How long before sensor data (weather lake + Home Assistant) is considered stale.
-const SENSOR_STALENESS_SECS: u64 = 5 * 60; // 5 minutes
-
-/// The lake trails the station by about a day. Past this, the newest reading no longer
-/// describes today's soil and is not used as the current value.
-const SOIL_MAX_AGE_HOURS: i64 = 72;
-
-/// A forecast older than this is dropped rather than reused after failed refreshes.
-const FORECAST_MAX_AGE_HOURS: i64 = 6;
-
-/// How long before forecast data (OpenWeatherMap) is considered stale.
-const FORECAST_STALENESS_SECS: u64 = 30 * 60; // 30 minutes
+use std::sync::Mutex;
 
 pub struct DataSyncService {
     #[allow(dead_code)]
@@ -25,10 +19,8 @@ pub struct DataSyncService {
     weather_client: Option<WeatherLakeClient>,
     homeassistant_client: Option<HomeAssistantClient>,
     openweathermap_client: Option<OpenWeatherMapClient>,
-    current_summary: EnvironmentalSummary,
-    current_forecast: Option<WeatherForecast>,
-    last_sensor_refresh: Option<Instant>,
-    last_forecast_refresh: Option<Instant>,
+    state: SyncState,
+    probes: Mutex<ProbeCache>,
     clock: Clock,
 }
 
@@ -76,49 +68,68 @@ impl DataSyncService {
             weather_client,
             homeassistant_client,
             openweathermap_client,
-            current_summary: EnvironmentalSummary::default(),
-            current_forecast: None,
-            last_sensor_refresh: None,
-            last_forecast_refresh: None,
+            state: SyncState::default(),
+            probes: Mutex::new(ProbeCache::default()),
             clock: config.clock,
         }
     }
 
-    /// Return cached summary if fresh, otherwise fetch from datasources first.
-    /// Sensor data refreshes after 5 minutes, forecast after 30 minutes.
+    /// Return the cached summary, refreshing first whichever part is stale.
+    /// Sensor data refreshes after 5 minutes, the forecast after 30 (a failed fetch is
+    /// retried after 5).
+    // @spec SYNC-REFRESH-003, SYNC-REFRESH-004
     pub async fn get_or_refresh(&mut self) -> crate::error::Result<EnvironmentalSummary> {
-        let sensor_stale = self.is_sensor_stale();
-        let forecast_stale = self.is_forecast_stale();
-
-        if sensor_stale || forecast_stale {
-            self.refresh_internal(sensor_stale, forecast_stale).await?;
-        }
-
-        Ok(self.current_summary.clone())
+        let due = self.state.due(Utc::now());
+        self.refresh(due.sensors, due.forecast).await;
+        Ok(self.state.summary(Utc::now()))
     }
 
     /// Always fetch fresh data from all datasources, ignoring cache age.
     /// Used by the explicit refresh button in the frontend.
     pub async fn force_refresh(&mut self) -> crate::error::Result<EnvironmentalSummary> {
-        self.refresh_internal(true, true).await
+        self.refresh(true, true).await;
+        Ok(self.state.summary(Utc::now()))
     }
 
+    /// Connection status, probing only the configured sources whose last result is over
+    /// 5 minutes old; the summary and its timers are untouched.
+    // @spec SYNC-CONN-001, SYNC-CONN-002, SYNC-CONN-006
     pub async fn check_connections(&self) -> ConnectionStatus {
+        let recent = |probe| self.probes.lock().ok()?.recent(probe, Utc::now());
         let mut status = ConnectionStatus::default();
 
         if let Some(ref client) = self.weather_client {
-            status.soildata = client.test_connection().await.unwrap_or(false);
+            status.soildata = match recent(Probe::Lake) {
+                Some(up) => up,
+                None => self.record(Probe::Lake, client.test_connection().await.unwrap_or(false)),
+            };
         }
-
         if let Some(ref client) = self.homeassistant_client {
-            status.homeassistant = client.test_connection().await.unwrap_or(false);
+            status.homeassistant = match recent(Probe::HomeAssistant) {
+                Some(up) => up,
+                None => self.record(
+                    Probe::HomeAssistant,
+                    client.test_connection().await.unwrap_or(false),
+                ),
+            };
         }
-
         if let Some(ref client) = self.openweathermap_client {
-            status.openweathermap = client.test_connection().await.unwrap_or(false);
+            status.openweathermap = match recent(Probe::Forecast) {
+                Some(up) => up,
+                None => self.record(
+                    Probe::Forecast,
+                    client.test_connection().await.unwrap_or(false),
+                ),
+            };
         }
-
         status
+    }
+
+    fn record(&self, probe: Probe, up: bool) -> bool {
+        if let Ok(mut probes) = self.probes.lock() {
+            probes.record(probe, up, Utc::now());
+        }
+        up
     }
 
     /// Provide access to the weather lake client for direct queries (GDD, historical).
@@ -126,140 +137,50 @@ impl DataSyncService {
         self.weather_client.as_ref()
     }
 
-    fn is_sensor_stale(&self) -> bool {
-        match self.last_sensor_refresh {
-            None => true,
-            Some(t) => t.elapsed().as_secs() >= SENSOR_STALENESS_SECS,
-        }
-    }
-
-    fn is_forecast_stale(&self) -> bool {
-        match self.last_forecast_refresh {
-            None => true,
-            Some(t) => t.elapsed().as_secs() >= FORECAST_STALENESS_SECS,
-        }
-    }
-
-    async fn refresh_internal(
-        &mut self,
-        refresh_sensors: bool,
-        refresh_forecast: bool,
-    ) -> crate::error::Result<EnvironmentalSummary> {
-        let mut summary = EnvironmentalSummary::default();
-        let mut combined_reading = EnvironmentalReading::new(DataSource::Cached);
-
-        if refresh_sensors {
-            // Fetch soil/weather data from the data lake (silver hourly)
-            if let Some(ref client) = self.weather_client {
-                summary.soil_observed_at = match client.fetch_summary().await {
-                    Ok(soil_summary) => {
-                        summary = soil_summary;
-                        summary.current.as_ref().map(|c| c.timestamp)
-                    }
-                    Err(e) => {
-                        // A failed read must not wipe good soil data for the next
-                        // 5 minutes (every soil rule would go quiet without a word).
-                        tracing::warn!("Failed to fetch soil data, keeping the last read: {}", e);
-                        summary = EnvironmentalSummary {
-                            forecast: None,
-                            ..self.current_summary.clone()
-                        };
-                        summary.soil_observed_at
-                    }
-                };
-                match summary.soil_observed_at {
-                    // The station feed has stopped: a weeks-old reading stamped "now"
-                    // would drive today's advice. Show nothing rather than that.
-                    Some(observed)
-                        if Utc::now() - observed > Duration::hours(SOIL_MAX_AGE_HOURS) =>
-                    {
-                        tracing::warn!(%observed, "Station soil data is stale; not using it as current");
-                    }
-                    _ => {
-                        if let Some(ref current) = summary.current {
-                            combined_reading.soil_temp_5_f = current.soil_temp_5_f;
-                            combined_reading.soil_temp_10_f = current.soil_temp_10_f;
-                            combined_reading.soil_temp_20_f = current.soil_temp_20_f;
-                            combined_reading.soil_temp_50_f = current.soil_temp_50_f;
-                            combined_reading.soil_temp_100_f = current.soil_temp_100_f;
-                            combined_reading.soil_moisture_5 = current.soil_moisture_5;
-                            combined_reading.soil_moisture_10 = current.soil_moisture_10;
-                            combined_reading.soil_moisture_20 = current.soil_moisture_20;
-                            combined_reading.soil_moisture_50 = current.soil_moisture_50;
-                            combined_reading.soil_moisture_100 = current.soil_moisture_100;
-                            combined_reading.precipitation_mm = current.precipitation_mm;
-                        }
-                    }
-                }
-            }
-
-            // Fetch ambient data from Home Assistant
-            if let Some(ref client) = self.homeassistant_client {
-                match client.fetch_current().await {
-                    Ok(ha_reading) => {
-                        if ha_reading.ambient_temp_f.is_some() {
-                            combined_reading.ambient_temp_f = ha_reading.ambient_temp_f;
-                        }
-                        if ha_reading.humidity_percent.is_some() {
-                            combined_reading.humidity_percent = ha_reading.humidity_percent;
-                        }
-                    }
-                    Err(e) => {
-                        tracing::warn!("Failed to fetch Home Assistant data: {}", e);
-                    }
-                }
-            }
-
-            combined_reading.timestamp = Utc::now();
-            summary.current = Some(combined_reading.clone());
-            summary.last_updated = Some(Utc::now());
-            self.last_sensor_refresh = Some(Instant::now());
-
-            // Populate GDD YTD by summing the gold layer's precomputed daily gdd50
-            if let Some(ref client) = self.weather_client {
-                match client.fetch_gdd_ytd(self.clock.today()).await {
-                    Ok(gdd) => {
-                        summary.gdd_base50_ytd = gdd;
-                    }
-                    Err(e) => {
-                        tracing::warn!("Failed to fetch GDD YTD: {}", e);
-                    }
-                }
-            }
+    /// Read the stale parts' sources, then store everything at once: until every read is
+    /// in hand nothing changes, so a request dropped mid-read leaves the part stale.
+    // @spec SYNC-REFRESH-008, SYNC-FAIL-001
+    async fn refresh(&mut self, sensors: bool, forecast: bool) {
+        let sensor_reads = if sensors {
+            Some(self.read_sensors().await)
         } else {
-            // Keep existing sensor data
-            summary = self.current_summary.clone();
+            None
+        };
+        let forecast_read = if forecast {
+            Some(match self.openweathermap_client {
+                Some(ref client) => Some(client.fetch_forecast().await),
+                None => None,
+            })
+        } else {
+            None
+        };
+        let now = Utc::now();
+        if let Some(reads) = sensor_reads {
+            self.state.store_sensors(now, reads);
         }
-
-        if refresh_forecast {
-            if let Some(ref client) = self.openweathermap_client {
-                match client.fetch_forecast().await {
-                    Ok(forecast) => {
-                        summary.forecast = Some(forecast.clone());
-                        self.current_forecast = Some(forecast);
-                        self.last_forecast_refresh = Some(Instant::now());
-                        tracing::debug!("Weather forecast updated");
-                    }
-                    Err(e) => {
-                        tracing::warn!("Failed to fetch weather forecast: {}", e);
-                    }
-                }
-            }
+        if let Some(fetched) = forecast_read {
+            self.state.store_forecast(now, fetched);
         }
-        // Keep the last forecast when none was fetched — also when the fetch just failed,
-        // so one OpenWeatherMap hiccup doesn't silence every forecast rule — but only
-        // while it is recent enough to still describe the coming days.
-        if summary.forecast.is_none() {
-            summary.forecast = self
-                .current_forecast
-                .clone()
-                .filter(|f| Utc::now() - f.fetched_at < Duration::hours(FORECAST_MAX_AGE_HOURS));
+    }
+
+    async fn read_sensors(&self) -> SensorReads {
+        let lake = match self.weather_client {
+            Some(ref client) => Some(client.fetch_summary().await),
+            None => None,
+        };
+        let home_assistant = match self.homeassistant_client {
+            Some(ref client) => Some(client.fetch_current().await),
+            None => None,
+        };
+        let gdd = match self.weather_client {
+            Some(ref client) => Some(client.fetch_gdd_ytd(self.clock.today()).await),
+            None => None,
+        };
+        SensorReads {
+            lake,
+            home_assistant,
+            gdd,
         }
-
-        // Update cached summary
-        self.current_summary = summary.clone();
-
-        Ok(summary)
     }
 }
 

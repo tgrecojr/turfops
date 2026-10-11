@@ -117,6 +117,9 @@ pub struct EnvironmentalSummary {
     /// Year-to-date Growing Degree Days (base 50°F)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub gdd_base50_ytd: Option<f64>,
+    /// The station's newest soil observation is too old to describe today (SYNC-MERGE-006).
+    #[serde(default)]
+    pub soil_stale: bool,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
