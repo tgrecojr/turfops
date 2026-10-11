@@ -15,13 +15,11 @@ use crate::config::Config;
 use crate::datasources::OpenRouterClient;
 use crate::db::{pool::create_pool, queries};
 use crate::logic::data_sync::DataSyncService;
-use crate::models::{GrassType, IrrigationType, LawnProfile, SoilType};
 use crate::state::AppState;
 use axum::routing::{get, patch, post, put};
 use axum::Router;
 use std::net::SocketAddr;
 use std::path::PathBuf;
-use std::str::FromStr;
 use tower_http::cors::CorsLayer;
 use tower_http::limit::RequestBodyLimitLayer;
 use tower_http::services::{ServeDir, ServeFile};
@@ -293,32 +291,10 @@ async fn ensure_default_profile(pool: &sqlx::PgPool, config: &Config) -> anyhow:
 
     tracing::info!("No lawn profile found, creating default from config");
 
-    let grass_type = GrassType::from_str(&config.lawn.grass_type).unwrap_or_else(|_| {
-        tracing::warn!(
-            grass_type = %config.lawn.grass_type,
-            "Unknown LAWN_GRASS_TYPE, defaulting to TallFescue"
-        );
-        GrassType::TallFescue
-    });
-    let soil_type = config
-        .lawn
-        .soil_type
-        .as_ref()
-        .and_then(|s| SoilType::from_str(s).ok());
-    let irrigation_type = config
-        .lawn
-        .irrigation_type
-        .as_ref()
-        .and_then(|i| IrrigationType::from_str(i).ok());
-
-    let mut profile = LawnProfile::new(
-        config.lawn.name.clone(),
-        grass_type,
-        config.lawn.usda_zone.clone(),
-    );
-    profile.soil_type = soil_type;
-    profile.lawn_size_sqft = config.lawn.lawn_size_sqft;
-    profile.irrigation_type = irrigation_type;
+    let (profile, warnings) = config.lawn.seed_profile();
+    for warning in warnings {
+        tracing::warn!("{warning}");
+    }
 
     queries::create_lawn_profile(pool, &profile).await?;
     tracing::info!("Default lawn profile created: {}", config.lawn.name);

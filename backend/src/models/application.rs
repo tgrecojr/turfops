@@ -123,12 +123,11 @@ impl std::fmt::Display for ApplicationType {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WeatherSnapshot {
-    pub soil_temp_10cm_f: Option<f64>,
-    pub ambient_temp_f: Option<f64>,
-    pub humidity_percent: Option<f64>,
-    pub soil_moisture: Option<f64>,
+/// Which entries a log listing asks for: the lawn's, or the landscape plants'.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LogScope {
+    Turf,
+    Landscape,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -141,12 +140,15 @@ pub struct Application {
     pub rate_per_1000sqft: Option<f64>,
     pub coverage_sqft: Option<f64>,
     pub notes: Option<String>,
-    pub weather_snapshot: Option<WeatherSnapshot>,
     pub nitrogen_pct: Option<f64>,
     pub phosphorus_pct: Option<f64>,
     pub potassium_pct: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub plant_id: Option<i64>,
+    /// The name of the plant this entry was for, kept when that plant was deleted, so the
+    /// entry stays landscape history rather than becoming a lawn entry.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plant_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub follow_up_date: Option<NaiveDate>,
     /// FRAC classes the user recorded for a fungicide. `None` = not recorded; the disease
@@ -162,8 +164,11 @@ pub struct Application {
 impl Application {
     /// Applied to the lawn rather than a landscape plant. Lawn models (nitrogen budget,
     /// disease protection, fertilizer history) must ignore everything else.
+    // @spec APP-LOG-002
     pub fn is_turf(&self) -> bool {
-        self.plant_id.is_none() && self.application_type.scope() != ApplicationScope::PlantRequired
+        self.plant_id.is_none()
+            && self.plant_name.is_none()
+            && self.application_type.scope() != ApplicationScope::PlantRequired
     }
 
     /// The one definition of a lawn feeding: a turf Fertilizer entry whose nitrogen is
@@ -192,6 +197,27 @@ impl Application {
 mod tests {
     use super::*;
 
+    // @spec APP-LOG-002, APP-LOG-009
+    #[test]
+    fn an_entry_for_a_deleted_plant_is_never_the_lawns() {
+        let mut shrub = fertilizer(ApplicationType::Fertilizer, None);
+        shrub.plant_name = Some("Viburnum".into());
+        assert!(
+            !shrub.is_turf(),
+            "the plant was deleted; the entry is still landscape work"
+        );
+        assert!(!shrub.is_feeding());
+        assert_eq!(shrub.turf_nitrogen_lbs(), None);
+        assert!(fertilizer(ApplicationType::Fertilizer, None).is_turf());
+    }
+
+    // @spec APP-LOG-010
+    #[test]
+    fn an_entry_carries_no_weather_snapshot() {
+        let json = serde_json::to_value(fertilizer(ApplicationType::Fertilizer, None)).unwrap();
+        assert!(json.get("weather_snapshot").is_none(), "{json}");
+    }
+
     fn fertilizer(application_type: ApplicationType, plant_id: Option<i64>) -> Application {
         Application {
             id: None,
@@ -202,7 +228,7 @@ mod tests {
             rate_per_1000sqft: Some(5.0),
             coverage_sqft: None,
             notes: None,
-            weather_snapshot: None,
+            plant_name: None,
             nitrogen_pct: Some(20.0),
             phosphorus_pct: None,
             potassium_pct: None,

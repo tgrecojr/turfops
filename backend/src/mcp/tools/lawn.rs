@@ -64,6 +64,7 @@ impl TurfOpsMcp {
                     app_type: None,
                     limit: Some(SNAPSHOT_RECENT_APPLICATIONS),
                     offset: None,
+                    scope: None,
                 }),
             )),
             to_value(api::timing::get_timing_windows(state())),

@@ -116,12 +116,20 @@ export const updateProfile = (
 	});
 
 // Applications
-export const getApplications = (type?: string, limit = 50, offset = 0) => {
+/** `scope`: "turf" or "landscape"; omitted = both. Filtered by the server before paging. */
+// @spec APP-LIST-003
+export const getApplications = (
+	type?: string,
+	limit = 50,
+	offset = 0,
+	scope?: "turf" | "landscape",
+) => {
 	const params = new URLSearchParams({
 		limit: String(limit),
 		offset: String(offset),
 	});
 	if (type) params.set("type", type);
+	if (scope) params.set("scope", scope);
 	return fetchJson<Application[]>(`${BASE}/applications?${params}`);
 };
 

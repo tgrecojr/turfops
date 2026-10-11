@@ -98,3 +98,23 @@ describe("fetchJson success", () => {
 		await expect(fetchJson("/api/v1/x")).resolves.toEqual({ ok: true });
 	});
 });
+
+describe("applications list", () => {
+	// @spec APP-LIST-003
+	it("asks the server for the type and scope", async () => {
+		const fetchSpy = vi.fn(
+			async () =>
+				new Response("[]", {
+					status: 200,
+					headers: { "Content-Type": "application/json" },
+				}),
+		);
+		vi.stubGlobal("fetch", fetchSpy);
+		const { getApplications } = await import("./client");
+		await getApplications("Fertilizer", 50, 0, "landscape");
+		const url = String((fetchSpy.mock.calls[0] as unknown[])[0]);
+		expect(url).toContain("type=Fertilizer");
+		expect(url).toContain("scope=landscape");
+		expect(url).toContain("offset=0");
+	});
+});

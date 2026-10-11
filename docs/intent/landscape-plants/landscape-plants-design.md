@@ -65,7 +65,7 @@ Queries live in `backend/src/db/plant_queries.rs`:
 | `create_plant` | Inserts and returns the id. `created_at` / `updated_at` come from DB defaults. |
 | `update_plant_metadata` | Reads the row, merges the partial update, writes metadata, sets `updated_at = NOW()`. Never touches the plan. 404 if missing. |
 | `update_plant_plan` | Replaces `maintenance_plan` and `plan_model` and sets `plan_generated_at` and `updated_at` to `NOW()`. |
-| `delete_plant` | `DELETE` by id. Reports whether a row was deleted, so the handler answers 404 for an unknown id (PLANT-API-013; see Deferred 10). |
+| `delete_plant` | In one transaction, writes the plant's name into `applications.plant_name` on its entries (APP-LOG-009, owned by Applications), then `DELETE`s by id. Reports whether a row was deleted, so the handler answers 404 for an unknown id (PLANT-API-013; see Deferred 10). |
 
 On read, an unknown `plant_type` string falls back to `Other` with a warning log. A `maintenance_plan` that does not deserialize is an `InvalidData` error for that row: reading that one plant by id returns 400, while listing skips the plant and logs a warning naming it, so one corrupt row cannot take down `GET /plants`, the recommendation feed or the seasonal plan (PLANT-DATA-006; see Deferred 11).
 
@@ -203,7 +203,7 @@ The Calendar and Seasonal Plan pages render these activities. The Calendar recog
 | Lake or forecast unavailable | Watering reminders are not held back. All other tasks are unaffected. |
 | Malformed window string in a stored plan | That task is skipped in both the feed and the plan. |
 | Undeserializable stored plan | That plant is skipped, with a warning naming it, by `GET /plants`, the feed and the seasonal plan; every other plant keeps working. Reading that plant by id returns 400. |
-| Plant deleted | Its applications keep their rows, with `plant_id` set to NULL. Its recommendations stop. Stored answers keyed by its ids remain and are never matched again. |
+| Plant deleted | Its applications keep their rows, with `plant_id` set to NULL and the plant's name in `plant_name`, so they stay landscape history (Applications). Its recommendations stop. Stored answers keyed by its ids remain and are never matched again. |
 
 ## Landscape Page
 

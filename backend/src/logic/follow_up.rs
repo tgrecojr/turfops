@@ -13,12 +13,21 @@ const STALE_DAYS: i64 = 90;
 /// True if a later application of the same type targeting the same plant (or same
 /// turf-scope) has been logged after `app.application_date` — i.e. the follow-up
 /// has been "done again."
-fn follow_up_completed(app: &Application, applications: &[Application]) -> bool {
+/// Done when the same work on the same target (no plant = the lawn) is logged after the
+/// original and no earlier than the reminder's 7-day lead-in, whatever its product.
+// @spec APP-FOLLOW-003
+fn follow_up_completed(
+    app: &Application,
+    follow_up: NaiveDate,
+    applications: &[Application],
+) -> bool {
+    let lead_in = follow_up - chrono::Duration::days(LEAD_DAYS);
     applications.iter().any(|other| {
         other.id != app.id
             && other.application_type == app.application_type
             && other.plant_id == app.plant_id
             && other.application_date > app.application_date
+            && other.application_date >= lead_in
     })
 }
 
@@ -50,7 +59,7 @@ pub fn generate_follow_up_recommendations(
         if today < lead_in || today > stale_after {
             continue;
         }
-        if follow_up_completed(app, applications) {
+        if follow_up_completed(app, follow_up, applications) {
             continue;
         }
 
@@ -143,7 +152,7 @@ mod tests {
             rate_per_1000sqft: None,
             coverage_sqft: None,
             notes: None,
-            weather_snapshot: None,
+            plant_name: None,
             nitrogen_pct: None,
             phosphorus_pct: None,
             potassium_pct: None,
@@ -153,6 +162,56 @@ mod tests {
             product_id: None,
             created_at: Utc::now(),
         }
+    }
+
+    // @spec APP-FOLLOW-003
+    #[test]
+    fn only_an_entry_inside_the_lead_in_completes_a_follow_up() {
+        let d = |m, day| NaiveDate::from_ymd_opt(2026, m, day).unwrap();
+        let original = app(
+            1,
+            ApplicationType::Insecticide,
+            d(4, 24),
+            Some(42),
+            Some(d(5, 8)),
+        );
+        let today = d(5, 4);
+        let run = |other: Application| {
+            generate_follow_up_recommendations(&[original.clone(), other], &HashMap::new(), today)
+                .iter()
+                .any(|r| r.id == "application_followup_1")
+        };
+        assert!(
+            run(app(
+                2,
+                ApplicationType::Insecticide,
+                d(4, 25),
+                Some(42),
+                None
+            )),
+            "the next day is too early"
+        );
+        assert!(
+            !run(app(
+                2,
+                ApplicationType::Insecticide,
+                d(5, 1),
+                Some(42),
+                None
+            )),
+            "7 days before counts"
+        );
+        let mut other_product = app(2, ApplicationType::Insecticide, d(5, 2), Some(42), None);
+        other_product.product_name = Some("Something else".into());
+        assert!(!run(other_product), "whatever its product");
+        assert!(
+            run(app(2, ApplicationType::Insecticide, d(5, 2), None, None)),
+            "the lawn is another target"
+        );
+        assert!(
+            run(app(2, ApplicationType::Fungicide, d(5, 2), Some(42), None)),
+            "another type"
+        );
     }
 
     #[test]

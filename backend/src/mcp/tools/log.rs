@@ -67,6 +67,7 @@ impl TurfOpsMcp {
                     app_type: params.app_type,
                     limit: Some(limit),
                     offset: None,
+                    scope: None,
                 }),
             ))
             .await;

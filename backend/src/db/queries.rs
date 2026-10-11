@@ -1,7 +1,7 @@
 use crate::error::{Result, TurfOpsError};
 use crate::models::{
     seasonal_plan::ThresholdCrossing, Application, ApplicationType, FracClass, GrassType,
-    IrrigationType, LawnProfile, RecommendationState, Severity, SoilType, WeatherSnapshot,
+    IrrigationType, LawnProfile, LogScope, RecommendationState, Severity, SoilType,
 };
 use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::PgPool;
@@ -98,9 +98,8 @@ pub async fn get_applications_for_profile(
 ) -> Result<Vec<Application>> {
     let rows = sqlx::query_as::<_, ApplicationRow>(
         r#"SELECT id, lawn_profile_id, application_type, product_name, application_date,
-           rate_per_1000sqft, coverage_sqft, notes, soil_temp_10cm_f, ambient_temp_f,
-           humidity_percent, soil_moisture, nitrogen_pct, phosphorus_pct, potassium_pct,
-           plant_id, follow_up_date, frac_classes, product_id, created_at
+           rate_per_1000sqft, coverage_sqft, notes, nitrogen_pct, phosphorus_pct, potassium_pct,
+           plant_id, plant_name, follow_up_date, frac_classes, product_id, created_at
            FROM applications WHERE lawn_profile_id = $1 ORDER BY application_date DESC
            LIMIT $2 OFFSET $3"#,
     )
@@ -119,16 +118,18 @@ pub async fn get_applications_page(
     pool: &PgPool,
     profile_id: i64,
     application_type: Option<ApplicationType>,
+    scope: Option<LogScope>,
     limit: i64,
     offset: i64,
 ) -> Result<Vec<Application>> {
     let rows = sqlx::query_as::<_, ApplicationRow>(
         r#"SELECT id, lawn_profile_id, application_type, product_name, application_date,
-           rate_per_1000sqft, coverage_sqft, notes, soil_temp_10cm_f, ambient_temp_f,
-           humidity_percent, soil_moisture, nitrogen_pct, phosphorus_pct, potassium_pct,
-           plant_id, follow_up_date, frac_classes, product_id, created_at
+           rate_per_1000sqft, coverage_sqft, notes, nitrogen_pct, phosphorus_pct, potassium_pct,
+           plant_id, plant_name, follow_up_date, frac_classes, product_id, created_at
            FROM applications
            WHERE lawn_profile_id = $1 AND ($2::text IS NULL OR application_type = $2)
+             AND ($5::text IS NULL
+                  OR ($5 = 'turf') = (plant_id IS NULL AND plant_name IS NULL))
            ORDER BY application_date DESC, id DESC
            LIMIT $3 OFFSET $4"#,
     )
@@ -136,6 +137,10 @@ pub async fn get_applications_page(
     .bind(opt_enum_to_db_string(application_type)?)
     .bind(limit)
     .bind(offset)
+    .bind(scope.map(|s| match s {
+        LogScope::Turf => "turf",
+        LogScope::Landscape => "landscape",
+    }))
     .fetch_all(pool)
     .await?;
 
@@ -152,9 +157,8 @@ pub async fn get_applications_for_profile_in_range(
 ) -> Result<Vec<Application>> {
     let rows = sqlx::query_as::<_, ApplicationRow>(
         r#"SELECT id, lawn_profile_id, application_type, product_name, application_date,
-           rate_per_1000sqft, coverage_sqft, notes, soil_temp_10cm_f, ambient_temp_f,
-           humidity_percent, soil_moisture, nitrogen_pct, phosphorus_pct, potassium_pct,
-           plant_id, follow_up_date, frac_classes, product_id, created_at
+           rate_per_1000sqft, coverage_sqft, notes, nitrogen_pct, phosphorus_pct, potassium_pct,
+           plant_id, plant_name, follow_up_date, frac_classes, product_id, created_at
            FROM applications
            WHERE lawn_profile_id = $1
              AND application_date >= $2 AND application_date < $3
@@ -179,9 +183,8 @@ pub async fn get_applications_or_follow_ups_in_range(
 ) -> Result<Vec<Application>> {
     let rows = sqlx::query_as::<_, ApplicationRow>(
         r#"SELECT id, lawn_profile_id, application_type, product_name, application_date,
-           rate_per_1000sqft, coverage_sqft, notes, soil_temp_10cm_f, ambient_temp_f,
-           humidity_percent, soil_moisture, nitrogen_pct, phosphorus_pct, potassium_pct,
-           plant_id, follow_up_date, frac_classes, product_id, created_at
+           rate_per_1000sqft, coverage_sqft, notes, nitrogen_pct, phosphorus_pct, potassium_pct,
+           plant_id, plant_name, follow_up_date, frac_classes, product_id, created_at
            FROM applications
            WHERE lawn_profile_id = $1
              AND (
@@ -200,16 +203,14 @@ pub async fn get_applications_or_follow_ups_in_range(
 }
 
 pub async fn create_application(pool: &PgPool, app: &Application) -> Result<i64> {
-    let weather = &app.weather_snapshot;
     let row = sqlx::query_scalar::<_, i64>(
         r#"
         INSERT INTO applications
             (lawn_profile_id, application_type, product_name, application_date,
              rate_per_1000sqft, coverage_sqft, notes,
-             soil_temp_10cm_f, ambient_temp_f, humidity_percent, soil_moisture,
-             nitrogen_pct, phosphorus_pct, potassium_pct, plant_id, follow_up_date,
+             nitrogen_pct, phosphorus_pct, potassium_pct, plant_id, plant_name, follow_up_date,
              frac_classes, product_id)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         RETURNING id
         "#,
     )
@@ -220,14 +221,11 @@ pub async fn create_application(pool: &PgPool, app: &Application) -> Result<i64>
     .bind(app.rate_per_1000sqft)
     .bind(app.coverage_sqft)
     .bind(&app.notes)
-    .bind(weather.as_ref().and_then(|w| w.soil_temp_10cm_f))
-    .bind(weather.as_ref().and_then(|w| w.ambient_temp_f))
-    .bind(weather.as_ref().and_then(|w| w.humidity_percent))
-    .bind(weather.as_ref().and_then(|w| w.soil_moisture))
     .bind(app.nitrogen_pct)
     .bind(app.phosphorus_pct)
     .bind(app.potassium_pct)
     .bind(app.plant_id)
+    .bind(&app.plant_name)
     .bind(app.follow_up_date)
     .bind(frac_classes_to_db(&app.frac_classes)?)
     .bind(app.product_id)
@@ -241,7 +239,6 @@ pub async fn update_application(pool: &PgPool, app: &Application) -> Result<u64>
     let id = app.id.ok_or_else(|| {
         TurfOpsError::InvalidData("update_application requires Application.id".into())
     })?;
-    let weather = &app.weather_snapshot;
     let result = sqlx::query(
         r#"
         UPDATE applications
@@ -251,17 +248,14 @@ pub async fn update_application(pool: &PgPool, app: &Application) -> Result<u64>
                rate_per_1000sqft = $5,
                coverage_sqft = $6,
                notes = $7,
-               soil_temp_10cm_f = $8,
-               ambient_temp_f = $9,
-               humidity_percent = $10,
-               soil_moisture = $11,
-               nitrogen_pct = $12,
-               phosphorus_pct = $13,
-               potassium_pct = $14,
-               plant_id = $15,
-               follow_up_date = $16,
-               frac_classes = $17,
-               product_id = $18
+               nitrogen_pct = $8,
+               phosphorus_pct = $9,
+               potassium_pct = $10,
+               plant_id = $11,
+               plant_name = $12,
+               follow_up_date = $13,
+               frac_classes = $14,
+               product_id = $15
          WHERE id = $1
         "#,
     )
@@ -272,14 +266,11 @@ pub async fn update_application(pool: &PgPool, app: &Application) -> Result<u64>
     .bind(app.rate_per_1000sqft)
     .bind(app.coverage_sqft)
     .bind(&app.notes)
-    .bind(weather.as_ref().and_then(|w| w.soil_temp_10cm_f))
-    .bind(weather.as_ref().and_then(|w| w.ambient_temp_f))
-    .bind(weather.as_ref().and_then(|w| w.humidity_percent))
-    .bind(weather.as_ref().and_then(|w| w.soil_moisture))
     .bind(app.nitrogen_pct)
     .bind(app.phosphorus_pct)
     .bind(app.potassium_pct)
     .bind(app.plant_id)
+    .bind(&app.plant_name)
     .bind(app.follow_up_date)
     .bind(frac_classes_to_db(&app.frac_classes)?)
     .bind(app.product_id)
@@ -292,9 +283,8 @@ pub async fn update_application(pool: &PgPool, app: &Application) -> Result<u64>
 pub async fn get_application_by_id(pool: &PgPool, id: i64) -> Result<Option<Application>> {
     let row = sqlx::query_as::<_, ApplicationRow>(
         r#"SELECT id, lawn_profile_id, application_type, product_name, application_date,
-                  rate_per_1000sqft, coverage_sqft, notes, soil_temp_10cm_f, ambient_temp_f,
-                  humidity_percent, soil_moisture, nitrogen_pct, phosphorus_pct, potassium_pct,
-                  plant_id, follow_up_date, frac_classes, product_id, created_at
+                  rate_per_1000sqft, coverage_sqft, notes, nitrogen_pct, phosphorus_pct, potassium_pct,
+                  plant_id, plant_name, follow_up_date, frac_classes, product_id, created_at
            FROM applications WHERE id = $1"#,
     )
     .bind(id)
@@ -303,12 +293,13 @@ pub async fn get_application_by_id(pool: &PgPool, id: i64) -> Result<Option<Appl
     Ok(row.map(|r| r.into_application()))
 }
 
-pub async fn delete_application(pool: &PgPool, id: i64) -> Result<()> {
-    sqlx::query("DELETE FROM applications WHERE id = $1")
+/// Rows deleted (0 when the id is unknown).
+pub async fn delete_application(pool: &PgPool, id: i64) -> Result<u64> {
+    let result = sqlx::query("DELETE FROM applications WHERE id = $1")
         .bind(id)
         .execute(pool)
         .await?;
-    Ok(())
+    Ok(result.rows_affected())
 }
 
 // Recommendation State Queries
@@ -458,14 +449,11 @@ struct ApplicationRow {
     rate_per_1000sqft: Option<f64>,
     coverage_sqft: Option<f64>,
     notes: Option<String>,
-    soil_temp_10cm_f: Option<f64>,
-    ambient_temp_f: Option<f64>,
-    humidity_percent: Option<f64>,
-    soil_moisture: Option<f64>,
     nitrogen_pct: Option<f64>,
     phosphorus_pct: Option<f64>,
     potassium_pct: Option<f64>,
     plant_id: Option<i64>,
+    plant_name: Option<String>,
     follow_up_date: Option<NaiveDate>,
     frac_classes: Option<Vec<String>>,
     product_id: Option<i64>,
@@ -474,21 +462,6 @@ struct ApplicationRow {
 
 impl ApplicationRow {
     fn into_application(self) -> Application {
-        let weather = if self.soil_temp_10cm_f.is_some()
-            || self.ambient_temp_f.is_some()
-            || self.humidity_percent.is_some()
-            || self.soil_moisture.is_some()
-        {
-            Some(WeatherSnapshot {
-                soil_temp_10cm_f: self.soil_temp_10cm_f,
-                ambient_temp_f: self.ambient_temp_f,
-                humidity_percent: self.humidity_percent,
-                soil_moisture: self.soil_moisture,
-            })
-        } else {
-            None
-        };
-
         let application_type =
             ApplicationType::from_str(&self.application_type).unwrap_or_else(|_| {
                 warn!(
@@ -507,7 +480,7 @@ impl ApplicationRow {
             rate_per_1000sqft: self.rate_per_1000sqft,
             coverage_sqft: self.coverage_sqft,
             notes: self.notes,
-            weather_snapshot: weather,
+            plant_name: self.plant_name,
             nitrogen_pct: self.nitrogen_pct,
             phosphorus_pct: self.phosphorus_pct,
             potassium_pct: self.potassium_pct,
