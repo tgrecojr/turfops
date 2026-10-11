@@ -1,0 +1,570 @@
+openapi: 3.1.0
+
+info:
+  title: NOAA USCRN Weather Data API
+  version: 1.0.0
+  summary: Read-only HTTP API in front of a NOAA USCRN medallion (silver/gold parquet) data lake.
+  description: |
+    Read-only REST API over a NOAA U.S. Climate Reference Network (USCRN) **data lake**
+    produced by a Dagster medallion pipeline (parquet files on a filesystem).
+
+    - **silver** — hourly, cleaned/deduped observations in **native units** (°C, mm, % RH,
+      fractional soil moisture 0–1).
+    - **gold** — daily pre-aggregated means already in **°F**, plus a precomputed base-50°F
+      growing-degree-day value (`gdd50`).
+
+    This replaces in-process DuckDB `read_parquet()` reads by consuming applications.
+
+    Companion design document: `weather-data-api-spec.md`.
+
+    Conventions:
+      * Timestamps are ISO-8601 UTC; dates are `YYYY-MM-DD`.
+      * `station` is a USCRN WBANNO integer (default 3761 for single-station deployments).
+      * Ranges (`start`/`end`) are inclusive. `end < start` → 400. Max span ~400 days.
+      * Missing-data sentinels: soil-moisture / humidity / precipitation values `< 0` in the
+        lake are normalized to `null`.
+      * Errors use `application/problem+json`.
+  license:
+    name: Proprietary
+
+servers:
+  - url: /api/v1/weather
+    description: Versioned base path
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: observations
+    description: Hourly silver-layer observations (native units).
+  - name: daily
+    description: Daily gold-layer aggregates (°F) and growing-degree-days.
+  - name: derived
+    description: Convenience aggregations (summary, GDD year-to-date).
+  - name: system
+    description: Health / connectivity.
+
+paths:
+  /weather/observations/latest:
+    get:
+      operationId: getLatestObservation
+      tags: [observations]
+      summary: Newest hourly observation for a station.
+      description: |
+        Returns the single most recent silver hourly observation
+        (`ORDER BY obs_ts_utc DESC LIMIT 1`) for the station, in native units.
+      parameters:
+        - $ref: '#/components/parameters/Station'
+      responses:
+        '200':
+          description: The newest observation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvironmentalObservation'
+        '204':
+          description: No observations exist for the station.
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/LakeUnavailable'
+
+  /weather/observations:
+    get:
+      operationId: getObservations
+      tags: [observations]
+      summary: Hourly observations over a time range.
+      description: |
+        Silver hourly observations where `obs_ts_utc` is within `[start, end]` (inclusive),
+        in native units. Defaults to newest-first (`order=desc`) — consumers' trend logic
+        relies on this ordering. Use `interval` for server-side downsampling on long ranges
+        (consumers use 1 for 7d, 6 for 30d, 24 for 90d).
+      parameters:
+        - $ref: '#/components/parameters/Station'
+        - $ref: '#/components/parameters/StartTimestamp'
+        - $ref: '#/components/parameters/EndTimestamp'
+        - name: order
+          in: query
+          required: false
+          description: Sort direction by `obs_ts_utc`.
+          schema:
+            type: string
+            enum: [desc, asc]
+            default: desc
+        - name: interval
+          in: query
+          required: false
+          description: Keep every Nth hourly row (server-side downsample).
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+      responses:
+        '200':
+          description: Observations in range.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObservationsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/LakeUnavailable'
+
+  /weather/daily:
+    get:
+      operationId: getDailyAggregates
+      tags: [daily]
+      summary: Daily aggregates over a date range (field-selected).
+      description: |
+        Gold daily aggregates (°F) where `day` is within `[start, end]` (inclusive), ordered
+        by `day` ASC. Folds three source query variants (daily soil-temp averages, paired
+        air+soil averages, daily GDD) into one field-selected endpoint.
+
+        Quality gate: only days with `hours_observed >= min_hours` (default 12) are returned.
+
+        Null-guard semantics (preserve source behavior):
+          * If `fields` includes `gdd50`: a day is included when `gdd50 IS NOT NULL`;
+            `air_temp_max_f` / `air_temp_min_f` may be returned as `null`.
+          * Otherwise: a day is included only when **every** requested field is non-null.
+      parameters:
+        - $ref: '#/components/parameters/Station'
+        - $ref: '#/components/parameters/StartDate'
+        - $ref: '#/components/parameters/EndDate'
+        - name: min_hours
+          in: query
+          required: false
+          description: Minimum `hours_observed` for a day to be included. `0` disables the gate.
+          schema:
+            type: integer
+            minimum: 0
+            default: 12
+        - name: fields
+          in: query
+          required: false
+          description: |
+            CSV of fields to project. Defaults to all. Allowed values:
+            `soil_temp_10_f_mean`, `air_temp_avg_f`, `air_temp_max_f`, `air_temp_min_f`,
+            `gdd50`, `hours_observed`.
+          explode: false
+          style: form
+          schema:
+            type: array
+            uniqueItems: true
+            items:
+              type: string
+              enum:
+                - soil_temp_10_f_mean
+                - air_temp_avg_f
+                - air_temp_max_f
+                - air_temp_min_f
+                - gdd50
+                - hours_observed
+      responses:
+        '200':
+          description: Daily aggregates in range.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DailyResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/LakeUnavailable'
+
+  /weather/gdd/ytd:
+    get:
+      operationId: getGddYtd
+      tags: [derived]
+      summary: Growing-degree-days year-to-date (base 50°F).
+      description: |
+        Sum of daily `gdd50` from January 1 of `year` through today (or Dec 31 for past
+        years). Convenience over `/weather/daily?fields=gdd50`.
+      parameters:
+        - $ref: '#/components/parameters/Station'
+        - name: year
+          in: query
+          required: false
+          description: Calendar year. Defaults to the current year.
+          schema:
+            type: integer
+            example: 2026
+        - name: base
+          in: query
+          required: false
+          description: GDD base in °F. Only 50 is precomputed in the lake.
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Cumulative GDD year-to-date.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GddYtdResponse'
+        '204':
+          description: No data for the period, or `year` is in the future.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/LakeUnavailable'
+
+  /weather/summary:
+    get:
+      operationId: getSummary
+      tags: [derived]
+      summary: Rolling-window environmental summary with soil-temp trend.
+      description: |
+        Latest observation plus rolling-window means (°F) over `window` (default `7d`), and a
+        soil-temp trend computed by comparing the last 24 hourly readings to the prior 24
+        (requires ≥48 readings, ±2.0°F thresholds; otherwise `unknown`).
+      parameters:
+        - $ref: '#/components/parameters/Station'
+        - name: window
+          in: query
+          required: false
+          description: Averaging window. `7d` is the only window consumers use today.
+          schema:
+            type: string
+            default: 7d
+            example: 7d
+      responses:
+        '200':
+          description: Summary for the window.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvironmentalSummary'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/LakeUnavailable'
+
+  /weather/health:
+    get:
+      operationId: getHealth
+      tags: [system]
+      summary: Lake readability probe.
+      description: |
+        Reports whether a trivial `SELECT 1 ... LIMIT 1` against each parquet layer returns a
+        row. `200` when all required layers are readable, `503` when any is not.
+      security: []
+      responses:
+        '200':
+          description: All layers readable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: One or more layers unreadable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Internal service token. (mTLS is an acceptable alternative.)
+
+  parameters:
+    Station:
+      name: station
+      in: query
+      required: false
+      description: USCRN WBANNO station id. Defaults to 3761 for single-station deployments.
+      schema:
+        type: integer
+        default: 3761
+        example: 3761
+    StartTimestamp:
+      name: start
+      in: query
+      required: true
+      description: Inclusive range start (ISO-8601 UTC).
+      schema:
+        type: string
+        format: date-time
+        example: '2026-06-01T00:00:00Z'
+    EndTimestamp:
+      name: end
+      in: query
+      required: true
+      description: Inclusive range end (ISO-8601 UTC).
+      schema:
+        type: string
+        format: date-time
+        example: '2026-06-27T00:00:00Z'
+    StartDate:
+      name: start
+      in: query
+      required: true
+      description: Inclusive range start date.
+      schema:
+        type: string
+        format: date
+        example: '2026-01-01'
+    EndDate:
+      name: end
+      in: query
+      required: true
+      description: Inclusive range end date.
+      schema:
+        type: string
+        format: date
+        example: '2026-06-27'
+
+  responses:
+    BadRequest:
+      description: Invalid parameters (bad range, unknown field, malformed date).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Invalid range
+            status: 400
+            detail: end must be >= start
+    NotFound:
+      description: Unknown station.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Unknown station
+            status: 404
+            detail: No station with WBANNO 9999
+    LakeUnavailable:
+      description: Data lake unreadable (parquet missing or IO error).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Data lake unavailable
+            status: 503
+            detail: Could not read silver parquet
+
+  schemas:
+
+    Problem:
+      type: object
+      description: RFC 9457 problem detail.
+      properties:
+        type:
+          type: string
+          format: uri
+          default: about:blank
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri
+      required: [title, status]
+
+    DepthMap:
+      type: object
+      description: |
+        Values keyed by soil depth in centimeters (5, 10, 20, 50, 100). Each value is
+        nullable. Soil-moisture maps normalize negative sentinels to `null`.
+      properties:
+        '5':   { type: [number, 'null'] }
+        '10':  { type: [number, 'null'] }
+        '20':  { type: [number, 'null'] }
+        '50':  { type: [number, 'null'] }
+        '100': { type: [number, 'null'] }
+      additionalProperties: false
+
+    EnvironmentalObservation:
+      type: object
+      description: One hourly silver observation in native units (°C, mm, % RH, 0–1 moisture).
+      properties:
+        obs_ts_utc:
+          type: string
+          format: date-time
+          description: Observation time (UTC).
+        station:
+          type: integer
+          description: USCRN WBANNO.
+        soil_temp_c:
+          allOf:
+            - $ref: '#/components/schemas/DepthMap'
+          description: Soil temperature by depth, °C.
+        soil_moisture:
+          allOf:
+            - $ref: '#/components/schemas/DepthMap'
+          description: Volumetric soil moisture by depth, fraction 0–1 (negatives → null).
+        air_temp_c:
+          type: [number, 'null']
+          description: Ambient air temperature, °C.
+        rh_pct:
+          type: [number, 'null']
+          description: Relative humidity, % (negatives → null).
+        precip_mm:
+          type: [number, 'null']
+          description: Precipitation, mm (negatives → null).
+      required: [obs_ts_utc, station, soil_temp_c, soil_moisture, air_temp_c, rh_pct, precip_mm]
+
+    ObservationsResponse:
+      type: object
+      properties:
+        station:
+          type: integer
+        order:
+          type: string
+          enum: [desc, asc]
+        interval:
+          type: integer
+        count:
+          type: integer
+        observations:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnvironmentalObservation'
+      required: [station, order, interval, count, observations]
+
+    DailyAggregate:
+      type: object
+      description: |
+        One daily gold aggregate in °F. Only fields requested via `fields` need be present;
+        unrequested fields may be omitted.
+      properties:
+        day:
+          type: string
+          format: date
+        station:
+          type: integer
+          description: USCRN WBANNO (may be omitted if gold is single-station).
+        soil_temp_10_f_mean:
+          type: [number, 'null']
+          description: Daily mean soil temp at 10 cm, °F.
+        air_temp_avg_f:
+          type: [number, 'null']
+          description: Daily mean air temp, °F.
+        air_temp_max_f:
+          type: [number, 'null']
+          description: Daily max air temp, °F.
+        air_temp_min_f:
+          type: [number, 'null']
+          description: Daily min air temp, °F.
+        gdd50:
+          type: [number, 'null']
+          description: Growing degree days, base 50°F, precomputed by the lake.
+        hours_observed:
+          type: integer
+          description: Hours contributing to the daily aggregate.
+      required: [day]
+
+    DailyResponse:
+      type: object
+      properties:
+        station:
+          type: integer
+        start:
+          type: string
+          format: date
+        end:
+          type: string
+          format: date
+        min_hours:
+          type: integer
+        count:
+          type: integer
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/DailyAggregate'
+      required: [station, start, end, min_hours, count, days]
+
+    GddYtdResponse:
+      type: object
+      properties:
+        station:
+          type: integer
+        year:
+          type: integer
+        base_f:
+          type: integer
+        cumulative_gdd:
+          type: number
+        through:
+          type: string
+          format: date
+          description: Last day included in the sum.
+        days_counted:
+          type: integer
+      required: [station, year, base_f, cumulative_gdd, through, days_counted]
+
+    Trend:
+      type: string
+      description: Soil-temp trend over the window.
+      enum: [rising, falling, stable, unknown]
+
+    EnvironmentalSummary:
+      type: object
+      properties:
+        station:
+          type: integer
+        window:
+          type: string
+        last_updated:
+          type: string
+          format: date-time
+        current:
+          oneOf:
+            - $ref: '#/components/schemas/EnvironmentalObservation'
+            - type: 'null'
+          description: Newest observation, or null if none.
+        soil_temp_10_avg_f:
+          type: [number, 'null']
+          description: Window mean soil temp at 10 cm, °F.
+        ambient_temp_avg_f:
+          type: [number, 'null']
+          description: Window mean ambient temp, °F.
+        humidity_avg:
+          type: [number, 'null']
+          description: Window mean relative humidity, %.
+        precip_total_mm:
+          type: [number, 'null']
+          description: Window total precipitation, mm.
+        soil_temp_trend:
+          $ref: '#/components/schemas/Trend'
+      required: [station, window, soil_temp_trend]
+
+    LayerHealth:
+      type: object
+      properties:
+        silver:
+          type: boolean
+        gold:
+          type: boolean
+      required: [silver, gold]
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+        layers:
+          $ref: '#/components/schemas/LayerHealth'
+      required: [status, layers]
