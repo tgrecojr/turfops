@@ -67,8 +67,12 @@ impl std::fmt::Display for CrossingDirection {
 pub struct ThresholdPrediction {
     pub threshold_name: String,
     pub threshold_temp_f: f64,
-    pub estimated_crossing_date: NaiveDate,
+    /// `None` when the estimate falls past the last forecast day (`beyond_forecast`).
+    pub estimated_crossing_date: Option<NaiveDate>,
     pub days_until_crossing: i64,
+    /// The crossing is extrapolated past the forecast, so it has no date.
+    #[serde(default)]
+    pub beyond_forecast: bool,
     pub confidence: PredictionConfidence,
     pub direction: CrossingDirection,
 }

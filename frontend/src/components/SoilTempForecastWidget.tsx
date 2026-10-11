@@ -1,5 +1,6 @@
 import type { SoilTempPrediction, ThresholdPrediction } from "../types";
 import { PREDICTION_CONFIDENCE_COLORS } from "../types";
+import { formatMonthDay } from "../utils/dates";
 
 interface SoilTempForecastWidgetProps {
 	crossings: ThresholdPrediction[];
@@ -18,6 +19,13 @@ function isMeaningfulCrossing(
 	if (predictions.length === 0) return true;
 	const last = predictions[predictions.length - 1];
 	return last.predicted_soil_temp_f < crossing.threshold_temp_f;
+}
+
+/** "~12d", or "Later" for an approach the forecast does not reach. */
+function howSoon(c: ThresholdPrediction): string {
+	return c.beyond_forecast || !c.estimated_crossing_date
+		? "Later"
+		: `~${c.days_until_crossing}d`;
 }
 
 function describeCrossing(c: ThresholdPrediction): string {
@@ -68,17 +76,17 @@ export default function SoilTempForecastWidget({
 			</div>
 
 			<div style={styles.mainRow}>
-				<span style={styles.bigValue}>~{nearest.days_until_crossing}d</span>
+				<span style={styles.bigValue}>{howSoon(nearest)}</span>
 				<span style={styles.unit}>{describeCrossing(nearest)}</span>
 			</div>
 
 			<div style={styles.detail}>{nearest.threshold_name}</div>
 
+			{/* @spec WX-OUTLOOK-CROSS-005: an approach past the forecast has no date */}
 			<div style={styles.detail}>
-				Est.{" "}
-				{new Date(
-					`${nearest.estimated_crossing_date}T00:00:00`,
-				).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+				{nearest.estimated_crossing_date && !nearest.beyond_forecast
+					? `Est. ${formatMonthDay(nearest.estimated_crossing_date)}`
+					: "Beyond the forecast"}
 			</div>
 
 			{currentSoilTemp != null && (
@@ -92,8 +100,7 @@ export default function SoilTempForecastWidget({
 				<div style={styles.moreList}>
 					{upcoming.slice(1, 3).map((c) => (
 						<div key={c.threshold_name} style={styles.moreItem}>
-							~{c.days_until_crossing}d {describeCrossing(c)} (
-							{c.threshold_name})
+							{howSoon(c)} {describeCrossing(c)} ({c.threshold_name})
 						</div>
 					))}
 				</div>

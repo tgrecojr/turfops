@@ -35,14 +35,25 @@ Principles:
    sync write lock). If it is missing, that is not enough data (503).
 3. **Forecast air.** For each `full_days()` forecast day, `(high + low) / 2`. If there are none,
    that is a forecast outage (503 naming the weather forecast).
-4. **Fit** (`fit_model`). Least-squares `soil[i + lag] = slope × air[i] + intercept` for lag
-   0–7 days, aligned by array position. Each lag needs ≥ 10 aligned pairs. The lag with the best
-   R² is kept, and an R² below 0.3 means no model (not enough data, 503).
-5. **Predict** (`predict_soil_temps`). For each forecast day, the driver is the air temperature
-   `lag` days earlier: the observed pair series first, then forecast air. With lag 0 the day's
-   own forecast is used. **A day whose driver is in neither series is skipped.** Values are
-   rounded to 0.1 °F. Each prediction carries a confidence (below).
-6. **Crossings** (`predict_threshold_crossings`), against "today".
+4. **Fit** (`fit_model`). Least-squares `soil(d) = slope × air(d − lag) + intercept` for lag
+   0–7 days, pairing each day's soil with the air of the calendar day `lag` days earlier — by
+   date, so a missing day in the record drops its pairs instead of shifting every later one.
+   Each lag needs ≥ 10 date-aligned pairs. The lag with the best R² is kept, and an R² below
+   0.3 means no model (not enough data, 503).
+5. **Air series** (`continuous_air`). The pairs' station air, then the forecast air, as one
+   daily series: station values win for the same day, and any hole of up to 7 days between
+   or inside them (the lake trails real time by a day or more; the forecast starts today) is
+   linearly interpolated.
+6. **Predict** (`anchored_outlook` over `predict_soil_temps`). For every day after the last
+   observed soil day that the air series can drive, the driver is the air `lag` days earlier.
+   **A day whose driver is missing is skipped.** Every prediction is shifted by the model's
+   error on the last observed day (observed − fitted), so the outlook continues from the
+   measured soil rather than jumping to the fitted line, and values are rounded to 0.1 °F.
+   Each prediction carries a confidence (below). Predictions start the day after the lake's
+   last day, so the first one or two can be dated before today.
+7. **Crossings** (`predict_threshold_crossings`), against "today", walked from the live 10 cm
+   reading through the predictions dated after today — days the lake has not reported yet but
+   that are already past are history to the live reading.
 
 "Today" and "days out" are the lawn's local date (parent decision): the handler passes
 `state.clock.today()` (the app's `Clock`, from `TZ`) into `build_forecast(.., today)`, which
@@ -76,24 +87,31 @@ moves across a threshold is the crossing. A crossing in the wrong direction ends
 that threshold without announcing anything. If nothing crosses but the soil is below a
 non-falling threshold, within 5 °F of it, and the last prediction is warmer than now, an
 **approaching** crossing is added: Low confidence, Rising, dated by linear extrapolation of
-(last prediction − current) over the forecast span. Crossings are sorted by
+(last prediction − current) over the forecast span. When that date falls after the last
+prediction, the approach gets **no date** (`estimated_crossing_date: null`,
+`beyond_forecast: true`) and is described as "beyond the forecast"; its extrapolated
+`days_until_crossing` is kept only for sorting. Crossings are sorted by
 `days_until_crossing`.
 
 ## Contract with Timing Windows
 
-`fit_model(pairs)` and `predict_soil_temps(model, history_air, outlook_air, today)` are pure functions
-that timing windows calls for its 5 cm outlook (`backend/src/logic/timing/mod.rs`). The
-contract:
+`fit_model(pairs)`, `continuous_air(observed, forecast)` and
+`anchored_outlook(model, air, last_soil, today)` (over `predict_soil_temps`) are pure functions
+that both outlooks call; timing windows uses them for its 5 cm outlook
+(`backend/src/logic/timing/mod.rs`). The contract:
 
 - `fit_model` takes `(date, air_f, soil_f)` rows in ascending order and returns `None` with
   fewer than 10 aligned pairs at every lag or a best R² below 0.3. The 14-pair minimum is the
   10 cm endpoint's gate, not the function's.
 - `predict_soil_temps` returns one prediction per outlook day whose lagged driver is found in
   the history series or the outlook series, in outlook order, skipping the rest.
-- The caller supplies its own series. Timing windows refits on 5 cm, joins station and forecast
-  air with the gap interpolated, and anchors to the last observed value
-  (`docs/timing-windows.md`); none of that lives here. It ignores the per-prediction confidence,
-  so it passes its last observed day as `today`.
+- `continuous_air` joins `(date, air_f)` station and forecast series, station winning, holes of
+  up to 7 days (`MAX_AIR_GAP_DAYS`) interpolated, longer ones left open.
+- `anchored_outlook` predicts every day after `last_soil`'s date that `air` can drive, shifted
+  by the model's error on that day.
+- The caller supplies its own series and depth. Timing windows fits on 5 cm over its last 30
+  days (`docs/timing-windows.md`). It ignores the per-prediction confidence, so it passes its
+  last observed day as `today`.
 
 Changing these signatures or the alignment semantics changes both outlooks, so a change here is
 a cross-segment change that pauses for timing windows.
@@ -102,30 +120,33 @@ a cross-segment change that pauses for timing windows.
 
 | Method | Path | Behavior | Errors |
 |---|---|---|---|
-| GET | `/api/v1/soil-temp-forecast` | The pipeline above | 503 `not_enough_data(Source::SoilOutlook)` for insufficient pairs, no current soil reading, a poor fit, or no prediction made: "Not enough recent station data to project soil temperature. Try again once the station has reported a few more days."; 503 forecast outage when there is no full forecast day; 503 lake-not-configured when the lake client is missing; 500 (generic server-error sentence) for a lake error |
+| GET | `/api/v1/soil-temp-forecast` | The pipeline above | 503 `not_enough_data(Source::SoilOutlook)` for insufficient pairs, no current soil reading, a poor fit, or no prediction made: "Not enough recent station data to project soil temperature. Try again once the station has reported a few more days."; 503 forecast outage when there is no full forecast day; 503 lake-not-configured when the lake client is missing; 503 lake-unreadable (detail logged) for a lake error |
 
 The MCP server exposes it as `soil_temp_outlook`.
 
 | Failure | Effect |
 |---|---|
-| Lake unreadable | 500 |
+| Lake unreadable | 503 naming the weather lake |
 | OpenWeatherMap down | 503 once data sync's forecast reuse window expires |
 | Under 14 daily pairs, poor fit, or every day skipped | 503 with the not-enough-data sentence. The Environmental page hides the section; the widget is not rendered |
 
 ## UI Owned
 
 **`PredictionChart`** (`frontend/src/components/PredictionChart.tsx`, on the Environmental
-page). It plots the last 168 points of the page's selected `/historical` 10 cm series as a solid
-line, then the predictions dashed at local noon, joined by a bridge point. It draws reference
+page). It plots the last 7 days of the page's `/historical` 10 cm series as a solid line
+(`lastDays`, whatever range the trend selector shows), then the predictions dashed at local
+noon, joined by a bridge point. It draws reference
 lines only at 60 °F (Grub Control) and 75 °F (Heat Stress). Below it are crossing cards
-(direction arrow, temperature, `~N days (date)`, a confidence badge colored by
+(direction arrow, temperature, `~N days (date)` or "beyond the forecast" (`crossingWhen`), a
+confidence badge colored by
 `PREDICTION_CONFIDENCE_COLORS` with its label) and a model line (R², lag, quality).
 
 **`SoilTempForecastWidget`** (`frontend/src/components/SoilTempForecastWidget.tsx`, rendered by
 the dashboard). It keeps crossings more than 0 days out. A falling crossing counts only if the
 last prediction is still below the threshold, so a transient dip is not a headline. The nearest
 remaining crossing is the headline (`~Nd until soil reaches / drops below X°F`, threshold name,
-estimated date, confidence badge), and up to two more follow. When none remain it shows
+estimated date, confidence badge; an approach beyond the forecast reads "Later" and "Beyond the
+forecast" instead of a count and a date), and up to two more follow. When none remain it shows
 "Current: X°F — No threshold crossings predicted" (or "Prediction data unavailable").
 
 ## Decisions & Alternatives
@@ -138,6 +159,8 @@ estimated date, confidence badge), and up to two more follow. When none remain i
 | Reuse by timing windows | One set of pure functions shared by both outlooks: the fit, the prediction, the joined air series (station air preferred, gaps ≤ 7 days interpolated) and the anchor to the last observation | A separate 5 cm regression; anchoring and gap-filling only in the 5 cm outlook | One method for air → soil projection, so the 10 cm and 5 cm outlooks cannot disagree in method; each caller still supplies its own soil depth and series. Without the anchor, model bias alone can produce a day-one crossing. |
 | Lag alignment | By calendar date | By list position | A missing day in the training window must not silently shift the lag. |
 | Approaching crossing past the forecast | No date, "beyond the forecast" | Extrapolate without limit | Withhold rather than invent: the data supports no date past the forecast. |
+| Crossing walk | Predictions dated after today, from the live reading | Every prediction, including lake-lag days | The live reading is newer than the lake's last day; estimates for days already past are history to it, and walking through them could announce a crossing that has already happened. |
+| Prediction chart span | Last 7 days, whatever the trend range | The trend selector's range | The chart is about the next few days; at 30d or 90d a weeks-long history flattens the outlook. |
 | Outlook unavailable for lack of data | 503 with a plain message | 400 `InvalidData` | Nothing was wrong with the request; the owner needs to know the data is thin (HLD human-readable errors). |
 
 ## Open Questions & Future Decisions
@@ -149,26 +172,8 @@ estimated date, confidence badge), and up to two more follow. When none remain i
 
 ### Deferred
 
-1. **Divergence: not anchored, lag hole not filled** (WX-OUTLOOK-MODEL-008). Intent: the 10 cm outlook uses the same joined air series and anchoring as the 5 cm outlook, from shared functions. Unlike the 5 cm outlook, the 10 cm outlook is not
-   anchored to the last observation and does not interpolate between the lake's last day and
-   the first forecast day. A forecast day whose lagged driver falls in that hole is skipped
-   (`soil_temp_prediction.rs:117-137`). If every day is skipped, `build_forecast` returns `None`
-   and the endpoint answers the not-enough-data 503 (`api/soil_temp_prediction.rs:77`), although
-   the station data is not thin.
-2. **First crossing step compares unlike values** (resolved by anchoring, WX-OUTLOOK-MODEL-008). Detection starts from the live 10 cm reading
-   and steps to unanchored model output (`soil_temp_prediction.rs:215-220`), so model bias alone
-   can produce a day-1 crossing.
-3. **Divergence: lag aligned by index** (WX-OUTLOOK-MODEL-001). Intent: pairs aligned by date. `fit_model` pairs `air[i]` with `soil[i + lag]` by array position
-   (`soil_temp_prediction.rs:68-71`), so a missing gold day in the 30-day window silently shifts
-   the lag. Timing windows' 5 cm fit inherits this.
-4. **Divergence: approaching date uncapped** (WX-OUTLOOK-CROSS-005). Intent: no date past the forecast span. The "approaching" crossing is extrapolated linearly with no cap
-   past the forecast span (`soil_temp_prediction.rs:255-279`), which can date a crossing the data
-   does not support.
-5. **Divergence: chart span follows the trend selector** (WX-OUTLOOK-UI-004). Intent: always the last 7 days. `PredictionChart` takes its "recent" line from the
-   Environmental page's currently selected `/historical` range (last 168 points), so at 30d or
-   90d the line covers weeks, not the last 7 days (`PredictionChart.tsx:33`).
-6. **Technical debt.** `backend/src/logic/soil_temp_prediction.rs` is 629 lines (about 312
-   without tests; limit 300). Functions over 50 lines: `predict_threshold_crossings` (~83),
+1. **Technical debt.** `backend/src/logic/soil_temp_prediction.rs` is 337 lines without its
+   tests (limit 300). Functions over 50 lines: `predict_threshold_crossings` (~90),
    `get_soil_temp_forecast` (~72).
 
 ## References

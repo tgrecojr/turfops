@@ -65,6 +65,31 @@ fn cors_origin(raw: Option<String>) -> Result<Option<String>> {
     }
 }
 
+/// The forecast settings, when `OWM_API_KEY` is set. Without both coordinates there is
+/// no lawn to forecast for: the forecast stays off with a warning naming the missing one,
+/// rather than forecasting for 0, 0.
+// @spec WX-SRC-CFG-003
+fn forecast_config(get: Lookup, w: &mut Vec<String>) -> Option<OpenWeatherMapConfig> {
+    let api_key = var(get, "OWM_API_KEY").filter(|key| !key.trim().is_empty())?;
+    let missing: Vec<&str> = ["OWM_LATITUDE", "OWM_LONGITUDE"]
+        .into_iter()
+        .filter(|key| get(key).is_none_or(|v| v.trim().is_empty()))
+        .collect();
+    if !missing.is_empty() {
+        w.push(format!(
+            "OWM_API_KEY is set but {} isn't; the forecast is off until both coordinates are set.",
+            missing.join(" and ")
+        ));
+        return None;
+    }
+    Some(OpenWeatherMapConfig {
+        api_key,
+        latitude: parsed(get, "OWM_LATITUDE", 0.0, "0", w),
+        longitude: parsed(get, "OWM_LONGITUDE", 0.0, "0", w),
+        enabled: flag(get, "OWM_ENABLED"),
+    })
+}
+
 /// A feature flag: `true`, `1` or `yes` in any case is on, anything else off, unset on.
 // @spec DEPLOY-CONFIG-013
 fn flag(get: Lookup, key: &str) -> bool {
@@ -133,14 +158,7 @@ pub fn from_vars(get: Lookup) -> Result<(Config, Vec<String>)> {
             },
         },
         // docker-compose passes unset optional keys as empty strings; empty = not configured.
-        openweathermap: var(get, "OWM_API_KEY")
-            .filter(|key| !key.trim().is_empty())
-            .map(|api_key| OpenWeatherMapConfig {
-                api_key,
-                latitude: parsed(get, "OWM_LATITUDE", 0.0, "0", w),
-                longitude: parsed(get, "OWM_LONGITUDE", 0.0, "0", w),
-                enabled: flag(get, "OWM_ENABLED"),
-            }),
+        openweathermap: forecast_config(get, w),
         openrouter: var(get, "OPENROUTER_API_KEY")
             .filter(|key| !key.trim().is_empty())
             .map(|api_key| OpenRouterConfig {

@@ -68,7 +68,7 @@ Environmental page hosts the outlook's chart.
 | Component | Consumes | Owned there, not here |
 |---|---|---|
 | Data sync | `fetch_summary`, `fetch_gdd_ytd`, the HA and OWM fetches, each source's connection probe | *When* to read (5 min sensor / 30 min forecast staleness), the 72 h soil cut-off, the 6 h forecast reuse, failure retry policy, merging into the cached `EnvironmentalSummary`, and `/health` itself |
-| Timing windows | `fetch_climate_record`, `fit_model` / `predict_soil_temps`, `WeatherForecast` | Windows, boundaries, climatology, the 5 cm outlook's series, gap interpolation and anchoring, the 1 h climate-record memo |
+| Timing windows | `fetch_climate_record`, `fit_model` / `continuous_air` / `anchored_outlook`, `WeatherForecast` | Windows, boundaries, climatology, the 5 cm outlook's depth and training window, the 1 h climate-record memo |
 | Disease risk | `fetch_daily_disease_inputs`, `ForecastPoint`s | Which days are usable, the dawn and afternoon hour sets, the forecast-day series, every model |
 | Agronomic rules | `EnvironmentalSummary` (incl. `gdd_base50_ytd`), the forecast helpers, `fetch_daily_gdd` behind the GDD endpoint | Rule thresholds and GDD accumulation |
 | Seasonal plan | `fetch_daily_soil_temp_averages` | Crossing analysis and its Postgres cache |

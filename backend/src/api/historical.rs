@@ -1,7 +1,7 @@
 use crate::clock::Clock;
 use crate::error::{Source, TurfOpsError};
 use crate::logic::gdd;
-use crate::models::{HistoricalData, TimeSeriesPoint};
+use crate::models::{EnvironmentalReading, HistoricalData, TimeSeriesPoint};
 use crate::state::AppState;
 use axum::extract::{Query, State};
 use axum::Json;
@@ -24,11 +24,12 @@ pub async fn get_historical(
     let range_str = params.range.as_deref().unwrap_or("7d");
     let now = Utc::now();
 
-    // Silver is hourly, so downsample to keep point counts reasonable on longer ranges.
-    let (start, downsample_interval) = match range_str {
+    // Silver is hourly; longer ranges group hours into buckets to keep point counts
+    // reasonable without dropping any hour's rain.
+    let (start, bucket_hours) = match range_str {
         "7d" => (now - Duration::days(7), 1),    // ~168 hourly points
-        "30d" => (now - Duration::days(30), 6),  // ~every 6h
-        "90d" => (now - Duration::days(90), 24), // ~daily
+        "30d" => (now - Duration::days(30), 6),  // 6-hour buckets
+        "90d" => (now - Duration::days(90), 24), // 24-hour buckets
         _ => {
             return Err(TurfOpsError::InvalidData(
                 "Invalid range. Use 7d, 30d, or 90d".into(),
@@ -45,50 +46,13 @@ pub async fn get_historical(
     let mut readings = client.fetch_range(start, now).await?;
     readings.reverse();
 
-    let mut soil_temp_10_f = Vec::new();
-    let mut ambient_temp_f = Vec::new();
-    let mut humidity_percent = Vec::new();
-    let mut soil_moisture_10 = Vec::new();
-    let mut precipitation_mm = Vec::new();
-
-    for (i, reading) in readings.iter().enumerate() {
-        if i % downsample_interval != 0 {
-            continue;
-        }
-
-        if let Some(v) = reading.soil_temp_10_f {
-            soil_temp_10_f.push(TimeSeriesPoint {
-                timestamp: reading.timestamp,
-                value: v,
-            });
-        }
-        if let Some(v) = reading.ambient_temp_f {
-            ambient_temp_f.push(TimeSeriesPoint {
-                timestamp: reading.timestamp,
-                value: v,
-            });
-        }
-        if let Some(v) = reading.humidity_percent {
-            humidity_percent.push(TimeSeriesPoint {
-                timestamp: reading.timestamp,
-                value: v,
-            });
-        }
-        if let Some(v) = reading.soil_moisture_10 {
-            soil_moisture_10.push(TimeSeriesPoint {
-                timestamp: reading.timestamp,
-                value: v,
-            });
-        }
-        if let Some(v) = reading.precipitation_mm {
-            if v >= 0.0 {
-                precipitation_mm.push(TimeSeriesPoint {
-                    timestamp: reading.timestamp,
-                    value: v,
-                });
-            }
-        }
-    }
+    let Series {
+        soil_temp_10_f,
+        ambient_temp_f,
+        humidity_percent,
+        soil_moisture_10,
+        precipitation_mm,
+    } = series(&readings, bucket_hours);
 
     // GDD accumulation from the gold daily layer. Accumulate from Jan 1 so the values
     // are true year-to-date (resetting on year boundaries), then keep only points
@@ -117,6 +81,79 @@ pub async fn get_historical(
     }))
 }
 
+/// The chart series for a range's hourly readings (ascending).
+pub(crate) struct Series {
+    pub soil_temp_10_f: Vec<TimeSeriesPoint>,
+    pub ambient_temp_f: Vec<TimeSeriesPoint>,
+    pub humidity_percent: Vec<TimeSeriesPoint>,
+    pub soil_moisture_10: Vec<TimeSeriesPoint>,
+    pub precipitation_mm: Vec<TimeSeriesPoint>,
+}
+
+/// One series' values in a bucket: rain sums, everything else averages over the hours
+/// that reported it.
+#[derive(Default)]
+struct Bucket {
+    sum: f64,
+    count: u32,
+}
+
+impl Bucket {
+    fn add(&mut self, value: Option<f64>) {
+        if let Some(v) = value {
+            self.sum += v;
+            self.count += 1;
+        }
+    }
+}
+
+/// Group the hours into `bucket_hours`-long time buckets (1 = every hour), each point
+/// stamped at its bucket's start. A bucket with no value for a series is left out of it.
+// @spec WX-VIEW-API-003
+pub(crate) fn series(readings: &[EnvironmentalReading], bucket_hours: i64) -> Series {
+    let bucket_secs = bucket_hours.max(1) * 3600;
+    let mut buckets: Vec<(DateTime<Utc>, [Bucket; 5])> = Vec::new();
+    for r in readings {
+        let start_secs = r.timestamp.timestamp().div_euclid(bucket_secs) * bucket_secs;
+        let start = if bucket_hours <= 1 {
+            r.timestamp
+        } else {
+            DateTime::from_timestamp(start_secs, 0).unwrap_or(r.timestamp)
+        };
+        if buckets.last().is_none_or(|(s, _)| *s != start) {
+            buckets.push((start, Default::default()));
+        }
+        let [soil, ambient, humidity, moisture, rain] = &mut buckets.last_mut().unwrap().1;
+        soil.add(r.soil_temp_10_f);
+        ambient.add(r.ambient_temp_f);
+        humidity.add(r.humidity_percent);
+        moisture.add(r.soil_moisture_10);
+        rain.add(r.precipitation_mm.filter(|p| *p >= 0.0));
+    }
+
+    let points = |index: usize, total: bool| -> Vec<TimeSeriesPoint> {
+        buckets
+            .iter()
+            .filter(|(_, b)| b[index].count > 0)
+            .map(|(timestamp, b)| TimeSeriesPoint {
+                timestamp: *timestamp,
+                value: if total {
+                    b[index].sum
+                } else {
+                    b[index].sum / f64::from(b[index].count)
+                },
+            })
+            .collect()
+    };
+    Series {
+        soil_temp_10_f: points(0, false),
+        ambient_temp_f: points(1, false),
+        humidity_percent: points(2, false),
+        soil_moisture_10: points(3, false),
+        precipitation_mm: points(4, true),
+    }
+}
+
 /// The GDD series' dates for a range from `start` to `now`, as the lawn's local dates:
 /// (Jan 1 of the start's year to accumulate from, the first date shown, the last date).
 // @spec WX-VIEW-API-005
@@ -133,6 +170,37 @@ fn gdd_window(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::models::DataSource;
+
+    fn hour(h: i64, soil: f64, rain: f64) -> EnvironmentalReading {
+        let mut r = EnvironmentalReading::new(DataSource::SoilData);
+        r.timestamp = "2026-10-01T00:00:00Z".parse::<DateTime<Utc>>().unwrap() + Duration::hours(h);
+        r.soil_temp_10_f = Some(soil);
+        r.ambient_temp_f = Some(soil + 10.0);
+        r.precipitation_mm = Some(rain);
+        r
+    }
+
+    // @spec WX-VIEW-API-003
+    #[test]
+    fn longer_ranges_bucket_hours_summing_rain_and_averaging_the_rest() {
+        let hours: Vec<_> = (0..12).map(|h| hour(h, 50.0 + h as f64, 1.0)).collect();
+        let six = series(&hours, 6);
+        assert_eq!(six.soil_temp_10_f.len(), 2);
+        assert_eq!(six.soil_temp_10_f[0].value, 52.5, "mean of hours 0-5");
+        assert_eq!(six.soil_temp_10_f[1].value, 58.5, "mean of hours 6-11");
+        assert_eq!(six.precipitation_mm[0].value, 6.0, "six hours of 1 mm");
+        assert_eq!(six.ambient_temp_f[0].value, 62.5);
+        let mut gappy = hours.clone();
+        gappy[1].soil_temp_10_f = None;
+        let mean_of_present = (50.0 + 52.0 + 53.0 + 54.0 + 55.0) / 5.0;
+        assert_eq!(series(&gappy, 6).soil_temp_10_f[0].value, mean_of_present);
+        assert_eq!(
+            series(&hours, 1).soil_temp_10_f.len(),
+            12,
+            "7d keeps every hour"
+        );
+    }
 
     // @spec WX-VIEW-API-005
     #[test]

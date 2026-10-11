@@ -83,6 +83,8 @@ fn feature_flags_accept_true_1_or_yes_in_any_case() {
     let enabled = |value: Option<&str>| {
         let mut vars = with(&[
             ("OWM_API_KEY", OWM_SECRET),
+            ("OWM_LATITUDE", "39.85"),
+            ("OWM_LONGITUDE", "-75.78"),
             ("OPENROUTER_API_KEY", OR_SECRET),
         ]);
         if let Some(v) = value {
@@ -148,4 +150,31 @@ fn an_invalid_cors_origin_stops_startup_without_a_panic() {
             "{good}"
         );
     }
+}
+
+// @spec WX-SRC-CFG-003
+#[test]
+fn a_forecast_key_without_coordinates_turns_the_forecast_off() {
+    for missing in ["OWM_LATITUDE", "OWM_LONGITUDE"] {
+        let mut vars = with(&[
+            ("OWM_API_KEY", OWM_SECRET),
+            ("OWM_LATITUDE", "39.85"),
+            ("OWM_LONGITUDE", "-75.78"),
+        ]);
+        vars.remove(missing);
+        let (config, warnings) = load(&vars).unwrap();
+        assert!(
+            config.openweathermap.is_none(),
+            "{missing} unset: no forecast for 0, 0"
+        );
+        assert!(warnings.iter().any(|w| w.contains(missing)), "{warnings:?}");
+    }
+    let (config, _) = load(&with(&[
+        ("OWM_API_KEY", OWM_SECRET),
+        ("OWM_LATITUDE", "39.85"),
+        ("OWM_LONGITUDE", "-75.78"),
+    ]))
+    .unwrap();
+    let owm = config.openweathermap.unwrap();
+    assert_eq!((owm.latitude, owm.longitude), (39.85, -75.78));
 }

@@ -6,6 +6,14 @@ import {
 	refreshEnvironmental,
 } from "../api/client";
 import { describeError } from "../api/errors";
+import {
+	crossingWhen,
+	isPartialDay,
+	lastDays,
+	soilObservedLine,
+	staleSoilMessage,
+	TREND_REFERENCES,
+} from "../components/environmental/display";
 import Gauge from "../components/Gauge";
 import {
 	AMBIENT_TEMP_GAUGE,
@@ -199,7 +207,15 @@ export default function Environmental() {
 					Last updated: {new Date(data.last_updated).toLocaleString()}
 					{data.soil_temp_trend &&
 						` | Soil temp trend: ${data.soil_temp_trend}`}
+					{soilObservedLine(data) && ` | ${soilObservedLine(data)}`}
 				</p>
+			)}
+
+			{/* @spec WX-VIEW-PAGE-008: data sync owns the stale limit (SYNC-MERGE-006) */}
+			{data?.soil_stale && (
+				<div role="alert" style={sharedStyles.error}>
+					{staleSoilMessage(data)}
+				</div>
 			)}
 
 			{/* Gauges */}
@@ -294,7 +310,12 @@ export default function Environmental() {
 					<div style={styles.forecastGrid}>
 						{data.forecast.daily_summary.map((day) => (
 							<div key={day.date} style={styles.forecastCard}>
-								<div style={styles.forecastDate}>{day.date}</div>
+								<div style={styles.forecastDate}>
+									{day.date}
+									{isPartialDay(day) && (
+										<span style={styles.partialDay}> · partial day</span>
+									)}
+								</div>
 								<div style={styles.forecastCondition}>
 									{day.dominant_condition}
 								</div>
@@ -322,7 +343,7 @@ export default function Environmental() {
 					<h2 style={sharedStyles.sectionTitle}>Soil Temperature Forecast</h2>
 					<div style={{ marginBottom: "1rem" }}>
 						<PredictionChart
-							recentSoilTemps={histData?.soil_temp_10_f ?? []}
+							recentSoilTemps={lastDays(histData?.soil_temp_10_f ?? [], 7)}
 							predictions={soilForecast.predictions}
 						/>
 					</div>
@@ -351,16 +372,7 @@ export default function Environmental() {
 										{c.threshold_temp_f}
 										{"\u00B0F"}
 									</div>
-									<div style={styles.crossingDate}>
-										~{c.days_until_crossing} days (
-										{new Date(
-											`${c.estimated_crossing_date}T00:00:00`,
-										).toLocaleDateString(undefined, {
-											month: "short",
-											day: "numeric",
-										})}
-										)
-									</div>
+									<div style={styles.crossingDate}>{crossingWhen(c)}</div>
 								</div>
 							))}
 						</div>
@@ -373,7 +385,7 @@ export default function Environmental() {
 				</>
 			)}
 
-			{/* Historical Trends */}
+			{/* Historical Trends — @spec WX-VIEW-PAGE-007: reference lines from TREND_REFERENCES only */}
 			<div style={styles.trendHeader}>
 				<h2 style={sharedStyles.sectionTitle}>Historical Trends</h2>
 				<div style={styles.rangeButtons}>
@@ -403,32 +415,30 @@ export default function Environmental() {
 						label="Soil Temperature (10cm)"
 						unit={"\u00B0F"}
 						color="#e67e22"
-						thresholdValue={55}
-						thresholdLabel="Pre-emergent"
 					/>
 					<TrendChart
 						data={histData.ambient_temp_f}
 						label="Ambient Temperature"
 						unit={"\u00B0F"}
 						color="#3498db"
-						thresholdValue={85}
-						thresholdLabel="Heat stress"
+						thresholdValue={TREND_REFERENCES.ambient?.value}
+						thresholdLabel={TREND_REFERENCES.ambient?.label}
 					/>
 					<TrendChart
 						data={histData.humidity_percent}
 						label="Humidity"
 						unit="%"
 						color="#9b59b6"
-						thresholdValue={80}
-						thresholdLabel="Disease risk"
+						thresholdValue={TREND_REFERENCES.humidity?.value}
+						thresholdLabel={TREND_REFERENCES.humidity?.label}
 					/>
 					<TrendChart
 						data={histData.soil_moisture_10}
 						label="Soil Moisture (10cm)"
 						unit=""
 						color="#27ae60"
-						thresholdValue={0.1}
-						thresholdLabel="Drought"
+						thresholdValue={TREND_REFERENCES.moisture?.value}
+						thresholdLabel={TREND_REFERENCES.moisture?.label}
 					/>
 					<TrendChart
 						data={histData.precipitation_mm.map((p) => ({
@@ -444,8 +454,6 @@ export default function Environmental() {
 						label="GDD Accumulation (Base 50°F)"
 						unit="GDD"
 						color="#48bb78"
-						thresholdValue={200}
-						thresholdLabel="Crabgrass"
 					/>
 				</div>
 			) : null}
@@ -515,6 +523,7 @@ const styles: Record<string, React.CSSProperties> = {
 		textAlign: "center" as const,
 	},
 	forecastDate: { fontSize: "0.8rem", fontWeight: 600, color: "#2d3748" },
+	partialDay: { fontWeight: 400, color: "#975a16" },
 	forecastCondition: { fontSize: "0.85rem", color: "#4a5568", margin: "4px 0" },
 	forecastTemp: { fontSize: "1.1rem", fontWeight: 600, color: "#1a202c" },
 	forecastDetail: { fontSize: "0.7rem", color: "#718096", marginTop: 2 },

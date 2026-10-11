@@ -25,7 +25,7 @@ pub async fn get_soil_temp_forecast(
         .fetch_daily_paired_averages(thirty_days_ago, now)
         .await?;
 
-    if daily_pairs.len() < 14 {
+    if daily_pairs.len() < soil_temp_prediction::MIN_TRAINING_PAIRS {
         // @spec WX-OUTLOOK-API-003
         return Err(TurfOpsError::not_enough_data(Source::SoilOutlook));
     }
@@ -40,10 +40,6 @@ pub async fn get_soil_temp_forecast(
         .as_ref()
         .and_then(|c| c.soil_temp_10_f)
         .ok_or_else(|| TurfOpsError::not_enough_data(Source::SoilOutlook))?;
-
-    // Extract recent daily air temps from paired data
-    let recent_daily_air: Vec<(chrono::NaiveDate, f64)> =
-        daily_pairs.iter().map(|(d, air, _)| (*d, *air)).collect();
 
     // Extract forecast daily avg air temps from OWM
     let forecast_daily_air: Vec<(chrono::NaiveDate, f64)> = summary
@@ -69,7 +65,6 @@ pub async fn get_soil_temp_forecast(
 
     let forecast = soil_temp_prediction::build_forecast(
         &daily_pairs,
-        &recent_daily_air,
         &forecast_daily_air,
         current_soil_temp,
         state.clock.today(),
