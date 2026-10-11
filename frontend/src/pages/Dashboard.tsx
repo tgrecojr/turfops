@@ -9,6 +9,11 @@ import {
 } from "../api/client";
 import { describeError } from "../api/errors";
 import AlertCard from "../components/AlertCard";
+import {
+	loadDashboard,
+	type Widget,
+	type Widgets,
+} from "../components/dashboard/loadDashboard";
 import DiseaseRiskWidget from "../components/disease/DiseaseRiskWidget";
 import Gauge from "../components/Gauge";
 import GddWidget from "../components/GddWidget";
@@ -36,17 +41,41 @@ import { formatInches } from "../utils/units";
 
 const POLL_INTERVAL = 30_000; // 30 seconds
 
+type DashboardWidgets = {
+	gdd: GddSummary;
+	nBudget: NitrogenBudget;
+	soilForecast: SoilTempForecast;
+	diseaseRisk: DiseaseRiskResponse;
+	timing: TimingResponse;
+};
+
+/** A widget's last good data; marked when this poll couldn't refresh it. */
+function Stale<T>({
+	widget,
+	children,
+}: {
+	widget: Widget<T>;
+	children: (data: T) => React.ReactNode;
+}) {
+	if (widget.value == null) return null;
+	return (
+		<div>
+			{widget.stale && (
+				<div style={{ fontSize: "0.72rem", color: "#975a16", marginBottom: 4 }}>
+					⚠ Couldn't refresh — showing the last good data
+				</div>
+			)}
+			{children(widget.value)}
+		</div>
+	);
+}
+
 export default function Dashboard() {
 	const [data, setData] = useState<DashboardResponse | null>(null);
-	const [gddData, setGddData] = useState<GddSummary | null>(null);
-	const [nBudget, setNBudget] = useState<NitrogenBudget | null>(null);
-	const [soilForecast, setSoilForecast] = useState<SoilTempForecast | null>(
+	const [widgets, setWidgets] = useState<Widgets<DashboardWidgets> | null>(
 		null,
 	);
-	const [diseaseRisk, setDiseaseRisk] = useState<DiseaseRiskResponse | null>(
-		null,
-	);
-	const [timing, setTiming] = useState<TimingResponse | null>(null);
+	const widgetsRef = useRef<Widgets<DashboardWidgets> | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 	const abortRef = useRef<AbortController | null>(null);
@@ -56,21 +85,25 @@ export default function Dashboard() {
 		const controller = new AbortController();
 		abortRef.current = controller;
 		try {
-			const [d, gdd, nb, sf, dr, tw] = await Promise.all([
-				getDashboard(),
-				getGdd().catch(() => null),
-				getNitrogenBudget().catch(() => null),
-				getSoilTempForecast().catch(() => null),
-				getDiseaseRisk().catch(() => null),
-				getTimingWindows().catch(() => null),
-			]);
+			// @spec UI-DASH-003, FEED-UI-013
+			const result = await loadDashboard<DashboardResponse, DashboardWidgets>(
+				{
+					dashboard: getDashboard,
+					widgets: {
+						gdd: (signal) => getGdd(undefined, signal),
+						nBudget: (signal) => getNitrogenBudget(undefined, signal),
+						soilForecast: getSoilTempForecast,
+						diseaseRisk: getDiseaseRisk,
+						timing: getTimingWindows,
+					},
+				},
+				controller.signal,
+				widgetsRef.current,
+			);
 			if (!controller.signal.aborted) {
-				setData(d);
-				setGddData(gdd);
-				setNBudget(nb);
-				setSoilForecast(sf);
-				setDiseaseRisk(dr);
-				setTiming(tw);
+				setData(result.dashboard);
+				widgetsRef.current = result.widgets;
+				setWidgets(result.widgets);
 				setError(null);
 			}
 		} catch (e) {
@@ -236,20 +269,28 @@ export default function Dashboard() {
 			</div>
 
 			{/* GDD, Disease Risk, Timing, Nitrogen Budget & Soil Temp Forecast widgets */}
-			{(gddData || nBudget || soilForecast || diseaseRisk || timing) && (
+			{widgets && (
 				<div style={styles.widgetGrid}>
-					{gddData && <GddWidget data={gddData} />}
-					{diseaseRisk && <DiseaseRiskWidget data={diseaseRisk} />}
-					{timing && <TimingWidget data={timing} />}
+					<Stale widget={widgets.gdd}>{(d) => <GddWidget data={d} />}</Stale>
+					<Stale widget={widgets.diseaseRisk}>
+						{(d) => <DiseaseRiskWidget data={d} />}
+					</Stale>
+					<Stale widget={widgets.timing}>
+						{(d) => <TimingWidget data={d} />}
+					</Stale>
 					<ShoppingListPanel compact />
-					{nBudget && <NitrogenBudgetWidget data={nBudget} />}
-					{soilForecast && (
-						<SoilTempForecastWidget
-							crossings={soilForecast.threshold_crossings}
-							predictions={soilForecast.predictions}
-							currentSoilTemp={current?.soil_temp_10_f ?? null}
-						/>
-					)}
+					<Stale widget={widgets.nBudget}>
+						{(d) => <NitrogenBudgetWidget data={d} />}
+					</Stale>
+					<Stale widget={widgets.soilForecast}>
+						{(d) => (
+							<SoilTempForecastWidget
+								crossings={d.threshold_crossings}
+								predictions={d.predictions}
+								currentSoilTemp={current?.soil_temp_10_f ?? null}
+							/>
+						)}
+					</Stale>
 				</div>
 			)}
 

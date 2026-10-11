@@ -3,9 +3,10 @@ import { Link } from "react-router";
 import { getRecommendations, patchRecommendation } from "../api/client";
 import { describeError } from "../api/errors";
 import InventoryBadge from "../components/InventoryBadge";
+import { severityChip } from "../components/severity";
 import { sharedStyles } from "../styles/shared";
 import type { Recommendation } from "../types";
-import { categoryLabel, SEVERITY_COLORS, SEVERITY_SYMBOLS } from "../types";
+import { categoryLabel, SEVERITY_SYMBOLS } from "../types";
 import { STOCK_STATUS_LABELS } from "../types/inventory";
 
 export default function Recommendations() {
@@ -91,8 +92,8 @@ export default function Recommendations() {
 					{/* List */}
 					<div style={styles.list}>
 						{recs.map((rec) => {
-							const color = SEVERITY_COLORS[rec.severity];
-							const symbol = SEVERITY_SYMBOLS[rec.severity];
+							// @spec FEED-REC-004
+							const chip = severityChip(rec.severity);
 							const isSelected = rec.id === selected;
 							const isActioning = actionInFlight === rec.id;
 
@@ -104,7 +105,7 @@ export default function Recommendations() {
 									tabIndex={0}
 									style={{
 										...styles.listItem,
-										borderLeftColor: color,
+										borderLeftColor: chip.accent,
 										backgroundColor: isSelected ? "#ebf8ff" : "#fff",
 									}}
 									onClick={() => setSelected(rec.id)}
@@ -119,12 +120,12 @@ export default function Recommendations() {
 										<span
 											style={{
 												...sharedStyles.badge,
-												backgroundColor: color,
-												color: "#fff",
+												backgroundColor: chip.backgroundColor,
+												color: chip.color,
 												border: "none",
 											}}
 										>
-											{symbol} {rec.severity}
+											{chip.text}
 										</span>
 										<span style={styles.category}>
 											{categoryLabel(rec.category)}
@@ -169,14 +170,15 @@ export default function Recommendations() {
 							<span
 								style={{
 									...sharedStyles.badge,
-									backgroundColor: SEVERITY_COLORS[selectedRec.severity],
-									color: "#fff",
+									backgroundColor: severityChip(selectedRec.severity)
+										.backgroundColor,
+									color: severityChip(selectedRec.severity).color,
 									border: "none",
 									marginBottom: 8,
 									display: "inline-block",
 								}}
 							>
-								{SEVERITY_SYMBOLS[selectedRec.severity]} {selectedRec.severity}
+								{severityChip(selectedRec.severity).text}
 							</span>
 							<span style={{ ...styles.category, marginLeft: 8 }}>
 								{categoryLabel(selectedRec.category)}

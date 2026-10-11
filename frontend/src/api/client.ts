@@ -63,13 +63,18 @@ export async function fetchJson<T>(
 ): Promise<T> {
 	const controller = new AbortController();
 	const timer = setTimeout(() => controller.abort(), timeoutMs);
+	// @spec UI-API-005, UI-API-006
+	// The caller's headers add to the JSON default; the caller's signal joins the timeout
+	// rather than replacing it.
+	const headers = new Headers(init?.headers);
+	if (!headers.has("Content-Type"))
+		headers.set("Content-Type", "application/json");
+	const signal = init?.signal
+		? AbortSignal.any([controller.signal, init.signal])
+		: controller.signal;
 
 	try {
-		const res = await fetch(url, {
-			headers: { "Content-Type": "application/json" },
-			signal: controller.signal,
-			...init,
-		});
+		const res = await fetch(url, { ...init, headers, signal });
 		// @spec UI-ERR-004, UI-API-003
 		const text = await res.text();
 		if (!res.ok) throw new ApiError(res.status, errorMessage(text, res.status));
@@ -96,9 +101,14 @@ export async function fetchJson<T>(
 // Health
 export const getHealth = () => fetchJson<HealthResponse>(`${BASE}/health`);
 
+/** The lawn's local date (the server's `TZ`), never the viewer's clock. */
+// @spec UI-UTIL-005
+export const getToday = () =>
+	fetchJson<{ today: string; timezone: string | null }>(`${BASE}/today`);
+
 // Dashboard
-export const getDashboard = () =>
-	fetchJson<DashboardResponse>(`${BASE}/dashboard`);
+export const getDashboard = (signal?: AbortSignal) =>
+	fetchJson<DashboardResponse>(`${BASE}/dashboard`, { signal });
 
 // Profile
 export const getProfile = () => fetchJson<LawnProfile>(`${BASE}/profile`);
@@ -225,15 +235,15 @@ export const patchRecommendation = (
 	);
 
 // GDD
-export const getDiseaseRisk = () =>
-	fetchJson<DiseaseRiskResponse>(`${BASE}/disease-risk`);
+export const getDiseaseRisk = (signal?: AbortSignal) =>
+	fetchJson<DiseaseRiskResponse>(`${BASE}/disease-risk`, { signal });
 
-export const getTimingWindows = () =>
-	fetchJson<TimingResponse>(`${BASE}/timing-windows`);
+export const getTimingWindows = (signal?: AbortSignal) =>
+	fetchJson<TimingResponse>(`${BASE}/timing-windows`, { signal });
 
-export const getGdd = (year?: number) => {
+export const getGdd = (year?: number, signal?: AbortSignal) => {
 	const params = year ? `?year=${year}` : "";
-	return fetchJson<GddSummary>(`${BASE}/gdd${params}`);
+	return fetchJson<GddSummary>(`${BASE}/gdd${params}`, { signal });
 };
 
 // Historical trends
@@ -241,14 +251,16 @@ export const getHistorical = (range: "7d" | "30d" | "90d") =>
 	fetchJson<HistoricalData>(`${BASE}/historical?range=${range}`);
 
 // Nitrogen budget
-export const getNitrogenBudget = (year?: number) => {
+export const getNitrogenBudget = (year?: number, signal?: AbortSignal) => {
 	const params = year ? `?year=${year}` : "";
-	return fetchJson<NitrogenBudget>(`${BASE}/nitrogen-budget${params}`);
+	return fetchJson<NitrogenBudget>(`${BASE}/nitrogen-budget${params}`, {
+		signal,
+	});
 };
 
 // Soil temperature forecast
-export const getSoilTempForecast = () =>
-	fetchJson<SoilTempForecast>(`${BASE}/soil-temp-forecast`);
+export const getSoilTempForecast = (signal?: AbortSignal) =>
+	fetchJson<SoilTempForecast>(`${BASE}/soil-temp-forecast`, { signal });
 
 // Soil Tests
 export const getSoilTests = () => fetchJson<SoilTest[]>(`${BASE}/soil-tests`);

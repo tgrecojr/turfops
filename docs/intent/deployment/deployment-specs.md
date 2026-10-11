@@ -49,6 +49,7 @@ Design: [deployment-design.md](deployment-design.md). Prefix `DEPLOY`. Facets: `
 - [x] **DEPLOY-TZ-003**: When the backend starts, it shall log at INFO the `TZ` value, the UTC offset it resolved to and the resulting local date and time, so a wrong clock shows in the startup log.
 - [x] **DEPLOY-TZ-004**: If `TZ` is unset or empty at startup, then the backend shall log a warning that every date gate will follow the host's default zone (UTC in the image) and that `TZ` must be set to the lawn's timezone.
 - [x] **DEPLOY-TZ-005**: If `TZ` is set to a value that does not resolve to a timezone (for example an IANA name missing from the zoneinfo database), then the backend shall stop with a configuration error naming `TZ` and exit non-zero, rather than fall back silently to UTC.
+- [x] **DEPLOY-TZ-006**: When `GET /api/v1/today` is called, the system shall return `today`, the lawn's local date from the app clock (`TZ`) as YYYY-MM-DD, and `timezone`, the IANA zone name (null when `TZ` is unset and the host's default zone applies), without touching the database or any data source.
 
 ## Startup and migrations
 

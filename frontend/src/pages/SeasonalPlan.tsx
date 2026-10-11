@@ -12,21 +12,13 @@ import type {
 	PlannedActivity,
 	SeasonalPlan as SeasonalPlanType,
 } from "../types";
+import { formatDateRange, formatMonthDay } from "../utils/dates";
 
 const CONFIDENCE_DOTS: Record<string, string> = {
 	High: "●●●",
 	Medium: "●●○",
 	Low: "●○○",
 };
-
-function formatDate(dateStr: string): string {
-	const d = new Date(`${dateStr}T12:00:00`);
-	return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
-
-function formatDateRange(start: string, end: string): string {
-	return `${formatDate(start)} – ${formatDate(end)}`;
-}
 
 function ActivityCard({
 	activity,
@@ -117,9 +109,9 @@ function ActivityCard({
 								<div style={styles.detailRow}>
 									<span style={styles.detailLabel}>Historical range:</span>
 									<span>
-										{formatDate(activity.date_window.earliest_historical)}
+										{formatMonthDay(activity.date_window.earliest_historical)}
 										{activity.date_window.latest_historical &&
-											` – ${formatDate(activity.date_window.latest_historical)}`}
+											` – ${formatMonthDay(activity.date_window.latest_historical)}`}
 									</span>
 								</div>
 							)}

@@ -7,10 +7,11 @@ import {
 	updateSoilTest,
 } from "../api/client";
 import { describeError } from "../api/errors";
+import { useServerToday } from "../components/useServerToday";
 import { sharedStyles } from "../styles/shared";
 import type { NutrientLevel, SoilTest, SoilTestSummary } from "../types";
 import { NUTRIENT_LEVEL_COLORS } from "../types";
-import { todayLocalISO } from "../utils/dates";
+import { futureDateWarning, todayLocalISO } from "../utils/dates";
 
 export default function SoilTests() {
 	const [tests, setTests] = useState<SoilTest[]>([]);
@@ -23,6 +24,8 @@ export default function SoilTests() {
 
 	// Form fields
 	const [testDate, setTestDate] = useState(todayLocalISO());
+	// @spec UI-UTIL-005
+	const serverToday = useServerToday();
 	const [labName, setLabName] = useState("");
 	const [ph, setPh] = useState("");
 	const [bufferPh, setBufferPh] = useState("");
@@ -207,6 +210,18 @@ export default function SoilTests() {
 									required
 									style={styles.input}
 								/>
+								{futureDateWarning(testDate, serverToday) && (
+									<div
+										role="note"
+										style={{
+											fontSize: "0.75rem",
+											color: "#975a16",
+											marginTop: 4,
+										}}
+									>
+										⚠ {futureDateWarning(testDate, serverToday)}
+									</div>
+								)}
 							</label>
 							<label style={styles.label}>
 								Lab Name

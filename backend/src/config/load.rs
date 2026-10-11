@@ -41,6 +41,30 @@ fn parsed<T: std::str::FromStr>(
     }
 }
 
+/// `CORS_ALLOWED_ORIGIN`: blank = unset, `*` = any, otherwise exactly an http(s) origin
+/// (scheme, host, optional port, nothing after). Anything else stops startup.
+// @spec UI-SRV-009
+fn cors_origin(raw: Option<String>) -> Result<Option<String>> {
+    let Some(origin) = raw.map(|o| o.trim().to_string()).filter(|o| !o.is_empty()) else {
+        return Ok(None);
+    };
+    if origin == "*" {
+        return Ok(Some(origin));
+    }
+    let valid = reqwest::Url::parse(&origin).is_ok_and(|url| {
+        matches!(url.scheme(), "http" | "https")
+            && url.origin().ascii_serialization() == origin.trim_end_matches('/')
+    });
+    if valid {
+        Ok(Some(origin))
+    } else {
+        Err(TurfOpsError::Config(format!(
+            "CORS_ALLOWED_ORIGIN={origin:?} isn't an origin; use * or a value like \
+             https://lawn.example.com (scheme, host and optional port, no path)"
+        )))
+    }
+}
+
 /// A feature flag: `true`, `1` or `yes` in any case is on, anything else off, unset on.
 // @spec DEPLOY-CONFIG-013
 fn flag(get: Lookup, key: &str) -> bool {
@@ -129,8 +153,7 @@ pub fn from_vars(get: Lookup) -> Result<(Config, Vec<String>)> {
             host: parsed::<std::net::IpAddr>(get, "SERVER_HOST", [0, 0, 0, 0].into(), "0.0.0.0", w)
                 .to_string(),
             port: parsed(get, "SERVER_PORT", 3000, "3000", w),
-            cors_allowed_origin: var(get, "CORS_ALLOWED_ORIGIN")
-                .filter(|origin| !origin.trim().is_empty()),
+            cors_allowed_origin: cors_origin(var(get, "CORS_ALLOWED_ORIGIN"))?,
         },
         database: DatabaseConfig {
             host: env_or(get, "DATABASE_HOST", "localhost"),

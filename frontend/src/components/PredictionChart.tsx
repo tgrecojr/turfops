@@ -10,6 +10,7 @@ import {
 	YAxis,
 } from "recharts";
 import type { SoilTempPrediction, TimeSeriesPoint } from "../types";
+import ChartTable from "./ChartTable";
 
 interface PredictionChartProps {
 	recentSoilTemps: TimeSeriesPoint[];
@@ -182,6 +183,23 @@ export default function PredictionChart({
 					/>
 				</ComposedChart>
 			</ResponsiveContainer>
+			<ChartTable
+				columns={["Date", "Kind", "10 cm soil (°F)"]}
+				rows={[
+					...recentSoilTemps
+						.slice(-168)
+						.map((p) => [
+							new Date(p.timestamp).toLocaleString(),
+							"Observed",
+							p.value.toFixed(1),
+						]),
+					...predictions.map((p) => [
+						p.date,
+						`Predicted (${p.confidence})`,
+						p.predicted_soil_temp_f.toFixed(1),
+					]),
+				]}
+			/>
 		</div>
 	);
 }

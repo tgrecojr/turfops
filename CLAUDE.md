@@ -17,7 +17,7 @@ Containerized web application for tracking lawn care activities with data-driven
 
 ### Backend
 - `cd backend && cargo build` — Build backend
-- `cd backend && cargo test` — Run tests (495 tests)
+- `cd backend && cargo test` — Run tests (500 tests)
 - `cd backend && cargo fmt` — Format code
 - `cd backend && cargo clippy` — Run linter
 - `cd backend && cargo run` — Run API server (needs PostgreSQL)
@@ -26,7 +26,7 @@ Containerized web application for tracking lawn care activities with data-driven
 - `cd frontend && npm install` — Install dependencies
 - `cd frontend && npm run dev` — Dev server with API proxy (port 5173)
 - `cd frontend && npm run build` — Production build to dist/ (if `npm` is wrapped by Socket and rolldown fails with "loading addons is disabled", run `tsc -b && node node_modules/vite/bin/vite.js build`)
-- `cd frontend && npx tsc --noEmit` — Type check
+- `cd frontend && npx tsc -b` — Type check (`--noEmit` checks nothing: the root tsconfig is a solution file)
 - `cd frontend && npm run lint` — Biome lint + format check
 - `cd frontend && npm test` — Vitest (API client error mapping)
 - `cd frontend && npm run format` — Biome auto-format
@@ -68,6 +68,7 @@ turfops/
 | Method | Path | Purpose |
 |--------|------|---------|
 | GET | /api/v1/health | Connection status (the lake is reported under the legacy key `soildata`) |
+| GET | /api/v1/today | The lawn's local date (`TZ`) and zone name; forms warn about dates after it |
 | GET | /api/v1/dashboard | Composite dashboard data |
 | GET/PUT | /api/v1/profile | Lawn profile CRUD |
 | GET/POST | /api/v1/applications | List (`?type=&limit=&offset=`, type filtered in SQL) / create applications (409 on a true duplicate; optional `product_id` must be a shelf product whose category accepts the type — 400 otherwise — and fills `product_name` when empty) |

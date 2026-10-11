@@ -15,11 +15,12 @@ import {
 } from "../components/applications/formRules";
 import FracClassPicker from "../components/FracClassPicker";
 import ProductPicker from "../components/ProductPicker";
+import { useServerToday } from "../components/useServerToday";
 import { appTypeBadgeStyle, sharedStyles } from "../styles/shared";
 import type { Application, ApplicationType, Plant } from "../types";
 import { APPLICATION_TYPE_LABELS, isTurfOnlyApplicationType } from "../types";
 import type { Product } from "../types/inventory";
-import { addDaysISO, todayLocalISO } from "../utils/dates";
+import { addDaysISO, futureDateWarning, todayLocalISO } from "../utils/dates";
 
 type ScopeFilter = "all" | "turf" | "landscape";
 
@@ -385,6 +386,8 @@ function ApplicationForm({
 		initial?.follow_up_date ?? "",
 	);
 	const [submitting, setSubmitting] = useState(false);
+	// @spec UI-UTIL-005
+	const serverToday = useServerToday();
 
 	const plant = plantField(appType, initial);
 	const plantRequired = plant.required;
@@ -537,6 +540,14 @@ function ApplicationForm({
 						onChange={(e) => setDate(e.target.value)}
 						required
 					/>
+					{futureDateWarning(date, serverToday) && (
+						<div
+							role="note"
+							style={{ fontSize: "0.75rem", color: "#975a16", marginTop: 4 }}
+						>
+							⚠ {futureDateWarning(date, serverToday)}
+						</div>
+					)}
 				</div>
 				<ProductPicker
 					appType={appType}
