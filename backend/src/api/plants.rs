@@ -40,6 +40,12 @@ pub async fn create_plant(
     State(state): State<AppState>,
     Json(req): Json<CreatePlantRequest>,
 ) -> Result<(StatusCode, Json<Plant>), TurfOpsError> {
+    // @spec PLANT-API-004: a bad request is a 400 whether or not the assistant is set up.
+    let NewPlant {
+        plant_type,
+        input,
+        planting_date,
+    } = validate_new_plant(&req)?;
     let openrouter = state
         .openrouter
         .as_ref()
@@ -52,29 +58,6 @@ pub async fn create_plant(
     let profile_id = profile
         .id
         .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
-
-    let plant_type = PlantType::from_str(&req.plant_type).map_err(|_| {
-        TurfOpsError::InvalidData(format!("Unknown plant type: {}", req.plant_type))
-    })?;
-
-    let input = match (req.common_name.as_deref(), req.scientific_name.as_deref()) {
-        (Some(c), Some(s)) if !c.is_empty() && !s.is_empty() => format!("{} ({})", c, s),
-        (Some(c), _) if !c.is_empty() => c.to_string(),
-        (_, Some(s)) if !s.is_empty() => s.to_string(),
-        _ => {
-            return Err(TurfOpsError::InvalidData(
-                "Must provide common_name or scientific_name".into(),
-            ))
-        }
-    };
-
-    let planting_date = match req.planting_date.as_deref() {
-        Some(s) if !s.is_empty() => Some(
-            NaiveDate::parse_from_str(s, "%Y-%m-%d")
-                .map_err(|_| TurfOpsError::InvalidData(format!("Invalid planting_date: {}", s)))?,
-        ),
-        _ => None,
-    };
 
     let plan = openrouter
         .generate_plant_plan(PlantPlanRequest {
@@ -167,7 +150,8 @@ pub async fn delete_plant(
     State(state): State<AppState>,
     Path(id): Path<i64>,
 ) -> Result<StatusCode, TurfOpsError> {
-    plant_queries::delete_plant(&state.pool, id).await?;
+    // @spec PLANT-API-013
+    deleted(plant_queries::delete_plant(&state.pool, id).await?, id)?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -211,6 +195,58 @@ pub async fn refresh_plant_plan(
     Ok(Json(updated))
 }
 
+/// What a new plant's request must carry, checked before anything else.
+pub(crate) struct NewPlant {
+    pub plant_type: PlantType,
+    pub input: String,
+    pub planting_date: Option<NaiveDate>,
+}
+
+pub(crate) fn validate_new_plant(req: &CreatePlantRequest) -> Result<NewPlant, TurfOpsError> {
+    let plant_type = PlantType::from_str(&req.plant_type).map_err(|_| {
+        TurfOpsError::InvalidData(format!(
+            "\"{}\" isn't a plant type. Pick one from the list.",
+            req.plant_type
+        ))
+    })?;
+    let input = match (filled(&req.common_name), filled(&req.scientific_name)) {
+        (Some(c), Some(s)) => format!("{c} ({s})"),
+        (Some(c), None) => c.to_string(),
+        (None, Some(s)) => s.to_string(),
+        (None, None) => {
+            return Err(TurfOpsError::InvalidData(
+                "Enter the plant's common name or its scientific name.".into(),
+            ))
+        }
+    };
+    let planting_date = match filled(&req.planting_date) {
+        Some(s) => Some(NaiveDate::parse_from_str(s, "%Y-%m-%d").map_err(|_| {
+            TurfOpsError::InvalidData(format!(
+                "The planting date \"{s}\" isn't a valid date. Pick it from the calendar."
+            ))
+        })?),
+        None => None,
+    };
+    Ok(NewPlant {
+        plant_type,
+        input,
+        planting_date,
+    })
+}
+
+/// A trimmed, non-empty value.
+fn filled(value: &Option<String>) -> Option<&str> {
+    value.as_deref().map(str::trim).filter(|s| !s.is_empty())
+}
+
+/// 404 when a delete touched no row.
+pub(crate) fn deleted(rows_affected: u64, id: i64) -> Result<(), TurfOpsError> {
+    if rows_affected == 0 {
+        return Err(TurfOpsError::NotFound(format!("Plant {id} not found")));
+    }
+    Ok(())
+}
+
 async fn active_profile_id(state: &AppState) -> Result<i64, TurfOpsError> {
     queries::get_default_lawn_profile(&state.pool)
         .await?
@@ -218,3 +254,6 @@ async fn active_profile_id(state: &AppState) -> Result<i64, TurfOpsError> {
         .id
         .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))
 }
+
+#[cfg(test)]
+mod tests;

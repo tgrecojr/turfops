@@ -90,7 +90,7 @@ Both services `restart: unless-stopped`. Host port 5433 exposes Postgres for a l
 | `OWM_LATITUDE` / `OWM_LONGITUDE` | 0 / 0 | 0 / 0 | unparseable → warn, 0.0 |
 | `OWM_ENABLED`, `OPENROUTER_ENABLED` | on | `true` | `true`, `1` or `yes` in any letter case → on; any other value → off |
 | `OPENROUTER_API_KEY` | unset | `""` | empty/whitespace = not configured |
-| `OPENROUTER_MODEL` | `anthropic/claude-haiku-4-5` | same | not validated (see Deferred) |
+| `OPENROUTER_MODEL` | `anthropic/claude-haiku-4.5` | same | not validated |
 | `OPENROUTER_BASE_URL` | `https://openrouter.ai/api/v1` | not passed | — |
 | `MCP_TOKEN` | unset | `""` | trimmed; empty = `/mcp` not mounted; set but < 32 chars → `Config` error, process exits (`mcp/config.rs`) |
 | `LAWN_NAME`, `LAWN_GRASS_TYPE`, `LAWN_USDA_ZONE` | `Main Lawn`, `TallFescue`, `7a` | same | unknown grass → warn, TallFescue |
@@ -236,7 +236,7 @@ The duplicate-application text tells the owner how to fix the entry (edit the ex
 3. **Divergence: implicit non-root user** (DEPLOY-IMAGE-009). Intent: the runtime image declares `USER 65532:65532`. The Dockerfile declares no `USER` and relies on the Chainguard base image's default uid 65532.
 4. **Divergence: no graceful shutdown** (DEPLOY-START-006). Intent: on SIGTERM, stop accepting connections and let in-flight requests finish before exiting. `axum::serve` gets no shutdown signal (`backend/src/main.rs:240`; tokio's `signal` feature is enabled but unused), so in-flight requests are cut on SIGTERM. Still open: there is no panic hook beyond the default. `build_cors_layer` (`main.rs:271`) and the OWM client builder (`datasources/openweathermap.rs:110`) use `expect`, so a bad CORS origin ends startup in a panic, not in the `Config` error every other refused setting produces.
 5. **Divergence: silent fallbacks** (DEPLOY-CONFIG-012). Intent: every unusable non-empty value logs a warning naming the setting and its default. These fall back with no warning: `SERVER_HOST`, `DB_MAX_CONNECTIONS`, `OWM_LATITUDE` / `OWM_LONGITUDE`, `LAWN_SOIL_TYPE`, `LAWN_SIZE_SQFT`, `LAWN_IRRIGATION_TYPE`, `HA_TEMPERATURE_UNIT`, `RUST_LOG`. Still open: `STATIC_DIR` and `DB_MAX_CONNECTIONS` are read outside `Config::from_env`, and an OWM key with unset or unparseable coordinates forecasts for 0°, 0° (`backend/src/config.rs:241-242`).
-6. **`OPENROUTER_MODEL` default is not a valid OpenRouter id.** The repo default `anthropic/claude-haiku-4-5` (hyphen) is rejected by OpenRouter; the id is `anthropic/claude-haiku-4.5`. A deployment that uses OpenRouter must set `OPENROUTER_MODEL` to a valid id until the default is corrected.
+6. **`OPENROUTER_MODEL` is not validated.** An id OpenRouter does not know surfaces only when the assistant is first called (the default, `anthropic/claude-haiku-4.5`, is valid).
 7. **Divergence: boolean flags are exact-match** (DEPLOY-CONFIG-013). Intent: `true`, `1` or `yes` in any case turn a flag on. `OWM_ENABLED` / `OPENROUTER_ENABLED` enable only on `true`; `TRUE` or `1` disables (`config.rs:243,251`).
 8. **Divergence: every unique violation gets the duplicate-application text** (DEPLOY-HTTP-011). Intent: only `applications_unique_turf` / `applications_unique_plant` get it, and any other unique index a generic conflict message. `owner_message()` and `IntoResponse` match any unique violation (`backend/src/error.rs`), whichever index raised it.
 9. **`/mcp` has no explicit body limit or CORS.** It is merged after `RequestBodyLimitLayer` and the CORS layer (`main.rs:199-210`). CORS is intentional; a body limit is not addressed.

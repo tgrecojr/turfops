@@ -229,7 +229,7 @@ Enables plan generation on the **Landscape** page and product identification on 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `OPENROUTER_API_KEY` | OpenRouter API key | *(empty — feature disabled if not set)* |
-| `OPENROUTER_MODEL` | Model identifier | `anthropic/claude-haiku-4-5` |
+| `OPENROUTER_MODEL` | Model identifier | `anthropic/claude-haiku-4.5` |
 | `OPENROUTER_ENABLED` | Enable/disable the feature | `true` |
 | `OPENROUTER_BASE_URL` | API base URL | `https://openrouter.ai/api/v1` |
 
@@ -299,7 +299,7 @@ OWM_LONGITUDE=-74.01
 
 # OpenRouter (optional — enables the Landscape Maintenance feature)
 OPENROUTER_API_KEY=your_openrouter_key_here
-# OPENROUTER_MODEL=anthropic/claude-haiku-4-5
+# OPENROUTER_MODEL=anthropic/claude-haiku-4.5
 # OPENROUTER_ENABLED=true
 
 # MCP server for LLM clients (optional; at least 32 characters, e.g. `openssl rand -hex 32`)

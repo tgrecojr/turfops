@@ -2,10 +2,11 @@ use super::*;
 use crate::models::plant::{
     IdentificationConfidence, MaintenanceTask, PlantMaintenancePlan, PlantType, TaskFrequency,
 };
+use crate::models::ApplicationType;
 use crate::models::{EnvironmentalSummary, Severity};
 use chrono::Utc;
 
-fn make_task(
+pub(super) fn make_task(
     task_type: TaskType,
     start_mmdd: &str,
     end_mmdd: &str,
@@ -22,7 +23,7 @@ fn make_task(
     }
 }
 
-fn make_plant(id: i64, tasks: Vec<MaintenanceTask>) -> Plant {
+pub(super) fn make_plant(id: i64, tasks: Vec<MaintenanceTask>) -> Plant {
     Plant {
         id: Some(id),
         lawn_profile_id: 1,
@@ -47,7 +48,7 @@ fn make_plant(id: i64, tasks: Vec<MaintenanceTask>) -> Plant {
     }
 }
 
-fn pruning_app(plant_id: i64, date: NaiveDate) -> Application {
+pub(super) fn pruning_app(plant_id: i64, date: NaiveDate) -> Application {
     Application {
         id: Some(1),
         lawn_profile_id: 1,
@@ -199,7 +200,7 @@ fn a_window_that_wraps_the_new_year_stays_open_in_january() {
         "dormant pruning has seven weeks left on Jan 10"
     );
     // Same id as in December, so an answer given then still applies.
-    assert!(recs[0].id.ends_with("_2026"), "{}", recs[0].id);
+    assert!(recs[0].id.ends_with("_2026-12-01"), "{}", recs[0].id);
 
     let acts = build_plant_activities(std::slice::from_ref(&plant), &[], 2027, jan);
     assert!(matches!(acts[0].status, ActivityStatus::Active));

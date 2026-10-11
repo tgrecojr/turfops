@@ -110,8 +110,13 @@ pub struct OpenRouterConfig {
     pub base_url: String,
 }
 
+/// The model the plan and product assistants use when `OPENROUTER_MODEL` is unset.
+// OpenRouter ids are dotted (`4.5`); the dashed form is rejected.
+// @spec PLANT-AI-010
+pub const DEFAULT_OPENROUTER_MODEL: &str = "anthropic/claude-haiku-4.5";
+
 fn default_openrouter_model() -> String {
-    "anthropic/claude-haiku-4-5".to_string()
+    DEFAULT_OPENROUTER_MODEL.to_string()
 }
 
 fn default_openrouter_base_url() -> String {
@@ -246,7 +251,7 @@ impl Config {
                 .filter(|key| !key.trim().is_empty())
                 .map(|api_key| OpenRouterConfig {
                     api_key,
-                    model: env_or("OPENROUTER_MODEL", "anthropic/claude-haiku-4-5"),
+                    model: env_or("OPENROUTER_MODEL", DEFAULT_OPENROUTER_MODEL),
                     enabled: env_or("OPENROUTER_ENABLED", "true") == "true",
                     base_url: env_or("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
                 }),
@@ -381,5 +386,22 @@ mod seed_tests {
                 "{var}: {warnings:?}"
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod openrouter_default_tests {
+    // @spec PLANT-AI-010
+    #[test]
+    fn the_default_model_is_openrouters_dotted_id_everywhere() {
+        assert_eq!(
+            super::DEFAULT_OPENROUTER_MODEL,
+            "anthropic/claude-haiku-4.5"
+        );
+        let compose = include_str!("../../docker-compose.yml");
+        assert!(
+            compose.contains("OPENROUTER_MODEL:-anthropic/claude-haiku-4.5}"),
+            "compose default"
+        );
     }
 }

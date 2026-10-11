@@ -6,6 +6,8 @@ import {
 	refreshPlantPlan,
 } from "../api/client";
 import { describeError } from "../api/errors";
+import EditPlantForm from "../components/landscape/EditPlantForm";
+import { PLANT_TYPES, plantDetails } from "../components/landscape/plantEdit";
 import { sharedStyles } from "../styles/shared";
 import type { MaintenanceTask, Plant, PlantType } from "../types";
 import {
@@ -13,16 +15,6 @@ import {
 	PLANT_TYPE_LABELS,
 	TASK_TYPE_LABELS,
 } from "../types";
-
-const PLANT_TYPES: PlantType[] = [
-	"Shrub",
-	"Tree",
-	"Perennial",
-	"Annual",
-	"Vine",
-	"Groundcover",
-	"Other",
-];
 
 export default function Landscape() {
 	const [plants, setPlants] = useState<Plant[]>([]);
@@ -159,6 +151,12 @@ export default function Landscape() {
 							}
 							refreshing={refreshingId === plant.id}
 							deleting={deletingId === plant.id}
+							onUpdated={(updated) =>
+								setPlants((prev) =>
+									prev.map((p) => (p.id === updated.id ? updated : p)),
+								)
+							}
+							onError={setError}
 						/>
 					))}
 				</div>
@@ -175,6 +173,8 @@ function PlantRow({
 	onDelete,
 	refreshing,
 	deleting,
+	onUpdated,
+	onError,
 }: {
 	plant: Plant;
 	expanded: boolean;
@@ -183,7 +183,10 @@ function PlantRow({
 	onDelete: () => void;
 	refreshing: boolean;
 	deleting: boolean;
+	onUpdated: (plant: Plant) => void;
+	onError: (message: string) => void;
 }) {
+	const [editing, setEditing] = useState(false);
 	const plan = plant.maintenance_plan;
 	const confidenceColor =
 		IDENTIFICATION_CONFIDENCE_COLORS[plan.identification_confidence];
@@ -233,8 +236,31 @@ function PlantRow({
 				<div style={styles.rowBody}>
 					<p style={styles.summary}>{plan.summary}</p>
 
-					{plant.planting_date && (
-						<div style={styles.bodyMeta}>Planted {plant.planting_date}</div>
+					{/* @spec PLANT-UI-013 */}
+					{plantDetails(plant).map((line) => (
+						<div key={line} style={styles.bodyMeta}>
+							{line}
+						</div>
+					))}
+
+					{editing && (
+						<EditPlantForm
+							plant={plant}
+							styles={{
+								form: styles.form,
+								formGrid: styles.formGrid,
+								formLabel: styles.formLabel,
+								input: styles.input,
+								submitBtn: styles.submitBtn,
+								secondaryBtn: styles.secondaryBtn,
+							}}
+							onSaved={(updated) => {
+								setEditing(false);
+								onUpdated(updated);
+							}}
+							onCancel={() => setEditing(false)}
+							onError={onError}
+						/>
 					)}
 
 					{plan.warnings.length > 0 && (
@@ -269,6 +295,13 @@ function PlantRow({
 							{plant.plan_model}
 						</div>
 						<div style={styles.footerButtons}>
+							<button
+								type="button"
+								style={styles.secondaryBtn}
+								onClick={() => setEditing(!editing)}
+							>
+								{editing ? "Close edit" : "Edit"}
+							</button>
 							<button
 								type="button"
 								style={styles.secondaryBtn}
