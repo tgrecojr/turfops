@@ -32,6 +32,7 @@ pub(super) fn fall_activities(
                 .into(),
             date_window: make_window(&start, end_date, end.as_ref()),
             status: compute_status(completed, start.median, end_date, today),
+            status_estimated: false,
             details: ActivityDetails {
                 soil_temp_trigger: Some("50-65°F (7-day avg at 10cm)".into()),
                 product_suggestions: vec![],
@@ -60,6 +61,7 @@ pub(super) fn fall_activities(
                 .into(),
             date_window: make_window(&start, end_date, end.as_ref()),
             status: compute_status(completed, start.median, end_date, today),
+            status_estimated: false,
             details: ActivityDetails {
                 soil_temp_trigger: Some("50-65°F (7-day avg at 10cm)".into()),
                 product_suggestions: vec![
@@ -98,6 +100,7 @@ pub(super) fn fall_activities(
                 confidence: confidence_from_count(start.sample_count),
             },
             status: compute_status(completed, start_date, end_date, today),
+            status_estimated: false,
             details: ActivityDetails {
                 soil_temp_trigger: Some("45-65°F (7-day avg at 10cm)".into()),
                 product_suggestions: vec![
@@ -132,6 +135,7 @@ pub(super) fn fall_activities(
                 confidence: confidence_from_count(start.sample_count),
             },
             status: compute_status(completed, start_date, end_date, today),
+            status_estimated: false,
             details: ActivityDetails {
                 soil_temp_trigger: Some("45-65°F (7-day avg at 10cm)".into()),
                 product_suggestions: vec![
@@ -165,6 +169,7 @@ pub(super) fn fall_activities(
                 confidence: confidence_from_count(start.sample_count),
             },
             status: compute_status(completed, start.median, end_date, today),
+            status_estimated: false,
             details: ActivityDetails {
                 soil_temp_trigger: Some("40-45°F (7-day avg at 10cm)".into()),
                 product_suggestions: vec![
@@ -207,6 +212,7 @@ pub(super) fn fall_activities(
                     .into(),
                 date_window: make_window(&start, end_date, end.as_ref()),
                 status: compute_status(completed, start.median, end_date, today),
+                status_estimated: false,
                 details: ActivityDetails {
                     soil_temp_trigger: Some("50-65°F (7-day avg at 10cm)".into()),
                     product_suggestions: vec![

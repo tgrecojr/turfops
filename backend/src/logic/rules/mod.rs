@@ -8,6 +8,7 @@ pub mod heat_stress;
 pub mod irrigation_forecast;
 pub mod mowing_height;
 pub mod nitrogen_guard;
+pub mod plan_state;
 pub mod rain_delay;
 pub mod spring_nitrogen;
 pub mod thresholds;

@@ -137,6 +137,8 @@ pub struct Recommendation {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Feeding {
     pub n_lbs_per_ksqft: f64,
+    /// Set by the nitrogen guard when the annual target is already met.
+    pub target_reached: bool,
 }
 
 impl Recommendation {
@@ -182,7 +184,10 @@ impl Recommendation {
 
     /// Mark this as a feeding that suggests `n_lbs_per_ksqft` of nitrogen.
     pub fn with_feeding(mut self, n_lbs_per_ksqft: f64) -> Self {
-        self.feeding = Some(Feeding { n_lbs_per_ksqft });
+        self.feeding = Some(Feeding {
+            n_lbs_per_ksqft,
+            target_reached: false,
+        });
         self
     }
 

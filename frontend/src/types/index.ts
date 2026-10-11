@@ -474,6 +474,8 @@ export interface SeasonalPlan {
 	activities: PlannedActivity[];
 	data_years_used: number;
 	generated_at: string;
+	/** The lawn's local date the statuses were judged on (YYYY-MM-DD). */
+	today: string;
 }
 
 export interface PlannedActivity {
@@ -483,6 +485,8 @@ export interface PlannedActivity {
 	description: string;
 	date_window: DateWindow;
 	status: ActivityStatus;
+	/** The status is a typical-date estimate: the covering rule could not judge the season. */
+	status_estimated: boolean;
 	details: ActivityDetails;
 }
 
@@ -496,7 +500,12 @@ export interface DateWindow {
 
 export type WindowConfidence = "High" | "Medium" | "Low";
 
-export type ActivityStatus = "Upcoming" | "Active" | "Completed" | "Missed";
+export type ActivityStatus =
+	| "Upcoming"
+	| "Active"
+	| "Completed"
+	| "Skipped"
+	| "Missed";
 
 export interface ActivityDetails {
 	soil_temp_trigger: string | null;
@@ -504,13 +513,6 @@ export interface ActivityDetails {
 	rate: string | null;
 	notes: string | null;
 }
-
-export const ACTIVITY_STATUS_COLORS: Record<ActivityStatus, string> = {
-	Upcoming: "#3b82f6",
-	Active: "#22c55e",
-	Completed: "#6b7280",
-	Missed: "#ef4444",
-};
 
 export const CONFIDENCE_LABELS: Record<WindowConfidence, string> = {
 	High: "High confidence",

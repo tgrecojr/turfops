@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { getCalendar, getSeasonalPlan } from "../api/client";
 import { describeError } from "../api/errors";
+import {
+	activityLabel,
+	STATUS_META,
+	STATUS_ORDER,
+	shiftMonth,
+	statusText,
+} from "../components/plan/activityStatus";
 import { appTypeBadgeStyle } from "../styles/shared";
 import type {
 	Application,
@@ -8,13 +15,11 @@ import type {
 	PlannedActivity,
 	SeasonalPlan,
 } from "../types";
-import {
-	ACTIVITY_STATUS_COLORS,
-	APPLICATION_TYPE_COLORS,
-	APPLICATION_TYPE_LABELS,
-} from "../types";
+import { APPLICATION_TYPE_COLORS, APPLICATION_TYPE_LABELS } from "../types";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+type MonthRef = { year: number; month: number };
 
 function formatDateRange(start: string, end: string): string {
 	const s = new Date(`${start}T00:00:00`);
@@ -25,9 +30,8 @@ function formatDateRange(start: string, end: string): string {
 }
 
 export default function Calendar() {
-	const today = new Date();
-	const [year, setYear] = useState(today.getFullYear());
-	const [month, setMonth] = useState(today.getMonth() + 1);
+	// null until the owner navigates: the first request asks for the server's month.
+	const [requested, setRequested] = useState<MonthRef | null>(null);
 	const [data, setData] = useState<CalendarResponse | null>(null);
 	const [plan, setPlan] = useState<SeasonalPlan | null>(null);
 	const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -36,7 +40,7 @@ export default function Calendar() {
 	// Fetch calendar applications
 	useEffect(() => {
 		let cancelled = false;
-		getCalendar(year, month)
+		getCalendar(requested?.year, requested?.month)
 			.then((d) => {
 				if (!cancelled) {
 					setData(d);
@@ -52,12 +56,18 @@ export default function Calendar() {
 		return () => {
 			cancelled = true;
 		};
-	}, [year, month]);
+	}, [requested]);
+
+	// @spec PLAN-CALUI-001
+	const shown: MonthRef | null =
+		requested ?? (data ? { year: data.year, month: data.month } : null);
+	const planYear = shown?.year;
 
 	// Fetch seasonal plan (per year, silently fail)
 	useEffect(() => {
+		if (planYear === undefined) return;
 		let cancelled = false;
-		getSeasonalPlan(year)
+		getSeasonalPlan(planYear)
 			.then((p) => {
 				if (!cancelled) setPlan(p);
 			})
@@ -67,52 +77,7 @@ export default function Calendar() {
 		return () => {
 			cancelled = true;
 		};
-	}, [year]);
-
-	const prevMonth = () => {
-		if (month === 1) {
-			setMonth(12);
-			setYear(year - 1);
-		} else {
-			setMonth(month - 1);
-		}
-		setSelectedDate(null);
-	};
-
-	const nextMonth = () => {
-		if (month === 12) {
-			setMonth(1);
-			setYear(year + 1);
-		} else {
-			setMonth(month + 1);
-		}
-		setSelectedDate(null);
-	};
-
-	const monthName = new Date(year, month - 1).toLocaleString("default", {
-		month: "long",
-	});
-
-	// Build calendar grid
-	const firstDay = new Date(year, month - 1, 1).getDay();
-	const daysInMonth = new Date(year, month, 0).getDate();
-	const weeks: (number | null)[][] = [];
-	let week: (number | null)[] = Array(firstDay).fill(null);
-
-	for (let d = 1; d <= daysInMonth; d++) {
-		week.push(d);
-		if (week.length === 7) {
-			weeks.push(week);
-			week = [];
-		}
-	}
-	if (week.length > 0) {
-		while (week.length < 7) week.push(null);
-		weeks.push(week);
-	}
-
-	const dateKey = (day: number) =>
-		`${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+	}, [planYear]);
 
 	// Build a map of follow-up applications keyed by their follow_up_date.
 	// The backend includes any application whose follow_up_date falls in the month range.
@@ -146,6 +111,55 @@ export default function Calendar() {
 		}
 		return map;
 	}, [data]);
+
+	if (!shown) {
+		return (
+			<div>
+				<h1 style={styles.title}>Calendar</h1>
+				{error ? (
+					<div style={styles.error}>{error}</div>
+				) : (
+					<p>Loading calendar...</p>
+				)}
+			</div>
+		);
+	}
+	const { year, month } = shown;
+
+	const prevMonth = () => {
+		setRequested(shiftMonth(shown, -1));
+		setSelectedDate(null);
+	};
+
+	const nextMonth = () => {
+		setRequested(shiftMonth(shown, 1));
+		setSelectedDate(null);
+	};
+
+	const monthName = new Date(year, month - 1).toLocaleString("default", {
+		month: "long",
+	});
+
+	// Build calendar grid
+	const firstDay = new Date(year, month - 1, 1).getDay();
+	const daysInMonth = new Date(year, month, 0).getDate();
+	const weeks: (number | null)[][] = [];
+	let week: (number | null)[] = Array(firstDay).fill(null);
+
+	for (let d = 1; d <= daysInMonth; d++) {
+		week.push(d);
+		if (week.length === 7) {
+			weeks.push(week);
+			week = [];
+		}
+	}
+	if (week.length > 0) {
+		while (week.length < 7) week.push(null);
+		weeks.push(week);
+	}
+
+	const dateKey = (day: number) =>
+		`${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 
 	// Get planned activities whose window includes the given date
 	const getActivitiesForDate = (dateStr: string): PlannedActivity[] => {
@@ -203,42 +217,18 @@ export default function Calendar() {
 					Follow-up due
 				</span>
 				<span style={styles.legendDivider}>|</span>
-				<span style={styles.legendItem}>
-					<span
-						style={{
-							...styles.legendBar,
-							backgroundColor: ACTIVITY_STATUS_COLORS.Active,
-						}}
-					/>
-					Active
-				</span>
-				<span style={styles.legendItem}>
-					<span
-						style={{
-							...styles.legendBar,
-							backgroundColor: ACTIVITY_STATUS_COLORS.Upcoming,
-						}}
-					/>
-					Upcoming
-				</span>
-				<span style={styles.legendItem}>
-					<span
-						style={{
-							...styles.legendBar,
-							backgroundColor: ACTIVITY_STATUS_COLORS.Completed,
-						}}
-					/>
-					Completed
-				</span>
-				<span style={styles.legendItem}>
-					<span
-						style={{
-							...styles.legendBar,
-							backgroundColor: ACTIVITY_STATUS_COLORS.Missed,
-						}}
-					/>
-					Missed
-				</span>
+				{/* @spec PLAN-CALUI-006 */}
+				{STATUS_ORDER.map((status) => (
+					<span key={status} style={styles.legendItem}>
+						<span
+							style={{
+								...styles.legendBar,
+								backgroundColor: STATUS_META[status].color,
+							}}
+						/>
+						{STATUS_META[status].symbol} {STATUS_META[status].label}
+					</span>
+				))}
 			</div>
 
 			<div style={styles.calGrid}>
@@ -325,7 +315,9 @@ export default function Calendar() {
 												<div style={styles.activityBars}>
 													{dayActivities.map((a) => {
 														const isPlant = a.category === "Plant Maintenance";
-														const color = ACTIVITY_STATUS_COLORS[a.status];
+														const color = STATUS_META[a.status].color;
+														// @spec PLAN-CALUI-005, PLAN-CALUI-009
+														const label = `${activityLabel(a)}${isPlant ? " (plant)" : ""}`;
 														return (
 															<span
 																key={a.id}
@@ -339,7 +331,9 @@ export default function Calendar() {
 																		: "none",
 																	height: isPlant ? 2 : 4,
 																}}
-																title={`${a.name}${isPlant ? " (plant)" : ""}`}
+																title={label}
+																role="img"
+																aria-label={label}
 															/>
 														);
 													})}
@@ -430,12 +424,12 @@ export default function Calendar() {
 											<span
 												style={{
 													...styles.statusBadge,
-													backgroundColor: `${ACTIVITY_STATUS_COLORS[activity.status]}22`,
-													color: ACTIVITY_STATUS_COLORS[activity.status],
-													borderColor: ACTIVITY_STATUS_COLORS[activity.status],
+													backgroundColor: `${STATUS_META[activity.status].color}22`,
+													color: STATUS_META[activity.status].color,
+													borderColor: STATUS_META[activity.status].color,
 												}}
 											>
-												{activity.status}
+												{statusText(activity)}
 											</span>
 											<span style={{ fontWeight: 500 }}>{activity.name}</span>
 										</div>
@@ -481,13 +475,12 @@ export default function Calendar() {
 													<span
 														style={{
 															...styles.statusBadge,
-															backgroundColor: `${ACTIVITY_STATUS_COLORS[activity.status]}22`,
-															color: ACTIVITY_STATUS_COLORS[activity.status],
-															borderColor:
-																ACTIVITY_STATUS_COLORS[activity.status],
+															backgroundColor: `${STATUS_META[activity.status].color}22`,
+															color: STATUS_META[activity.status].color,
+															borderColor: STATUS_META[activity.status].color,
 														}}
 													>
-														{activity.status}
+														{statusText(activity)}
 													</span>
 													<span style={{ fontWeight: 500 }}>
 														{activity.name}

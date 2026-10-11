@@ -252,6 +252,7 @@ pub fn build_plant_activities(
                     confidence: WindowConfidence::Medium,
                 },
                 status,
+                status_estimated: false,
                 details: ActivityDetails {
                     soil_temp_trigger: None,
                     product_suggestions,
