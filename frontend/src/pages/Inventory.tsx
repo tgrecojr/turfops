@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { listProducts } from "../api/client";
+import { describeError } from "../api/errors";
 import AddProductForm from "../components/inventory/AddProductForm";
 import LogSuggestions from "../components/inventory/LogSuggestions";
 import ProductRow, {
@@ -42,7 +43,8 @@ export default function Inventory() {
 			setProducts(await listProducts({ includeArchived: true }));
 			setError(null);
 		} catch (e) {
-			setError(e instanceof Error ? e.message : "Failed to load inventory");
+			// @spec INV-UI-013
+			setError(describeError(e));
 		} finally {
 			setLoading(false);
 		}

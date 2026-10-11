@@ -8,7 +8,7 @@ Design: [disease-ui-design.md](disease-ui-design.md). Parent: [disease-risk](../
 - [x] **DIS-UI-PAGE-002**: While the disease-risk response lists no diseases, the `/disease-risk` page shall show the first data note, or "Not enough recent weather data to score disease risk." when there is none.
 - [x] **DIS-UI-PAGE-003**: The `/disease-risk/:slug` page shall show the station name, the data notes, a "← All diseases" link and the disease's detail view; if the slug is not in the response, then it shall show "No risk data for …" with a link back.
 - [x] **DIS-UI-PAGE-004**: While the disease-risk request is loading, the disease pages shall show "Loading disease risk…".
-- [ ] **DIS-UI-PAGE-005**: If the disease-risk request fails, then the disease pages shall show a plain-language error that says what went wrong and what to do (no lawn profile → set one up in Settings; weather lake unavailable or not configured → say so), never raw status codes, JSON or internal detail.
+- [x] **DIS-UI-PAGE-005**: If the disease-risk request fails, then the disease pages shall show a plain-language error that says what went wrong and what to do (no lawn profile → set one up in Settings; weather lake unavailable or not configured → say so), never raw status codes, JSON or internal detail.
 
 ## Detail and management
 

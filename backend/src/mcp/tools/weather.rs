@@ -6,7 +6,7 @@
 use super::{json_result, tool_error};
 use crate::api;
 use crate::datasources::weather::ClimateDay;
-use crate::error::TurfOpsError;
+use crate::error::{Source, TurfOpsError};
 use crate::mcp::TurfOpsMcp;
 use crate::models::{celsius_to_fahrenheit, DailyWeather};
 use chrono::{Duration, NaiveDate};
@@ -82,9 +82,7 @@ impl TurfOpsMcp {
             .await
             .weather_client()
             .cloned();
-        let client = client.ok_or_else(|| {
-            TurfOpsError::DataSourceUnavailable("weather data lake not configured".into())
-        })?;
+        let client = client.ok_or_else(|| TurfOpsError::not_configured(Source::WeatherLake))?;
         let start = history_start(self.state.clock.today(), days);
         let (lake, climate) = tokio::try_join!(
             client.fetch_daily_disease_inputs(start),

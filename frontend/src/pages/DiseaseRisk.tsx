@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 import { getDiseaseRisk } from "../api/client";
+import { describeError } from "../api/errors";
 import DiseaseDetail from "../components/disease/DiseaseDetail";
 import RiskMeter from "../components/disease/RiskMeter";
 import TierBadge from "../components/disease/TierBadge";
@@ -19,10 +20,8 @@ export default function DiseaseRisk() {
 				if (!cancelled) setData(res);
 			})
 			.catch((e: unknown) => {
-				if (!cancelled)
-					setError(
-						e instanceof Error ? e.message : "Failed to load disease risk",
-					);
+				// @spec DIS-UI-PAGE-005
+				if (!cancelled) setError(describeError(e));
 			});
 		return () => {
 			cancelled = true;

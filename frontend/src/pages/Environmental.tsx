@@ -5,6 +5,7 @@ import {
 	getSoilTempForecast,
 	refreshEnvironmental,
 } from "../api/client";
+import { describeError } from "../api/errors";
 import Gauge from "../components/Gauge";
 import {
 	AMBIENT_TEMP_GAUGE,
@@ -35,6 +36,7 @@ export default function Environmental() {
 	);
 	const [histRange, setHistRange] = useState<HistRange>("7d");
 	const [histLoading, setHistLoading] = useState(false);
+	const [histError, setHistError] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
@@ -56,7 +58,7 @@ export default function Environmental() {
 			}
 		} catch (e) {
 			if (!controller.signal.aborted) {
-				setError(e instanceof Error ? e.message : "Failed to load");
+				setError(describeError(e));
 			}
 		} finally {
 			if (!controller.signal.aborted) {
@@ -107,6 +109,7 @@ export default function Environmental() {
 	useEffect(() => {
 		let cancelled = false;
 		setHistLoading(true);
+		setHistError(null);
 		getHistorical(histRange)
 			.then((d) => {
 				if (!cancelled) {
@@ -114,8 +117,15 @@ export default function Environmental() {
 					setHistLoading(false);
 				}
 			})
-			.catch(() => {
-				if (!cancelled) setHistLoading(false);
+			// @spec WX-VIEW-PAGE-006
+			// A failed load clears the charts rather than leave the previous range's data
+			// under the new selector.
+			.catch((e) => {
+				if (!cancelled) {
+					setHistData(null);
+					setHistError(describeError(e));
+					setHistLoading(false);
+				}
 			});
 		return () => {
 			cancelled = true;
@@ -129,7 +139,7 @@ export default function Environmental() {
 			setData(d);
 			setError(null);
 		} catch (e) {
-			setError(e instanceof Error ? e.message : "Refresh failed");
+			setError(describeError(e));
 		} finally {
 			setRefreshing(false);
 		}
@@ -384,6 +394,8 @@ export default function Environmental() {
 			</div>
 			{histLoading ? (
 				<p style={sharedStyles.loading}>Loading trends...</p>
+			) : histError ? (
+				<div style={sharedStyles.error}>{histError}</div>
 			) : histData ? (
 				<div style={styles.chartGrid}>
 					<TrendChart

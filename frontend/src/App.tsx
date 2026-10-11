@@ -15,6 +15,7 @@ const SeasonalPlan = lazy(() => import("./pages/SeasonalPlan"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Timing = lazy(() => import("./pages/Timing"));
 
+// @spec UI-ERR-011
 class ErrorBoundary extends Component<
 	{ children: ReactNode },
 	{ error: Error | null }
@@ -25,6 +26,11 @@ class ErrorBoundary extends Component<
 		return { error };
 	}
 
+	componentDidCatch(error: Error) {
+		// The exception is for the developer console, never the page (UI-ERR-011).
+		console.error(error);
+	}
+
 	render() {
 		if (this.state.error) {
 			return (
@@ -33,7 +39,7 @@ class ErrorBoundary extends Component<
 						Something went wrong
 					</h1>
 					<p style={{ color: "#4a5568", margin: "1rem 0" }}>
-						{this.state.error.message}
+						This page couldn't be shown. Return to the dashboard and try again.
 					</p>
 					<button
 						type="button"

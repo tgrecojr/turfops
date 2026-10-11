@@ -31,8 +31,13 @@ const MISSING_DATA_HINT: &str = "Tell the user this data is missing rather than 
 fn error_message(err: TurfOpsError) -> String {
     match err {
         TurfOpsError::NotFound(msg) | TurfOpsError::InvalidData(msg) => msg,
-        TurfOpsError::DataSourceUnavailable(msg) => {
-            format!("Data source unavailable: {msg}. {MISSING_DATA_HINT}")
+        // @spec MCP-ERR-006
+        err @ TurfOpsError::Unavailable { .. } => {
+            tracing::warn!(error = %err, "MCP tool: data source unavailable");
+            format!(
+                "Data source unavailable: {} {MISSING_DATA_HINT}",
+                err.owner_message()
+            )
         }
         TurfOpsError::DataLake(err) => {
             tracing::warn!(error = %err, "MCP tool: weather data lake unreadable");
@@ -103,10 +108,20 @@ mod tests {
             error_message(TurfOpsError::NotFound("No lawn profile found".into())),
             "No lawn profile found"
         );
-        assert!(
-            error_message(TurfOpsError::DataSourceUnavailable("lake".into()))
-                .starts_with("Data source unavailable: lake.")
-        );
+    }
+
+    // @spec MCP-ERR-006
+    #[test]
+    fn an_outage_names_the_source_in_plain_words_without_upstream_detail() {
+        use crate::error::Source;
+        let msg = error_message(TurfOpsError::unavailable(
+            Source::Forecast,
+            "error sending request for url (https://api.openweathermap.org/…)",
+        ));
+        assert!(msg.starts_with("Data source unavailable: "), "{msg}");
+        assert!(msg.contains("forecast"), "{msg}");
+        assert!(!msg.contains("openweathermap.org"), "{msg}");
+        assert!(msg.ends_with(MISSING_DATA_HINT), "{msg}");
     }
 
     #[test]

@@ -1,5 +1,5 @@
 use crate::db::{product_queries, queries};
-use crate::error::TurfOpsError;
+use crate::error::{Source, TurfOpsError};
 use crate::logic::disease::{self, weather_days};
 use crate::models::{
     DailyWeather, DiseaseContext, DiseaseRiskResponse, LawnProfile, ProductCategory,
@@ -53,9 +53,7 @@ async fn compute(
         let summary = service.get_or_refresh().await?;
         (service.weather_client().cloned(), summary.forecast)
     };
-    let client = client.ok_or_else(|| {
-        TurfOpsError::DataSourceUnavailable("weather data lake not configured".into())
-    })?;
+    let client = client.ok_or_else(|| TurfOpsError::not_configured(Source::WeatherLake))?;
 
     // @spec DIS-MODEL-DAY-001
     // Lake days are keyed by the same Eastern calendar `TZ` gives, so no extra margin.

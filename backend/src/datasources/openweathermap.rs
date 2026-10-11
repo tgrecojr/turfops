@@ -1,6 +1,6 @@
 use crate::clock::Clock;
 use crate::config::OpenWeatherMapConfig;
-use crate::error::{Result, TurfOpsError};
+use crate::error::{Result, Source, TurfOpsError};
 use crate::models::forecast::{
     DailyForecast, ForecastLocation, ForecastPoint, WeatherCondition, WeatherForecast,
 };
@@ -98,7 +98,7 @@ struct OwmCoord {
 /// query string, and reqwest's error text includes the URL, so it is stripped here: no
 /// caller, log line or response can then leak the key.
 fn request_error(e: reqwest::Error) -> TurfOpsError {
-    TurfOpsError::DataSourceUnavailable(format!("OpenWeatherMap: {}", e.without_url()))
+    TurfOpsError::unavailable(Source::Forecast, e.without_url())
 }
 
 impl OpenWeatherMapClient {
@@ -135,17 +135,21 @@ impl OpenWeatherMapClient {
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
-            return Err(TurfOpsError::DataSourceUnavailable(format!(
-                "OpenWeatherMap returned {}: {}",
-                status, body
-            )));
+            // @spec WX-SRC-OWM-006
+            return Err(TurfOpsError::unavailable(
+                Source::Forecast,
+                format!("OpenWeatherMap returned {}: {}", status, body),
+            ));
         }
 
         let owm_response: OwmForecastResponse = response.json().await.map_err(|e| {
-            TurfOpsError::DataSourceUnavailable(format!(
-                "Failed to parse OpenWeatherMap response: {}",
-                e.without_url()
-            ))
+            TurfOpsError::unavailable(
+                Source::Forecast,
+                format!(
+                    "Failed to parse OpenWeatherMap response: {}",
+                    e.without_url()
+                ),
+            )
         })?;
 
         Ok(self.convert_response(owm_response))

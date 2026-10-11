@@ -7,6 +7,7 @@ import {
 	markProductInStock,
 	updateApplication,
 } from "../api/client";
+import { describeError } from "../api/errors";
 import FracClassPicker from "../components/FracClassPicker";
 import ProductPicker from "../components/ProductPicker";
 import { appTypeBadgeStyle, sharedStyles } from "../styles/shared";
@@ -66,7 +67,8 @@ export default function Applications() {
 			setHasMore(data.length === PAGE_SIZE);
 			setError(null);
 		} catch (e) {
-			setError(e instanceof Error ? e.message : "Failed to load");
+			// @spec APP-LIST-005
+			setError(describeError(e));
 		} finally {
 			setLoading(false);
 		}
@@ -87,7 +89,7 @@ export default function Applications() {
 			setApps((prev) => [...prev, ...data]);
 			setHasMore(data.length === PAGE_SIZE);
 		} catch (e) {
-			setError(e instanceof Error ? e.message : "Failed to load");
+			setError(describeError(e));
 		} finally {
 			setLoadingMore(false);
 		}
@@ -121,7 +123,7 @@ export default function Applications() {
 			await deleteApplication(id);
 			setApps((prev) => prev.filter((a) => a.id !== id));
 		} catch (e) {
-			setError(e instanceof Error ? e.message : "Failed to delete");
+			setError(describeError(e));
 		} finally {
 			setDeletingId(null);
 		}
@@ -451,13 +453,7 @@ function ApplicationForm({
 			}
 			onSaved();
 		} catch (err) {
-			onError(
-				err instanceof Error
-					? err.message
-					: isEdit
-						? "Failed to save"
-						: "Failed to create",
-			);
+			onError(describeError(err));
 		} finally {
 			setSubmitting(false);
 		}

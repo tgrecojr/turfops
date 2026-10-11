@@ -33,7 +33,7 @@ Web UI owns the shell, routing table, API client and the shared status palette. 
 3. A short explainer that native scores are not comparable and that there is no blended score.
 4. One row per disease: name, "score label · model name", a compact `RiskMeter`, and a `TierBadge`. Each row links to `/disease-risk/:slug`.
 
-With no diseases, the first data note is shown, falling back to "Not enough recent weather data to score disease risk." While loading, the page shows "Loading disease risk…". A failed request shows the error message.
+With no diseases, the first data note is shown, falling back to "Not enough recent weather data to score disease risk." While loading, the page shows "Loading disease risk…". A failed request shows `describeError(e)` (Web UI's human-readable errors): with no lawn profile, a pointer to set one up in Settings; with the weather lake unavailable or not configured, the server's sentence naming the lake and the affected data; never a status code, JSON or internal detail.
 
 **`/disease-risk/:slug`** shows the same header and notes, a "← All diseases" link and `DiseaseDetail`. A slug that is not in the response shows "No risk data for …" with a link back.
 
@@ -108,8 +108,7 @@ A legend explains the fading and the outline. A "View as table" disclosure lists
 
 ### Deferred
 
-1. **Divergence: raw error text** (DIS-UI-PAGE-004). The page shows the request's error message as is (`pages/DiseaseRisk.tsx:21-32`), so a missing lawn profile (404) and an unconfigured lake (503) are not told apart or explained. Intent: Web UI's human-readable errors.
-2. **Tech debt** against the 50-line limit: `DailyRiskChart` (~136 lines), the `DiseaseRisk` page (~113), `DiseaseDetail` (~91), `ProgramCard` in `ManagementPanel` (~67) and `RiskMeter` (~66).
+1. **Tech debt** against the 50-line limit: `DailyRiskChart` (~136 lines), the `DiseaseRisk` page (~113), `DiseaseDetail` (~91), `ProgramCard` in `ManagementPanel` (~67) and `RiskMeter` (~66).
 
 ## References
 

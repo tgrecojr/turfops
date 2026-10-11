@@ -21,7 +21,7 @@ Three constraints shape the design:
 
 `frontend/index.html` titles the document "TurfOps", provides `#root` and loads `src/main.tsx`, which mounts `<App/>` under `React.StrictMode` and throws if `#root` is missing. `src/index.css` sets the global reset (border-box, system font stack, page background `#f7fafc`, ink `#1a202c`).
 
-`src/App.tsx` wraps everything in a class `ErrorBoundary` (the only error boundary in the app). It catches render errors from any page, shows the error message, and offers "Return to Dashboard", which clears the error and does a full navigation to `/`. Data-fetch failures do **not** reach the boundary: every page catches its own fetch errors and renders `sharedStyles.error` inline.
+`src/App.tsx` wraps everything in a class `ErrorBoundary` (the only error boundary in the app). It catches render errors from any page, shows "Something went wrong" with a fixed sentence (never the exception's text), logs the exception to the browser console, and offers "Return to Dashboard", which clears the error and does a full navigation to `/`. Data-fetch failures do **not** reach the boundary: every page catches its own fetch errors and renders `describeError(e)` in `sharedStyles.error` inline (see *Human-readable errors*).
 
 Every page is a `React.lazy` import, so each page (and the chart library, which only some pages use) is a separate chunk. A single `<Suspense>` around `<Routes>` shows "Loading..." while a chunk loads.
 
@@ -71,7 +71,7 @@ On a narrow screen (phone width) the sidebar collapses: the page takes the full 
 
 ## API Client Contract
 
-`frontend/src/api/client.ts` is the only module that calls `fetch`. Every endpoint function returns a typed promise through one private wrapper, `fetchJson<T>(url, init?, timeoutMs = 15_000)`.
+`frontend/src/api/client.ts` is the only module that calls `fetch`. Every endpoint function returns a typed promise through one wrapper, `fetchJson<T>(url, init?, timeoutMs = 15_000)`, exported so its tests can drive it directly.
 
 ### Wrapper behaviour
 
@@ -80,11 +80,12 @@ On a narrow screen (phone width) the sidebar collapses: the page takes the full 
 | Base URL | `BASE = "/api/v1"`, relative. Same-origin in production. In development the Vite server proxies `/api` to `http://localhost:3000`. |
 | Headers | `Content-Type: application/json` on every call, GETs included. A caller's `headers` are merged with the defaults (a caller's header of the same name wins), never replace them. |
 | Timeout | Every request gets its own `AbortController` timer at `timeoutMs`. A caller's `signal` is combined with it (either one aborts the request), so a caller can cancel a request but cannot remove its timeout. Only the timer's own abort reads as a timeout (plain message, UI-ERR-008); a caller's cancellation is the caller's to ignore. |
-| Non-2xx | Reads the body as **text**, truncates to 200 chars, replaces `/path/file.(rs|js|ts):<line>` with `[internal]`, and throws `Error("<status>: <body>")`. |
+| Non-2xx | Throws `ApiError { status, message }` (`src/api/errors.ts`). `message` is the `error` string unwrapped from a `{"error": …}` body; a body that is not that shape (a proxy's HTML page, plain text) is never shown, and `sentenceForStatus(status)` supplies a plain sentence instead. |
+| Timeout | Throws `ApiError(0, …, timedOut: true)`. |
 | 204 or empty 2xx body | Resolves `undefined` (no content), never a JSON parse error. |
-| 2xx with a body | `res.json()`, unvalidated, cast to `T`. |
+| 2xx with a body | Parsed JSON, unvalidated, cast to `T`. |
 
-The backend's error body is `{"error": "<message>"}` (`backend/src/error.rs`): 404 `NotFound`, 400 `InvalidData`, 503 `DataSourceUnavailable`, 409 for a unique violation (the application-log duplicate guard), and a generic 500 "An internal error occurred" for everything else. The client does not parse it. Pages show `e.message` verbatim, so the user sees, for example, `409: {"error":"An identical entry …"}`.
+The backend's error body is `{"error": "<message>"}` (`backend/src/error.rs`, see deployment's HTTP error contract): 404 `NotFound` and 400 `InvalidData` as the handler wrote them, 503 `Unavailable` with a fixed sentence naming the data source, what it affects and what to do, 409 for a unique violation (the application-log duplicate guard), and 500 "Something went wrong on the server. Try again; the details are in the server log." for everything else. Requests axum rejects before a handler runs and unknown `/api/v1` paths get the same shape (`api/json_errors.rs`).
 
 Per-call timeouts: 30 s for the seasonal plan and the shopping list (both re-evaluate expensive state); 60 s for `createPlant`, `refreshPlantPlan`, `createProduct` and `refreshProductProfile` (an OpenRouter round-trip). Everything else uses the 15 s default.
 
@@ -163,10 +164,20 @@ Recommendation **severity** uses its own scale in `types/index.ts`: Info `#9ca3a
 
 Every error the UI shows is plain language that says what went wrong and, where there is one, what to do (HLD goal). This holds on every page, widget and form.
 
-- The API client unwraps the backend's `{"error": "<message>"}` body and keeps the status for logic (a 409 is a duplicate). It never shows raw JSON, a bare status code, a stack trace, a file path or an upstream service's response body.
-- Known statuses read as explanations: a missing lawn profile (404 on profile-scoped endpoints) points to Settings; a data source that is unavailable or not configured (503) names the source in plain words and says which features are affected; a timeout says the request took too long and to try again; a duplicate (409) uses the server's message.
+- The API client unwraps the backend's `{"error": "<message>"}` body into an `ApiError` and keeps the status for logic (a 409 is a duplicate; Settings treats a 404 as "no profile yet"). It never shows raw JSON, a bare status code, a stack trace, a file path or an upstream service's response body.
+- `describeError(e)` (`src/api/errors.ts`) is the one place a failure becomes the sentence a page, widget or form shows:
+
+| Failure | Sentence |
+|---|---|
+| Timeout | "That took too long to answer. Try again." |
+| No response (status 0, or `fetch`'s `TypeError`) | "TurfOps couldn't be reached. Check your connection and try again." |
+| 404 whose message mentions the lawn profile | "There is no lawn profile yet. Set one up in Settings to get started." |
+| 500-class other than 503 | "Something went wrong on the server. Try again; the details are in the server log." |
+| 400, 409, 503 and any other status | The server's message as written (a 503 names the unavailable source and the affected features), else `sentenceForStatus`. |
+| Anything that is not an `ApiError` | The server-error sentence. |
+
 - The backend writes `error` messages for the owner. Internal and upstream detail (OpenRouter bodies, lake errors, SQL) goes to the log, not the response.
-- The `ErrorBoundary` keeps its "Something went wrong" message and the Return to Dashboard action, without the exception text.
+- The `ErrorBoundary` shows "Something went wrong", a fixed sentence and the Return to Dashboard action, never the exception text; the exception goes to the browser console.
 
 ## Build, Lint and Type-Check Tooling
 
@@ -176,7 +187,7 @@ Every error the UI shows is plain language that says what went wrong and, where 
 | TypeScript 7 | `tsconfig.json` (solution: `files: []` + references to `tsconfig.app.json` and `tsconfig.node.json`) | App: ES2023, `strict`, `noUnusedLocals/Parameters`, `erasableSyntaxOnly`, `verbatimModuleSyntax`, bundler resolution, `noEmit`. |
 | Biome 2 | `frontend/biome.json` | Recommended rules + React domain, `style/useComponentExportOnlyModules: error`. Ignores `dist` and `public`. `npm run lint` = `biome check .` (lint + format). |
 | Build | `npm run build` = `tsc -b && vite build` | Output `frontend/dist`, copied into the image as `/app/static`. |
-| Vitest | `npm test` | Shares the Vite config and transform. Covers at least the API client's error mapping (status kept, `{"error": …}` unwrapped, timeout message). CI runs it beside lint and type-check. |
+| Vitest 5 | `npm test` = `vitest run` | Shares the Vite config and transform. Suites live beside the code (`src/api/client.test.ts`, `src/api/errors.test.ts`) and cover the API client's error mapping (status kept, `{"error": …}` unwrapped, a non-JSON body never shown, empty 2xx, timeout message) and `describeError`. The CI frontend job's "Test" step runs it after lint. |
 
 **The es-toolkit redirect.** Recharts imports `es-toolkit/compat/<fn>` deep paths, which resolve only to es-toolkit's CommonJS build. Rolldown mis-compiles those circular CJS modules into a self-referential initializer (`var require_get = require_get()`, minified to `var t = t()`), so any page that renders a chart crashes in the **production** bundle with "t is not a function". Development mode does not show the bug. `esToolkitCompatEsm()` runs with `enforce: "pre"` so it resolves before Vite's own resolver. It maps each `es-toolkit/compat/<fn>` to a virtual module `export { <fn> as default } from 'es-toolkit/compat'`, i.e. the pure-ESM barrel, and leaves the bare barrel import alone. The guard covers every current and future chart page. A suspected bundler bug of this kind is diagnosed by running the production build in a real browser.
 
@@ -188,11 +199,11 @@ Unit tests (Vitest) guard the logic that pages share, starting with the API clie
 
 ## SPA Serving and CORS (backend side)
 
-`backend/src/main.rs` builds the API router, applies a 1 MB request-body limit and the CORS layer, merges the MCP router **after** CORS (when `MCP_TOKEN` is set), and finally attaches the SPA as the router's `fallback_service`:
+`backend/src/main.rs` builds the API router, applies a 1 MB request-body limit, wraps the result in `api::json_errors::with_json_errors` (the `/api/v1/{*path}` JSON 404 and the JSON error-body middleware) and then the CORS layer, merges the MCP router **after** CORS (when `MCP_TOKEN` is set), and finally attaches the SPA as the router's `fallback_service`:
 
 - `STATIC_DIR` (default `./static`; the image sets `/app/static`). If `STATIC_DIR/index.html` exists, the fallback is `ServeDir(static)` with `index.html` as a plain fallback service, which keeps its 200 status. Otherwise the server logs a warning, serves the API, and answers `GET /` with a plain page saying the frontend was not bundled into this build, so a viewer sees why there is no UI instead of an empty 404.
 - A request for an existing asset gets the file. Any other GET or HEAD path outside `/api/v1/`, such as the client route `/timing`, gets `index.html` with status 200: it is a real page, the router takes over, and deep links and reloads work.
-- An unknown path under `/api/v1/` never gets the SPA. The API router has its own fallback that answers 404 with the API's JSON error body `{"error": …}`, whether or not the SPA is bundled, so an API caller sees the same error contract as for any other failure.
+- An unknown path under `/api/v1/` never gets the SPA. The API router's catch-all route `/api/v1/{*path}` answers 404 with `{"error": "There is no such API endpoint."}`, whether or not the SPA is bundled, so an API caller sees the same error contract as for any other failure.
 - Non-GET/HEAD requests to an unmatched path outside `/api/v1/` get 405 from `ServeDir`.
 
 CORS (`build_cors_layer`), from `CORS_ALLOWED_ORIGIN` (`backend/src/config.rs`; blank or whitespace = unset):
@@ -262,28 +273,26 @@ The bundled SPA is same-origin, so CORS never applies to it. The Vite dev server
 3. **Colour-only indicators remain.** **Divergence:** `Gauge` signals warn/critical by bar colour alone, with no symbol or label (`components/Gauge.tsx:23-27`); intent is a text label beside the bar (WX-VIEW-PAGE-011, owned by weather-data). `CRABGRASS_STATUS_COLORS`, `ACTIVITY_STATUS_COLORS`, `NUTRIENT_LEVEL_COLORS`, `PREDICTION_CONFIDENCE_COLORS` and `IDENTIFICATION_CONFIDENCE_COLORS` use an older palette; whether each is always paired with a label is up to the owning feature.
 4. **Divergence: table views are not universal** (UI-CONV-003). `TrendChart`, `PredictionChart` (Environmental) and the `GddWidget` chart have no table view. Intent: every chart has "View as table".
 5. **Gauge thresholds are one-directional.** The soil-moisture gauge flags only high values (40/45 %, `components/gaugeConfigs.ts:33-39`). The <0.10 "irrigation needed" threshold is not shown.
-6. **Divergence: error bodies are shown raw** (UI-ERR-004, UI-ERR-005). The client does not unwrap `{"error": …}` (`api/client.ts:53-61`; body built at `backend/src/error.rs`), so users see JSON, e.g. `409: {"error":"An identical entry…"}`, and pages render it as is (for example `pages/DiseaseRisk.tsx:21-32`, the Timing page). Intent: Human-readable errors.
-7. **Divergence: `fetchJson` header/signal override** (UI-API-005, UI-API-006, UI-DASH-003). Spreading `init` after the defaults (`api/client.ts:48-52`) lets a caller's `headers` drop `Content-Type` and its `signal` disable the timeout. The Dashboard's own `AbortController` is never passed to `fetch` (`pages/Dashboard.tsx:61-64`): aborting only discards results, and superseded requests keep running. Intent: headers merged, timeout always applied, superseded polls aborted.
-8. **Divergence: an empty 2xx body throws** (UI-API-003). A 2xx with an empty non-204 body throws a JSON parse error (`api/client.ts:64-65`). Intent: treated as no content. Separately and still open, `res.json()` is cast to `T` without runtime validation.
-9. **Divergence: deep links return 404** (UI-SRV-001, UI-SRV-008). The SPA fallback sends `index.html` with status 404, and unknown `/api/v1/...` paths return HTML instead of JSON (`backend/src/main.rs:219-221`). Intent: client routes get `index.html` with 200; unknown API paths get a JSON 404.
-10. **Unused exports and assets.** `getHealth` and `getPlant` are never called. `GET /products/:id` has no client. `src/assets/hero.png` and `vite.svg` are unreferenced. **Divergence:** the `index.html` `<title>` is "frontend" (UI-SHELL-007). Intent: "TurfOps".
-11. **Divergence: browser date vs. server date** (UI-UTIL-005, UI-UTIL-006). `todayLocalISO()` (`utils/dates.ts:12-14`) pre-fills form dates from the viewer's clock; the backend's "today" is the server's local date (`TZ`). They disagree when the viewer's device is in another timezone (the owner travelling, or a device set to another zone) around midnight: a date a day ahead is read as future-dated by the disease and timing models until the server's day catches up, and a day behind backdates the entry. The form does not warn and the API does not reject either. Separately, date-only display helpers that parse at local midnight or noon are duplicated per feature (`formatShortDate`, `formatMonthDay`, `pages/SeasonalPlan.tsx:29`, `pages/Calendar.tsx:18`) instead of living in `utils/dates.ts`. Intent: the form warns on a date after the server's today, and the display helpers live once in `utils/dates.ts`.
-12. **Files over the 300-line limit** owned here: `types/index.ts` (694), `api/client.ts` (403), `pages/Dashboard.tsx` (372). (`pages/Settings.tsx`, 304 lines, is applications' debt.) The `Dashboard` component function exceeds 50 lines. Split `client.ts` and `types/index.ts` by owning component.
-13. **Divergence: no responsive layout** (UI-NAV-003). The 220 px sidebar never collapses (`components/Layout.tsx`). Intent: it collapses to a menu at phone width.
-14. **Divergence: no frontend tests** (UI-BUILD-008, UI-BUILD-009). No test runner is configured and CI runs none. Intent: Vitest, covering at least the API client's error mapping, run in CI.
-15. **Divergence: a failed re-poll blanks a widget** (FEED-UI-013, owned by recommendation-feed). Each feature call on the dashboard is caught to `null` on every poll (`pages/Dashboard.tsx:66-80`), so one failed 30 s re-poll hides a widget that was showing good data. Intent: the widget keeps its last good data, marked stale.
-16. **Divergence: invalid `CORS_ALLOWED_ORIGIN` panics at startup** (UI-SRV-009). `backend/src/main.rs:266` calls `expect("Invalid CORS_ALLOWED_ORIGIN")`. Intent: config load refuses the value with a configuration error naming the variable. A blank or whitespace value counts as unset (`backend/src/config.rs:263-265`).
-17. **Divergence: missing static directory is silent to the browser** (UI-SRV-010). Without `STATIC_DIR/index.html` the server logs one warning and runs API-only (`backend/src/main.rs:214-224`); `/` returns an empty 404. Intent: `/` serves a plain page saying the frontend was not bundled.
+6. **Divergence: `fetchJson` header/signal override** (UI-API-005, UI-API-006, UI-DASH-003). Spreading `init` after the defaults (`api/client.ts:68-72`) lets a caller's `headers` drop `Content-Type` and its `signal` disable the timeout. The Dashboard's own `AbortController` is never passed to `fetch` (`pages/Dashboard.tsx:61-64`): aborting only discards results, and superseded requests keep running. Intent: headers merged, timeout always applied, superseded polls aborted.
+7. **Response bodies are not validated.** A 2xx body is parsed and cast to `T` with no runtime check against the type mirror.
+8. **Divergence: deep links return 404** (UI-SRV-001). The SPA fallback is `ServeDir` with `index.html` as its `not_found_service` (`backend/src/main.rs:224`), which sends `index.html` with status 404. Intent: client routes get `index.html` with 200.
+9. **Unused exports and assets.** `getHealth` and `getPlant` are never called. `GET /products/:id` has no client. `src/assets/hero.png` and `vite.svg` are unreferenced. **Divergence:** the `index.html` `<title>` is "frontend" (UI-SHELL-007). Intent: "TurfOps".
+10. **Divergence: browser date vs. server date** (UI-UTIL-005, UI-UTIL-006). `todayLocalISO()` (`utils/dates.ts:12-14`) pre-fills form dates from the viewer's clock; the backend's "today" is the server's local date (`TZ`). They disagree when the viewer's device is in another timezone (the owner travelling, or a device set to another zone) around midnight: a date a day ahead is read as future-dated by the disease and timing models until the server's day catches up, and a day behind backdates the entry. The form does not warn and the API does not reject either. Separately, date-only display helpers that parse at local midnight or noon are duplicated per feature (`formatShortDate`, `formatMonthDay`, `pages/SeasonalPlan.tsx:29`, `pages/Calendar.tsx:18`) instead of living in `utils/dates.ts`. Intent: the form warns on a date after the server's today, and the display helpers live once in `utils/dates.ts`.
+11. **Files over the 300-line limit** owned here: `types/index.ts` (694), `api/client.ts` (416), `pages/Dashboard.tsx` (373). (`pages/Settings.tsx`, 330 lines, is applications' debt.) The `Dashboard` component function exceeds 50 lines. Split `client.ts` and `types/index.ts` by owning component.
+12. **Divergence: no responsive layout** (UI-NAV-003). The 220 px sidebar never collapses (`components/Layout.tsx`). Intent: it collapses to a menu at phone width.
+13. **Divergence: a failed re-poll blanks a widget** (FEED-UI-013, owned by recommendation-feed). Each feature call on the dashboard is caught to `null` on every poll (`pages/Dashboard.tsx:66-80`), so one failed 30 s re-poll hides a widget that was showing good data. Intent: the widget keeps its last good data, marked stale.
+14. **Divergence: invalid `CORS_ALLOWED_ORIGIN` panics at startup** (UI-SRV-009). `backend/src/main.rs:271` calls `expect("Invalid CORS_ALLOWED_ORIGIN")`. Intent: config load refuses the value with a configuration error naming the variable. A blank or whitespace value counts as unset (`backend/src/config.rs:263-265`).
+15. **Divergence: missing static directory is silent to the browser** (UI-SRV-010). Without `STATIC_DIR/index.html` the server logs one warning and runs API-only (`backend/src/main.rs:219-229`); `/` returns an empty 404. Intent: `/` serves a plain page saying the frontend was not bundled.
 
 ## References
 
 - `frontend/src/main.tsx`, `frontend/src/App.tsx`, `frontend/src/index.css`, `frontend/index.html`
 - `frontend/src/components/Layout.tsx`, `pages/Dashboard.tsx`
-- `frontend/src/api/client.ts`
+- `frontend/src/api/client.ts`, `frontend/src/api/errors.ts` and their tests (`client.test.ts`, `errors.test.ts`)
 - `frontend/src/types/index.ts` (and the feature mirrors `types/disease.ts`, `types/timing.ts`, `types/inventory.ts`)
 - `frontend/src/styles/shared.ts`, `frontend/src/utils/dates.ts`, `frontend/src/utils/units.ts`
 - `frontend/vite.config.ts`, `frontend/biome.json`, `frontend/tsconfig*.json`, `frontend/package.json`, `frontend/README.md`
 - `components/disease/TierBadge.tsx`, `components/disease/DailyRiskChart.tsx`, `components/timing/SoilSeasonChart.tsx`, `components/timing/SoilSeasonTable.tsx`, `components/InventoryBadge.tsx`, `components/AlertCard.tsx`
-- `backend/src/main.rs` (router, SPA fallback, `build_cors_layer`), `backend/src/config.rs` (`CORS_ALLOWED_ORIGIN`, `SERVER_PORT`), `backend/src/error.rs` (error body)
+- `backend/src/main.rs` (router, SPA fallback, `build_cors_layer`), `backend/src/api/json_errors.rs` (API 404 and JSON error bodies), `backend/src/config.rs` (`CORS_ALLOWED_ORIGIN`, `SERVER_PORT`), `backend/src/error.rs` (error body)
 - `.github/workflows/ci.yml`, `.github/workflows/docker-publish.yml`, `Dockerfile` (frontend build stage, `STATIC_DIR`)
 - `docs/high-level-design.md`; `docs/timing-windows.md` (card and badge conventions)

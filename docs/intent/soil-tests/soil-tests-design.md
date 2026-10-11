@@ -138,11 +138,13 @@ The guard's behavior is owned by Agronomic rules and its placement by Recommenda
 
 | Situation | Endpoint | Page |
 |---|---|---|
-| No lawn profile | 404 on every GET/POST/PUT | Error banner |
+| No lawn profile | 404 on every GET/POST/PUT | Error banner pointing to Settings to set up the lawn profile |
 | No soil tests | `/recommendations` → 404 `No soil tests found` | Recommendations panel hidden (page skips the call); "No soil tests recorded yet" in history |
-| DB error reading latest test | 500 | Error banner |
+| DB error reading latest test | 500 | Error banner with the server-error sentence (try again; details in the server log) |
 | pH within dead band, nothing low, K High, N budget spent | Summary with `ph: null`, NPK "N/A", empty list | "No fertilizer needed" with the explanation (see UI) |
 | Profile soil type unset | Loam assumed, noted in text | same |
+
+Every failed load, save or delete on the page sets the banner to `describeError(e)` (Web UI's human-readable errors): the server's message as written for a 400 (a bad date, an out-of-range pH), the Settings pointer for a missing profile, "try again" on a timeout; never a status code or response body.
 
 The feed carries no soil-test advice, so none of these situations affects it.
 
@@ -223,7 +225,7 @@ The MCP server (MCP) exposes `soil_tests` (limit default 5, clamped 1–50) and 
 8. **Divergence: validation gaps** (SOIL-API-011, SOIL-API-012). Current behavior: negative measured values are accepted and DELETE of a missing id returns 204 (`api/soil_tests.rs:181-187`). Intent: a negative value is 400 with a plain message naming the field; deleting a missing test is 404. Still open: implausibly large values are accepted, and PUT/DELETE are not scoped to the profile.
 9. **Divergence: Soil Tests page states** (SOIL-UI-012, SOIL-UI-016, SOIL-UI-017). Current behavior: a fully adequate soil shows an "N/A" Fertilizer card because the backend always returns an `npk_recommendation` and the page's "All adequate" branch is unreachable (`soil_test_recommendations.rs:130-155`, `SoilTests.tsx:512-517`); Delete has no confirmation; the page does not name the test the advice is based on. Intent: "No fertilizer needed", a confirmation before delete, and the test's date beside the advice.
 10. **Placement:** the N-P-K evaluator mixes classification, ratio search and product back-calculation.
-11. **File size:** `logic/soil_test_recommendations.rs` is 525 lines (over the 300-line limit; about 155 are tests) and `calculate_npk_recommendation` is ~140 lines (over the 50-line limit); `frontend/src/pages/SoilTests.tsx` is 777 lines with `SoilTests` and `SoilTestRecommendationsPanel` both well over 50 lines; `api/soil_tests.rs` repeats profile lookup, date parsing and pH validation across handlers.
+11. **File size:** `logic/soil_test_recommendations.rs` is 525 lines (over the 300-line limit; about 155 are tests) and `calculate_npk_recommendation` is ~140 lines (over the 50-line limit); `frontend/src/pages/SoilTests.tsx` is 773 lines with `SoilTests` and `SoilTestRecommendationsPanel` both well over 50 lines; `api/soil_tests.rs` repeats profile lookup, date parsing and pH validation across handlers.
 12. **Divergence: calcium, magnesium and sulfur are labelled "micronutrients"** (SOIL-UI-018). The page titles their table "Micronutrient Deficiencies" although they are secondary macronutrients. Intent: "Secondary & micronutrients". The API field name `micronutrient_recommendations` and the rejoin ids `soil_test_micro_*` are unaffected.
 13. **Budget basis differs from the guard's.** Current behavior: the soil-test N side counts every application dated in the current year, future-dated ones included (`api/soil_tests.rs:206-208`), while the guard counts only those on or before today (`nitrogen_guard.rs:65-71`). The page's remaining budget can therefore differ from the nitrogen budget widget's and the feed's. If soil-test advice rejoins the feed, its N amount and the guard's "N budget remaining" point would rest on different bases; the evaluator should adopt the guard's.
 14. **Guard on a P/K-only recommendation** (applies only if soil-test advice rejoins the feed). Intent (Resolved #4): at the budget the guard caps only nitrogen, so P₂O₅ / K₂O advice and its need stand, and a P/K-only `soil_test_npk` is not a feeding. The guard's "target reached" branch clears the whole action and every need (`nitrogen_guard.rs:102-112`, RULE-GUARD-005 deferred); if it covered `soil_test_npk` as built, P/K advice would be lost.

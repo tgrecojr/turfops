@@ -242,9 +242,6 @@ mod tests {
             grass_type: "Tall Fescue",
             usda_zone: "7a",
         }));
-        assert!(matches!(
-            result,
-            Err(TurfOpsError::DataSourceUnavailable(_))
-        ));
+        assert!(matches!(result, Err(TurfOpsError::Unavailable { .. })));
     }
 }

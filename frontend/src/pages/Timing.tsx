@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getTimingWindows } from "../api/client";
+import { describeError } from "../api/errors";
 import SoilSeasonChart from "../components/timing/SoilSeasonChart";
 import TimingMethod from "../components/timing/TimingMethod";
 import WindowCard from "../components/timing/WindowCard";
@@ -24,10 +25,8 @@ export default function Timing() {
 				if (!cancelled) setData(res);
 			})
 			.catch((e: unknown) => {
-				if (!cancelled)
-					setError(
-						e instanceof Error ? e.message : "Failed to load timing windows",
-					);
+				// @spec TIME-UI-008
+				if (!cancelled) setError(describeError(e));
 			});
 		return () => {
 			cancelled = true;

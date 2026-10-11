@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { type UpdateProductBody, updateProduct } from "../../api/client";
+import { describeError } from "../../api/errors";
 import type {
 	AmendmentKind,
 	HerbicideTiming,
@@ -116,7 +117,8 @@ export default function EditProductForm({
 		try {
 			onSaved(await updateProduct(product.id, body));
 		} catch (err) {
-			onError(err instanceof Error ? err.message : "Failed to save product");
+			// @spec INV-UI-013
+			onError(describeError(err));
 		} finally {
 			setSaving(false);
 		}

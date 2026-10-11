@@ -8,7 +8,7 @@ pub use refresh::refresh_product_profile;
 
 use crate::datasources::openrouter::ProductProfileRequest;
 use crate::db::{product_queries, queries};
-use crate::error::TurfOpsError;
+use crate::error::{Source, TurfOpsError};
 use crate::models::frac_class::frac_classes_for_product;
 use crate::models::product::*;
 use crate::models::LawnProfile;
@@ -81,7 +81,8 @@ pub async fn create_product(
     let profile = active_profile(&state).await?;
     let lawn_profile_id = profile_id(&profile)?;
 
-    let (ai, profile_error) = match (req.assist.unwrap_or(true), state.openrouter.as_ref()) {
+    let (ai, mut assistant_failure) = match (req.assist.unwrap_or(true), state.openrouter.as_ref())
+    {
         (true, Some(openrouter)) => {
             let lookup = lookup_name(req.brand.as_deref(), &name);
             match openrouter
@@ -96,14 +97,13 @@ pub async fn create_product(
                 Ok(p) => (Some((p, openrouter.model().to_string())), None),
                 Err(e) => {
                     warn!(product = %lookup, error = %e, "Product profile generation failed");
-                    (None, Some(e.to_string()))
+                    // @spec INV-API-012
+                    (None, Some(e.for_products()))
                 }
             }
         }
         (true, None) if req.category.is_none() => {
-            return Err(TurfOpsError::InvalidData(
-                "The assistant is not configured (set OPENROUTER_API_KEY) — pick a category to save the product by hand".into(),
-            ));
+            return Err(TurfOpsError::not_configured(Source::ProductAssistant));
         }
         _ => (None, None),
     };
@@ -111,15 +111,13 @@ pub async fn create_product(
     let mut facts = match &ai {
         Some((p, _)) => ProductFacts::from_profile(p, frac_classes_for_product(&name)),
         None => {
-            let category = req.category.ok_or_else(|| match &profile_error {
-                Some(e) => TurfOpsError::DataSourceUnavailable(format!(
-                    "Could not identify the product ({}); pick a category to save it by hand",
-                    e
-                )),
-                None => TurfOpsError::InvalidData(
-                    "category is required when the assistant is not used".into(),
-                ),
-            })?;
+            let Some(category) = req.category else {
+                return Err(assistant_failure.take().unwrap_or_else(|| {
+                    TurfOpsError::InvalidData(
+                        "Pick a category to save the product without the assistant.".into(),
+                    )
+                }));
+            };
             let mut f = ProductFacts::manual(category, req.form.unwrap_or(ProductForm::Other));
             f.frac_classes = frac_classes_for_product(&name);
             f
@@ -161,10 +159,14 @@ pub async fn create_product(
         StatusCode::CREATED,
         Json(ProductCreated {
             product: created,
-            profile_error,
+            profile_error: assistant_failure.map(|_| SAVED_BY_HAND.to_string()),
         }),
     ))
 }
+
+/// What the owner sees when the assistant failed but the product saved with their details.
+const SAVED_BY_HAND: &str = "The assistant couldn't identify this product, so it was saved with \
+     the details you entered. Use Refresh profile to try again later.";
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateProductRequest {

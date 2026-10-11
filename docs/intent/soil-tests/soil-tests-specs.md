@@ -83,7 +83,7 @@ Design: [soil-tests-design.md](soil-tests-design.md). Prefix `SOIL`. Facets: `DA
 - [x] **SOIL-UI-010**: The Soil Tests page shall list stored tests newest first in a history table of date, lab, pH, P, K, Ca, Mg and OM %, each row with Edit (opens the form filled with that test) and Delete.
 - [x] **SOIL-UI-011**: While no soil test is stored, the Soil Tests page shall show "No soil tests recorded yet. Add your first test above." and no advice.
 - [ ] **SOIL-UI-012**: The Soil Tests page shall show the date of the test its advice is based on alongside the advice.
-- [ ] **SOIL-UI-013**: If a Soil Tests page request fails, then the page shall show a plain-language message saying what went wrong and what to do (no lawn profile: set one up in Settings; timeout: try again; otherwise the server's message), never a status code or response body.
+- [x] **SOIL-UI-013**: If a Soil Tests page request fails, then the page shall show a plain-language message saying what went wrong and what to do (no lawn profile: set one up in Settings; timeout: try again; otherwise the server's message), never a status code or response body.
 - [ ] **SOIL-UI-014**: Wherever the Soil Tests page shows soil-test advice, it shall show the latest test's age (the time from its `test_date` to today's local date) beside the test date.
 - [ ] **SOIL-UI-015**: While the latest soil test's `test_date` is more than 3 years before today's local date, the Soil Tests page shall suggest retesting alongside the advice.
 - [ ] **SOIL-UI-016**: When the soil-test N-P-K recommendation advises no N, P₂O₅ or K₂O, the Soil Tests page shall show "No fertilizer needed" with the explanation and the remaining annual nitrogen, and no ratio, zero amounts or "N/A" analysis.

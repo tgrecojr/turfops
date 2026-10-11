@@ -1,4 +1,4 @@
-use crate::error::TurfOpsError;
+use crate::error::{Source, TurfOpsError};
 use crate::logic::soil_temp_prediction;
 use crate::models::soil_temp_prediction::SoilTempForecast;
 use crate::state::AppState;
@@ -14,9 +14,9 @@ pub async fn get_soil_temp_forecast(
     let service = state.sync_service.read().await;
 
     // We need: weather lake client for paired data, current soil temp, and forecast
-    let weather = service.weather_client().ok_or_else(|| {
-        TurfOpsError::DataSourceUnavailable("Weather data lake not configured".into())
-    })?;
+    let weather = service
+        .weather_client()
+        .ok_or_else(|| TurfOpsError::not_configured(Source::WeatherLake))?;
 
     // Fetch 30 days of daily paired (air_temp, soil_temp) averages from the gold layer
     let now = Utc::now();
@@ -26,9 +26,8 @@ pub async fn get_soil_temp_forecast(
         .await?;
 
     if daily_pairs.len() < 14 {
-        return Err(TurfOpsError::InvalidData(
-            "Insufficient paired data for model fitting (need at least 14 days)".into(),
-        ));
+        // @spec WX-OUTLOOK-API-003
+        return Err(TurfOpsError::not_enough_data(Source::SoilOutlook));
     }
 
     // Get current environmental summary for soil temp + forecast
@@ -40,7 +39,7 @@ pub async fn get_soil_temp_forecast(
         .current
         .as_ref()
         .and_then(|c| c.soil_temp_10_f)
-        .ok_or_else(|| TurfOpsError::InvalidData("Current soil temperature unavailable".into()))?;
+        .ok_or_else(|| TurfOpsError::not_enough_data(Source::SoilOutlook))?;
 
     // Extract recent daily air temps from paired data
     let recent_daily_air: Vec<(chrono::NaiveDate, f64)> =
@@ -62,8 +61,9 @@ pub async fn get_soil_temp_forecast(
         .unwrap_or_default();
 
     if forecast_daily_air.is_empty() {
-        return Err(TurfOpsError::DataSourceUnavailable(
-            "Weather forecast not available".into(),
+        return Err(TurfOpsError::unavailable(
+            Source::Forecast,
+            "no full forecast days to drive the soil outlook",
         ));
     }
 
@@ -74,9 +74,7 @@ pub async fn get_soil_temp_forecast(
         current_soil_temp,
         state.clock.today(),
     )
-    .ok_or_else(|| {
-        TurfOpsError::InvalidData("Could not build prediction model (poor data correlation)".into())
-    })?;
+    .ok_or_else(|| TurfOpsError::not_enough_data(Source::SoilOutlook))?;
 
     Ok(Json(forecast))
 }

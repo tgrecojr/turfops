@@ -16,8 +16,8 @@ Design: [applications-design.md](applications-design.md). Prefix `APP`. Facets: 
 - [x] **APP-PROF-008**: When `GET /api/v1/profile` is called, the system shall return the profile, or 404 `No lawn profile found` when none exists.
 - [x] **APP-PROF-009**: When `PUT /api/v1/profile` is called, the system shall update only the fields present in the request, clear `soil_type` or `irrigation_type` when sent as `""`, clear `lawn_size_sqft` when sent as a value ≤ 0, and respond with the profile re-read from the database (so `updated_at` is the stored time).
 - [x] **APP-PROF-010**: If `PUT /api/v1/profile` carries a grass, soil or irrigation type the system cannot parse, then the system shall return 400 naming the unknown value and change nothing.
-- [ ] **APP-PROF-011**: The API shall offer no way to delete the lawn profile, and shall create it only through `PUT /api/v1/profile` when none exists (startup seeding from `LAWN_*` being the other way a profile comes to exist).
-- [ ] **APP-PROF-012**: When `PUT /api/v1/profile` is called and no lawn profile exists, the system shall create the profile from the request's fields, filling any omitted field as startup seeding does (name `Main Lawn`, grass type `TallFescue`, zone `7a`, the optional fields unset), apply the same parsing, clearing and 400 rules as an update, and respond with the stored profile.
+- [x] **APP-PROF-011**: The API shall offer no way to delete the lawn profile, and shall create it only through `PUT /api/v1/profile` when none exists (startup seeding from `LAWN_*` being the other way a profile comes to exist).
+- [x] **APP-PROF-012**: When `PUT /api/v1/profile` is called and no lawn profile exists, the system shall create the profile from the request's fields, filling any omitted field as startup seeding does (name `Main Lawn`, grass type `TallFescue`, zone `7a`, the optional fields unset), apply the same parsing, clearing and 400 rules as an update, and respond with the stored profile.
 
 ## Application log model
 
@@ -50,7 +50,7 @@ Design: [applications-design.md](applications-design.md). Prefix `APP`. Facets: 
 - [x] **APP-API-006**: If `PUT /api/v1/applications/:id` names an application that does not exist, then the system shall return 404.
 - [x] **APP-API-007**: When `DELETE /api/v1/applications/:id` is called, the system shall delete the application and return 204.
 - [x] **APP-API-008**: If no lawn profile exists, then `GET` and `POST /api/v1/applications` shall return 404.
-- [ ] **APP-API-009**: The applications and profile endpoints shall write every error message for the owner in plain language, naming fields as the form shows them (plant, follow-up date, date) rather than request field names (`plant_id`, `follow_up_date`), and shall report an internal inconsistency (such as a profile row without an id) as an internal error with the detail kept in the log.
+- [x] **APP-API-009**: The applications and profile endpoints shall write every error message for the owner in plain language, naming fields as the form shows them (plant, follow-up date, date) rather than request field names (`plant_id`, `follow_up_date`), and shall report an internal inconsistency (such as a profile row without an id) as an internal error with the detail kept in the log.
 - [ ] **APP-API-010**: If a `POST` or `PUT /api/v1/applications` request has a negative rate per 1,000 sq ft or coverage, or an N, P or K percentage above 100, then the system shall return 400 with a plain-language message naming the field and store nothing; an application date in the future shall be accepted.
 - [ ] **APP-API-011**: If `DELETE /api/v1/applications/:id` names an application that does not exist, then the system shall return 404.
 - [ ] **APP-API-012**: When `GET /api/v1/applications` is called with `scope=turf` or `scope=landscape`, the system shall return only the entries without or with a plant respectively, filtering in SQL before paging together with any `type` filter; if `scope` has any other value, then the system shall return 400.
@@ -87,7 +87,7 @@ Design: [applications-design.md](applications-design.md). Prefix `APP`. Facets: 
 - [x] **APP-LIST-002**: The Applications page shall load applications from the server 50 at a time and, while the last page was full, offer "Load older entries" to fetch the next page.
 - [ ] **APP-LIST-003**: The Applications page's Type filter (`?type=`) and Scope toggle (All / Turf / Landscape, `?scope=`) shall both be applied by the server, and changing either shall reload the list from the first page.
 - [x] **APP-LIST-004**: When the owner clicks Delete on the Applications page, the page shall ask for confirmation before deleting.
-- [ ] **APP-LIST-005**: If a request from the Applications page or the Settings page fails, then the page shall show a plain-language message that says what went wrong and what to do: the server's `error` message for a 400 or 409, a pointer to Settings when the Applications page finds no lawn profile, "try again" on a timeout; never a status code, a JSON body or internal detail.
+- [x] **APP-LIST-005**: If a request from the Applications page or the Settings page fails, then the page shall show a plain-language message that says what went wrong and what to do: the server's `error` message for a 400 or 409, a pointer to Settings when the Applications page finds no lawn profile, "try again" on a timeout; never a status code, a JSON body or internal detail.
 
 ## Application form
 
@@ -107,4 +107,4 @@ Design: [applications-design.md](applications-design.md). Prefix `APP`. Facets: 
 
 - [x] **APP-SET-001**: The Settings page shall edit the lawn profile's name (required), grass type, USDA zone (required), soil type ("Not specified" clears it), lawn size (empty clears it) and irrigation type ("Not specified" clears it), saving with one Save Profile button.
 - [x] **APP-SET-002**: When the profile saves, the Settings page shall show "Profile saved successfully!" for 3 seconds and show the profile's created and last-updated times.
-- [ ] **APP-SET-003**: While no lawn profile exists, the Settings page shall show the empty profile form with a note that saving it creates the lawn profile, instead of a load error, and Save Profile shall create the profile through `PUT /api/v1/profile`.
+- [x] **APP-SET-003**: While no lawn profile exists, the Settings page shall show the empty profile form with a note that saving it creates the lawn profile, instead of a load error, and Save Profile shall create the profile through `PUT /api/v1/profile`.

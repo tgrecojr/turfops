@@ -315,13 +315,16 @@ endpoint does not read the plan; the page fetches both.
   "Done"), confidence dots, and an expandable Details block (trigger, rate, products,
   notes, historical range).
 - Empty state distinguishes "no activities could be projected" from an empty filter.
+- A failed load shows `describeError(e)` (Web UI's human-readable errors): a missing lawn
+  profile points to Settings, a timeout says to try again; never a status code or JSON body.
 
 ### Calendar (`frontend/src/pages/Calendar.tsx`)
 
 - Month grid with prev / next navigation, starting on the month the calendar endpoint
   returns when called without `year` and `month` (the server's local today, never the
   browser's clock); the plan is fetched per year and fails silently (the grid still
-  shows applications).
+  shows applications). A failed calendar load shows `describeError(e)`: a missing lawn
+  profile points to Settings, a timeout says to try again; never a status code or JSON body.
 - Per day: filled dots for applications logged that day, ring dots for follow-ups due
   that day (both colored by application type), and one bar per plan activity whose
   `[predicted_start, predicted_end]` contains the day, colored by status. Plant
@@ -425,7 +428,7 @@ endpoint does not read the plan; the page fetches both.
     the name only); the detail panel and plan page carry text labels.
 11. **Size limits.** `backend/src/logic/seasonal_plan.rs` is 756 lines (limit 300) with
     `build_activities` near 390 lines; `get_seasonal_plan` is ~140 lines;
-    `frontend/src/pages/Calendar.tsx` is 687 lines and `SeasonalPlan.tsx` 512 lines;
+    `frontend/src/pages/Calendar.tsx` is 689 lines and `SeasonalPlan.tsx` 514 lines;
     `backend/src/db/queries.rs` (shared) is 609 lines.
 12. **Stringly-typed contracts.** Activity ids are the merge key and `"Plant
     Maintenance"` is the plant discriminator; neither is an enum.

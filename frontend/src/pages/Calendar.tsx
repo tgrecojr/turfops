@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getCalendar, getSeasonalPlan } from "../api/client";
+import { describeError } from "../api/errors";
 import { appTypeBadgeStyle } from "../styles/shared";
 import type {
 	Application,
@@ -44,7 +45,8 @@ export default function Calendar() {
 			})
 			.catch((e) => {
 				if (!cancelled) {
-					setError(e instanceof Error ? e.message : "Failed to load");
+					// @spec PLAN-CALUI-008
+					setError(describeError(e));
 				}
 			});
 		return () => {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getProfile, updateProfile } from "../api/client";
+import { ApiError, describeError } from "../api/errors";
 import type {
 	GrassType,
 	IrrigationType,
@@ -51,6 +52,8 @@ export default function Settings() {
 	const [success, setSuccess] = useState(false);
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
+	/** No lawn profile exists yet: saving the form creates it. */
+	const [creating, setCreating] = useState(false);
 
 	// Form state
 	const [name, setName] = useState("");
@@ -72,7 +75,15 @@ export default function Settings() {
 				setSize(p.lawn_size_sqft?.toString() || "");
 				setIrrigationType(p.irrigation_type || "");
 			} catch (e) {
-				setError(e instanceof Error ? e.message : "Failed to load profile");
+				// @spec APP-SET-003
+				if (e instanceof ApiError && e.status === 404) {
+					setCreating(true);
+					setName("Main Lawn");
+					setZone("7a");
+				} else {
+					// @spec APP-LIST-005
+					setError(describeError(e));
+				}
 			} finally {
 				setLoading(false);
 			}
@@ -114,10 +125,11 @@ export default function Settings() {
 				irrigation_type: validIrrigationType,
 			});
 			setProfile(updated);
+			setCreating(false);
 			setSuccess(true);
 			setTimeout(() => setSuccess(false), 3000);
 		} catch (e) {
-			setError(e instanceof Error ? e.message : "Failed to save");
+			setError(describeError(e));
 		} finally {
 			setSaving(false);
 		}
@@ -130,6 +142,12 @@ export default function Settings() {
 		<div>
 			<h1 style={styles.title}>Lawn Profile Settings</h1>
 
+			{creating && (
+				<div style={styles.notice}>
+					There is no lawn profile yet. Fill in your lawn below; saving creates
+					it.
+				</div>
+			)}
 			{error && <div style={styles.error}>{error}</div>}
 			{success && <div style={styles.success}>Profile saved successfully!</div>}
 
@@ -248,6 +266,14 @@ const styles: Record<string, React.CSSProperties> = {
 		padding: "0.5rem 1rem",
 		backgroundColor: "#fed7d7",
 		color: "#c53030",
+		borderRadius: 6,
+		marginBottom: "1rem",
+		fontSize: "0.85rem",
+	},
+	notice: {
+		padding: "0.5rem 1rem",
+		backgroundColor: "#ebf8ff",
+		color: "#2a4365",
 		borderRadius: 6,
 		marginBottom: "1rem",
 		fontSize: "0.85rem",

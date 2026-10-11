@@ -1,7 +1,7 @@
 use crate::datasources::weather::ClimateRecord;
 use crate::datasources::WeatherLakeClient;
 use crate::db::queries;
-use crate::error::TurfOpsError;
+use crate::error::{Source, TurfOpsError};
 use crate::logic::timing::{self, context, Assessment};
 use crate::models::seasonal_plan::PlannedActivity;
 use crate::models::timing::TimingResponse;
@@ -62,9 +62,7 @@ async fn compute(state: &AppState, profile: &LawnProfile) -> Result<TimingRespon
         let summary = service.get_or_refresh().await?;
         (service.weather_client().cloned(), summary.forecast)
     };
-    let client = client.ok_or_else(|| {
-        TurfOpsError::DataSourceUnavailable("weather data lake not configured".into())
-    })?;
+    let client = client.ok_or_else(|| TurfOpsError::not_configured(Source::WeatherLake))?;
 
     // @spec TIME-ENG-039
     let record = climate_record(state, &client).await?;
@@ -171,9 +169,7 @@ async fn plan_for(
         .await
         .weather_client()
         .cloned()
-        .ok_or_else(|| {
-            TurfOpsError::DataSourceUnavailable("weather data lake not configured".into())
-        })?;
+        .ok_or_else(|| TurfOpsError::not_configured(Source::WeatherLake))?;
     // @spec TIME-ENG-039
     let record = climate_record(state, &client).await?;
     let today = state.clock.today();

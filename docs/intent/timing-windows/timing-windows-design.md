@@ -163,7 +163,7 @@ As a result, a spring pre-emergent never blocks fall seeding, a fall overseeding
 
 | Method | Path | Response | Errors |
 |---|---|---|---|
-| GET | `/api/v1/timing-windows` | `TimingResponse` (`models/timing.rs`, mirrored in `frontend/src/types/timing.ts`) | 404 with no lawn profile. 503 when the lake is not configured. Lake read and sync errors propagate (`api/timing.rs:28-35, 54-60`). |
+| GET | `/api/v1/timing-windows` | `TimingResponse` (`models/timing.rs`, mirrored in `frontend/src/types/timing.ts`) | 404 with no lawn profile. 503 when the lake is not configured (`not_configured(Source::WeatherLake)`: the owner sentence naming the lake, what it affects and `DATALAKE_ROOT`). Lake read and sync errors propagate (`api/timing.rs:28-35, 54-60`). |
 
 `TimingResponse` fields:
 - `generated_at`, `today` (the server-local date; see **Today**), `station`
@@ -237,7 +237,7 @@ The UI files are `frontend/src/pages/Timing.tsx` (route `/timing`, nav "Seed & P
 6. "Other seeding options" (Secondary and Optional cards).
 7. `TimingMethod`, a collapsible "How this is calculated".
 
-A failed fetch shows a plain-language error (Web UI's human-readable errors); today it shows the raw error text.
+A failed fetch shows `describeError(e)` (Web UI's human-readable errors): with no lawn profile, a pointer to set one up in Settings; with the weather lake unavailable or not configured, the server's sentence naming the lake; never a status code, JSON or internal detail.
 
 **Conventions:**
 - **`StateBadge`:** the window-state color is never used alone. Every badge is symbol + label (○ ◔ ● ★ △ ✕ ✓ ⊘) on a tint of the status color, with ink text. Colors are the status palette plus neutrals in `WINDOW_STATE_COLORS`.

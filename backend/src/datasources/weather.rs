@@ -1,5 +1,5 @@
 use crate::config::DataLakeConfig;
-use crate::error::{Result, TurfOpsError};
+use crate::error::{Result, Source, TurfOpsError};
 use crate::models::{
     celsius_to_fahrenheit, DataSource, EnvironmentalReading, EnvironmentalSummary, Trend,
 };
@@ -55,7 +55,9 @@ impl WeatherLakeClient {
             f(&conn)
         })
         .await
-        .map_err(|e| TurfOpsError::DataSourceUnavailable(format!("data lake task failed: {e}")))?
+        .map_err(|e| {
+            TurfOpsError::unavailable(Source::WeatherLake, format!("data lake task failed: {e}"))
+        })?
     }
 
     /// `read_parquet('<path>')` with single quotes escaped (paths come from trusted config).

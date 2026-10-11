@@ -108,3 +108,16 @@ async fn a_failed_connection_test_never_carries_the_api_key() {
     let text = format!("{err} {err:?}");
     assert!(!text.contains(FAKE_KEY), "API key leaked: {text}");
 }
+
+// @spec WX-SRC-OWM-006
+#[tokio::test]
+async fn a_rejected_forecast_request_keeps_the_upstream_body_out_of_the_owner_message() {
+    let base =
+        crate::test_support::stub_http(401, r#"{"cod":401,"message":"Invalid API key secret"}"#)
+            .await;
+    let client = OpenWeatherMapClient::new(sample_config(), eastern()).with_base_url(&base);
+    let msg = client.fetch_forecast().await.unwrap_err().owner_message();
+    assert!(!msg.contains("Invalid API key secret"), "{msg}");
+    assert!(!msg.contains("401"), "no status code: {msg}");
+    assert!(msg.contains("forecast"), "{msg}");
+}

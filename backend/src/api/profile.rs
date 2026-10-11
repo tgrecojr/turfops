@@ -25,13 +25,18 @@ pub struct UpdateProfileRequest {
     pub irrigation_type: Option<String>,
 }
 
+/// Update the lawn profile, or create it when none exists yet (filling omitted fields
+/// the way startup seeding does), so saving Settings always works.
+// @spec APP-PROF-011, APP-PROF-012
 pub async fn update_profile(
     State(state): State<AppState>,
     Json(req): Json<UpdateProfileRequest>,
 ) -> Result<Json<LawnProfile>, TurfOpsError> {
-    let mut profile = queries::get_default_lawn_profile(&state.pool)
-        .await?
-        .ok_or_else(|| TurfOpsError::NotFound("No lawn profile found".into()))?;
+    let existing = queries::get_default_lawn_profile(&state.pool).await?;
+    let creating = existing.is_none();
+    let mut profile = existing.unwrap_or_else(|| {
+        LawnProfile::new("Main Lawn".into(), GrassType::TallFescue, "7a".into())
+    });
 
     if let Some(name) = req.name {
         profile.name = name;
@@ -67,9 +72,13 @@ pub async fn update_profile(
         }
     }
 
-    queries::update_lawn_profile(&state.pool, &profile).await?;
+    if creating {
+        queries::create_lawn_profile(&state.pool, &profile).await?;
+    } else {
+        queries::update_lawn_profile(&state.pool, &profile).await?;
+    }
 
-    // Re-fetch to get updated_at from DB
+    // Re-fetch to get the stored timestamps (and id, when created)
     let updated = queries::get_default_lawn_profile(&state.pool)
         .await?
         .ok_or_else(|| TurfOpsError::NotFound("Profile disappeared after update".into()))?;

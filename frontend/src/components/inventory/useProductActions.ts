@@ -5,6 +5,7 @@ import {
 	refreshProductProfile,
 	updateProduct,
 } from "../../api/client";
+import { describeError } from "../../api/errors";
 import type { LoggedProductSuggestion, Product } from "../../types/inventory";
 import { factsOf } from "../../types/inventory";
 import type { Suggestion } from "./ProductRow";
@@ -47,7 +48,8 @@ export function useProductActions(deps: Deps) {
 			await fn();
 			setError(null);
 		} catch (e) {
-			setError(e instanceof Error ? e.message : "Request failed");
+			// @spec INV-UI-013
+			setError(describeError(e));
 		} finally {
 			setBusy(null);
 		}
