@@ -1,3 +1,7 @@
+mod memo;
+#[cfg(test)]
+mod memo_tests;
+
 use crate::datasources::weather::ClimateRecord;
 use crate::datasources::WeatherLakeClient;
 use crate::db::queries;
@@ -11,11 +15,7 @@ use axum::extract::State;
 use axum::Json;
 use chrono::{Datelike, Duration, NaiveDate, Utc};
 use std::sync::Arc;
-use std::time::{Duration as StdDuration, Instant};
 
-/// The climate record spans 15 years of hourly soil data, and the lake only gains a
-/// day at a time, so one read serves an hour of requests.
-const CLIMATE_CACHE_TTL: StdDuration = StdDuration::from_secs(3600);
 /// Application history window: reaches the previous July from any date, which is as
 /// far back as a window's done/conflict spans look.
 const HISTORY_LOOKBACK_DAYS: i64 = 550;
@@ -39,21 +39,60 @@ pub(crate) fn climate_start(today: NaiveDate) -> Option<NaiveDate> {
     NaiveDate::from_ymd_opt(today.year() - timing::HISTORY_YEARS, 1, 1)
 }
 
-/// The memoized climate record, read from the lake when missing or older than the TTL.
+/// The climate record and, when the lake could not be re-read, when the record served
+/// in its place was read.
+pub(crate) struct ClimateRead {
+    pub record: Arc<ClimateRecord>,
+    pub last_good_at: Option<chrono::DateTime<Utc>>,
+}
+
+/// The memoized climate record (see `climate_read`).
 pub(crate) async fn climate_record(
     state: &AppState,
     client: &WeatherLakeClient,
 ) -> Result<Arc<ClimateRecord>, TurfOpsError> {
-    if let Some((read_at, record)) = state.climate_cache.read().await.as_ref() {
-        if read_at.elapsed() < CLIMATE_CACHE_TTL {
-            return Ok(record.clone());
+    Ok(climate_read(state, client).await?.record)
+}
+
+/// The memoized climate record, re-read from the lake when missing or an hour old. When
+/// the re-read fails, the slot is left as it is and its record stands in while under a
+/// day old; only with no such record does the error reach the caller.
+// @spec SYNC-MEMO-001, SYNC-MEMO-002
+pub(crate) async fn climate_read(
+    state: &AppState,
+    client: &WeatherLakeClient,
+) -> Result<ClimateRead, TurfOpsError> {
+    let slot = state.climate_cache.read().await.clone();
+    if let Some((read_at, record)) = &slot {
+        if memo::is_fresh(*read_at, Utc::now()) {
+            return Ok(ClimateRead {
+                record: record.clone(),
+                last_good_at: None,
+            });
         }
     }
     let start = climate_start(state.clock.today())
         .ok_or_else(|| TurfOpsError::InvalidData("Invalid history start".into()))?;
-    let record = Arc::new(client.fetch_climate_record(start).await?);
-    *state.climate_cache.write().await = Some((Instant::now(), record.clone()));
-    Ok(record)
+    match client.fetch_climate_record(start).await {
+        Ok(record) => {
+            let record = Arc::new(record);
+            *state.climate_cache.write().await = Some((Utc::now(), record.clone()));
+            Ok(ClimateRead {
+                record,
+                last_good_at: None,
+            })
+        }
+        Err(e) => match slot.filter(|(read_at, _)| memo::may_stand_in(*read_at, Utc::now())) {
+            Some((read_at, record)) => {
+                tracing::warn!(%read_at, "Climate record re-read failed; serving the last good read: {e}");
+                Ok(ClimateRead {
+                    record,
+                    last_good_at: Some(read_at),
+                })
+            }
+            None => Err(e),
+        },
+    }
 }
 
 /// The lake client and the forecast's full days: the inputs the Timing page and the
@@ -76,7 +115,8 @@ async fn compute(state: &AppState, profile: &LawnProfile) -> Result<TimingRespon
     let (client, forecast) = lake_and_forecast(state).await?;
 
     // @spec TIME-ENG-039
-    let record = climate_record(state, &client).await?;
+    let climate = climate_read(state, &client).await?;
+    let record = &climate.record;
     let today = state.clock.today();
     let days = &record.days;
 
@@ -101,7 +141,11 @@ async fn compute(state: &AppState, profile: &LawnProfile) -> Result<TimingRespon
         history: &history,
     });
 
-    let data_notes = data_notes(&assessment, profile, forecast.is_some());
+    let mut data_notes = data_notes(&assessment, profile, forecast.is_some());
+    // @spec TIME-ENG-046
+    if let Some(read_at) = climate.last_good_at {
+        data_notes.insert(0, memo::last_good_note(state.clock.local(read_at)));
+    }
     Ok(TimingResponse {
         generated_at: Utc::now(),
         today,

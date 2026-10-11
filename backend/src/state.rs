@@ -4,12 +4,11 @@ use crate::datasources::OpenRouterClient;
 use crate::logic::data_sync::DataSyncService;
 use crate::logic::rules::RulesEngine;
 use std::sync::Arc;
-use std::time::Instant;
 use tokio::sync::RwLock;
 
-/// Multi-year daily climate record from the lake with the time it was read. Unlike the
-/// other lake reads this one spans 15 years of hourly data, so it is memoized briefly.
-pub type ClimateCache = Arc<RwLock<Option<(Instant, Arc<ClimateRecord>)>>>;
+/// Multi-year daily climate record from the lake with the time its read completed. Unlike
+/// the other lake reads this one spans 15 years of hourly data, so it is memoized briefly.
+pub type ClimateCache = Arc<RwLock<Option<(chrono::DateTime<chrono::Utc>, Arc<ClimateRecord>)>>>;
 
 #[derive(Clone)]
 pub struct AppState {

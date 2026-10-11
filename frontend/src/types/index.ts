@@ -214,6 +214,8 @@ export interface EnvironmentalSummary {
 	last_updated: string | null;
 	/** When the station measured the soil values; the lake normally trails by ~1 day. */
 	soil_observed_at?: string | null;
+	/** The station's newest soil observation is too old to describe today (data sync's 72 h limit). */
+	soil_stale?: boolean;
 	forecast: WeatherForecast | null;
 	gdd_base50_ytd: number | null;
 }

@@ -41,7 +41,7 @@ The component is one leaf. Its EARS are grouped into five spec areas under the `
 | Lawn profile | Lawn profile CRUD | `grass_type` selects windows and establishment buffers. `lawn_size_sqft` sizes the seed note. |
 | Air→soil regression | `logic/soil_temp_prediction::{fit_model, predict_soil_temps}` | Lagged linear fit (lag 0–7 d). Returns `None` with fewer than 14 pairs or R² < 0.3. |
 
-**Climate memo.** `api::timing::climate_record` memoizes the record in `AppState::climate_cache` for one hour (`CLIMATE_CACHE_TTL`). The MCP `weather_history` tool reads the same record through the same function. Nothing derived is stored in Postgres, so the current season is always evaluated on current data. The weather-data component owns the DuckDB query. This component owns the memo and every use of the record.
+**Climate memo.** `api::timing::climate_read` memoizes the record in `AppState::climate_cache` for one hour (`memo::FRESH_FOR`, `api/timing/memo.rs`). When a re-read fails, the last good record stands in while under a day old (SYNC-MEMO-002); the Timing response then opens its `data_notes` with "The weather lake could not be read just now; station history is from the last good read (<local date and time>)." (TIME-ENG-046). `climate_record` returns the record alone for the plan's timing activities. The MCP `weather_history` tool reads the same record through the same function. Nothing derived is stored in Postgres, so the current season is always evaluated on current data. The weather-data component owns the DuckDB query. This component owns the memo and every use of the record.
 
 **Today.** `today`, the season year and every date gate in this component are the lawn's local date, `state.clock.today()` (the app's `Clock`, resolved from `TZ`, which deployment sets to the lawn's timezone), the same clock every other component uses. `compute` and `plan_for` both take it, and the climate record's history start (`climate_start(today)`) is taken from that same date. The climate record carries no date of its own.
 
@@ -184,6 +184,7 @@ As a result, a spring pre-emergent never blocks fall seeding, a fall overseeding
 **Series:** every day of the current calendar year with this year (observed), forecast, last year, and typical (the mean of the history years, needing ≥ 3 years), all smoothed and rounded to 0.1 °F.
 
 **Data notes** (`api/timing.rs::data_notes`) cover:
+- a climate record served from the last good read, with its local read time (first, TIME-ENG-046)
 - stale or absent soil data (the windows follow typical dates)
 - fewer than 5 history years (typical dates are rough)
 - no forecast

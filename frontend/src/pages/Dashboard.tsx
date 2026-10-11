@@ -36,14 +36,6 @@ import { formatInches } from "../utils/units";
 
 const POLL_INTERVAL = 30_000; // 30 seconds
 
-/** The lake normally trails by about a day; past 3 days the backend stops using it. */
-const SOIL_STALE_MS = 72 * 60 * 60 * 1000;
-
-function soilIsStale(observedAt?: string | null): boolean {
-	if (!observedAt) return false;
-	return Date.now() - new Date(observedAt).getTime() > SOIL_STALE_MS;
-}
-
 export default function Dashboard() {
 	const [data, setData] = useState<DashboardResponse | null>(null);
 	const [gddData, setGddData] = useState<GddSummary | null>(null);
@@ -177,7 +169,8 @@ export default function Dashboard() {
 				</div>
 			</div>
 
-			{soilIsStale(environmental.soil_observed_at) && (
+			{/* @spec SYNC-MERGE-006: data sync owns the 72 h limit */}
+			{environmental.soil_stale && (
 				<div role="alert" style={styles.errorBanner}>
 					Station soil data stopped on{" "}
 					{new Date(
