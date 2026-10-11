@@ -9,6 +9,8 @@ use duckdb::Connection;
 mod climatology;
 mod disease;
 mod latest;
+#[cfg(test)]
+mod tests;
 
 pub use climatology::{ClimateDay, ClimateRecord};
 
@@ -103,44 +105,7 @@ impl WeatherLakeClient {
         let current = self.fetch_latest().await?;
         let readings = self.fetch_range(seven_days_ago, now).await?;
 
-        let mut summary = EnvironmentalSummary {
-            current,
-            last_updated: Some(now),
-            ..Default::default()
-        };
-
-        if readings.is_empty() {
-            return Ok(summary);
-        }
-
-        let soil_temps: Vec<f64> = readings.iter().filter_map(|r| r.soil_temp_10_f).collect();
-        if !soil_temps.is_empty() {
-            summary.soil_temp_7day_avg_f =
-                Some(soil_temps.iter().sum::<f64>() / soil_temps.len() as f64);
-        }
-
-        let ambient_temps: Vec<f64> = readings.iter().filter_map(|r| r.ambient_temp_f).collect();
-        if !ambient_temps.is_empty() {
-            summary.ambient_temp_7day_avg_f =
-                Some(ambient_temps.iter().sum::<f64>() / ambient_temps.len() as f64);
-        }
-
-        let humidities: Vec<f64> = readings.iter().filter_map(|r| r.humidity_percent).collect();
-        if !humidities.is_empty() {
-            summary.humidity_7day_avg =
-                Some(humidities.iter().sum::<f64>() / humidities.len() as f64);
-        }
-
-        let precip_sum: f64 = readings
-            .iter()
-            .filter_map(|r| r.precipitation_mm)
-            .filter(|p| *p >= 0.0)
-            .sum();
-        summary.precipitation_7day_total_mm = Some(precip_sum);
-
-        summary.soil_temp_trend = calculate_trend(&readings);
-
-        Ok(summary)
+        Ok(summarize_week(current, &readings, now))
     }
 
     /// Daily mean soil temp at 10cm (°F) per day in range, for the seasonal plan.
@@ -251,17 +216,72 @@ impl WeatherLakeClient {
     }
 
     /// Cheap readability probe against the gold parquet.
+    /// Readable only when a one-row read of both silver and gold succeeds; never fails.
+    // @spec WX-VIEW-PROBE-001
     pub async fn test_connection(&self) -> Result<bool> {
-        let src = Self::parquet(&self.gold_weather_path);
+        let sources = [
+            Self::parquet(&self.silver_weather_path),
+            Self::parquet(&self.gold_weather_path),
+        ];
         let ok = Self::run(move |conn| {
-            let sql = format!("SELECT 1 FROM {src} LIMIT 1");
-            let mut stmt = conn.prepare(&sql)?;
-            let mut rows = stmt.query([])?;
-            Ok(rows.next()?.is_some())
+            for src in &sources {
+                let sql = format!("SELECT 1 FROM {src} LIMIT 1");
+                let mut stmt = conn.prepare(&sql)?;
+                let mut rows = stmt.query([])?;
+                rows.next()?;
+            }
+            Ok(true)
         })
         .await;
         Ok(ok.unwrap_or(false))
     }
+}
+
+/// The 7-day summary from the newest reading and the week's silver hours (newest first).
+/// A week with no hours has no trend to report: Unknown, not Stable.
+// @spec WX-SRC-LAKE-013
+pub(crate) fn summarize_week(
+    current: Option<EnvironmentalReading>,
+    readings: &[EnvironmentalReading],
+    now: DateTime<Utc>,
+) -> EnvironmentalSummary {
+    let mut summary = EnvironmentalSummary {
+        current,
+        last_updated: Some(now),
+        soil_temp_trend: Trend::Unknown,
+        ..Default::default()
+    };
+
+    if readings.is_empty() {
+        return summary;
+    }
+
+    let soil_temps: Vec<f64> = readings.iter().filter_map(|r| r.soil_temp_10_f).collect();
+    if !soil_temps.is_empty() {
+        summary.soil_temp_7day_avg_f =
+            Some(soil_temps.iter().sum::<f64>() / soil_temps.len() as f64);
+    }
+
+    let ambient_temps: Vec<f64> = readings.iter().filter_map(|r| r.ambient_temp_f).collect();
+    if !ambient_temps.is_empty() {
+        summary.ambient_temp_7day_avg_f =
+            Some(ambient_temps.iter().sum::<f64>() / ambient_temps.len() as f64);
+    }
+
+    let humidities: Vec<f64> = readings.iter().filter_map(|r| r.humidity_percent).collect();
+    if !humidities.is_empty() {
+        summary.humidity_7day_avg = Some(humidities.iter().sum::<f64>() / humidities.len() as f64);
+    }
+
+    let precip_sum: f64 = readings
+        .iter()
+        .filter_map(|r| r.precipitation_mm)
+        .filter(|p| *p >= 0.0)
+        .sum();
+    summary.precipitation_7day_total_mm = Some(precip_sum);
+
+    summary.soil_temp_trend = calculate_trend(readings);
+    summary
 }
 
 /// Format a UTC instant as a naive `YYYY-MM-DD HH:MM:SS` string for a TIMESTAMP comparison.
@@ -337,47 +357,5 @@ fn calculate_trend(readings: &[EnvironmentalReading]) -> Trend {
         Trend::Falling
     } else {
         Trend::Stable
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::config::DataLakeConfig;
-    use duckdb::Connection;
-
-    // @spec RULE-GDD-002
-    #[tokio::test]
-    async fn gdd_ytd_runs_through_the_lawns_today_in_the_lawns_year() {
-        let gold =
-            std::env::temp_dir().join(format!("turfops_gddytd_{}.parquet", std::process::id()));
-        let gold_s = gold.to_string_lossy().to_string();
-        Connection::open_in_memory()
-            .unwrap()
-            .execute_batch(&format!(
-                "COPY (
-                    SELECT * FROM (VALUES
-                        (DATE '2025-12-30', 60.0, 40.0, 1.0, 24),
-                        (DATE '2025-12-31', 60.0, 40.0, 2.0, 24),
-                        (DATE '2026-01-01', 60.0, 40.0, 4.0, 24)
-                    ) t(day, air_temp_max_f, air_temp_min_f, gdd50, hours_observed)
-                 ) TO '{gold_s}' (FORMAT PARQUET)"
-            ))
-            .unwrap();
-        let client = WeatherLakeClient::new(
-            &DataLakeConfig {
-                silver_weather_path: "unused.parquet".into(),
-                gold_weather_path: gold_s,
-            },
-            3761,
-        );
-
-        // New Year's Eve evening on the lawn: still 2025, and Jan 1's row does not count.
-        let total = client
-            .fetch_gdd_ytd(NaiveDate::from_ymd_opt(2025, 12, 31).unwrap())
-            .await
-            .unwrap();
-        let _ = std::fs::remove_file(&gold);
-        assert_eq!(total, Some(3.0));
     }
 }

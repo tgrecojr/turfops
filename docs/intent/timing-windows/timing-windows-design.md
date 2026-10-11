@@ -75,10 +75,10 @@ The thresholds are constants in `windows.rs` and match `docs/timing-windows.md` 
 
 **Series** (`logic/timing/mod.rs::SeasonData::build`): the observed 5 cm points are followed by the forecast points. Then `series::smooth` takes a trailing 5-day calendar mean, which needs at least 4 of the 5 days, so gaps in the input stay gaps in the output.
 
-**Soil forecast** (`mod.rs::forecast_points`):
-- Fit the regression on the 30 days ending at the last soil observation.
-- Build one continuous air series: station `air_avg_f` wins over forecast (high + low) / 2, and holes of up to 7 days are linearly interpolated (`continuous_air`).
-- Predict from the last observed day onward, shift every prediction by the model's error on that day (the anchor), and keep only days after it. `predict_soil_temps` is given the last observed day as its `today`; that date only sets each prediction's confidence, which this outlook does not use.
+**Soil forecast** (`mod.rs::forecast_points`, over the soil-temperature outlook's shared functions):
+- Fit the regression (`fit_model`, pairs aligned by date) on the 30 days ending at the last soil observation.
+- Build one continuous air series (`continuous_air`): station `air_avg_f` from those 30 days wins over forecast (high + low) / 2, and holes of up to 7 days are linearly interpolated.
+- Predict every day after the last observed day and shift each prediction by the model's error on that day (`anchored_outlook`, the anchor). It is given the last observed day as its `today`; that date only sets each prediction's confidence, which this outlook does not use.
 - The result is empty when there is no soil, no forecast, or no fit.
 
 **Sustained crossing** (`series::detect`):
@@ -322,17 +322,16 @@ A failed fetch shows `describeError(e)` (Web UI's human-readable errors): with n
 4. **No single-flight on a memo miss.** Concurrent cache misses each read the 15-year record (`api/timing.rs:47-55`).
 5. **Both applications logged.** When Overseed and PreEmergent are both logged in one fall, both windows read Done, since Done is checked before Blocked (`mod.rs:171-175`). The contradiction is not surfaced.
 6. **Latent: the page and the plan propagate `get_or_refresh` errors** (`api/timing.rs::lake_and_forecast`, line 66). The refresh logs and swallows every source failure today (`logic/data_sync.rs`), so a failed forecast already reaches the windows as no forecast with its data note (TIME-ENG-045). An error the refresh might return in future would fail the endpoint and drop the timing activities from the seasonal plan, though the lake read is independent.
-7. **Index-based lag in the regression** (divergence, WX-OUTLOOK-MODEL-001). The shared regression (`soil_temp_prediction::fit_model`) aligns pairs by index, not by date, so gaps in the 30-day training data (the 2026 probe dropout) misalign the lag. Intent: aligned by date, fixed in the shared function. The joined air series and the anchor (`continuous_air`, `forecast_points`) are to move into the shared regression functions so the 10 cm outlook uses them too (WX-OUTLOOK-MODEL-008).
-8. **Technical debt:**
+7. **Technical debt:**
     - `logic/timing/evaluate.rs` is 353 lines (over 300).
     - `companions::aeration` is 83 lines.
     - The default export of `SoilSeasonChart.tsx` is about 145 lines.
     - The doc comment on `fall_freeze_history` says "Oct–Dec data", but the check runs from Sep 15 to the freeze.
     - The `BoundaryView.label` example says "falls" while labels say "cools".
-9. **Stale method doc** (`docs/timing-windows.md`):
+8. **Stale method doc** (`docs/timing-windows.md`):
     - It says "warm-season and mixed lawns get the two pre-emergent windows only" (line 93). Mixed is cool-season and gets the seeding windows; the Mixed wording needs fixing.
     - Its log table lists PreEmergent Jul 1 – Dec 31 as blocking dormant seeding. The code extends that span to Feb 28 of the following year (`log.rs:25`).
-10. Fall fertilizer, herbicide and winterizer plan activities still time off 10 cm crossings in the seasonal-plan component. Whether they should hang off windows is undecided.
+9. Fall fertilizer, herbicide and winterizer plan activities still time off 10 cm crossings in the seasonal-plan component. Whether they should hang off windows is undecided.
 11. **Promotion trigger.** This stays one leaf while the consumers (feed, plan, companions) are fixed mappings from window state and change together with the engine. Promote it to a sub-HLD when more consumers hang off the windows (item 10) or a second forecast source (`docs/plans/open-meteo-forecast.md`) is adopted. The split is `window-engine` (TIME-ENG + TIME-LOG) and `window-consumers` (TIME-FEED + TIME-PLAN), both under "one answer everywhere"; the UI stays with whichever owns the response it renders.
 
 ## References

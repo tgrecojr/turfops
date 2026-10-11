@@ -34,8 +34,9 @@ Configuration (`backend/src/config.rs`): `DATALAKE_ROOT` (default `/data`) deriv
 3761; an unparsable value logs a warning and falls back to 3761). Home Assistant: `HA_URL`,
 `HA_TOKEN` (empty means not configured), `HA_TEMPERATURE_ENTITY`, `HA_HUMIDITY_ENTITY`,
 `HA_TEMPERATURE_UNIT` (`celsius` converts, anything else means °F). OpenWeatherMap:
-`OWM_API_KEY` (blank means not configured), `OWM_LATITUDE` / `OWM_LONGITUDE` (default 0),
-`OWM_ENABLED` (default true). Data sync always builds the lake client and builds the other two
+`OWM_API_KEY` (blank means not configured), `OWM_LATITUDE` / `OWM_LONGITUDE` (both required
+with a key: with either unset or blank the forecast is not enabled and a startup warning names
+the missing one; a value that won't parse warns and uses 0), `OWM_ENABLED` (default true). Data sync always builds the lake client and builds the other two
 only when they are configured.
 
 ## Lake Access Mechanics
@@ -45,7 +46,9 @@ only when they are configured.
   Nothing is pooled or cached at this layer. A task join failure becomes a weather-lake outage
   (`TurfOpsError::unavailable(Source::WeatherLake, …)`: HTTP 503 with the owner sentence that the
   lake can't be read, the join error logged only), and DuckDB errors become
-  `TurfOpsError::DataLake` (HTTP 500 with the generic server-error sentence, details logged).
+  `TurfOpsError::DataLake`. Both are HTTP 503 with the owner sentence that the weather lake
+  can't be read (try again; if it persists, check the mount at `DATALAKE_ROOT`); the DuckDB
+  detail, which carries file paths, goes to the log only.
 - **Paths** are trusted config, interpolated with single quotes escaped (`parquet()`). All
   user-influenced values (station, dates, timestamps) are bound parameters.
 - **Units.** Silver °C is converted to °F at ingestion (`celsius_to_fahrenheit`,
@@ -79,7 +82,7 @@ for this lawn, so it is the intended day key and the lake is not re-bucketed.
 |---|---|---|---|---|---|
 | `fetch_latest` | silver | `Option<EnvironmentalReading>`: **each column's newest non-null, non-sentinel value** within 24 h of the newest row, stamped with the newest row's time | station; `HAVING count(*) > 0` | n/a | data sync (via `fetch_summary`) |
 | `fetch_range(start, end)` | silver | Hourly `EnvironmentalReading`s in [start, end] | station | **newest first** | `fetch_summary`, `/historical` |
-| `fetch_summary` | silver | `EnvironmentalSummary`: `current` from `fetch_latest`; 7-day means of 10 cm soil, air and RH; 7-day precipitation total; soil trend | the 7 × 24 h before now | n/a | data sync |
+| `fetch_summary` | silver | `EnvironmentalSummary`: `current` from `fetch_latest`; 7-day means of 10 cm soil, air and RH; 7-day precipitation total; soil trend (`Unknown` with no rows) | the 7 × 24 h before now | n/a | data sync |
 | `fetch_daily_soil_temp_averages` | gold | `(date, soil_temp_10_f_mean)` | `hours_observed >= 12`, non-null | asc | seasonal plan |
 | `fetch_daily_paired_averages` | gold | `(date, air_temp_avg_f, soil_temp_10_f_mean)` | `hours_observed >= 12`, both non-null | asc | soil-temperature outlook |
 | `fetch_daily_gdd(start, end)` | gold | `(date, max_f, min_f, gdd50)`. Null max/min/gdd50 read as 0.0 (display only) | `gdd50 IS NOT NULL` | asc | `/historical`, the GDD endpoint (agronomic rules) |
@@ -99,7 +102,8 @@ Contract details consumers rely on:
 - **Trend** (`calculate_trend`). Needs ≥ 48 rows. It compares the mean 10 cm temperature of the
   first 24 rows with the next 24 (newest first): more than +2 °F is `Rising`, less than −2 °F
   is `Falling`, otherwise `Stable`. Fewer rows, or no 10 cm values in either half, gives
-  `Unknown`.
+  `Unknown` — including a week with no silver rows at all, which the 7-day summary
+  (`summarize_week`) reports as `Unknown` rather than the type's default `Stable`.
 - **Disease inputs** (`weather/disease.rs`). Per local day: `hours_covered` (usable hours),
   air mean, min (`air_temp_min_c` falling back to `air_temp_c`), max (likewise), RH mean, hours
   with RH ≥ 90, leaf-wetness hours (RH ≥ 90 **or** precip > 0), precipitation sum, maximum
@@ -188,7 +192,7 @@ is `SoilData`, labelled "NOAA USCRN", and the patio sensor's is "Patio Sensor".
 
 | Failure | Effect at the source contracts |
 |---|---|
-| Lake unreadable | `fetch_*` returns `DataLake` (500) or a weather-lake outage (503). Data sync keeps its last good summary |
+| Lake unreadable | `fetch_*` returns `DataLake` or a weather-lake outage, both 503 naming the lake. Data sync keeps its last good summary |
 | Lake stalled (no new rows) | The live reading carries the old stamp, and data sync stops using it as current after 72 h. Every daily contract simply ends earlier |
 | Individual soil hours missing | The live reading falls back per sensor within 24 h. Daily 5 cm means need ≥ 12 valid hours. Gold-backed contracts gate on `hours_observed`, which counts rows rather than soil hours |
 | Home Assistant down or entity unavailable | That field is `None`. The 7-day means are unaffected because they come from the station |
@@ -208,6 +212,7 @@ is `SoilData`, labelled "NOAA USCRN", and the patio sensor's is "Patio Sensor".
 | Full-day cut-off | ≥ 18 of 24 h (6 slots) | 24 h only; any coverage | Allows a one-slot shortfall while still excluding evening-only buckets. [inferred] |
 | Forecast provider | OpenWeatherMap 5-day / 3-hourly | Open-Meteo hourly, no key, 7–16 days | Parked by the owner: live with the current implementation and adopt only when a trigger in `docs/plans/open-meteo-forecast.md` is observed. |
 | Current ambient source | Home Assistant patio sensor for "now". Station air for the 7-day means and history | Station air for everything | The patio sensor is at the yard and current. The station is about 15 mi away and a day behind. HA has no history, so history is the station's. [inferred] |
+| Lake read errors | 503 with the weather-lake sentence, detail logged | 500 with the generic server-error sentence | A missing or unmounted lake is an outage of a named source the owner can fix, not a server bug; the sentence says what is affected and where to look. |
 | Trend with no data | Unknown | Stable (the type's default) | Withhold rather than invent: with no rows there is no evidence the soil is steady. |
 | Forecast without coordinates | Not enabled, with a log line | Default to 0,0 | A forecast for the wrong place is worse than none; every forecast consumer already degrades without one. |
 | Gold station filter | Gold is queried without a `wbanno` filter | Filter gold by station | The lake is single-station per deployment (`docs/weather-data-api-spec.md` §2.2). |
@@ -221,10 +226,7 @@ is `SoilData`, labelled "NOAA USCRN", and the patio sensor's is "Patio Sensor".
 
 ### Deferred
 
-1. **Divergence: forecast at 0,0** (WX-SRC-CFG-003). With only `OWM_API_KEY` set, latitude and
-   longitude silently default to 0 (`backend/src/config.rs:241-242`). Intent: the forecast is not
-   enabled, and the log says why.
-2. **Open-Meteo forecast swap (parked).** Adopt only when a trigger in
+1. **Open-Meteo forecast swap (parked).** Adopt only when a trigger in
    `docs/plans/open-meteo-forecast.md` appears: a recurring "most recent complete day" banner on
    Disease Risk, 3-hourly quantization visibly biting, a 5-day horizon too short for the Timing
    outlook, or OWM unreliability. Two decisions stay open: remove OWM or keep it as a fallback,
@@ -232,31 +234,28 @@ is `SoilData`, labelled "NOAA USCRN", and the patio sensor's is "Patio Sensor".
    3 × points` and the disease 3 h step must become data-driven, and Open-Meteo soil variables
    must not be requested. A failure cool-down for the forecast is wanted independently of the
    swap; it belongs to data sync (its Deferred 3).
-3. **USCRN soil dropout (lake-side).** Investigation in
+2. **USCRN soil dropout (lake-side).** Investigation in
    `docs/plans/uscrn-soil-dropout-investigation.md`. Preferred gap-fill order: USCRN 5-minute
    `subhourly01` (measured 5 cm), then the app's air → soil regression, then Open-Meteo with a
    per-month bias correction. If gold gains per-sensor hour counts, the gold-backed contracts
    should gate on them instead of `hours_observed`.
-4. **Weather HTTP API draft** (`docs/weather-data-api-spec.md`): not adopted, because the HLD
+3. **Weather HTTP API draft** (`docs/weather-data-api-spec.md`): not adopted, because the HLD
    chose in-place reads. Its operation #1 still describes the live reading as "newest row
    LIMIT 1", which is out of date.
-5. **Divergence: summary with no silver rows** (WX-SRC-LAKE-013). `fetch_summary` returns early with
-   `soil_temp_trend = Stable` (the `Trend` default, `backend/src/models/environmental.rs:126`),
-   not `Unknown` (`weather.rs:110-112`). The 7-day window is the 168 h before now, so with the
-   lake lag it holds about 6 days of data.
-6. **Per-sensor values older than the stamp.** `fetch_latest` stamps the reading with
+4. **Per-sensor values older than the stamp.** `fetch_latest` stamps the reading with
    `max(obs_ts_utc)` of any column (`weather/latest.rs:45-49`), so a soil value can be up to
    24 h older than `soil_observed_at`. The 72 h rule and the dashboard banner judge only the
    stamp.
-7. **Home Assistant staleness.** The reading is stamped with the server clock
+5. **Home Assistant staleness.** The reading is stamped with the server clock
    (`backend/src/datasources/homeassistant.rs:80`) and the entity's `last_changed` is ignored,
    so a stuck sensor reads as current.
-8. **Gold has no station filter.** This silently breaks if gold ever holds more than one
+6. **Gold has no station filter.** This silently breaks if gold ever holds more than one
    station or `NOAA_STATION_WBANNO` is changed.
-9. **Legacy naming.** `DataSource::SoilData` (labelled "NOAA USCRN") names the lake.
-10. **Technical debt.** `backend/src/datasources/weather.rs` is 383 lines with its tests
+7. **Legacy naming.** `DataSource::SoilData` (labelled "NOAA USCRN") names the lake.
+8. **Technical debt.** `backend/src/datasources/weather.rs` is 361 lines without its tests
     (limit 300). `aggregate_day` in `openweathermap.rs` is over 50 lines (~55). No tests cover
-    `calculate_trend` / `fetch_summary`, `fetch_range` or the Home Assistant client.
+    `calculate_trend`, `fetch_range` or the Home Assistant client; of the 7-day summary
+    (`summarize_week`), only the empty week is tested.
 
 ## References
 

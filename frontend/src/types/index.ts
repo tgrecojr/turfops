@@ -434,8 +434,10 @@ export interface SoilTempPrediction {
 export interface ThresholdPrediction {
 	threshold_name: string;
 	threshold_temp_f: number;
-	estimated_crossing_date: string;
+	/** Null when the estimate falls past the forecast (`beyond_forecast`). */
+	estimated_crossing_date: string | null;
 	days_until_crossing: number;
+	beyond_forecast?: boolean;
 	confidence: PredictionConfidence;
 	direction: CrossingDirection;
 }

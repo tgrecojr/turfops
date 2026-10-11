@@ -31,7 +31,8 @@ export default function PredictionChart({
 	height = 260,
 }: PredictionChartProps) {
 	// Build combined dataset: actual (solid) + predicted (dashed)
-	const actualData = recentSoilTemps.slice(-168).map((p) => ({
+	// The caller chooses the span (the Environmental page passes the last 7 days).
+	const actualData = recentSoilTemps.map((p) => ({
 		time: new Date(p.timestamp).getTime(),
 		actual: p.value,
 		predicted: null as number | null,

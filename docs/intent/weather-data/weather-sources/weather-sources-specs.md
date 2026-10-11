@@ -18,8 +18,8 @@ Design: [weather-sources-design.md](weather-sources-design.md). Parent: [weather
 - [x] **WX-SRC-LAKE-010**: The climate-record contract shall return, per local day from a start date, the 5 cm soil mean in °F (only days with at least 12 valid hourly values), and gold's air minimum, air mean and `gdd50` (only days with at least 12 observed hours), merging the two by date with missing fields left empty.
 - [x] **WX-SRC-LAKE-011**: The daily silver contracts shall bucket hours by the lake's `obs_date_local` without re-bucketing them.
 - [x] **WX-SRC-LAKE-012**: The lake contracts shall publish no "today" of their own; consumers shall take "today" from the server's local date (`TZ`).
-- [ ] **WX-SRC-LAKE-013**: If silver has no rows for the station, then the 7-day summary shall report the soil trend as Unknown.
-- [x] **WX-SRC-LAKE-014**: If a lake query fails, then the system shall return a data-lake or data-source-unavailable error to the caller.
+- [x] **WX-SRC-LAKE-013**: If silver has no rows for the station, then the 7-day summary shall report the soil trend as Unknown.
+- [x] **WX-SRC-LAKE-014**: If a lake query fails, then the system shall answer the request with HTTP 503 and the owner sentence naming the weather data lake (what is unavailable, and to check the mount at `DATALAKE_ROOT` if it persists), logging the query error and never showing its detail or file paths to the owner.
 
 ## Home Assistant reader
 
@@ -45,4 +45,4 @@ Design: [weather-sources-design.md](weather-sources-design.md). Parent: [weather
 
 - [x] **WX-SRC-CFG-001**: The system shall derive the silver and gold parquet paths from `DATALAKE_ROOT` (default `/data`), overridable by `WEATHER_SILVER_PATH` and `WEATHER_GOLD_PATH`, and filter silver by `NOAA_STATION_WBANNO` (default 3761, falling back to 3761 with a warning when unparsable).
 - [x] **WX-SRC-CFG-002**: The system shall treat Home Assistant as configured only when `HA_TOKEN` is non-empty (`HA_URL` defaults to `http://localhost:8123`), and OpenWeatherMap only when `OWM_API_KEY` is non-blank and `OWM_ENABLED` is `true` (the default).
-- [ ] **WX-SRC-CFG-003**: If `OWM_API_KEY` is set but `OWM_LATITUDE` or `OWM_LONGITUDE` is missing, then the system shall not enable the forecast and shall log why, rather than forecast for 0,0.
+- [x] **WX-SRC-CFG-003**: If `OWM_API_KEY` is set but `OWM_LATITUDE` or `OWM_LONGITUDE` is missing, then the system shall not enable the forecast and shall log why, rather than forecast for 0,0.

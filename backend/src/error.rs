@@ -88,7 +88,8 @@ fn outage_message(source: Source, outage: &Outage) -> String {
         }
         (WeatherLake, _) => {
             "The weather data lake can't be read right now, so soil, disease, timing and \
-             history data are unavailable. Try again in a few minutes."
+             history data are unavailable. Try again in a few minutes; if it persists, check \
+             that the lake is mounted at DATALAKE_ROOT."
         }
         (Forecast, NotConfigured | Disabled) => {
             "The weather forecast isn't configured, so forecast-based advice is unavailable. \
@@ -175,6 +176,9 @@ impl TurfOpsError {
             | TurfOpsError::InvalidData(msg)
             | TurfOpsError::Conflict(msg) => msg.clone(),
             TurfOpsError::Unavailable { origin, outage } => outage_message(*origin, outage),
+            TurfOpsError::DataLake(_) => {
+                outage_message(Source::WeatherLake, &Outage::Down(String::new()))
+            }
             TurfOpsError::Database(sqlx::Error::Database(db)) if db.is_unique_violation() => {
                 unique_violation(db.constraint()).1.to_string()
             }
@@ -249,6 +253,11 @@ impl IntoResponse for TurfOpsError {
                 unique_violation(db.constraint()).0
             }
             TurfOpsError::Conflict(_) => StatusCode::CONFLICT,
+            // @spec WX-SRC-LAKE-014
+            TurfOpsError::DataLake(detail) => {
+                tracing::warn!(error = %detail, "weather lake unreadable");
+                StatusCode::SERVICE_UNAVAILABLE
+            }
             other => {
                 tracing::error!("Internal error: {}", other);
                 StatusCode::INTERNAL_SERVER_ERROR
@@ -325,6 +334,19 @@ mod tests {
         assert!(msg.contains("couldn't identify this product"), "{msg}");
         assert!(msg.contains("Pick a category"), "{msg}");
         assert!(!msg.contains("raw model output"));
+    }
+
+    // @spec WX-SRC-LAKE-014
+    #[tokio::test]
+    async fn an_unreadable_lake_is_a_503_that_names_it() {
+        let err = duckdb::Error::InvalidPath("/data/gold/weather/daily_weather.parquet".into());
+        let (status, msg) = body_of(TurfOpsError::DataLake(err)).await;
+        assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+        assert!(msg.contains("weather data lake"), "{msg}");
+        assert!(
+            !msg.contains("/data/"),
+            "no path in the owner message: {msg}"
+        );
     }
 
     // @spec DEPLOY-HTTP-011
