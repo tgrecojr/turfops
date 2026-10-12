@@ -18,6 +18,7 @@ use watering::WaterSignals;
 /// Recommendation lead-in: fire N days before window opens.
 const WINDOW_LEAD_DAYS: i64 = 7;
 
+// @spec PLANT-WIN-001
 /// Parse "MM-DD" (e.g. "03-15") into a NaiveDate in the given year.
 /// Clamps invalid day-of-month (e.g. 02-30 → 02-28).
 fn parse_month_day(mmdd: &str, year: i32) -> Option<NaiveDate> {
@@ -36,6 +37,7 @@ fn parse_month_day(mmdd: &str, year: i32) -> Option<NaiveDate> {
         .find_map(|d| NaiveDate::from_ymd_opt(year, month, d))
 }
 
+// @spec PLANT-WIN-002, PLANT-WIN-003
 /// Resolve a task's MM-DD window to an absolute date range for the target year.
 /// If the window wraps year-end (e.g. start=11-15, end=02-15), end is pushed into year+1.
 fn resolve_window(task: &MaintenanceTask, year: i32) -> Option<(NaiveDate, NaiveDate)> {
@@ -49,6 +51,7 @@ fn resolve_window(task: &MaintenanceTask, year: i32) -> Option<(NaiveDate, Naive
     Some((start, end))
 }
 
+// @spec PLANT-WIN-004
 /// The task's window as it matters on `today`: a window that started last year and is still
 /// open (dormant pruning, Dec 1 → Feb 28, seen from January) wins over this year's, which
 /// would otherwise make the task vanish on Jan 1 with two months of its window left.
@@ -61,6 +64,7 @@ fn window_on(task: &MaintenanceTask, today: NaiveDate) -> Option<(NaiveDate, Nai
 /// Doing the job a little ahead of its window still counts for that window.
 const EARLY_COMPLETION_DAYS: i64 = 30;
 
+// @spec PLANT-WIN-005
 /// Was this task logged for *this* window? Scoped to the window rather than "sometime in
 /// the last year", so April's feeding doesn't complete September's.
 fn task_completed(
@@ -117,7 +121,7 @@ fn reminder_window(task: &MaintenanceTask, today: NaiveDate) -> Option<(NaiveDat
         })
 }
 
-// @spec FEED-PIPE-005
+// @spec FEED-PIPE-005, PLANT-REC-001, PLANT-REC-003, PLANT-REC-004, PLANT-REC-006, PLANT-REC-007, PLANT-WIN-002, PLANT-WIN-007
 /// Emit one Recommendation per plant task when today is inside the window
 /// (with a lead-in) and the task hasn't been logged recently. A Watering task is a
 /// "during dry spells" reminder, so it is also held back while rain (falling, forecast,
@@ -218,6 +222,7 @@ fn task_action(plant: &Plant, task: &MaintenanceTask) -> String {
     }
 }
 
+// @spec PLANT-PLAN-001, PLANT-PLAN-002, PLANT-PLAN-004, PLANT-WATER-007, PLANT-WIN-002, PLANT-WIN-007
 /// Emit one PlannedActivity per plant task for the requested year,
 /// with status derived from logged applications.
 pub fn build_plant_activities(
@@ -306,6 +311,12 @@ pub fn plant_log_range(plants: &[Plant], year: i32) -> Option<(NaiveDate, NaiveD
 }
 
 #[cfg(test)]
+mod feed_spec_tests;
+#[cfg(test)]
+mod spec_tests;
+#[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod water_spec_tests;
 #[cfg(test)]
 mod window_tests;

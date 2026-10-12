@@ -332,6 +332,7 @@ type CreatePlantBody = {
 	notes?: string;
 };
 
+// @spec PLANT-UI-004
 export const createPlant = (data: CreatePlantBody) =>
 	// LLM round-trip can take a while — extend the client-side timeout.
 	fetchJson<Plant>(
@@ -361,6 +362,7 @@ export const updatePlant = (id: number, data: UpdatePlantBody) =>
 export const deletePlant = (id: number) =>
 	fetchJson<void>(`${BASE}/plants/${id}`, { method: "DELETE" });
 
+// @spec PLANT-UI-004
 export const refreshPlantPlan = (id: number) =>
 	fetchJson<Plant>(
 		`${BASE}/plants/${id}/refresh-plan`,

@@ -11,8 +11,14 @@ const APP_TITLE: &str = "TurfOps";
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
 
+#[cfg(test)]
+mod client_tests;
 mod plant;
 mod product;
+#[cfg(test)]
+mod prompt_spec_tests;
+#[cfg(test)]
+pub(crate) mod stub;
 use plant::{plan_json_schema, SYSTEM_PROMPT};
 pub use product::ProductProfileRequest;
 
@@ -30,6 +36,7 @@ pub struct PlantPlanRequest<'a> {
 }
 
 impl OpenRouterClient {
+    // @spec PLANT-AI-004
     pub fn new(config: OpenRouterConfig) -> Self {
         let client = reqwest::Client::builder()
             .connect_timeout(CONNECT_TIMEOUT)
@@ -43,6 +50,7 @@ impl OpenRouterClient {
         &self.config.model
     }
 
+    // @spec PLANT-PROMPT-001, PLANT-PROMPT-009
     /// Generate a structured plant maintenance plan via an LLM.
     /// The response is validated against a JSON schema by OpenRouter.
     pub async fn generate_plant_plan(
@@ -71,6 +79,7 @@ impl OpenRouterClient {
         .await
     }
 
+    // @spec PLANT-AI-002, PLANT-AI-003, PLANT-AI-005
     /// One strict-JSON-schema chat completion: the system prompt is cached, the reply is
     /// validated by OpenRouter against `schema`, then deserialized into `T`.
     pub(super) async fn complete_json<T: DeserializeOwned>(

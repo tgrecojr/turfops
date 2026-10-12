@@ -96,6 +96,7 @@ export default function App() {
 							<Route index element={<Dashboard />} />
 							<Route path="applications" element={<Applications />} />
 							<Route path="inventory" element={<Inventory />} />
+							{/* @spec PLANT-UI-001 */}
 							<Route path="landscape" element={<Landscape />} />
 							<Route path="calendar" element={<Calendar />} />
 							<Route path="environmental" element={<Environmental />} />

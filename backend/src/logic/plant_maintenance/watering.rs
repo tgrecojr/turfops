@@ -4,6 +4,7 @@
 //! 7-day rain total, and the OpenWeatherMap forecast (whose first slot is the current
 //! weather, so rain falling now counts). Pure — no IO.
 
+// @spec PLANT-WATER-004
 use crate::logic::rules::thresholds::{
     PRECIP_HEAVY_7DAY_MM, PRECIP_TRACE_MM, SOIL_MOISTURE_ADEQUATE,
 };
@@ -24,6 +25,7 @@ pub struct WaterSignals {
 }
 
 impl WaterSignals {
+    // @spec PLANT-WATER-001, PLANT-WATER-003
     pub fn from_env(env: &EnvironmentalSummary) -> Self {
         Self {
             recent_rain_mm: env.precipitation_7day_total_mm,
@@ -37,6 +39,7 @@ impl WaterSignals {
         }
     }
 
+    // @spec PLANT-WATER-001, PLANT-WATER-002, PLANT-WATER-003, PLANT-WATER-005
     /// Why the weather is watering for you today, or `None` when it is a dry spell (or
     /// nothing is known — no data keeps the reminder, like every other rule).
     pub fn wet_reason(&self) -> Option<String> {
@@ -56,6 +59,7 @@ impl WaterSignals {
         None
     }
 
+    // @spec PLANT-WATER-006
     /// The signals a dry-spell reminder was judged on, so the card explains itself.
     pub fn annotate(&self, mut rec: Recommendation) -> Recommendation {
         if let Some(mm) = self.recent_rain_mm {
@@ -139,6 +143,7 @@ mod tests {
         }
     }
 
+    // @spec PLANT-WATER-005
     #[test]
     fn no_data_is_a_dry_spell() {
         assert_eq!(
@@ -153,6 +158,7 @@ mod tests {
         assert_eq!(s.wet_reason(), None);
     }
 
+    // @spec PLANT-WATER-001
     #[test]
     fn rain_falling_now_or_forecast_relieves_it() {
         // 0.46" in the current + next slots, like the rain-delay alert that fired beside it.
@@ -160,12 +166,14 @@ mod tests {
         assert!(s.wet_reason().unwrap().contains("forecast"));
     }
 
+    // @spec PLANT-WATER-002
     #[test]
     fn a_wet_week_in_the_lake_relieves_it() {
         let s = WaterSignals::from_env(&env(Some(30.0), Some(&[0.0]), Some(0.12)));
         assert!(s.wet_reason().unwrap().contains("last 7 days"));
     }
 
+    // @spec PLANT-WATER-003
     #[test]
     fn adequate_soil_moisture_relieves_it() {
         let s = WaterSignals::from_env(&env(Some(0.0), Some(&[0.0]), Some(0.25)));

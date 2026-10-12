@@ -27,6 +27,7 @@ impl PlantType {
     }
 }
 
+// @spec PLANT-DATA-002
 impl FromStr for PlantType {
     type Err = String;
 
@@ -100,6 +101,8 @@ impl std::fmt::Display for TaskType {
     }
 }
 
+/// How often the job recurs inside its window: shown to the owner, never judged.
+// @spec PLANT-DATA-007
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TaskFrequency {
     Once,
@@ -115,6 +118,7 @@ pub enum IdentificationConfidence {
     Low,
 }
 
+// @spec PLANT-DATA-005
 /// A single maintenance task the LLM returned for a plant.
 /// Windows are stored as "MM-DD" so they apply year-over-year.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -128,6 +132,7 @@ pub struct MaintenanceTask {
     pub zone_note: Option<String>,
 }
 
+// @spec PLANT-DATA-004
 /// Full cached plan for a plant, as produced by the LLM and stored in JSONB.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlantMaintenancePlan {
@@ -140,6 +145,7 @@ pub struct PlantMaintenancePlan {
     pub warnings: Vec<String>,
 }
 
+// @spec PLANT-DATA-001
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Plant {
     pub id: Option<i64>,
@@ -181,5 +187,54 @@ mod tests {
     fn task_type_matches_pruning_app() {
         let matches = TaskType::Pruning.matching_application_types();
         assert!(matches.contains(&super::super::ApplicationType::Pruning));
+    }
+
+    // @spec PLANT-DATA-002
+    #[test]
+    fn every_plant_type_parses_in_any_case() {
+        use PlantType::*;
+        for (text, kind) in [
+            ("SHRUB", Shrub),
+            ("Tree", Tree),
+            ("perennial", Perennial),
+            ("Annual", Annual),
+            ("vInE", Vine),
+            ("Groundcover", Groundcover),
+            ("Ground Cover", Groundcover),
+            ("OTHER", Other),
+        ] {
+            assert_eq!(PlantType::from_str(text), Ok(kind), "{text}");
+            assert_eq!(PlantType::from_str(kind.as_str()), Ok(kind));
+        }
+        assert!(PlantType::from_str("Bush").is_err());
+    }
+
+    // @spec PLANT-DATA-004
+    #[test]
+    fn a_stored_plan_is_one_document_and_missing_warnings_mean_none() {
+        let stored = serde_json::json!({
+            "identified_name": "Holly",
+            "scientific_name": null,
+            "identification_confidence": "Low",
+            "summary": "Could not tell which holly.",
+            "tasks": []
+        });
+        let plan: PlantMaintenancePlan = serde_json::from_value(stored).unwrap();
+        assert!(plan.warnings.is_empty());
+        assert_eq!(
+            plan.identification_confidence,
+            IdentificationConfidence::Low
+        );
+        let written = serde_json::to_value(&plan).unwrap();
+        for field in [
+            "identified_name",
+            "scientific_name",
+            "identification_confidence",
+            "summary",
+            "tasks",
+            "warnings",
+        ] {
+            assert!(written.get(field).is_some(), "{field}");
+        }
     }
 }
