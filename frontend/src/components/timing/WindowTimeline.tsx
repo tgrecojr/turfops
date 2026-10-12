@@ -8,6 +8,7 @@ interface WindowTimelineProps {
 
 const PAD_DAYS = 10;
 
+// @spec TIME-UI-005
 /**
  * The typical window on a time axis: the historical spread (lightest), the median
  * opens→closes span, the ideal stretch (darkest) and a marker for today.

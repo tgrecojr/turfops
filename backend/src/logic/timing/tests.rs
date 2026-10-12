@@ -9,6 +9,14 @@ use crate::models::timing::{DateSource, TimingWindow, WindowId};
 use crate::models::ApplicationType;
 
 mod confirmation;
+mod definitions;
+mod feed;
+mod history;
+mod log_spans;
+mod outlook;
+mod resolve;
+mod season_context;
+mod states;
 
 pub(super) fn date(year: i32, month: u32, day: u32) -> NaiveDate {
     NaiveDate::from_ymd_opt(year, month, day).unwrap()
@@ -154,6 +162,7 @@ fn fall_seeding_moves_from_closing_to_closed() {
     );
 }
 
+// @spec TIME-LOG-003
 #[test]
 fn logged_overseeding_completes_seeding_and_rules_out_fall_pre_emergent() {
     let history = [applied(ApplicationType::Overseed, date(2026, 9, 12))];
@@ -173,6 +182,7 @@ fn logged_overseeding_completes_seeding_and_rules_out_fall_pre_emergent() {
     assert!(pre_em.guidance.is_empty());
 }
 
+// @spec TIME-ENG-031, TIME-ENG-035
 #[test]
 fn warm_fall_is_reported_as_overdue_rather_than_given_a_date() {
     // 2026 runs 6°F warm: soil is still above 70°F a week past the typical crossing.
@@ -185,6 +195,7 @@ fn warm_fall_is_reported_as_overdue_rather_than_given_a_date() {
     assert!(pre_em.headline.contains("later than usual"));
 }
 
+// @spec TIME-ENG-025, TIME-ENG-030
 #[test]
 fn stale_station_data_falls_back_to_the_calendar() {
     let result = run(date(2026, 9, 20), &station(date(2026, 8, 1), 0.0), &[]);
@@ -195,6 +206,7 @@ fn stale_station_data_falls_back_to_the_calendar() {
     assert_eq!(pre_em.state, WindowState::Ideal);
 }
 
+// @spec TIME-ENG-033
 #[test]
 fn spring_pre_emergent_walks_through_its_stages() {
     let state_on = |month: u32, day: u32| {
@@ -209,6 +221,7 @@ fn spring_pre_emergent_walks_through_its_stages() {
     assert_eq!(state_on(5, 1), WindowState::Closed); // past 55°F sustained
 }
 
+// @spec TIME-ENG-024, TIME-ENG-033
 #[test]
 fn forecast_cooling_flags_the_window_as_opening_soon() {
     let today = date(2026, 9, 3);
@@ -258,6 +271,7 @@ fn forecast_day(date: NaiveDate, avg_f: f64) -> DailyForecast {
     }
 }
 
+// @spec TIME-ENG-007
 #[test]
 fn soil_outlook_is_continuous_across_the_hole_between_station_air_and_forecast() {
     // Soil follows air from 4 days earlier. Station soil ends Sep 19 but its air ends

@@ -9,6 +9,7 @@ pub(crate) const FRESH_FOR: Duration = Duration::hours(1);
 /// After a failed re-read, the last good record is served for this long.
 pub(crate) const LAST_GOOD_FOR: Duration = Duration::hours(24);
 
+// @spec TIME-ENG-038
 /// Reuse the slot's record without reading the lake.
 pub(crate) fn is_fresh(read_at: DateTime<Utc>, now: DateTime<Utc>) -> bool {
     now - read_at < FRESH_FOR

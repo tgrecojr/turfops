@@ -18,6 +18,7 @@ fn fall_seeding(windows: &[TimingWindow]) -> Option<&TimingWindow> {
     windows.iter().find(|w| w.id == WindowId::FallSeeding)
 }
 
+// @spec TIME-FEED-005
 /// Core aeration while the fall seeding window is usable. Silent once the lawn is seeded
 /// (too late to pull cores) and when a fall pre-emergent is down (cores break the
 /// barrier) — the same log that blocks seeding.
@@ -105,6 +106,7 @@ pub fn aeration(
     )
 }
 
+// @spec TIME-FEED-006
 /// Make the fall broadleaf herbicide follow the seeding decision in the log:
 /// seeded this fall → dropped (herbicide injures seedlings); fall pre-emergent logged
 /// (so no seeding) or the seeding window over → unchanged; undecided while the window is
@@ -183,6 +185,7 @@ mod tests {
         )]
     }
 
+    // @spec TIME-FEED-005
     #[test]
     fn aeration_follows_the_seeding_window() {
         // Sep 5: 10 cm soil is still far above the old rule's 65°F gate, but seeding is open.
@@ -201,6 +204,7 @@ mod tests {
         assert!(aeration(&windows_on(late, &[]), &profile(None), &[], late).is_none());
     }
 
+    // @spec TIME-FEED-005
     #[test]
     fn aeration_is_silent_once_the_decision_is_logged() {
         let today = date(2026, 9, 20);
@@ -215,6 +219,7 @@ mod tests {
         }
     }
 
+    // @spec TIME-FEED-006
     #[test]
     fn herbicide_follows_the_log() {
         let today = date(2026, 9, 25);

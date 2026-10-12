@@ -7,6 +7,7 @@ interface TimingWidgetProps {
 	data: TimingResponse;
 }
 
+// @spec TIME-UI-007
 /** Dashboard card: the primary seeding / pre-emergent windows and where each stands. */
 export default function TimingWidget({ data }: TimingWidgetProps) {
 	const windows = data.windows

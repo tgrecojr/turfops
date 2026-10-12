@@ -21,6 +21,7 @@ struct ActivityCopy {
     notes: &'static str,
 }
 
+// @spec TIME-PLAN-005
 fn copy_for(id: WindowId) -> Option<ActivityCopy> {
     match id {
         WindowId::SpringPreEmergent => Some(ActivityCopy {
@@ -78,6 +79,7 @@ fn status(done: bool, start: NaiveDate, end: NaiveDate, today: NaiveDate) -> Act
     }
 }
 
+// @spec TIME-PLAN-002
 /// Status for the season being lived right now: what the Timing page says, so the two
 /// never disagree (a cold spring keeps pre-emergent Active past its typical close; a warm
 /// one ends it early). Other years only have the typical dates to go on.
@@ -163,6 +165,7 @@ fn aeration(seeding: &PlannedActivity, applications: &[Application], year: i32) 
     }
 }
 
+// @spec TIME-PLAN-004
 /// Ids of the plan activities the timing windows answer for on this lawn. The handler
 /// removes the plan's own 10 cm version of every one of them — including a window the log
 /// has ruled out, which [`activities`] omits and nothing may resurrect.
@@ -179,6 +182,7 @@ pub fn owned_ids(grass: GrassType) -> Vec<&'static str> {
     ids
 }
 
+// @spec TIME-PLAN-001, TIME-PLAN-003
 /// Plan activities for `year`. A window ruled out by the application log (seed vs.
 /// pre-emergent) is left off the plan. Empty when there is no station history.
 pub fn activities(
@@ -207,5 +211,7 @@ pub fn activities(
     out
 }
 
+#[cfg(test)]
+mod spec_tests;
 #[cfg(test)]
 mod tests;

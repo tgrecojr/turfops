@@ -16,6 +16,7 @@ use chrono::NaiveDate;
 /// How long after the spring pre-emergent window closes the "you missed it" advice stays up.
 const MISSED_NOTICE_DAYS: i64 = 21;
 
+// @spec TIME-FEED-001
 /// One recommendation per primary window that is actionable now.
 pub fn to_recommendations(
     windows: &[TimingWindow],
@@ -90,6 +91,7 @@ fn seeding_rate_note(profile: &LawnProfile) -> String {
     }
 }
 
+// @spec TIME-FEED-002
 fn to_recommendation(
     window: &TimingWindow,
     severity: Severity,
@@ -136,6 +138,7 @@ fn to_recommendation(
     boundary_point(rec, "Closes", &window.closes)
 }
 
+// @spec TIME-FEED-004
 /// Pre-emergent windows want a pre-emergent herbicide; seeding windows want seed of the
 /// lawn's species (a blend accepts any cool-season species).
 fn need_for(id: WindowId, grass: GrassType) -> ProductNeed {
@@ -219,6 +222,7 @@ mod tests {
             .collect()
     }
 
+    // @spec TIME-FEED-001
     #[test]
     fn only_actionable_primary_windows_are_surfaced() {
         use WindowPriority::{Primary, Secondary};
@@ -266,6 +270,7 @@ mod tests {
         assert!(!no_size.contains("lbs of seed for"), "no total: {no_size}");
     }
 
+    // @spec TIME-FEED-001
     #[test]
     fn fall_pre_emergent_is_never_pushed_harder_than_advisory() {
         use WindowPriority::Primary;
@@ -277,6 +282,7 @@ mod tests {
         );
     }
 
+    // @spec TIME-FEED-001
     #[test]
     fn missed_spring_pre_emergent_is_flagged_for_three_weeks() {
         let missed = window(

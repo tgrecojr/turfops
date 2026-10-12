@@ -27,6 +27,7 @@ function TypicalCell({ boundary }: { boundary: BoundaryView }) {
 	);
 }
 
+// @spec TIME-UI-004
 function seasonText(b: BoundaryView): string {
 	if (!b.date) return b.typical ? "Later than usual — not yet seen" : "—";
 	const held =
@@ -36,6 +37,7 @@ function seasonText(b: BoundaryView): string {
 	return `${formatMonthDay(b.date)} (${DATE_SOURCE_LABELS[b.source]}${held})`;
 }
 
+// @spec TIME-UI-003
 /** One timing window: state, headline, typical-window timeline, triggers, guidance. */
 export default function WindowCard({ window: w, today }: WindowCardProps) {
 	const rows: [string, BoundaryView | null][] = [
