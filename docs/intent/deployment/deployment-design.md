@@ -117,7 +117,7 @@ Every fallback caused by an unusable non-empty value logs a warning naming the s
 4. `create_pool`: connect to Postgres, retrying with increasing backoff for about a minute while it is unreachable (each failed attempt logged at WARN), then run all pending migrations (below).
 5. `ensure_default_profile`: insert a profile from `LAWN_*` when the database has none.
 6. `DataSyncService::initialize`: construct the lake, Home Assistant and OpenWeatherMap clients. No network or lake I/O happens here; each source is first touched on demand (Data sync).
-7. Construct the OpenRouter client when configured, enabled and keyed; log the model at INFO.
+7. Construct the OpenRouter client whenever a key is configured, turned off or not (a turned-off client answers with the "turned off" 503, so the owner learns which switch to flip); log the model and whether it is enabled at INFO.
 8. Build `AppState` (pool, sync service, OpenRouter, `mcp_enabled`).
 9. Assemble the router (below), bind `SERVER_HOST:SERVER_PORT`, and `axum::serve` with graceful shutdown on SIGTERM.
 

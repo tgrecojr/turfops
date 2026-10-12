@@ -202,7 +202,7 @@ pub const THRESHOLDS: &[AgronomicThreshold] = &[
 ];
 
 /// Detect which agronomic thresholds will be crossed based on current soil temp + predictions.
-// @spec WX-OUTLOOK-CROSS-005, WX-OUTLOOK-CROSS-002, WX-OUTLOOK-CROSS-003, WX-OUTLOOK-CROSS-004
+// @spec WX-OUTLOOK-CROSS-005, WX-OUTLOOK-CROSS-002, WX-OUTLOOK-CROSS-003, WX-OUTLOOK-CROSS-004, WX-OUTLOOK-CROSS-006
 pub fn predict_threshold_crossings(
     current_soil_temp_f: f64,
     predictions: &[SoilTempPrediction],
@@ -232,6 +232,13 @@ pub fn predict_threshold_crossings(
                     .is_some_and(|wanted| wanted != direction)
                 {
                     break; // crossed the wrong way: nothing to announce
+                }
+                // A dip the forecast recovers from is not a crossing.
+                let recovers = predictions
+                    .last()
+                    .is_some_and(|last| last.predicted_soil_temp_f >= threshold.temp_f);
+                if direction == CrossingDirection::Falling && recovers {
+                    break;
                 }
 
                 let days_until = (pred.date - today).num_days();
@@ -335,6 +342,8 @@ pub use series::{anchored_outlook, continuous_air};
 
 #[cfg(test)]
 mod crossing_tests;
+#[cfg(test)]
+mod dip_tests;
 #[cfg(test)]
 mod model_tests;
 #[cfg(test)]

@@ -126,3 +126,22 @@ fn both_windows_call_for_a_post_emergent_broadleaf_herbicide() {
         assert!(!need.optional);
     }
 }
+
+// @spec RULE-ENG-007
+#[test]
+fn both_windows_name_the_actives_and_defer_to_the_label_without_a_rate() {
+    for rec in [
+        build_spring_herbicide_rec(52.0, Some(80.0)),
+        build_fall_herbicide_rec(58.0),
+    ] {
+        let action = rec.suggested_action.as_deref().unwrap();
+        for active in ["2,4-D", "dicamba", "triclopyr"] {
+            assert!(action.contains(active), "{}: {action}", rec.id);
+        }
+        assert!(action.contains("product label"), "{}: {action}", rec.id);
+        let lower = action.to_lowercase();
+        for rate in ["oz", "per 1,000", "per 1000", "fl ", "lb/"] {
+            assert!(!lower.contains(rate), "{}: states a rate: {action}", rec.id);
+        }
+    }
+}

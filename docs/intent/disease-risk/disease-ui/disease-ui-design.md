@@ -45,7 +45,7 @@ With no diseases, the first data note is shown, falling back to "Not enough rece
 - **`DailyRiskChart`** for the past week and the outlook.
 - **Summary**, bordered in the tier color.
 - **`ManagementPanel`**.
-- **Contributing factors · <as of>:** a table of label, value, and status symbol plus note.
+- **Contributing factors · <as of>:** a table of label, value, a status badge (symbol hidden from assistive technology, plus the status text on its tint) and the note.
 - **"How this is calculated"**, collapsible: methodology summary, steps, pathogen and citation. When `validated` is false it begins with an **⚠ Experimental** banner.
 
 **`ManagementPanel`** shows:
@@ -85,7 +85,7 @@ A legend explains the fading and the outline. A "View as table" disclosure lists
 | Severe | `#d03b3b` | ! |
 
 - `TierBadge` is a tinted pill in the status color, behind ink text with the symbol and label.
-- Factor status reads from the disease's side: Favorable (to the disease) is red ⚠, Marginal is amber △, Unfavorable is green ✓. Each carries an `aria-label` such as "Favorable for disease".
+- Factor status reads from the disease's side: Favorable (to the disease) is red ⚠, Marginal is amber △, Unfavorable is green ✓. The badge's visible text says whose side it reads from: "Favorable for disease", "Marginal for disease", "Unfavorable for disease".
 - Colors are defined once in `types/disease.ts` from the status palette.
 
 ## Decisions & Alternatives

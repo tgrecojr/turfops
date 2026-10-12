@@ -101,17 +101,33 @@ pub async fn create_plant(
     Ok((StatusCode::CREATED, Json(created)))
 }
 
+/// A partial edit. For the nullable fields, absent (`None`) keeps the value and JSON `null`
+/// (`Some(None)`) clears it.
 #[derive(Debug, Deserialize)]
 pub struct UpdatePlantRequest {
     pub common_name: Option<String>,
+    #[serde(default, deserialize_with = "present")]
     pub scientific_name: Option<Option<String>>,
     pub plant_type: Option<String>,
+    #[serde(default, deserialize_with = "present")]
     pub location: Option<Option<String>>,
+    #[serde(default, deserialize_with = "present")]
     pub planting_date: Option<Option<String>>,
+    #[serde(default, deserialize_with = "present")]
     pub notes: Option<Option<String>>,
 }
 
-// @spec PLANT-API-010
+/// A field that is in the body, whatever its value: `null` becomes `Some(None)`. Serde
+/// calls this only for keys that are present; `#[serde(default)]` covers absent ones.
+fn present<'de, D, T>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(deserializer).map(Some)
+}
+
+// @spec PLANT-API-010, PLANT-API-009
 pub async fn update_plant(
     State(state): State<AppState>,
     Path(id): Path<i64>,

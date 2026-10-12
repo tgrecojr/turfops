@@ -4,7 +4,7 @@ Soil Tests — leaf segment `SOIL` under the root HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-10-12 (git SHA `4505fbc`): every implemented spec was checked against the code while linking it. 63 of 64 implemented specs are linked to both code and a test; 1 disagree with the code (see Key Findings).
+**OK** — audited 2026-10-12 (git SHA `f2112e2`): every implemented spec was checked against the code while linking it. 64 of 64 implemented specs are linked to both code and a test.
 
 ## References
 
@@ -82,24 +82,23 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | DATA | SOIL-DATA-001 – SOIL-DATA-005 | 5 | 0 | 0 | 5 | 5 |
 | API | SOIL-API-001 – SOIL-API-012 | 12 | 0 | 0 | 12 | 12 |
 | ADV | SOIL-ADV-001 – SOIL-ADV-005 | 5 | 0 | 0 | 5 | 5 |
-| PH | SOIL-PH-001 – SOIL-PH-007 | 6 | 1 | 0 | 5 | 5 |
+| PH | SOIL-PH-001 – SOIL-PH-007 | 6 | 1 | 0 | 6 | 6 |
 | NPK | SOIL-NPK-001 – SOIL-NPK-013 | 13 | 0 | 0 | 13 | 13 |
 | NUTR | SOIL-NUTR-001 – SOIL-NUTR-005 | 5 | 0 | 0 | 5 | 5 |
 | UI | SOIL-UI-001 – SOIL-UI-018 | 18 | 0 | 0 | 18 | 18 |
 | REJOIN | SOIL-REJOIN-001 – SOIL-REJOIN-007 | 0 | 7 | 0 | 0 | 0 |
-| **Total** | | **64** | **8** | **0** | **63** | **63** |
+| **Total** | | **64** | **8** | **0** | **64** | **64** |
 
-**Summary:** 64 of 64 active specs implemented; 8 deferred; 63 implemented specs cited by a test, 1 cited nowhere.
+**Summary:** 64 of 64 active specs implemented; 8 deferred; 64 implemented specs cited by a test, 0 cited nowhere.
 
 ## Key Findings
 
-1. **Spec ≠ code — SOIL-PH-006:** with no soil type only the advising N-P-K branch says "Soil type not set — using Loam defaults"; the nothing-to-apply branch never mentions it (`logic/soil_test_recommendations.rs:143-163`).
-2. **Deferred:** SOIL-PH-007, SOIL-REJOIN-001, SOIL-REJOIN-002, SOIL-REJOIN-003, SOIL-REJOIN-004, SOIL-REJOIN-005, SOIL-REJOIN-006, SOIL-REJOIN-007.
+1. **Deferred:** SOIL-PH-007, SOIL-REJOIN-001, SOIL-REJOIN-002, SOIL-REJOIN-003, SOIL-REJOIN-004, SOIL-REJOIN-005, SOIL-REJOIN-006, SOIL-REJOIN-007.
 
 ## Work Required
 
 ### Must Fix
-- Decide SOIL-PH-006: fix the code or correct the spec, then link it.
+- None.
 
 ### Should Fix
 - None.

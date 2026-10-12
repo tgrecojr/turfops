@@ -12,6 +12,10 @@ import {
 import type { SoilTempPrediction, TimeSeriesPoint } from "../types";
 import ChartTable from "./ChartTable";
 
+// @spec UI-CONV-005
+/** One series in one hue: observed soil solid, the forecast of it dashed. */
+const SERIES = "#2a78d6";
+
 interface PredictionChartProps {
 	recentSoilTemps: TimeSeriesPoint[];
 	predictions: SoilTempPrediction[];
@@ -85,17 +89,15 @@ export default function PredictionChart({
 				<div style={styles.label}>Soil Temperature Forecast (10cm)</div>
 				<div style={styles.legend}>
 					<span style={styles.legendItem}>
-						<span
-							style={{ ...styles.legendLine, backgroundColor: "#e67e22" }}
-						/>
+						<span style={{ ...styles.legendLine, borderTopColor: SERIES }} />
 						Actual
 					</span>
 					<span style={styles.legendItem}>
 						<span
 							style={{
 								...styles.legendLine,
-								backgroundColor: "#3b82f6",
-								borderStyle: "dashed",
+								borderTopColor: SERIES,
+								borderTopStyle: "dashed",
 							}}
 						/>
 						Predicted
@@ -109,12 +111,12 @@ export default function PredictionChart({
 				>
 					<defs>
 						<linearGradient id="gradActual" x1="0" y1="0" x2="0" y2="1">
-							<stop offset="5%" stopColor="#e67e22" stopOpacity={0.2} />
-							<stop offset="95%" stopColor="#e67e22" stopOpacity={0} />
+							<stop offset="5%" stopColor={SERIES} stopOpacity={0.2} />
+							<stop offset="95%" stopColor={SERIES} stopOpacity={0} />
 						</linearGradient>
 						<linearGradient id="gradPredicted" x1="0" y1="0" x2="0" y2="1">
-							<stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15} />
-							<stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+							<stop offset="5%" stopColor={SERIES} stopOpacity={0.15} />
+							<stop offset="95%" stopColor={SERIES} stopOpacity={0} />
 						</linearGradient>
 					</defs>
 					<CartesianGrid strokeDasharray="3 3" stroke="#edf2f7" />
@@ -168,7 +170,7 @@ export default function PredictionChart({
 					<Area
 						type="monotone"
 						dataKey="actual"
-						stroke="#e67e22"
+						stroke={SERIES}
 						fill="url(#gradActual)"
 						strokeWidth={2}
 						dot={false}
@@ -177,10 +179,10 @@ export default function PredictionChart({
 					<Line
 						type="monotone"
 						dataKey="predicted"
-						stroke="#3b82f6"
+						stroke={SERIES}
 						strokeWidth={2}
 						strokeDasharray="6 3"
-						dot={{ r: 3, fill: "#3b82f6" }}
+						dot={{ r: 3, fill: SERIES }}
 						connectNulls={false}
 					/>
 				</ComposedChart>
@@ -237,9 +239,9 @@ const styles: Record<string, React.CSSProperties> = {
 	},
 	legendLine: {
 		width: 16,
-		height: 2,
+		height: 0,
 		display: "inline-block",
-		borderRadius: 1,
+		borderTop: "2px solid",
 	},
 	empty: {
 		color: "#a0aec0",

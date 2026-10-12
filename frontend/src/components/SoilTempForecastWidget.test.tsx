@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import type { SoilTempPrediction, ThresholdPrediction } from "../types";
+import type { ThresholdPrediction } from "../types";
 import SoilTempForecastWidget from "./SoilTempForecastWidget";
 
 function crossing(
@@ -22,31 +22,17 @@ function crossing(
 	};
 }
 
-function endingAt(temp: number): SoilTempPrediction[] {
-	return [
-		{
-			date: "2026-10-16",
-			predicted_soil_temp_f: temp,
-			confidence: "Low",
-			air_temp_used_f: temp,
-			source_description: "test",
-		},
-	];
-}
-
 describe("SoilTempForecastWidget", () => {
 	// @spec WX-OUTLOOK-UI-002
-	it("headlines the nearest crossing more than 0 days out, then up to two more", () => {
+	it("headlines the nearest crossing, then up to two more", () => {
 		render(
 			<SoilTempForecastWidget
 				crossings={[
-					crossing("Today Already", 50, 0),
 					crossing("Grub Control Window", 60, 3),
 					crossing("Active Growth Peak", 65, 4),
 					crossing("Heat Stress Risk", 75, 5),
 					crossing("Fourth Extra", 80, 6),
 				]}
-				predictions={endingAt(70)}
 				currentSoilTemp={58.24}
 			/>,
 		);
@@ -62,27 +48,15 @@ describe("SoilTempForecastWidget", () => {
 			screen.getByText("~5d until soil reaches 75°F (Heat Stress Risk)"),
 		).toBeInTheDocument();
 		expect(screen.queryByText(/Fourth Extra/)).not.toBeInTheDocument();
-		expect(screen.queryByText(/Today Already/)).not.toBeInTheDocument();
 	});
 
-	// @spec WX-OUTLOOK-UI-002
-	it("counts a falling crossing only while the last prediction stays below it", () => {
-		const falling = crossing("Winterizer / Dormancy", 45, 2, "Falling");
-		const { rerender } = render(
+	// @spec WX-OUTLOOK-UI-002, UI-TYPE-004
+	it("shows a falling crossing as the outlook returned it, judging nothing", () => {
+		// The outlook only returns a fall that holds (WX-OUTLOOK-CROSS-006); the widget
+		// shows it without second-guessing it.
+		render(
 			<SoilTempForecastWidget
-				crossings={[falling]}
-				predictions={endingAt(47)}
-				currentSoilTemp={46}
-			/>,
-		);
-		expect(
-			screen.getByText("Current: 46.0°F — No threshold crossings predicted"),
-		).toBeInTheDocument();
-
-		rerender(
-			<SoilTempForecastWidget
-				crossings={[falling]}
-				predictions={endingAt(43)}
+				crossings={[crossing("Winterizer / Dormancy", 45, 2, "Falling")]}
 				currentSoilTemp={46}
 			/>,
 		);
@@ -92,13 +66,7 @@ describe("SoilTempForecastWidget", () => {
 
 	// @spec WX-OUTLOOK-UI-002
 	it("says no crossings are predicted when none remain", () => {
-		render(
-			<SoilTempForecastWidget
-				crossings={[]}
-				predictions={endingAt(62)}
-				currentSoilTemp={62.04}
-			/>,
-		);
+		render(<SoilTempForecastWidget crossings={[]} currentSoilTemp={62.04} />);
 		expect(
 			screen.getByText("Current: 62.0°F — No threshold crossings predicted"),
 		).toBeInTheDocument();

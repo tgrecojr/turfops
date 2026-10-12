@@ -152,6 +152,41 @@ async fn a_failed_generation_is_a_503_that_writes_nothing(pool: PgPool) {
     assert_eq!(kept.plan_model, "old/model");
 }
 
+// @spec PLANT-AI-008
+#[sqlx::test(migrations = "src/db/migrations")]
+async fn a_turned_off_assistant_says_so_and_writes_nothing(pool: PgPool) {
+    let profile_id = profile(&pool, "7a").await;
+    let off = crate::datasources::OpenRouterClient::new(crate::config::OpenRouterConfig {
+        api_key: "test".into(),
+        model: MODEL.into(),
+        enabled: false,
+        base_url: "http://127.0.0.1:1".into(),
+    });
+    let state = state(pool.clone(), Some(off)).await;
+    let err = create_plant(
+        State(state.clone()),
+        request(json!({ "common_name": "Holly", "plant_type": "Shrub" })),
+    )
+    .await
+    .unwrap_err();
+    let response = axum::response::IntoResponse::into_response(err);
+    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    let message = body["error"].as_str().unwrap();
+    assert!(
+        message.starts_with("The plan assistant is turned off.")
+            && message.contains("OPENROUTER_ENABLED=true"),
+        "{message}"
+    );
+    assert!(plant_queries::list_plants_for_profile(&pool, profile_id)
+        .await
+        .unwrap()
+        .is_empty());
+}
+
 // @spec PLANT-API-012
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn regenerating_replaces_the_plan_from_the_stored_plant(pool: PgPool) {

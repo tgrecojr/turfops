@@ -73,6 +73,20 @@ pub(crate) async fn state(pool: PgPool, openrouter_url: Option<String>) -> AppSt
     AppState::new(pool, sync, openrouter, false, Clock::System)
 }
 
+/// An app whose OpenRouter client exists but is turned off (`OPENROUTER_ENABLED` off). Its
+/// base URL is unroutable, so any request it did send would fail rather than answer.
+pub(crate) async fn state_with_assistant_off(pool: PgPool) -> AppState {
+    let config = config();
+    let sync = DataSyncService::initialize(&config, pool.clone()).await;
+    let openrouter = OpenRouterClient::new(OpenRouterConfig {
+        api_key: "test".into(),
+        model: "test/model".into(),
+        enabled: false,
+        base_url: "http://127.0.0.1:1".into(),
+    });
+    AppState::new(pool, sync, Some(openrouter), false, Clock::System)
+}
+
 /// The lawn every product belongs to (Kentucky bluegrass, zone 6b).
 pub(crate) async fn lawn(pool: &PgPool) -> i64 {
     let profile = LawnProfile::new("Front".into(), GrassType::KentuckyBluegrass, "6b".into());

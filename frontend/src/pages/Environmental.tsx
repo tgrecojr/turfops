@@ -380,7 +380,7 @@ export default function Environmental() {
 						</div>
 					)}
 					<div style={styles.modelInfo}>
-						Model: R\u00B2={soilForecast.model_info.r_squared.toFixed(2)}, lag=
+						Model: R²={soilForecast.model_info.r_squared.toFixed(2)}, lag=
 						{soilForecast.model_info.lag_days}d, quality=
 						{soilForecast.model_info.quality}
 					</div>

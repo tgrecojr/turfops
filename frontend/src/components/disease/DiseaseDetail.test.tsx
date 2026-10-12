@@ -125,10 +125,29 @@ describe("DiseaseDetail", () => {
 		];
 		for (const [label, symbol, color, pinned] of expected) {
 			expect(color).toBe(pinned);
-			const dot = screen.getByRole("img", { name: label });
-			expect(dot).toHaveTextContent(symbol);
-			expect(dot).toHaveStyle({ borderColor: color });
+			const badge = screen.getByText(label).closest("span[data-badge]");
+			expect(badge).toHaveTextContent(symbol);
+			expect(badge).toHaveStyle({ borderColor: color });
 		}
+	});
+
+	// @spec UI-CONV-001
+	it("shows each factor's status as a badge: hidden symbol, visible words, tint and border", () => {
+		render(<DiseaseDetail risk={risk()} today={TODAY} />);
+		for (const [words, status] of [
+			["Favorable for disease", "Favorable"],
+			["Marginal for disease", "Marginal"],
+			["Unfavorable for disease", "Unfavorable"],
+		] as const) {
+			const badge = screen.getByText(words).closest("span[data-badge]");
+			expect(badge, words).not.toBeNull();
+			const color = FACTOR_STATUS_COLORS[status];
+			expect(badge).toHaveStyle({ borderColor: color, color: "#2d3748" });
+			expect(badge?.getAttribute("style")).toContain("background-color");
+			const symbol = badge?.querySelector("[aria-hidden='true']");
+			expect(symbol, words).not.toBeNull();
+		}
+		expect(screen.queryByRole("img", { name: /for disease/ })).toBeNull();
 	});
 
 	// @spec DIS-UI-CONV-003

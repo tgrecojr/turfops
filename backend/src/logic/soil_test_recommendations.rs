@@ -112,7 +112,7 @@ fn remaining_nitrogen(profile: &LawnProfile, apps: &[Application], today: NaiveD
 }
 
 /// Calculate N-P-K fertilizer recommendation integrated with nitrogen budget.
-// @spec SOIL-NPK-012, SOIL-NPK-013, SOIL-NPK-001, SOIL-NPK-002, SOIL-NPK-005, SOIL-NPK-006, SOIL-NPK-011
+// @spec SOIL-NPK-012, SOIL-NPK-013, SOIL-NPK-001, SOIL-NPK-002, SOIL-NPK-005, SOIL-NPK-006, SOIL-NPK-011, SOIL-PH-006
 pub fn calculate_npk_recommendation(
     test: &SoilTest,
     profile: &LawnProfile,
@@ -142,6 +142,11 @@ pub fn calculate_npk_recommendation(
     };
     let levels = levels_text(test, p_level, k_level);
 
+    let soil_note = if profile.soil_type.is_none() {
+        " Soil type not set — using Loam defaults."
+    } else {
+        ""
+    };
     if n_rate == 0.0 && p_rate == 0.0 && k_rate == 0.0 {
         let budget = if remaining_n < 0.25 {
             format!(
@@ -160,18 +165,13 @@ pub fn calculate_npk_recommendation(
             product_rate_lbs_per_1000sqft: 0.0,
             example_product_ratio: "N/A".to_string(),
             remaining_n_budget_lbs_per_1000sqft: remaining_n,
-            explanation: format!("{levels} {budget} No fertilizer is needed now."),
+            explanation: format!("{levels} {budget} No fertilizer is needed now.{soil_note}"),
         });
     }
 
     let (ratio, product_ratio) = suggest_ratio(n_rate, p_rate, k_rate);
     let product_rate = example_product_rate(&product_ratio, n_rate, p_rate, k_rate);
 
-    let soil_note = if profile.soil_type.is_none() {
-        " Soil type not set — using Loam defaults."
-    } else {
-        ""
-    };
     let budget_note = if remaining_n < 0.5 {
         format!(
             " Note: only {remaining_n:.2} lbs N/1000 sqft remaining in annual budget — N rate capped accordingly.",

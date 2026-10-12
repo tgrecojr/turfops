@@ -26,7 +26,8 @@ impl TurfOpsMcp {
                        / Severe — the only thing comparable across diseases), native score, \
                        the weather factors behind it, what to do (action + headline), \
                        whether a logged fungicide still protects, and the recommended \
-                       preventative FRAC class with any shelf products in it.",
+                       preventative FRAC class with any shelf products in it. \
+                       Use for 'is disease a risk', 'should I spray a fungicide' and before any fungicide advice.",
         annotations(read_only_hint = true)
     )]
     async fn disease_risk(&self) -> Result<CallToolResult, ErrorData> {

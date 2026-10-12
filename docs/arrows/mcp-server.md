@@ -4,7 +4,7 @@ MCP Server — leaf segment `MCP` under the root HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-10-12 (git SHA `4505fbc`): every implemented spec was checked against the code while linking it. 81 of 82 implemented specs are linked to both code and a test; 1 disagree with the code (see Key Findings).
+**OK** — audited 2026-10-12 (git SHA `f2112e2`): every implemented spec was checked against the code while linking it. 82 of 82 implemented specs are linked to both code and a test.
 
 ## References
 
@@ -81,25 +81,25 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 |---|---|---|---|---|---|---|
 | CFG | MCP-CFG-001 – MCP-CFG-006 | 6 | 0 | 0 | 6 | 6 |
 | AUTH | MCP-AUTH-001 – MCP-AUTH-003 | 3 | 0 | 0 | 3 | 3 |
-| SRV | MCP-SRV-001 – MCP-SRV-007 | 7 | 0 | 0 | 6 | 6 |
+| SRV | MCP-SRV-001 – MCP-SRV-007 | 7 | 0 | 0 | 7 | 7 |
 | TOOL | MCP-TOOL-001 – MCP-TOOL-027 | 27 | 0 | 0 | 27 | 27 |
 | SNAP | MCP-SNAP-001 – MCP-SNAP-010 | 10 | 0 | 0 | 10 | 10 |
 | HIST | MCP-HIST-001 – MCP-HIST-007 | 7 | 0 | 0 | 7 | 7 |
 | ERR | MCP-ERR-001 – MCP-ERR-007 | 7 | 0 | 0 | 7 | 7 |
 | DOC | MCP-DOC-001 – MCP-DOC-011 | 11 | 0 | 0 | 11 | 11 |
 | RES | MCP-RES-001 – MCP-RES-004 | 4 | 0 | 0 | 4 | 4 |
-| **Total** | | **82** | **0** | **0** | **81** | **81** |
+| **Total** | | **82** | **0** | **0** | **82** | **82** |
 
-**Summary:** 82 of 82 active specs implemented; 0 deferred; 81 implemented specs cited by a test, 1 cited nowhere.
+**Summary:** 82 of 82 active specs implemented; 0 deferred; 82 implemented specs cited by a test, 0 cited nowhere.
 
 ## Key Findings
 
-1. **Spec ≠ code — MCP-SRV-005:** soft: `seasonal_plan`, `disease_risk`, `soil_tests`, `shopping_list`, `plants`, `gdd` (arguably `recommendations`) say what they return, not when to call them.
+1. No findings.
 
 ## Work Required
 
 ### Must Fix
-- Decide MCP-SRV-005: fix the code or correct the spec, then link it.
+- None.
 
 ### Should Fix
 - None.

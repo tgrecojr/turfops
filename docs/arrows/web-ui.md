@@ -4,7 +4,7 @@ Web UI Shell & Conventions — leaf segment `UI` under the root HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-10-12 (git SHA `4505fbc`): every implemented spec was checked against the code while linking it. 59 of 64 implemented specs are linked to both code and a test; 4 disagree with the code (see Key Findings).
+**OK** — audited 2026-10-12 (git SHA `f2112e2`): every implemented spec was checked against the code while linking it. 63 of 64 implemented specs are linked to both code and a test.
 
 ## References
 
@@ -33,7 +33,11 @@ Web UI Shell & Conventions — leaf segment `UI` under the root HLD.
 - [frontend/src/api/client.test.ts](../../frontend/src/api/client.test.ts)
 - [frontend/src/api/errors.test.ts](../../frontend/src/api/errors.test.ts)
 - [frontend/src/components/Layout.test.tsx](../../frontend/src/components/Layout.test.tsx)
+- [frontend/src/components/PredictionChart.test.tsx](../../frontend/src/components/PredictionChart.test.tsx)
+- [frontend/src/components/SoilTempForecastWidget.test.tsx](../../frontend/src/components/SoilTempForecastWidget.test.tsx)
 - [frontend/src/components/dashboard/loadDashboard.test.ts](../../frontend/src/components/dashboard/loadDashboard.test.ts)
+- [frontend/src/components/disease/DiseaseDetail.test.tsx](../../frontend/src/components/disease/DiseaseDetail.test.tsx)
+- [frontend/src/components/timing/SoilSeasonChart.test.tsx](../../frontend/src/components/timing/SoilSeasonChart.test.tsx)
 - [frontend/src/pages/DashboardLoad.test.tsx](../../frontend/src/pages/DashboardLoad.test.tsx)
 - [frontend/src/pages/pageErrors.test.tsx](../../frontend/src/pages/pageErrors.test.tsx)
 - [frontend/src/test/setup.test.tsx](../../frontend/src/test/setup.test.tsx)
@@ -69,9 +73,11 @@ Web UI Shell & Conventions — leaf segment `UI` under the root HLD.
 - [frontend/src/components/InventoryBadge.tsx](../../frontend/src/components/InventoryBadge.tsx)
 - [frontend/src/components/Layout.tsx](../../frontend/src/components/Layout.tsx)
 - [frontend/src/components/NitrogenBudgetWidget.tsx](../../frontend/src/components/NitrogenBudgetWidget.tsx)
+- [frontend/src/components/PredictionChart.tsx](../../frontend/src/components/PredictionChart.tsx)
 - [frontend/src/components/SoilTempForecastWidget.tsx](../../frontend/src/components/SoilTempForecastWidget.tsx)
 - [frontend/src/components/dashboard/loadDashboard.ts](../../frontend/src/components/dashboard/loadDashboard.ts)
 - [frontend/src/components/disease/DailyRiskChart.tsx](../../frontend/src/components/disease/DailyRiskChart.tsx)
+- [frontend/src/components/disease/DiseaseDetail.tsx](../../frontend/src/components/disease/DiseaseDetail.tsx)
 - [frontend/src/components/disease/DiseaseRiskWidget.tsx](../../frontend/src/components/disease/DiseaseRiskWidget.tsx)
 - [frontend/src/components/disease/TierBadge.tsx](../../frontend/src/components/disease/TierBadge.tsx)
 - [frontend/src/components/inventory/ShoppingListPanel.tsx](../../frontend/src/components/inventory/ShoppingListPanel.tsx)
@@ -132,30 +138,23 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | DASH | UI-DASH-001 – UI-DASH-003 | 3 | 0 | 0 | 3 | 3 |
 | API | UI-API-001 – UI-API-006 | 6 | 0 | 0 | 6 | 6 |
 | ERR | UI-ERR-001 – UI-ERR-011 | 11 | 0 | 0 | 11 | 11 |
-| TYPE | UI-TYPE-001 – UI-TYPE-004 | 4 | 0 | 0 | 3 | 3 |
+| TYPE | UI-TYPE-001 – UI-TYPE-004 | 4 | 0 | 0 | 4 | 4 |
 | UTIL | UI-UTIL-001 – UI-UTIL-006 | 6 | 0 | 0 | 6 | 6 |
-| CONV | UI-CONV-001 – UI-CONV-005 | 5 | 0 | 0 | 2 | 2 |
+| CONV | UI-CONV-001 – UI-CONV-005 | 5 | 0 | 0 | 5 | 5 |
 | BUILD | UI-BUILD-001 – UI-BUILD-010 | 10 | 0 | 0 | 9 | 10 |
 | SRV | UI-SRV-001 – UI-SRV-010 | 9 | 0 | 0 | 9 | 9 |
-| **Total** | | **64** | **0** | **0** | **59** | **60** |
+| **Total** | | **64** | **0** | **0** | **63** | **64** |
 
-**Summary:** 64 of 64 active specs implemented; 0 deferred; 60 implemented specs cited by a test, 4 cited nowhere.
+**Summary:** 64 of 64 active specs implemented; 0 deferred; 64 implemented specs cited by a test, 0 cited nowhere.
 
 ## Key Findings
 
 1. **No code anchor — UI-BUILD-003:** tested; `biome.json` / `package.json` cannot hold a comment.
-2. **Spec ≠ code — UI-CONV-001:** the disease contributing-factor indicator shows symbol + note; its status word is only an `aria-label` and the symbol sits in an exposed `role="img"` span (`components/disease/DiseaseDetail.tsx:66-76`).
-3. **Spec ≠ code — UI-CONV-004:** `SoilSeasonChart` marks today with an inline "Today" label; its legend has no entry for it (`components/timing/SoilSeasonChart.tsx:176-187`, legend 225-255).
-4. **Spec ≠ code — UI-CONV-005:** `PredictionChart` draws observed soil `#e67e22` and the forecast `#3b82f6` dashed (a different hue), not `#2a78d6`/`#eb6834` with the forecast in the same hue (`components/PredictionChart.tsx:160-175`).
-5. **Spec ≠ code — UI-TYPE-004:** contradicts WX-OUTLOOK-UI-002: "the UI computes no agronomic result" vs `SoilTempForecastWidget.isMeaningfulCrossing`, which WX-OUTLOOK-UI-002 requires (`components/SoilTempForecastWidget.tsx:11-22`).
 
 ## Work Required
 
 ### Must Fix
-- Decide UI-CONV-001: fix the code or correct the spec, then link it.
-- Decide UI-CONV-004: fix the code or correct the spec, then link it.
-- Decide UI-CONV-005: fix the code or correct the spec, then link it.
-- Decide UI-TYPE-004: fix the code or correct the spec, then link it.
+- None.
 
 ### Should Fix
 - None.

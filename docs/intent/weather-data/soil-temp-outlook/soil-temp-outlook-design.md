@@ -84,7 +84,9 @@ exposed) and `generated_at`.
 
 Crossing detection walks from the current reading through the predictions. The first step that
 moves across a threshold is the crossing. A crossing in the wrong direction ends the search for
-that threshold without announcing anything. If nothing crosses but the soil is below a
+that threshold without announcing anything. A falling crossing is announced only if the last
+prediction is still below the threshold: a dip that recovers within the forecast is not a
+crossing, so no surface (page, widget, MCP) headlines it. If nothing crosses but the soil is below a
 non-falling threshold, within 5 °F of it, and the last prediction is warmer than now, an
 **approaching** crossing is added: Low confidence, Rising, dated by linear extrapolation of
 (last prediction − current) over the forecast span. When that date falls after the last
@@ -133,8 +135,8 @@ The MCP server exposes it as `soil_temp_outlook`.
 ## UI Owned
 
 **`PredictionChart`** (`frontend/src/components/PredictionChart.tsx`, on the Environmental
-page). It plots the last 7 days of the page's `/historical` 10 cm series as a solid line
-(`lastDays`, whatever range the trend selector shows), then the predictions dashed at local
+page). It plots the last 7 days of the page's `/historical` 10 cm series as a `#2a78d6` solid line
+(`lastDays`, whatever range the trend selector shows), then the predictions in the same hue dashed at local
 noon, joined by a bridge point. It draws reference
 lines only at 60 °F (Grub Control) and 75 °F (Heat Stress). Below it are crossing cards
 (direction arrow, temperature, `~N days (date)` or "beyond the forecast" (`crossingWhen`), a
@@ -142,9 +144,8 @@ confidence badge colored by
 `PREDICTION_CONFIDENCE_COLORS` with its label) and a model line (R², lag, quality).
 
 **`SoilTempForecastWidget`** (`frontend/src/components/SoilTempForecastWidget.tsx`, rendered by
-the dashboard). It keeps crossings more than 0 days out. A falling crossing counts only if the
-last prediction is still below the threshold, so a transient dip is not a headline. The nearest
-remaining crossing is the headline (`~Nd until soil reaches / drops below X°F`, threshold name,
+the dashboard). It shows the crossings as the outlook returns them, judging nothing itself (Web
+UI: the UI computes no agronomic result). The nearest crossing is the headline (`~Nd until soil reaches / drops below X°F`, threshold name,
 estimated date, confidence badge; an approach beyond the forecast reads "Later" and "Beyond the
 forecast" instead of a count and a date), and up to two more follow. When none remain it shows
 "Current: X°F — No threshold crossings predicted" (or "Prediction data unavailable").

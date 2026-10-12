@@ -61,7 +61,8 @@ impl TurfOpsMcp {
         description = "The shopping list built from the active recommendations: Buy (a \
                        need nothing on the shelf covers, with the recommendations that call \
                        for it) and Restock (Low / Out products an active recommendation \
-                       needs), most urgent first.",
+                       needs), most urgent first. \
+                       Use for 'what do I need to buy' questions.",
         annotations(read_only_hint = true)
     )]
     async fn shopping_list(&self) -> Result<CallToolResult, ErrorData> {
@@ -73,7 +74,8 @@ impl TurfOpsMcp {
         description = "Landscape plants (shrubs, trees, perennials, …) with location, \
                        planting date and each plant's AI-generated care plan: task windows \
                        for pruning, fertilizing, mulching, deadheading and winter \
-                       protection, plus warnings.",
+                       protection, plus warnings. \
+                       Use for questions about the owner's shrubs, trees and perennials.",
         annotations(read_only_hint = true)
     )]
     async fn plants(&self) -> Result<CallToolResult, ErrorData> {
