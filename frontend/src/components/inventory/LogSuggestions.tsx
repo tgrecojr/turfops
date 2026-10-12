@@ -8,6 +8,7 @@ interface Props {
 	onAdd: (suggestion: LoggedProductSuggestion) => void;
 }
 
+// @spec INV-LOG-003
 /**
  * Product names from the application log that are not on the shelf yet. The page keys
  * this on a version counter so it re-fetches whenever the shelf changes.

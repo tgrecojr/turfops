@@ -1,5 +1,7 @@
 mod link;
 pub use link::*;
+#[cfg(test)]
+mod row_tests;
 
 use crate::db::queries::enum_to_db_string;
 use crate::error::{Result, TurfOpsError};
@@ -153,7 +155,7 @@ pub async fn update_product_profile(
     Ok(())
 }
 
-// @spec INV-API-014
+// @spec INV-API-014, INV-SHELF-010
 pub async fn delete_product(pool: &PgPool, id: i64) -> Result<()> {
     let result = sqlx::query("DELETE FROM products WHERE id = $1")
         .bind(id)
@@ -223,6 +225,7 @@ struct ProductRow {
 }
 
 impl ProductRow {
+    // @spec INV-SHELF-009
     fn into_product(self) -> Result<Product> {
         let required = |field: &str, code: &str| {
             TurfOpsError::InvalidData(format!(

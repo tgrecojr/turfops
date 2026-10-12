@@ -7,6 +7,7 @@ import {
 } from "../../types/inventory";
 import { inv } from "./styles";
 
+// @spec INV-RATE-002, INV-UI-005
 /** Read-only view of a product's facts and assistant profile. */
 export default function ProductDetails({ product: p }: { product: Product }) {
 	const profile = p.profile;

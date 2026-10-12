@@ -1,10 +1,20 @@
 //! Product inventory CRUD. Unlike plants, a product saves without the LLM: the profile is
 //! optional and can be generated later (`products/refresh.rs`).
+#[cfg(all(test, feature = "db-tests"))]
+mod assistant_db_tests;
 mod checks;
 #[cfg(test)]
 mod checks_tests;
+#[cfg(all(test, feature = "db-tests"))]
+mod crud_db_tests;
+#[cfg(all(test, feature = "db-tests"))]
+mod edit_db_tests;
 mod link;
+#[cfg(all(test, feature = "db-tests"))]
+mod link_db_tests;
 mod refresh;
+#[cfg(all(test, feature = "db-tests"))]
+mod test_state;
 
 pub use link::{link_applications, logged_product_suggestions};
 pub use refresh::refresh_product_profile;
@@ -30,6 +40,7 @@ pub struct ListQuery {
     pub include_archived: bool,
 }
 
+// @spec INV-API-001
 pub async fn list_products(
     State(state): State<AppState>,
     Query(q): Query<ListQuery>,
@@ -45,6 +56,7 @@ pub async fn list_products(
     Ok(Json(products))
 }
 
+// @spec INV-API-002
 pub async fn get_product(
     State(state): State<AppState>,
     Path(id): Path<i64>,
@@ -73,6 +85,7 @@ pub struct ProductCreated {
     pub profile_error: Option<String>,
 }
 
+// @spec INV-API-003, INV-API-004, INV-API-006, INV-LLM-001, INV-LLM-002, INV-LLM-003, INV-LLM-004, INV-SHELF-007
 pub async fn create_product(
     State(state): State<AppState>,
     Json(req): Json<CreateProductRequest>,
@@ -196,6 +209,7 @@ pub struct UpdateProductRequest {
     pub archived: bool,
 }
 
+// @spec INV-API-007, INV-API-008, INV-API-009, INV-SHELF-007, INV-SHELF-008
 pub async fn update_product(
     State(state): State<AppState>,
     Path(id): Path<i64>,
@@ -227,6 +241,7 @@ pub async fn update_product(
     Ok(Json(load(&state, id).await?))
 }
 
+// @spec INV-API-010
 pub async fn delete_product(
     State(state): State<AppState>,
     Path(id): Path<i64>,

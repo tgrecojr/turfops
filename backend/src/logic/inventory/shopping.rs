@@ -8,6 +8,10 @@ use crate::models::{
 use chrono::Utc;
 use std::collections::BTreeMap;
 
+#[cfg(test)]
+mod spec_tests;
+
+// @spec INV-SHOP-001, INV-SHOP-002, INV-SHOP-003, INV-SHOP-004, INV-SHOP-005, INV-SHOP-006, INV-LLM-007
 pub fn build(active: &[Recommendation], products: &[Product]) -> ShoppingList {
     let mut buy: BTreeMap<String, ShoppingItem> = BTreeMap::new();
     let mut restock: BTreeMap<i64, ShoppingItem> = BTreeMap::new();
@@ -110,6 +114,7 @@ mod tests {
             .with_need(need)
     }
 
+    // @spec INV-SHOP-002, INV-SHOP-003, INV-SHOP-004
     #[test]
     fn buys_what_is_missing_and_restocks_what_is_low_or_out() {
         let products = vec![
@@ -174,6 +179,7 @@ mod tests {
         assert_eq!(list.items[2].product.as_ref().unwrap().product_id, 1);
     }
 
+    // @spec INV-SHOP-001
     #[test]
     fn answered_recommendations_do_not_shop() {
         let mut r = rec(

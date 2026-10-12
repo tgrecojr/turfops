@@ -386,6 +386,7 @@ export type CreateProductBody = {
 	assist?: boolean;
 };
 
+// @spec INV-UI-003
 export const createProduct = (data: CreateProductBody) =>
 	// The assistant round-trip can take a while — extend the client-side timeout.
 	fetchJson<ProductCreated>(
@@ -411,6 +412,7 @@ export const updateProduct = (id: number, data: UpdateProductBody) =>
 export const deleteProduct = (id: number) =>
 	fetchJson<void>(`${BASE}/products/${id}`, { method: "DELETE" });
 
+// @spec INV-UI-003
 export const refreshProductProfile = (id: number) =>
 	fetchJson<ProductRefreshed>(
 		`${BASE}/products/${id}/refresh-profile`,

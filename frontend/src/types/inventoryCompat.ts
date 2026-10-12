@@ -3,6 +3,7 @@ import type { ApplicationType } from "./index";
 import type { ProductCategory } from "./inventory";
 import { PRODUCT_CATEGORIES } from "./inventory";
 
+// @spec INV-SHELF-006
 /**
  * Categories that can be logged under an application type — mirrors
  * `ProductCategory::accepts` in the backend. `Other` on either side accepts anything.
@@ -36,6 +37,7 @@ export function categoriesFor(t: ApplicationType): ProductCategory[] {
 	return [...specific, "Other"];
 }
 
+// @spec INV-LOG-003
 /** The category a logged name most likely belongs to, from how it was logged. */
 export function guessCategory(
 	types: ApplicationType[],

@@ -1,8 +1,12 @@
 //! A product on the shelf. `facts` are the user-owned, matchable columns; `profile` is the
 //! LLM's description (optional — a product may be entered by hand and profiled later).
+#[cfg(test)]
+mod accepts_tests;
 mod checks;
 mod enums;
 mod profile;
+#[cfg(test)]
+mod vocab_tests;
 
 pub use enums::*;
 pub use profile::*;
@@ -10,6 +14,7 @@ pub use profile::*;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+// @spec INV-SHELF-001, INV-SHELF-011
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Product {
     pub id: Option<i64>,
@@ -77,6 +82,7 @@ mod tests {
         }
     }
 
+    // @spec INV-LLM-002
     #[test]
     fn curated_frac_beats_the_llm() {
         // The LLM said FRAC 3 (wrong); the app's own table knows Heritage is FRAC 11.
@@ -92,6 +98,7 @@ mod tests {
         assert_eq!(facts.frac_classes, vec![FracClass::Frac3]);
     }
 
+    // @spec INV-SHELF-007
     #[test]
     fn scoping_drops_facts_foreign_to_the_category() {
         // A herbicide the LLM tagged with a FRAC class and a nutrient target.
@@ -133,6 +140,7 @@ mod tests {
         assert_eq!(a.changed_fields(&b), vec!["label_rate", "frac_classes"]);
     }
 
+    // @spec INV-LLM-001
     #[test]
     fn lookup_name_adds_brand_only_when_missing() {
         assert_eq!(
@@ -146,6 +154,7 @@ mod tests {
         assert_eq!(lookup_name(Some("  "), " Milorganite "), "Milorganite");
     }
 
+    // @spec INV-SHELF-011
     #[test]
     fn product_json_is_flat() {
         let now = Utc::now();

@@ -5,6 +5,10 @@ use super::product::*;
 use super::FracClass;
 use serde::{Deserialize, Serialize};
 
+#[cfg(test)]
+mod need_tests;
+
+// @spec INV-NEED-001
 /// One thing a recommendation calls for. Categories, classes, targets and kinds are
 /// each "any of"; an empty list is no constraint on that axis.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -73,6 +77,7 @@ impl ProductNeed {
         self
     }
 
+    // @spec INV-NEED-004
     /// A product satisfies the need when it is usable (not archived, not Out) and meets
     /// every constrained axis. Constraints are strict: a product with no FRAC class,
     /// no timing or no targets recorded does not satisfy a need that asks for one — a
@@ -81,6 +86,7 @@ impl ProductNeed {
         !p.archived && p.stock_status != StockStatus::Out && self.fits(p)
     }
 
+    // @spec INV-NEED-002, INV-NEED-003, INV-LLM-007
     /// The facts fit, whatever the stock status — what to restock when it runs out.
     pub fn fits(&self, p: &Product) -> bool {
         fn any<T: PartialEq>(need: &[T], have: &[T]) -> bool {
@@ -117,6 +123,7 @@ pub enum InventoryState {
     Partial,
 }
 
+// @spec INV-RATE-001
 /// A product on the shelf, as referenced from a recommendation or a fungicide option.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ShelfProduct {
@@ -160,7 +167,7 @@ pub struct InventoryStatus {
 
 impl InventoryStatus {
     /// `None` when there is nothing to say: no needs, or only optional ones unmet.
-    // @spec INV-ENRICH-002
+    // @spec INV-ENRICH-001, INV-ENRICH-002
     pub fn assess(needs: &[ProductNeed], products: &[Product]) -> Option<Self> {
         let mut matches = Vec::new();
         let mut missing = Vec::new();
@@ -297,6 +304,7 @@ mod tests {
         );
     }
 
+    // @spec INV-NEED-003, INV-NEED-004
     #[test]
     fn constrained_axes_are_strict_and_out_never_counts() {
         let need = ProductNeed::new("fungicide", ProductCategory::Fungicide)
@@ -314,6 +322,7 @@ mod tests {
         assert!(!need.matches(&out));
     }
 
+    // @spec INV-NEED-002
     #[test]
     fn timing_accepts_both_and_rejects_the_other_direction() {
         let need = ProductNeed::new("pre-emergent", ProductCategory::Herbicide)
@@ -356,6 +365,7 @@ mod tests {
         assert!(InventoryStatus::assess(&[], &[low_fert]).is_none());
     }
 
+    // @spec INV-ENRICH-001
     #[test]
     fn an_optional_need_never_makes_it_need_to_buy() {
         let wetting = ProductNeed::new("wetting agent", ProductCategory::Surfactant).optional();

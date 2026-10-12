@@ -87,6 +87,7 @@ impl ProductFacts {
         }
     }
 
+    // @spec INV-LLM-002
     /// Facts derived from a profile. `curated_frac` is what the app's own product table
     /// (`frac_classes_for_product`) says; when it knows the product it beats the LLM.
     pub fn from_profile(profile: &ProductProfile, curated_frac: Vec<FracClass>) -> Self {
@@ -110,6 +111,7 @@ impl ProductFacts {
         }
     }
 
+    // @spec INV-SHELF-007
     /// Drop the facts that cannot apply to this category: FRAC classes belong to
     /// fungicides, timing to herbicides, an amendment kind to soil amendments, and
     /// targets to the family that fits (`ProductTarget::fits_category`). `Other` keeps
