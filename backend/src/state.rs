@@ -14,6 +14,7 @@ pub type ClimateCache = Arc<RwLock<Option<(chrono::DateTime<chrono::Utc>, Arc<Cl
 pub struct AppState {
     pub pool: sqlx::PgPool,
     pub rules_engine: Arc<RulesEngine>,
+    // @spec SYNC-REFRESH-006
     pub sync_service: Arc<RwLock<DataSyncService>>,
     pub openrouter: Option<Arc<OpenRouterClient>>,
     pub climate_cache: ClimateCache,

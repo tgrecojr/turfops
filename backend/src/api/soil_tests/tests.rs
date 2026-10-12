@@ -61,6 +61,40 @@ fn a_negative_measurement_is_a_400_naming_the_field() {
     }
 }
 
+// @spec SOIL-API-006
+#[test]
+fn a_test_date_not_in_iso_form_is_a_400_naming_it_and_the_format() {
+    for bad in ["03/23/2026", "2026-02-30", "yesterday", ""] {
+        let mut req = body();
+        req.test_date = bad.into();
+        match validate_request(&req) {
+            Err(TurfOpsError::InvalidData(msg)) => {
+                assert!(msg.contains(&format!(": {bad}.")), "{bad}: {msg}");
+                assert!(msg.contains("Expected YYYY-MM-DD"), "{msg}");
+            }
+            other => panic!("{bad}: expected a 400, got {other:?}"),
+        }
+    }
+}
+
+// @spec SOIL-API-007
+#[test]
+fn a_ph_outside_0_to_14_is_a_400() {
+    for ph in [0.0, 7.0, 14.0] {
+        let mut req = body();
+        req.ph = ph;
+        assert!(validate_request(&req).is_ok(), "{ph}");
+    }
+    for ph in [-0.1, 14.1] {
+        let mut req = body();
+        req.ph = ph;
+        match validate_request(&req) {
+            Err(TurfOpsError::InvalidData(msg)) => assert_eq!(msg, "pH must be between 0 and 14"),
+            other => panic!("{ph}: expected a 400, got {other:?}"),
+        }
+    }
+}
+
 // @spec SOIL-API-012
 #[test]
 fn deleting_a_missing_test_is_not_found() {

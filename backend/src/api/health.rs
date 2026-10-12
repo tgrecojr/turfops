@@ -15,6 +15,7 @@ pub struct HealthResponse {
     pub mcp: &'static str,
 }
 
+// @spec SYNC-CONN-003, SYNC-CONN-004
 pub async fn health_check(State(state): State<AppState>) -> Json<HealthResponse> {
     let db_ok = tokio::time::timeout(
         Duration::from_secs(2),
@@ -40,3 +41,8 @@ pub async fn health_check(State(state): State<AppState>) -> Json<HealthResponse>
         },
     })
 }
+
+#[cfg(all(test, feature = "db-tests"))]
+mod db_tests;
+#[cfg(test)]
+mod tests;

@@ -1,6 +1,7 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 
+// @spec SOIL-DATA-001, SOIL-DATA-002
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SoilTest {
     pub id: Option<i64>,

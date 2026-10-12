@@ -6,6 +6,7 @@ use crate::models::{
 };
 use chrono::{Datelike, NaiveDate};
 
+// @spec SOIL-ADV-001, SOIL-ADV-002, SOIL-ADV-003, SOIL-ADV-004, SOIL-ADV-005
 /// Top-level entry point: generate all soil-test-based recommendations.
 /// `apps` are this year's applications; `today` is the lawn's local date.
 pub fn generate_soil_test_recommendations(
@@ -26,6 +27,7 @@ pub fn generate_soil_test_recommendations(
     }
 }
 
+// @spec SOIL-PH-001, SOIL-PH-002, SOIL-PH-003, SOIL-PH-004, SOIL-PH-005
 /// Calculate pH amendment recommendation (lime to raise, sulfur to lower).
 pub fn calculate_ph_recommendation(
     test: &SoilTest,
@@ -98,7 +100,7 @@ pub fn calculate_ph_recommendation(
 
 /// Nitrogen still to apply this year: the grass type's annual target less the lawn
 /// feedings dated from Jan 1 through `today` (planned feedings are not yet applied).
-// @spec SOIL-NPK-004
+// @spec SOIL-NPK-003, SOIL-NPK-004
 fn remaining_nitrogen(profile: &LawnProfile, apps: &[Application], today: NaiveDate) -> f64 {
     let year_start = NaiveDate::from_ymd_opt(today.year(), 1, 1).unwrap_or(today);
     let applied: f64 = apps
@@ -110,7 +112,7 @@ fn remaining_nitrogen(profile: &LawnProfile, apps: &[Application], today: NaiveD
 }
 
 /// Calculate N-P-K fertilizer recommendation integrated with nitrogen budget.
-// @spec SOIL-NPK-012, SOIL-NPK-013
+// @spec SOIL-NPK-012, SOIL-NPK-013, SOIL-NPK-001, SOIL-NPK-002, SOIL-NPK-005, SOIL-NPK-006, SOIL-NPK-011
 pub fn calculate_npk_recommendation(
     test: &SoilTest,
     profile: &LawnProfile,
@@ -201,7 +203,7 @@ pub fn calculate_npk_recommendation(
 
 /// Evaluate each micronutrient against thresholds. Iron and copper salts are also
 /// pesticide actives, so those two suggestions state only the nutrient amount.
-// @spec SOIL-NUTR-004, SOIL-NUTR-005
+// @spec SOIL-NUTR-001, SOIL-NUTR-002, SOIL-NUTR-003, SOIL-NUTR-004, SOIL-NUTR-005
 pub fn evaluate_micronutrients(test: &SoilTest) -> Vec<MicronutrientRecommendation> {
     let mut recs = Vec::new();
 
@@ -260,6 +262,12 @@ mod ratio;
 use ratio::{amounts_text, example_product_rate, levels_text, suggest_ratio};
 
 #[cfg(test)]
+mod advice_tests;
+#[cfg(test)]
 mod gap_tests;
+#[cfg(test)]
+mod npk_tests;
+#[cfg(test)]
+mod ph_tests;
 #[cfg(test)]
 mod tests;

@@ -55,7 +55,7 @@ pub(super) fn amounts_text(n: f64, p: f64, k: f64) -> String {
 
 /// Pounds of the example analysis per 1,000 sq ft (to 0.1 lb) that supply the advised N,
 /// or with no N the advised P₂O₅, or else the advised K₂O.
-// @spec SOIL-NPK-010
+// @spec SOIL-NPK-009, SOIL-NPK-010
 pub(super) fn example_product_rate(product_ratio: &str, n: f64, p: f64, k: f64) -> f64 {
     let pct = |i: usize| -> f64 {
         product_ratio
@@ -73,6 +73,7 @@ pub(super) fn example_product_rate(product_ratio: &str, n: f64, p: f64, k: f64) 
         })
 }
 
+// @spec SOIL-NPK-007, SOIL-NPK-008
 /// Suggest a simple N-P-K ratio string and a common product ratio.
 pub(super) fn suggest_ratio(n: f64, p: f64, k: f64) -> (String, String) {
     // Normalize to smallest non-zero value to get a simple ratio
