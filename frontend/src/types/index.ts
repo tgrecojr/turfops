@@ -1,3 +1,4 @@
+// @spec UI-TYPE-001, UI-TYPE-002
 import type { InventoryStatus, ProductNeed } from "./inventory";
 // Matches Rust models exactly
 
@@ -590,6 +591,7 @@ export const NUTRIENT_LEVEL_COLORS: Record<NutrientLevel, string> = {
 
 // Display helpers
 
+// @spec UI-TYPE-003
 export const APPLICATION_TYPE_LABELS: Record<ApplicationType, string> = {
 	PreEmergent: "Pre-Emergent",
 	PostEmergent: "Post-Emergent",
@@ -679,6 +681,7 @@ export const SEVERITY_SYMBOLS: Record<Severity, string> = {
 };
 
 /** "DiseasePressure" → "Disease Pressure" — serde sends the enum variant name. */
+// @spec UI-UTIL-004
 export function categoryLabel(category: string): string {
 	return category.replace(/([a-z])([A-Z])/g, "$1 $2");
 }

@@ -9,6 +9,7 @@ function toLocalISO(d: Date): string {
 }
 
 /** Today's date (YYYY-MM-DD) on the viewer's own calendar. */
+// @spec UI-UTIL-001
 export function todayLocalISO(): string {
 	return toLocalISO(new Date());
 }
@@ -33,7 +34,7 @@ export function futureDateWarning(
 
 // Display helpers for API calendar dates (YYYY-MM-DD) and month-days (MM-DD). They read
 // the digits, never a Date at local midnight, so no timezone can shift the day.
-// @spec UI-UTIL-006
+// @spec UI-UTIL-006, UI-UTIL-002
 
 const MONTHS = [
 	"Jan",

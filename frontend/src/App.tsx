@@ -2,6 +2,7 @@ import { Component, lazy, type ReactNode, Suspense } from "react";
 import { BrowserRouter, Link, Route, Routes } from "react-router";
 import Layout from "./components/Layout";
 
+// @spec UI-SHELL-003
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const DiseaseRisk = lazy(() => import("./pages/DiseaseRisk"));
 const Applications = lazy(() => import("./pages/Applications"));
@@ -15,7 +16,7 @@ const SeasonalPlan = lazy(() => import("./pages/SeasonalPlan"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Timing = lazy(() => import("./pages/Timing"));
 
-// @spec UI-ERR-011
+// @spec UI-ERR-011, UI-SHELL-004
 class ErrorBoundary extends Component<
 	{ children: ReactNode },
 	{ error: Error | null }
@@ -65,6 +66,7 @@ class ErrorBoundary extends Component<
 	}
 }
 
+// @spec UI-SHELL-002
 function NotFound() {
 	return (
 		<div style={{ padding: "2rem", textAlign: "center" }}>
@@ -83,6 +85,7 @@ const routeFallback = (
 	<div style={{ padding: "2rem", color: "#718096" }}>Loading...</div>
 );
 
+// @spec UI-SHELL-001, UI-SHELL-006
 export default function App() {
 	return (
 		<ErrorBoundary>

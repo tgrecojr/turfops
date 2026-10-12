@@ -34,6 +34,7 @@ import { factsOf } from "../types/inventory";
 import type { TimingResponse } from "../types/timing";
 import { ApiError, sentenceForStatus } from "./errors";
 
+// @spec UI-API-001
 const BASE = "/api/v1";
 const DEFAULT_TIMEOUT_MS = 15_000;
 
@@ -56,6 +57,7 @@ function errorMessage(body: string, status: number): string {
 	return sentenceForStatus(status);
 }
 
+// @spec UI-API-002
 export async function fetchJson<T>(
 	url: string,
 	init?: RequestInit,
@@ -209,6 +211,7 @@ export const refreshEnvironmental = () =>
 		method: "POST",
 	});
 
+// @spec UI-API-004
 export const getFracClasses = (product?: string) =>
 	fetchJson<FracClassLookup>(
 		`${BASE}/frac-classes${product ? `?product=${encodeURIComponent(product)}` : ""}`,
@@ -225,6 +228,7 @@ export const getRecommendations = (includeInactive = false) =>
  * `severity` is what the recommendation showed when the user clicked, so an escalation
  * past it brings the alert back. Clearing both flags restores the recommendation.
  */
+// @spec UI-API-004
 export const patchRecommendation = (
 	id: string,
 	data: { dismissed?: boolean; addressed?: boolean; severity?: Severity },

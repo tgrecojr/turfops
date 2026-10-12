@@ -4,6 +4,8 @@ use serde::Deserialize;
 use sqlx::postgres::PgConnectOptions;
 
 #[cfg(test)]
+mod cors_origin_tests;
+#[cfg(test)]
 mod lake_config_tests;
 pub(crate) mod load;
 #[cfg(test)]

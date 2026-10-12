@@ -213,6 +213,7 @@ async fn main() -> anyhow::Result<()> {
             "/api/v1/soil-tests/{id}",
             put(api::soil_tests::update_soil_test).delete(api::soil_tests::delete_soil_test),
         )
+        // @spec UI-SRV-003
         .layer(RequestBodyLimitLayer::new(1024 * 1024)); // 1MB request body limit
                                                          // Every /api/v1 error is JSON with a plain message, including unknown paths and
                                                          // requests rejected before a handler runs.

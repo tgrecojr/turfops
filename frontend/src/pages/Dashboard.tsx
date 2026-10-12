@@ -70,7 +70,7 @@ function Stale<T>({
 	);
 }
 
-// @spec FEED-UI-008, FEED-UI-009, FEED-UI-011
+// @spec FEED-UI-008, FEED-UI-009, FEED-UI-011, UI-DASH-001, UI-DASH-002
 export default function Dashboard() {
 	const [data, setData] = useState<DashboardResponse | null>(null);
 	const [widgets, setWidgets] = useState<Widgets<DashboardWidgets> | null>(

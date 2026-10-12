@@ -34,7 +34,7 @@ function useNarrow(): boolean {
 	return narrow;
 }
 
-// @spec UI-NAV-003
+// @spec UI-NAV-003, UI-NAV-001, UI-NAV-002
 export default function Layout() {
 	const narrow = useNarrow();
 	const [menuOpen, setMenuOpen] = useState(false);

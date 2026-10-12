@@ -36,7 +36,7 @@ export function sentenceForStatus(status: number): string {
 
 /**
  * The sentence to show the owner for a failed request or a thrown error.
- * @spec UI-ERR-005, UI-ERR-006, UI-ERR-007, UI-ERR-009, UI-ERR-010
+ * @spec UI-ERR-005, UI-ERR-006, UI-ERR-007, UI-ERR-009, UI-ERR-010, UI-SHELL-005
  */
 export function describeError(err: unknown): string {
 	if (err instanceof ApiError) {
