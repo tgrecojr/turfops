@@ -7,6 +7,12 @@ use axum::Json;
 use serde::Deserialize;
 use std::str::FromStr;
 
+#[cfg(all(test, feature = "db-tests"))]
+mod db_tests;
+#[cfg(test)]
+mod route_tests;
+
+// @spec APP-PROF-008
 pub async fn get_profile(State(state): State<AppState>) -> Result<Json<LawnProfile>, TurfOpsError> {
     let profile = queries::get_default_lawn_profile(&state.pool)
         .await?
@@ -27,7 +33,7 @@ pub struct UpdateProfileRequest {
 
 /// Update the lawn profile, or create it when none exists yet (filling omitted fields
 /// the way startup seeding does), so saving Settings always works.
-// @spec APP-PROF-011, APP-PROF-012
+// @spec APP-PROF-009, APP-PROF-010, APP-PROF-011, APP-PROF-012
 pub async fn update_profile(
     State(state): State<AppState>,
     Json(req): Json<UpdateProfileRequest>,

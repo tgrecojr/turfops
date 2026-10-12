@@ -26,6 +26,7 @@ interface Props {
  * The product field of the application form: pick from the shelf (filtered to categories
  * that can be logged under this type) or type a name that is not in the inventory.
  */
+// @spec APP-FORM-006, APP-FORM-007
 export default function ProductPicker({
 	appType,
 	productId,

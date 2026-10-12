@@ -2,6 +2,10 @@ use chrono::{NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
+#[cfg(test)]
+mod log_tests;
+
+// @spec APP-LOG-005
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ApplicationType {
     PreEmergent,
@@ -53,6 +57,7 @@ impl ApplicationType {
 
     /// Where this application type can be logged: against a specific plant, against
     /// the turf, or either.
+    // @spec APP-LOG-001
     pub fn scope(&self) -> ApplicationScope {
         match self {
             ApplicationType::Pruning
@@ -130,6 +135,7 @@ pub enum LogScope {
     Landscape,
 }
 
+// @spec APP-LOG-006, APP-LOG-007
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Application {
     pub id: Option<i64>,
@@ -183,6 +189,7 @@ impl Application {
 
     /// Pounds of nitrogen per 1000 sq ft this put on the lawn. `None` for plant
     /// applications or when the analysis or rate wasn't recorded.
+    // @spec APP-LOG-003
     pub fn turf_nitrogen_lbs(&self) -> Option<f64> {
         match (self.nitrogen_pct, self.rate_per_1000sqft) {
             (Some(n_pct), Some(rate)) if self.is_turf() && n_pct > 0.0 && rate > 0.0 => {

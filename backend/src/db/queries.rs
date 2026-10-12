@@ -8,6 +8,9 @@ use sqlx::PgPool;
 use std::str::FromStr;
 use tracing::warn;
 
+#[cfg(test)]
+mod row_tests;
+
 /// Safely convert a Serialize enum variant to its string representation for DB storage.
 pub(crate) fn enum_to_db_string<T: serde::Serialize>(value: T) -> Result<String> {
     let json_val = serde_json::to_value(value)
@@ -51,6 +54,7 @@ pub async fn create_lawn_profile(pool: &PgPool, profile: &LawnProfile) -> Result
     Ok(row)
 }
 
+// @spec APP-PROF-001
 pub async fn get_default_lawn_profile(pool: &PgPool) -> Result<Option<LawnProfile>> {
     let row = sqlx::query_as::<_, LawnProfileRow>(
         "SELECT id, name, grass_type, usda_zone, soil_type, lawn_size_sqft, irrigation_type, created_at, updated_at FROM lawn_profiles ORDER BY id LIMIT 1",
@@ -415,6 +419,7 @@ struct LawnProfileRow {
 }
 
 impl LawnProfileRow {
+    // @spec APP-PROF-007
     fn into_lawn_profile(self) -> LawnProfile {
         let grass_type = GrassType::from_str(&self.grass_type).unwrap_or_else(|_| {
             warn!(
@@ -458,6 +463,7 @@ fn frac_classes_to_db(classes: &Option<Vec<FracClass>>) -> Result<Option<Vec<Str
 }
 
 /// Unknown codes are dropped (with a warning) rather than failing the whole row.
+// @spec APP-LOG-008
 fn parse_frac_classes(stored: Option<Vec<String>>) -> Option<Vec<FracClass>> {
     stored.map(|codes| {
         codes
@@ -495,6 +501,7 @@ struct ApplicationRow {
 }
 
 impl ApplicationRow {
+    // @spec APP-LOG-008
     fn into_application(self) -> Application {
         let application_type =
             ApplicationType::from_str(&self.application_type).unwrap_or_else(|_| {

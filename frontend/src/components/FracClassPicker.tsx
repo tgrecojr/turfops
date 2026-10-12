@@ -17,6 +17,7 @@ interface Props {
  * product; when it doesn't, say so — an unrecognised fungicide with no class would silently
  * earn no disease protection and no rotation credit.
  */
+// @spec APP-FRAC-002, APP-FRAC-003, APP-FRAC-004
 export default function FracClassPicker({
 	productName,
 	value,

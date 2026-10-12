@@ -284,6 +284,7 @@ async fn shutdown_signal() {
 }
 
 /// Create a default lawn profile from config if no profile exists in the DB.
+// @spec APP-PROF-005
 async fn ensure_default_profile(pool: &sqlx::PgPool, config: &Config) -> anyhow::Result<()> {
     if queries::get_default_lawn_profile(pool).await?.is_some() {
         return Ok(());
