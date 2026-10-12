@@ -12,7 +12,7 @@ use std::sync::Mutex;
 impl DataSyncService {
     /// A service with only the lake client given (or none, as when the lake is not
     /// configured) and no external connections.
-    pub(crate) fn for_db_tests(
+    pub(crate) fn with_lake_only(
         pool: PgPool,
         weather_client: Option<WeatherLakeClient>,
         clock: Clock,

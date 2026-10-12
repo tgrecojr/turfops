@@ -2,7 +2,7 @@ mod probes;
 #[cfg(test)]
 mod source_tests;
 mod sync_state;
-#[cfg(all(test, feature = "db-tests"))]
+#[cfg(test)]
 mod test_double;
 #[cfg(test)]
 pub(crate) mod test_support;
@@ -140,7 +140,7 @@ impl DataSyncService {
     }
 
     /// Test-only: fetch the forecast with `client` (e.g. one pointed at a local stub).
-    #[cfg(test)]
+    #[cfg(all(test, feature = "db-tests"))]
     pub(crate) fn set_forecast_client(&mut self, client: OpenWeatherMapClient) {
         self.openweathermap_client = Some(client);
     }
@@ -209,25 +209,4 @@ pub struct ConnectionStatus {
     pub soildata: bool,
     pub homeassistant: bool,
     pub openweathermap: bool,
-}
-
-#[cfg(test)]
-impl DataSyncService {
-    /// A service with only a weather lake client (or none) and no other sources, for
-    /// handler tests that need an `AppState`.
-    pub(crate) fn for_tests(
-        pool: PgPool,
-        weather_client: Option<WeatherLakeClient>,
-        clock: Clock,
-    ) -> Self {
-        Self {
-            pool,
-            weather_client,
-            homeassistant_client: None,
-            openweathermap_client: None,
-            state: SyncState::default(),
-            probes: Mutex::new(ProbeCache::default()),
-            clock,
-        }
-    }
 }

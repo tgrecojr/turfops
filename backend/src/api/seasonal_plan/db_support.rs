@@ -33,7 +33,7 @@ pub(crate) fn this_year() -> i32 {
 
 /// App state on `pool` with the lake client given, or none (lake not configured).
 pub(crate) fn state(pool: &PgPool, lake: Option<WeatherLakeClient>) -> AppState {
-    let sync = DataSyncService::for_db_tests(pool.clone(), lake, clock());
+    let sync = DataSyncService::with_lake_only(pool.clone(), lake, clock());
     AppState::new(pool.clone(), sync, None, false, clock())
 }
 

@@ -13,7 +13,7 @@ fn state(gold: Option<&str>) -> AppState {
     let pool = sqlx::postgres::PgPoolOptions::new()
         .connect_lazy("postgres://unused@127.0.0.1:1/unused")
         .unwrap();
-    let sync = DataSyncService::for_tests(pool.clone(), gold.map(lake), Clock::System);
+    let sync = DataSyncService::with_lake_only(pool.clone(), gold.map(lake), Clock::System);
     AppState::new(pool, sync, None, false, Clock::System)
 }
 
