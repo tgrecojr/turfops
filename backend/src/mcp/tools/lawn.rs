@@ -37,6 +37,7 @@ impl TurfOpsMcp {
         call(api::profile::get_profile(State(self.state.clone()))).await
     }
 
+    // @spec SYNC-CONN-005
     #[tool(
         description = "CALL FIRST for any question about what to do on this lawn now or \
                        this season. One call returns: the profile, current conditions + \

@@ -23,6 +23,7 @@ macro_rules! columns {
     };
 }
 
+// @spec SOIL-API-001
 pub async fn get_soil_tests_for_profile(
     pool: &PgPool,
     profile_id: i64,
@@ -45,6 +46,7 @@ pub async fn get_soil_tests_for_profile(
     Ok(rows.into_iter().map(|r| r.into_soil_test()).collect())
 }
 
+// @spec SOIL-DATA-003, SOIL-API-008, SOIL-API-009
 pub async fn get_latest_soil_test(pool: &PgPool, profile_id: i64) -> Result<Option<SoilTest>> {
     let row = sqlx::query_as::<_, SoilTestRow>(concat!(
         "SELECT ",
@@ -60,6 +62,7 @@ pub async fn get_latest_soil_test(pool: &PgPool, profile_id: i64) -> Result<Opti
     Ok(row.map(|r| r.into_soil_test()))
 }
 
+// @spec SOIL-API-002
 pub async fn create_soil_test(pool: &PgPool, test: &SoilTest) -> Result<i64> {
     let row = sqlx::query_scalar::<_, i64>(
         r#"
@@ -96,6 +99,7 @@ pub async fn create_soil_test(pool: &PgPool, test: &SoilTest) -> Result<i64> {
     Ok(row)
 }
 
+// @spec SOIL-API-003, SOIL-API-004
 pub async fn update_soil_test(pool: &PgPool, id: i64, test: &SoilTest) -> Result<SoilTest> {
     let row = sqlx::query_as::<_, SoilTestRow>(
         r#"
@@ -140,6 +144,7 @@ pub async fn update_soil_test(pool: &PgPool, id: i64, test: &SoilTest) -> Result
     }
 }
 
+// @spec SOIL-API-005, SOIL-API-012
 /// The number of rows deleted (0 when no test has `id`).
 pub async fn delete_soil_test(pool: &PgPool, id: i64) -> Result<u64> {
     let result = sqlx::query("DELETE FROM soil_tests WHERE id = $1")

@@ -11,6 +11,7 @@ const Environmental = lazy(() => import("./pages/Environmental"));
 const Inventory = lazy(() => import("./pages/Inventory"));
 const Landscape = lazy(() => import("./pages/Landscape"));
 const Recommendations = lazy(() => import("./pages/Recommendations"));
+// @spec SOIL-UI-001
 const SoilTests = lazy(() => import("./pages/SoilTests"));
 const SeasonalPlan = lazy(() => import("./pages/SeasonalPlan"));
 const Settings = lazy(() => import("./pages/Settings"));

@@ -41,6 +41,7 @@ function BudgetRow({ npk }: { npk: NpkRecommendation }) {
 	);
 }
 
+// @spec SOIL-UI-006
 function PhCard({ ph }: { ph: PhRecommendation }) {
 	return (
 		<div style={sharedStyles.card}>
@@ -57,7 +58,7 @@ function PhCard({ ph }: { ph: PhRecommendation }) {
 }
 
 /** The N-P-K advice, or "No fertilizer needed" when it asks for nothing. */
-// @spec SOIL-UI-016
+// @spec SOIL-UI-016, SOIL-UI-007
 function FertilizerCard({ npk }: { npk: NpkRecommendation }) {
 	if (nothingToApply(npk)) {
 		return (
@@ -101,6 +102,7 @@ function FertilizerCard({ npk }: { npk: NpkRecommendation }) {
 	);
 }
 
+// @spec SOIL-UI-008
 function DeficiencyTable({ rows }: { rows: MicronutrientRecommendation[] }) {
 	return (
 		<div style={{ ...sharedStyles.card, marginTop: "1rem" }}>
