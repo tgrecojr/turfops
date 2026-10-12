@@ -145,7 +145,7 @@ impl DataSyncService {
     }
 
     /// The same service with no weather lake, as if none were configured.
-    #[cfg(test)]
+    #[cfg(all(test, feature = "db-tests"))]
     pub(crate) fn without_weather_lake(mut self) -> Self {
         self.weather_client = None;
         self
