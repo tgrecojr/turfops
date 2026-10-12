@@ -303,9 +303,11 @@ skipped and the cache is used as it is: every settled marker it holds
    are appended. Removal goes by `owned_ids`, not by what came back, so a window the log
    has ruled out (seed vs. pre-emergent) leaves no activity and its 10 cm twin cannot
    reappear. When `None`, the 10 cm activities stay.
-5. **Plant overlay.** Plants for the profile plus applications from Oct 1 of the prior
-   year through year end go to `build_plant_activities(plants, applications, year,
-   today)`, whose output is appended unchanged.
+5. **Plant overlay.** Plants for the profile plus the plant-linked applications from
+   Oct 1 of the prior year through the end of the latest window judged for the year
+   (`plant_log_range`, which runs into the next year when a window wraps the new year;
+   Landscape plants, PLANT-PLAN-005) go to `build_plant_activities(plants,
+   applications, year, today)`, whose output is appended unchanged.
 6. Sort all activities by `predicted_start` (stable) and return the plan with `today`,
    the server-local date its statuses were judged on.
 

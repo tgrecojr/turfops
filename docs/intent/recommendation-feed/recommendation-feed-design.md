@@ -99,7 +99,7 @@ flowchart TD
 
 ### Inputs and dates
 
-- The application log is read once (`queries::get_applications_for_profile`, newest first, 1000 rows) and shared by every source. Mowing is an application, so a shorter history would push this season's treatments out of view within weeks.
+- The application log is read once (`queries::get_applications_for_profile`, newest first, 1000 rows) and shared by the rules, plant tasks, follow-ups and timing companions. Mowing is an application, so a shorter history would push this season's treatments out of view within weeks. Disease risk and the timing windows run through their page handlers, which read their own date ranges (365 days for fungicide history, 550 days to reach the previous July); sharing those reads is what keeps each alert identical to its page.
 - `today` is the lawn's local date from the app's `Clock` (`state.clock.today()`, resolved once from `TZ`, which deployment sets to the lawn's timezone), as the HLD requires. The feed uses it for plant tasks and follow-ups (`recommendation_feed.rs:54`) and passes it to the nitrogen guard for the budget year. Sources that compute their own date internally are held to the same clock by their own LLDs.
 - The answered-state check uses `Utc::now()` only as an instant, to measure elapsed episode time against `updated_at`; it gates no calendar date.
 - The shelf is `product_queries::list_products_for_profile(.., include_archived = false)`.

@@ -96,7 +96,7 @@ On read, an unknown `plant_type` string falls back to `Other` with a warning log
 |---------|--------|---------|
 | API key | `OPENROUTER_API_KEY`. Empty or whitespace means not configured, and no client is built. | — |
 | Model | `OPENROUTER_MODEL` | `anthropic/claude-haiku-4.5`, OpenRouter's dotted model id, wherever a default is supplied (backend config and Docker Compose) (PLANT-AI-010) |
-| Enabled | `OPENROUTER_ENABLED == "true"` | true |
+| Enabled | `OPENROUTER_ENABLED` is `true`, `1` or `yes` in any case (Deployment, DEPLOY-CONFIG-013) | true |
 | Base URL | `OPENROUTER_BASE_URL` | `https://openrouter.ai/api/v1` |
 | Connect / request timeout | constants | 5 s / 60 s |
 

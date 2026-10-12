@@ -19,6 +19,8 @@ pub(crate) mod db_support;
 mod fill_db_tests;
 #[cfg(all(test, feature = "db-tests"))]
 mod merge_db_tests;
+#[cfg(all(test, feature = "db-tests"))]
+mod plant_overlay_db_tests;
 
 #[derive(Debug, Deserialize)]
 pub struct SeasonalPlanQuery {
@@ -87,6 +89,7 @@ pub async fn get_seasonal_plan(
     }
 
     // Overlay plant-maintenance activities from the landscape feature.
+    // @spec PLAN-MERGE-006
     let plants = plant_queries::list_plants_for_profile(&state.pool, profile_id).await?;
     // A plant window can open late in the previous year (dormant pruning, Dec → Feb) or run
     // into the next; read the log from Oct 1 before through the end of the latest window.
@@ -169,7 +172,7 @@ async fn fill_crossing_cache(state: &AppState, today: NaiveDate) -> Result<Vec<i
 /// The current season's rule states, judged on the same feed, conditions and log as the
 /// recommendations. `None` when the feed cannot be assembled (the plan then marks the
 /// covered activities as estimates).
-// @spec PLAN-ACT-021, PLAN-ACT-022
+// @spec PLAN-ACT-021, PLAN-ACT-022, SYNC-REFRESH-005
 async fn rule_states(
     state: &AppState,
     profile: &LawnProfile,

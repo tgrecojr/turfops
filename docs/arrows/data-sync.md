@@ -4,7 +4,7 @@ Data Sync — leaf segment `SYNC` under the root HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-10-11 (git SHA `65245e3`): every implemented spec was checked against the code while linking it. 30 of 31 implemented specs are linked to both code and a test; 1 disagree with the code (see Key Findings).
+**OK** — audited 2026-10-12 (git SHA `4505fbc`): every implemented spec was checked against the code while linking it. 31 of 31 implemented specs are linked to both code and a test.
 
 ## References
 
@@ -23,6 +23,7 @@ Data Sync — leaf segment `SYNC` under the root HLD.
 - [backend/src/api/timing/memo_tests.rs](../../backend/src/api/timing/memo_tests.rs)
 - [backend/src/logic/data_sync/db_tests.rs](../../backend/src/logic/data_sync/db_tests.rs)
 - [backend/src/logic/data_sync/memo_slot_tests.rs](../../backend/src/logic/data_sync/memo_slot_tests.rs)
+- [backend/src/logic/data_sync/refresh_callers_tests.rs](../../backend/src/logic/data_sync/refresh_callers_tests.rs)
 - [backend/src/logic/data_sync/service_tests.rs](../../backend/src/logic/data_sync/service_tests.rs)
 - [backend/src/logic/data_sync/tests.rs](../../backend/src/logic/data_sync/tests.rs)
 
@@ -31,6 +32,7 @@ Data Sync — leaf segment `SYNC` under the root HLD.
 - [backend/src/api/environmental.rs](../../backend/src/api/environmental.rs)
 - [backend/src/api/health.rs](../../backend/src/api/health.rs)
 - [backend/src/api/historical.rs](../../backend/src/api/historical.rs)
+- [backend/src/api/seasonal_plan.rs](../../backend/src/api/seasonal_plan.rs)
 - [backend/src/api/timing.rs](../../backend/src/api/timing.rs)
 - [backend/src/api/timing/memo.rs](../../backend/src/api/timing/memo.rs)
 - [backend/src/clock.rs](../../backend/src/clock.rs)
@@ -65,23 +67,23 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 
 | Facet | Spec IDs | Implemented | Deferred | Gaps | `@spec` in code | `@spec` in tests |
 |---|---|---|---|---|---|---|
-| REFRESH | SYNC-REFRESH-001 – SYNC-REFRESH-008 | 8 | 0 | 0 | 7 | 7 |
+| REFRESH | SYNC-REFRESH-001 – SYNC-REFRESH-008 | 8 | 0 | 0 | 8 | 8 |
 | MERGE | SYNC-MERGE-001 – SYNC-MERGE-006 | 6 | 0 | 0 | 6 | 6 |
 | FAIL | SYNC-FAIL-001 – SYNC-FAIL-009 | 9 | 0 | 0 | 9 | 9 |
 | CONN | SYNC-CONN-001 – SYNC-CONN-006 | 6 | 0 | 0 | 6 | 6 |
 | MEMO | SYNC-MEMO-001 – SYNC-MEMO-002 | 2 | 0 | 0 | 2 | 2 |
-| **Total** | | **31** | **0** | **0** | **30** | **30** |
+| **Total** | | **31** | **0** | **0** | **31** | **31** |
 
-**Summary:** 31 of 31 active specs implemented; 0 deferred; 30 implemented specs cited by a test, 1 cited nowhere.
+**Summary:** 31 of 31 active specs implemented; 0 deferred; 31 implemented specs cited by a test, 0 cited nowhere.
 
 ## Key Findings
 
-1. **Spec ≠ code — SYNC-REFRESH-005:** spec + design: `/seasonal-plan` never refreshes; code: `rule_states` calls `get_or_refresh()` (`api/seasonal_plan.rs:169`).
+1. No findings.
 
 ## Work Required
 
 ### Must Fix
-- Decide SYNC-REFRESH-005: fix the code or correct the spec, then link it.
+- None.
 
 ### Should Fix
 - None.

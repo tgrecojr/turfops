@@ -4,7 +4,7 @@ Agronomic Rules — leaf segment `RULE` under the root HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-10-11 (git SHA `65245e3`): every implemented spec was checked against the code while linking it. 74 of 76 implemented specs are linked to both code and a test; 2 disagree with the code (see Key Findings).
+**PARTIAL** — audited 2026-10-12 (git SHA `4505fbc`): every implemented spec was checked against the code while linking it. 75 of 76 implemented specs are linked to both code and a test; 1 disagree with the code (see Key Findings).
 
 ## References
 
@@ -33,6 +33,7 @@ Agronomic Rules — leaf segment `RULE` under the root HLD.
 - [backend/src/logic/rules/nitrogen_guard/rule_tests.rs](../../backend/src/logic/rules/nitrogen_guard/rule_tests.rs)
 - [backend/src/logic/rules/plan_state/tests.rs](../../backend/src/logic/rules/plan_state/tests.rs)
 - [backend/src/logic/rules/plan_state/window_tests.rs](../../backend/src/logic/rules/plan_state/window_tests.rs)
+- [backend/src/logic/rules/rain_delay_tests.rs](../../backend/src/logic/rules/rain_delay_tests.rs)
 - [backend/src/logic/rules/spring_nitrogen/rule_tests.rs](../../backend/src/logic/rules/spring_nitrogen/rule_tests.rs)
 - [backend/src/logic/rules/weather_rule_tests.rs](../../backend/src/logic/rules/weather_rule_tests.rs)
 - [frontend/src/components/GddWidget.test.tsx](../../frontend/src/components/GddWidget.test.tsx)
@@ -61,6 +62,7 @@ Agronomic Rules — leaf segment `RULE` under the root HLD.
 - [backend/src/logic/rules/mowing_height.rs](../../backend/src/logic/rules/mowing_height.rs)
 - [backend/src/logic/rules/nitrogen_guard.rs](../../backend/src/logic/rules/nitrogen_guard.rs)
 - [backend/src/logic/rules/plan_state.rs](../../backend/src/logic/rules/plan_state.rs)
+- [backend/src/logic/rules/rain_delay.rs](../../backend/src/logic/rules/rain_delay.rs)
 - [backend/src/logic/rules/spring_nitrogen.rs](../../backend/src/logic/rules/spring_nitrogen.rs)
 - [backend/src/logic/timing/companions.rs](../../backend/src/logic/timing/companions.rs)
 - [backend/src/logic/timing/recommendations.rs](../../backend/src/logic/timing/recommendations.rs)
@@ -105,26 +107,24 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | GRUB | RULE-GRUB-001 – RULE-GRUB-006 | 6 | 0 | 0 | 6 | 6 |
 | BLOCK | RULE-BLOCK-001 – RULE-BLOCK-002 | 2 | 0 | 0 | 2 | 2 |
 | FALL | RULE-FALL-001 – RULE-FALL-007 | 7 | 0 | 0 | 7 | 7 |
-| WX | RULE-WX-001 – RULE-WX-008 | 8 | 0 | 0 | 7 | 7 |
+| WX | RULE-WX-001 – RULE-WX-008 | 8 | 0 | 0 | 8 | 8 |
 | GUARD | RULE-GUARD-001 – RULE-GUARD-011 | 10 | 1 | 0 | 10 | 10 |
 | BUDGET | RULE-BUDGET-001 – RULE-BUDGET-005 | 5 | 0 | 0 | 5 | 5 |
 | GDD | RULE-GDD-001 – RULE-GDD-007 | 7 | 0 | 0 | 7 | 7 |
 | UI | RULE-UI-001 – RULE-UI-002 | 2 | 0 | 0 | 2 | 2 |
-| **Total** | | **76** | **1** | **0** | **74** | **74** |
+| **Total** | | **76** | **1** | **0** | **75** | **75** |
 
-**Summary:** 76 of 76 active specs implemented; 1 deferred; 74 implemented specs cited by a test, 2 cited nowhere.
+**Summary:** 76 of 76 active specs implemented; 1 deferred; 75 implemented specs cited by a test, 1 cited nowhere.
 
 ## Key Findings
 
 1. **Spec ≠ code — RULE-ENG-007:** broadleaf herbicide actions never defer to the label (`logic/rules/broadleaf_herbicide.rs:147-151, 195-200`); grub control does.
-2. **Spec ≠ code — RULE-WX-001:** spec: a point within 48 h at ≥ 30 % → Advisory, a point ≥ 2.5 mm → Critical; code: nothing unless the window holds ≥ 0.1 mm or reaches 50 %, and Critical sums the window (`logic/rules/rain_delay.rs:61-73`, `models/forecast.rs:41-61`).
-3. **Deferred:** RULE-GUARD-005.
+2. **Deferred:** RULE-GUARD-005.
 
 ## Work Required
 
 ### Must Fix
 - Decide RULE-ENG-007: fix the code or correct the spec, then link it.
-- Decide RULE-WX-001: fix the code or correct the spec, then link it.
 
 ### Should Fix
 - None.

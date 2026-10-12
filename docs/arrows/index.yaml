@@ -1,5 +1,5 @@
 schema_version: 2
-last_updated: 2026-10-11
+last_updated: 2026-10-12
 
 # Organizational clusters (navigation only; nodes, not paths).
 taxonomy:
@@ -30,8 +30,8 @@ arrows:
     parent: null
     children: [weather-sources, soil-temp-outlook, environmental-views]
     sampled: 2026-10-11
-    audited: 2026-10-11
-    audited_sha: 65245e3
+    audited: 2026-10-12
+    audited_sha: 4505fbc
     blocks: []
     blockedBy: []
     detail: ../intent/weather-data/weather-data-design.md
@@ -41,8 +41,8 @@ arrows:
     status: OK
     parent: weather-data
     sampled: 2026-10-11
-    audited: 2026-10-11
-    audited_sha: 65245e3
+    audited: 2026-10-12
+    audited_sha: 4505fbc
     blocks: []
     blockedBy: []
     detail: weather-data/weather-sources.md
@@ -52,8 +52,8 @@ arrows:
     status: OK
     parent: weather-data
     sampled: 2026-10-11
-    audited: 2026-10-11
-    audited_sha: 65245e3
+    audited: 2026-10-12
+    audited_sha: 4505fbc
     blocks: []
     blockedBy: []
     detail: weather-data/soil-temp-outlook.md
@@ -63,53 +63,53 @@ arrows:
     status: OK
     parent: weather-data
     sampled: 2026-10-11
-    audited: 2026-10-11
-    audited_sha: 65245e3
+    audited: 2026-10-12
+    audited_sha: 4505fbc
     blocks: []
     blockedBy: []
     detail: weather-data/environmental-views.md
     next: null
     drift: null
   data-sync:
-    status: PARTIAL
+    status: OK
     parent: null
     sampled: 2026-10-11
-    audited: 2026-10-11
-    audited_sha: 65245e3
+    audited: 2026-10-12
+    audited_sha: 4505fbc
     blocks: []
     blockedBy: []
     detail: data-sync.md
-    next: "Owner decision on spec/code mismatches: SYNC-REFRESH-005"
-    drift: "1 [x] specs disagree with the code: SYNC-REFRESH-005"
+    next: null
+    drift: null
   agronomic-rules:
     status: PARTIAL
     parent: null
     sampled: 2026-10-11
-    audited: 2026-10-11
-    audited_sha: 65245e3
+    audited: 2026-10-12
+    audited_sha: 4505fbc
     blocks: []
     blockedBy: []
     detail: agronomic-rules.md
-    next: "Owner decision on spec/code mismatches: RULE-ENG-007, RULE-WX-001"
-    drift: "2 [x] specs disagree with the code: RULE-ENG-007, RULE-WX-001"
+    next: "Owner decision on spec/code mismatches: RULE-ENG-007"
+    drift: "1 [x] specs disagree with the code: RULE-ENG-007"
   timing-windows:
-    status: PARTIAL
+    status: OK
     parent: null
     sampled: 2026-10-11
-    audited: 2026-10-11
-    audited_sha: 65245e3
+    audited: 2026-10-12
+    audited_sha: 4505fbc
     blocks: []
     blockedBy: []
     detail: timing-windows.md
-    next: "Owner decision on spec/code mismatches: TIME-ENG-004"
-    drift: "1 [x] specs disagree with the code: TIME-ENG-004"
+    next: null
+    drift: null
   disease-risk:
     status: OK
     parent: null
     children: [risk-models, management, disease-ui]
     sampled: 2026-10-11
-    audited: 2026-10-11
-    audited_sha: 65245e3
+    audited: 2026-10-12
+    audited_sha: 4505fbc
     blocks: []
     blockedBy: []
     detail: ../intent/disease-risk/disease-risk-design.md
@@ -119,8 +119,8 @@ arrows:
     status: OK
     parent: disease-risk
     sampled: 2026-10-11
-    audited: 2026-10-11
-    audited_sha: 65245e3
+    audited: 2026-10-12
+    audited_sha: 4505fbc
     blocks: []
     blockedBy: []
     detail: disease-risk/risk-models.md
@@ -130,8 +130,8 @@ arrows:
     status: OK
     parent: disease-risk
     sampled: 2026-10-11
-    audited: 2026-10-11
-    audited_sha: 65245e3
+    audited: 2026-10-12
+    audited_sha: 4505fbc
     blocks: []
     blockedBy: []
     detail: disease-risk/management.md
@@ -141,74 +141,74 @@ arrows:
     status: OK
     parent: disease-risk
     sampled: 2026-10-11
-    audited: 2026-10-11
-    audited_sha: 65245e3
+    audited: 2026-10-12
+    audited_sha: 4505fbc
     blocks: []
     blockedBy: []
     detail: disease-risk/disease-ui.md
     next: null
     drift: null
   seasonal-plan:
-    status: PARTIAL
+    status: OK
     parent: null
     sampled: 2026-10-11
-    audited: 2026-10-11
-    audited_sha: 65245e3
+    audited: 2026-10-12
+    audited_sha: 4505fbc
     blocks: []
     blockedBy: []
     detail: seasonal-plan.md
-    next: "Owner decision on spec/code mismatches: PLAN-MERGE-006"
-    drift: "1 [x] specs disagree with the code: PLAN-MERGE-006"
+    next: null
+    drift: null
   soil-tests:
     status: PARTIAL
     parent: null
     sampled: 2026-10-11
-    audited: 2026-10-11
-    audited_sha: 65245e3
+    audited: 2026-10-12
+    audited_sha: 4505fbc
     blocks: []
     blockedBy: []
     detail: soil-tests.md
     next: "Owner decision on spec/code mismatches: SOIL-PH-006"
     drift: "1 [x] specs disagree with the code: SOIL-PH-006"
   recommendation-feed:
-    status: PARTIAL
+    status: OK
     parent: null
     sampled: 2026-10-11
-    audited: 2026-10-11
-    audited_sha: 65245e3
+    audited: 2026-10-12
+    audited_sha: 4505fbc
     blocks: []
     blockedBy: []
     detail: recommendation-feed.md
-    next: "Owner decision on spec/code mismatches: FEED-PIPE-011"
-    drift: "1 [x] specs disagree with the code: FEED-PIPE-011"
+    next: null
+    drift: null
   applications:
-    status: PARTIAL
+    status: OK
     parent: null
     sampled: 2026-10-11
-    audited: 2026-10-11
-    audited_sha: 65245e3
+    audited: 2026-10-12
+    audited_sha: 4505fbc
     blocks: []
     blockedBy: []
     detail: applications.md
-    next: "Owner decision on spec/code mismatches: APP-FRAC-005"
-    drift: "1 [x] specs disagree with the code: APP-FRAC-005"
+    next: null
+    drift: null
   product-inventory:
-    status: PARTIAL
+    status: OK
     parent: null
     sampled: 2026-10-11
-    audited: 2026-10-11
-    audited_sha: 65245e3
+    audited: 2026-10-12
+    audited_sha: 4505fbc
     blocks: []
     blockedBy: []
     detail: product-inventory.md
-    next: "Owner decision on spec/code mismatches: INV-API-005"
-    drift: "1 [x] specs disagree with the code: INV-API-005"
+    next: null
+    drift: null
   landscape-plants:
     status: PARTIAL
     parent: null
     sampled: 2026-10-11
-    audited: 2026-10-11
-    audited_sha: 65245e3
+    audited: 2026-10-12
+    audited_sha: 4505fbc
     blocks: []
     blockedBy: []
     detail: landscape-plants.md
@@ -218,35 +218,35 @@ arrows:
     status: PARTIAL
     parent: null
     sampled: 2026-10-11
-    audited: 2026-10-11
-    audited_sha: 65245e3
+    audited: 2026-10-12
+    audited_sha: 4505fbc
     blocks: []
     blockedBy: []
     detail: mcp-server.md
-    next: "Owner decision on spec/code mismatches: MCP-HIST-007, MCP-SRV-005"
-    drift: "2 [x] specs disagree with the code: MCP-HIST-007, MCP-SRV-005"
+    next: "Owner decision on spec/code mismatches: MCP-SRV-005"
+    drift: "1 [x] specs disagree with the code: MCP-SRV-005"
   web-ui:
     status: PARTIAL
     parent: null
     sampled: 2026-10-11
-    audited: 2026-10-11
-    audited_sha: 65245e3
+    audited: 2026-10-12
+    audited_sha: 4505fbc
     blocks: []
     blockedBy: []
     detail: web-ui.md
-    next: "Owner decision on spec/code mismatches: UI-CONV-001, UI-CONV-004, UI-CONV-005, UI-ERR-002, UI-TYPE-004"
-    drift: "5 [x] specs disagree with the code: UI-CONV-001, UI-CONV-004, UI-CONV-005, UI-ERR-002, UI-TYPE-004"
+    next: "Owner decision on spec/code mismatches: UI-CONV-001, UI-CONV-004, UI-CONV-005, UI-TYPE-004"
+    drift: "4 [x] specs disagree with the code: UI-CONV-001, UI-CONV-004, UI-CONV-005, UI-TYPE-004"
   deployment:
-    status: PARTIAL
+    status: OK
     parent: null
     sampled: 2026-10-11
-    audited: 2026-10-11
-    audited_sha: 65245e3
+    audited: 2026-10-12
+    audited_sha: 4505fbc
     blocks: []
     blockedBy: []
     detail: deployment.md
-    next: "Owner decision on spec/code mismatches: DEPLOY-HTTP-007"
-    drift: "1 [x] specs disagree with the code: DEPLOY-HTTP-007"
+    next: null
+    drift: null
 
 unmapped:
   docs:

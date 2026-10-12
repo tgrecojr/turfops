@@ -18,6 +18,8 @@ mod engine_tests;
 #[cfg(test)]
 mod forecast_rule_tests;
 #[cfg(test)]
+mod rain_delay_tests;
+#[cfg(test)]
 pub(crate) mod test_fixtures;
 #[cfg(test)]
 mod weather_rule_tests;

@@ -4,7 +4,7 @@ Soil Tests — leaf segment `SOIL` under the root HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-10-11 (git SHA `65245e3`): every implemented spec was checked against the code while linking it. 63 of 64 implemented specs are linked to both code and a test; 1 disagree with the code (see Key Findings).
+**PARTIAL** — audited 2026-10-12 (git SHA `4505fbc`): every implemented spec was checked against the code while linking it. 63 of 64 implemented specs are linked to both code and a test; 1 disagree with the code (see Key Findings).
 
 ## References
 

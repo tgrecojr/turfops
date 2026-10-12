@@ -75,7 +75,7 @@ impl TurfOpsMcp {
 }
 
 impl TurfOpsMcp {
-    // @spec MCP-HIST-003
+    // @spec MCP-HIST-003, MCP-HIST-007
     async fn history(&self, days: i64) -> Result<WeatherHistory, TurfOpsError> {
         let client = self
             .state

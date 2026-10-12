@@ -17,7 +17,7 @@ interface Props {
  * product; when it doesn't, say so — an unrecognised fungicide with no class would silently
  * earn no disease protection and no rotation credit.
  */
-// @spec APP-FRAC-002, APP-FRAC-003, APP-FRAC-004
+// @spec APP-FRAC-002, APP-FRAC-003, APP-FRAC-004, APP-FRAC-005
 export default function FracClassPicker({
 	productName,
 	value,
@@ -41,7 +41,9 @@ export default function FracClassPicker({
 					if (!touched.current) onChangeRef.current(lookup.matched);
 				})
 				.catch(() => {
-					// The picker still works by hand; the backend falls back to the name.
+					// Keep whatever grid an earlier lookup loaded (none if this was the first);
+					// the entry still saves, and with no classes recorded the backend
+					// resolves them from the product name.
 				});
 		}, LOOKUP_DEBOUNCE_MS);
 		return () => {

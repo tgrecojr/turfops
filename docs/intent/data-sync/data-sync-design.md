@@ -72,7 +72,7 @@ A part with no timestamp yet is stale. Each part is judged independently by `Syn
 
 **Forecast retry interval.** A failed forecast fetch leaves the forecast part stale but records the attempt. The fetch is not tried again until 5 minutes after that attempt, so while OWM is down at most one request in five minutes pays its timeout under the lock; in between, the summary carries the last good forecast within its 6 h cap (SYNC-FAIL-008).
 
-Who triggers a refresh: every handler that needs current conditions calls `get_or_refresh()` under the write lock: `/environmental`, `/dashboard`, `/recommendations`, `/inventory/shopping-list`, `/soil-temp-forecast`, `/disease-risk`, `/timing-windows`, and through them the MCP tools. Handlers that only need the lake client (`/gdd`, `/historical`, `/seasonal-plan`, the first half of `/soil-temp-forecast`) take the read lock and call `weather_client()`; they never refresh.
+Who triggers a refresh: every handler that needs current conditions calls `get_or_refresh()` under the write lock: `/environmental`, `/dashboard`, `/recommendations`, `/inventory/shopping-list`, `/soil-temp-forecast`, `/disease-risk`, `/timing-windows`, `/seasonal-plan` (for the feed it assembles to judge the current season's rule states, so the plan and the Recommendations page see the same conditions), and through them the MCP tools. Handlers that only need the lake client (`/gdd`, `/historical`, the first half of `/soil-temp-forecast`) take the read lock and call `weather_client()`; they never refresh. `/seasonal-plan` also reads the lake under the read lock to fill its crossing cache.
 
 ### API endpoints owned
 

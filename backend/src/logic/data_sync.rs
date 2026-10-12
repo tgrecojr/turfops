@@ -4,6 +4,8 @@ mod db_tests;
 mod memo_slot_tests;
 mod probes;
 #[cfg(test)]
+mod refresh_callers_tests;
+#[cfg(test)]
 mod service_tests;
 #[cfg(test)]
 mod source_tests;
@@ -93,7 +95,7 @@ impl DataSyncService {
     /// Return the cached summary, refreshing first whichever part is stale.
     /// Sensor data refreshes after 5 minutes, the forecast after 30 (a failed fetch is
     /// retried after 5).
-    // @spec SYNC-REFRESH-003, SYNC-REFRESH-004, SYNC-REFRESH-006
+    // @spec SYNC-REFRESH-003, SYNC-REFRESH-004, SYNC-REFRESH-005, SYNC-REFRESH-006
     pub async fn get_or_refresh(&mut self) -> crate::error::Result<EnvironmentalSummary> {
         let due = self.state.due(Utc::now());
         self.refresh(due.sensors, due.forecast).await;

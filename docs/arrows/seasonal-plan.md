@@ -4,7 +4,7 @@ Seasonal Plan & Calendar — leaf segment `PLAN` under the root HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-10-11 (git SHA `65245e3`): every implemented spec was checked against the code while linking it. 71 of 72 implemented specs are linked to both code and a test; 1 disagree with the code (see Key Findings).
+**OK** — audited 2026-10-12 (git SHA `4505fbc`): every implemented spec was checked against the code while linking it. 72 of 72 implemented specs are linked to both code and a test.
 
 ## References
 
@@ -25,6 +25,7 @@ Seasonal Plan & Calendar — leaf segment `PLAN` under the root HLD.
 - [backend/src/api/seasonal_plan/cache_db_tests.rs](../../backend/src/api/seasonal_plan/cache_db_tests.rs)
 - [backend/src/api/seasonal_plan/fill_db_tests.rs](../../backend/src/api/seasonal_plan/fill_db_tests.rs)
 - [backend/src/api/seasonal_plan/merge_db_tests.rs](../../backend/src/api/seasonal_plan/merge_db_tests.rs)
+- [backend/src/api/seasonal_plan/plant_overlay_db_tests.rs](../../backend/src/api/seasonal_plan/plant_overlay_db_tests.rs)
 - [backend/src/logic/seasonal_plan/activity_tests.rs](../../backend/src/logic/seasonal_plan/activity_tests.rs)
 - [backend/src/logic/seasonal_plan/completion_tests.rs](../../backend/src/logic/seasonal_plan/completion_tests.rs)
 - [backend/src/logic/seasonal_plan/crossing_tests.rs](../../backend/src/logic/seasonal_plan/crossing_tests.rs)
@@ -81,22 +82,22 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | CROSS | PLAN-CROSS-001 – PLAN-CROSS-010 | 10 | 0 | 0 | 10 | 10 |
 | CACHE | PLAN-CACHE-001 – PLAN-CACHE-008 | 8 | 0 | 0 | 8 | 8 |
 | ACT | PLAN-ACT-001 – PLAN-ACT-023 | 23 | 0 | 0 | 23 | 23 |
-| MERGE | PLAN-MERGE-001 – PLAN-MERGE-008 | 8 | 0 | 0 | 7 | 7 |
+| MERGE | PLAN-MERGE-001 – PLAN-MERGE-008 | 8 | 0 | 0 | 8 | 8 |
 | CAL | PLAN-CAL-001 – PLAN-CAL-003 | 3 | 0 | 0 | 3 | 3 |
 | UI | PLAN-UI-001 – PLAN-UI-011 | 11 | 0 | 0 | 11 | 11 |
 | CALUI | PLAN-CALUI-001 – PLAN-CALUI-009 | 9 | 0 | 0 | 9 | 9 |
-| **Total** | | **72** | **0** | **0** | **71** | **71** |
+| **Total** | | **72** | **0** | **0** | **72** | **72** |
 
-**Summary:** 72 of 72 active specs implemented; 0 deferred; 71 implemented specs cited by a test, 1 cited nowhere.
+**Summary:** 72 of 72 active specs implemented; 0 deferred; 72 implemented specs cited by a test, 0 cited nowhere.
 
 ## Key Findings
 
-1. **Spec ≠ code — PLAN-MERGE-006:** contradicts PLANT-PLAN-005: spec says plant activities get applications Oct 1 (prior year) → end of plan year; code passes the log through the end of the latest plant window, which can cross into next year (`logic/plant_maintenance.rs:293` `plant_log_range`), as PLANT-PLAN-005 requires.
+1. No findings.
 
 ## Work Required
 
 ### Must Fix
-- Decide PLAN-MERGE-006: fix the code or correct the spec, then link it.
+- None.
 
 ### Should Fix
 - None.

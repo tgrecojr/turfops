@@ -12,6 +12,8 @@ mod edit_db_tests;
 mod link;
 #[cfg(all(test, feature = "db-tests"))]
 mod link_db_tests;
+#[cfg(all(test, feature = "db-tests"))]
+mod missing_category_db_tests;
 mod refresh;
 #[cfg(all(test, feature = "db-tests"))]
 mod test_state;
@@ -118,6 +120,7 @@ pub async fn create_product(
                 }
             }
         }
+        // @spec INV-API-005
         (true, None) if req.category.is_none() => {
             return Err(TurfOpsError::not_configured(Source::ProductAssistant));
         }

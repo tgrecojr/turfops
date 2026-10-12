@@ -32,7 +32,7 @@ A **care plan** is the LLM-written list of maintenance **tasks** cached on a pla
 
 ## Shared OpenRouter client
 
-- [x] **PLANT-AI-001**: The system shall build the shared OpenRouter client only when `OPENROUTER_API_KEY` is set to a non-blank value, taking the model from `OPENROUTER_MODEL`, the base URL from `OPENROUTER_BASE_URL` (default `https://openrouter.ai/api/v1`) and the enabled flag from `OPENROUTER_ENABLED` (on when unset or exactly "true").
+- [x] **PLANT-AI-001**: The system shall build the shared OpenRouter client only when `OPENROUTER_API_KEY` is set to a non-blank value, taking the model from `OPENROUTER_MODEL`, the base URL from `OPENROUTER_BASE_URL` (default `https://openrouter.ai/api/v1`) and the enabled flag from `OPENROUTER_ENABLED` (read as DEPLOY-CONFIG-013 defines: `true`, `1` or `yes` in any case is on, unset is on).
 - [x] **PLANT-AI-002**: The shared OpenRouter client shall send every completion request with the bearer API key and the attribution headers `HTTP-Referer: https://github.com/tgrecojr/turfops` and `X-Title: TurfOps`, so the owner's OpenRouter console attributes the spend to this app.
 - [x] **PLANT-AI-003**: The shared OpenRouter client shall send every completion with the system prompt marked for prompt caching (`cache_control: ephemeral`) and a `json_schema` response format with `strict: true`, and shall deserialize the returned content into the caller's type.
 - [x] **PLANT-AI-004**: The shared OpenRouter client shall use a 5 s connect timeout and a 60 s request timeout.

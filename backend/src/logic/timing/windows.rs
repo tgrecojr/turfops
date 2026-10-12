@@ -185,7 +185,7 @@ fn seeding_specs(grass: GrassType) -> Vec<WindowSpec> {
     ]
 }
 
-// @spec TIME-ENG-001
+// @spec TIME-ENG-001, TIME-ENG-004
 /// Pre-emergent windows apply to any turf; the seeding windows are cool-season only.
 pub fn specs_for(grass: GrassType) -> Vec<WindowSpec> {
     let mut specs = pre_emergent_specs();
@@ -215,14 +215,23 @@ mod tests {
         NaiveDate::from_ymd_opt(2026, month, day).unwrap()
     }
 
+    // @spec TIME-ENG-004
     #[test]
     fn warm_season_turf_gets_only_pre_emergent_windows() {
-        let ids: Vec<WindowId> = specs_for(GrassType::Bermuda).iter().map(|s| s.id).collect();
-        assert_eq!(
-            ids,
-            vec![WindowId::SpringPreEmergent, WindowId::FallPreEmergent]
-        );
-        assert_eq!(specs_for(GrassType::TallFescue).len(), 5);
+        for warm in [
+            GrassType::Bermuda,
+            GrassType::Zoysia,
+            GrassType::StAugustine,
+        ] {
+            let ids: Vec<WindowId> = specs_for(warm).iter().map(|s| s.id).collect();
+            assert_eq!(
+                ids,
+                vec![WindowId::SpringPreEmergent, WindowId::FallPreEmergent]
+            );
+        }
+        for cool in [GrassType::TallFescue, GrassType::Mixed] {
+            assert_eq!(specs_for(cool).len(), 5, "{cool:?}");
+        }
     }
 
     // @spec TIME-ENG-003

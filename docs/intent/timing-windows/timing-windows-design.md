@@ -68,7 +68,7 @@ The thresholds are constants in `windows.rs` and match `docs/timing-windows.md` 
 
 - Rising crossings scan Feb 1 – Jul 31. Falling crossings scan to Dec 31.
 - The establishment buffers `(comfortable, minimum)` depend on the grass (`establishment_days`): KBG 60/45, PRG 35/21, everything else 45/30.
-- Every lawn gets all five windows; `Mixed` is a cool-season blend. Warm-season grasses are unsupported (HLD Non-Goals).
+- Cool-season lawns get all five windows; `Mixed` is a cool-season blend. Warm-season lawns get only the spring and fall pre-emergent windows (`windows::specs_for`), since cool-season seeding windows mean nothing for them, and the response notes "Seeding windows cover cool-season turf only." Warm-season grasses are otherwise unsupported (HLD Non-Goals).
 - `season_year(id, today)`: the spring windows roll to next year from August, dormant seeding belongs to the previous year through June, and every other window uses the calendar year.
 
 ## Detection, Smoothing and Climatology

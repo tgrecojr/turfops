@@ -21,7 +21,7 @@ Design: [recommendation-feed-design.md](recommendation-feed-design.md). Prefix `
 - [x] **FEED-PIPE-008**: When applying answered state, the system shall compare each answer's stored severity against the recommendation's severity after the nitrogen guard has run.
 - [x] **FEED-PIPE-009**: As the last stage of building the feed, after answered state is applied, the system shall sort the feed by descending severity with a stable sort, so recommendations of equal severity keep source order.
 - [D] **FEED-PIPE-010**: The system shall emit at most one recommendation per id in the feed.
-- [x] **FEED-PIPE-011**: When building the feed, the system shall read the application log once (newest first, up to 1000 rows) and give that same log to every source.
+- [x] **FEED-PIPE-011**: When building the feed, the system shall read the application log once (newest first, up to 1000 rows) and give that same log to the agronomic rules, landscape-plant tasks, application follow-ups and the timing companions (aeration, fall broadleaf); disease risk and the timing windows shall each read the date range their own pages read (365 and 550 days back), so the feed and those pages judge the same log.
 - [x] **FEED-PIPE-012**: When building the feed, the system shall use the server's local date (`Local::now()`, governed by `TZ`) as "today" for landscape-plant tasks and application follow-ups.
 - [x] **FEED-PIPE-014**: When running the inventory pass for the feed, the system shall use every non-archived shelf product as the shelf.
 - [x] **FEED-PIPE-015**: If the disease-risk source fails while building the feed (weather lake or forecast unavailable), then the system shall omit disease recommendations, log a warning, and return the rest of the feed.

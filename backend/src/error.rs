@@ -253,11 +253,12 @@ impl IntoResponse for TurfOpsError {
                 unique_violation(db.constraint()).0
             }
             TurfOpsError::Conflict(_) => StatusCode::CONFLICT,
-            // @spec WX-SRC-LAKE-014
+            // @spec WX-SRC-LAKE-014, UI-ERR-002, DEPLOY-HTTP-007
             TurfOpsError::DataLake(detail) => {
                 tracing::warn!(error = %detail, "weather lake unreadable");
                 StatusCode::SERVICE_UNAVAILABLE
             }
+            // @spec UI-ERR-002, DEPLOY-HTTP-007
             other => {
                 tracing::error!("Internal error: {}", other);
                 StatusCode::INTERNAL_SERVER_ERROR
@@ -396,3 +397,5 @@ mod tests {
 mod contract_tests;
 #[cfg(test)]
 mod error_body_tests;
+#[cfg(test)]
+mod log_level_tests;

@@ -177,6 +177,21 @@ describe("application form", () => {
 		expect((await save())?.frac_classes).toBeUndefined();
 	});
 
+	// @spec APP-FRAC-005
+	it("still saves when the FRAC lookup fails, leaving classes to the backend", async () => {
+		api.getFracClasses.mockRejectedValue(new Error("network down"));
+		await openForm();
+		await userEvent.selectOptions(screen.getByLabelText("Type"), "Fungicide");
+		await userEvent.type(screen.getByLabelText(/Product/), "Heritage G");
+		await waitFor(() =>
+			expect(api.getFracClasses).toHaveBeenCalledWith("Heritage G"),
+		);
+		expect(screen.queryAllByLabelText(/^FRAC \d/)).toHaveLength(0);
+		const payload = await save();
+		expect(payload?.product_name).toBe("Heritage G");
+		expect(payload?.frac_classes).toBeUndefined();
+	});
+
 	// @spec APP-FORM-008
 	it("pre-fills from the picked shelf product and keeps every field editable", async () => {
 		api.listProducts.mockResolvedValue([
