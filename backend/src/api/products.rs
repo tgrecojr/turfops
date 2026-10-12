@@ -16,6 +16,8 @@ mod link_db_tests;
 mod missing_category_db_tests;
 mod refresh;
 #[cfg(all(test, feature = "db-tests"))]
+mod refresh_outage_db_tests;
+#[cfg(all(test, feature = "db-tests"))]
 mod test_state;
 
 pub use link::{link_applications, logged_product_suggestions};

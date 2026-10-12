@@ -20,7 +20,7 @@ pub struct ProductRefreshed {
     pub changed_fields: Vec<&'static str>,
 }
 
-// @spec INV-LLM-008, INV-LLM-009, INV-SHELF-007
+// @spec INV-LLM-008, INV-LLM-009, INV-LLM-012, INV-SHELF-007
 pub async fn refresh_product_profile(
     State(state): State<AppState>,
     Path(id): Path<i64>,
@@ -28,7 +28,7 @@ pub async fn refresh_product_profile(
     let openrouter = state
         .openrouter
         .as_ref()
-        .ok_or_else(|| TurfOpsError::not_configured(Source::ProductAssistant))?
+        .ok_or_else(|| TurfOpsError::not_configured(Source::ProfileRefresh))?
         .clone();
 
     let product = load(&state, id).await?;
@@ -44,7 +44,7 @@ pub async fn refresh_product_profile(
         })
         .await
         // @spec INV-API-012
-        .map_err(TurfOpsError::for_products)?;
+        .map_err(TurfOpsError::for_refresh)?;
 
     product_queries::update_product_profile(&state.pool, id, &profile, openrouter.model()).await?;
 

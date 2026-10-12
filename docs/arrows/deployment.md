@@ -4,7 +4,7 @@ Deployment, Configuration & Operations — leaf segment `DEPLOY` under the root 
 
 ## Status
 
-**OK** — audited 2026-10-12 (git SHA `f2112e2`): every implemented spec was checked against the code while linking it. 66 of 68 implemented specs are linked to both code and a test.
+**OK** — audited 2026-10-12 (git SHA `2124c26`): every implemented spec was checked against the code while linking it. 66 of 68 implemented specs are linked to both code and a test.
 
 ## References
 
