@@ -42,6 +42,7 @@ pub struct SoilTestsParams {
 
 #[tool_router(router = log_tools, vis = "pub(in crate::mcp)")]
 impl TurfOpsMcp {
+    // @spec MCP-TOOL-015, MCP-TOOL-016, MCP-TOOL-017
     #[tool(
         description = "The application log, newest first: what was applied or done, when, \
                        product name and linked shelf `product_id`, rate, N-P-K, FRAC classes \
@@ -81,6 +82,7 @@ impl TurfOpsMcp {
         }
     }
 
+    // @spec MCP-TOOL-019
     #[tool(
         description = "Soil test results, newest first: date, lab, pH, buffer pH, P, K, Ca, \
                        Mg, S and micronutrients (ppm), organic matter and CEC. The latest \
@@ -101,6 +103,7 @@ impl TurfOpsMcp {
         .await
     }
 
+    // @spec MCP-TOOL-020
     #[tool(
         description = "Advice from the latest soil test: pH correction (lime or sulfur, \
                        scaled to soil type), an N-P-K ratio from the P and K levels, and \
@@ -117,6 +120,7 @@ impl TurfOpsMcp {
 }
 
 impl TurfOpsMcp {
+    // @spec MCP-TOOL-016
     async fn in_range(
         &self,
         app_type: Option<&str>,
@@ -152,6 +156,7 @@ fn type_filter(raw: Option<&str>) -> Result<Option<ApplicationType>, TurfOpsErro
 
 /// `[since, until]` as a half-open `[start, end)` range for the SQL query, or `None`
 /// when neither bound is given. An open side is bounded by a date Postgres can store.
+// @spec MCP-TOOL-016, MCP-TOOL-017
 fn date_range(
     since: Option<&str>,
     until: Option<&str>,
@@ -211,6 +216,7 @@ mod tests {
         assert_eq!(date_range(None, None).unwrap(), None);
     }
 
+    // @spec MCP-TOOL-016
     #[test]
     fn until_is_inclusive() {
         let range = date_range(Some("2026-09-01"), Some("2026-09-22")).unwrap();
@@ -231,9 +237,34 @@ mod tests {
         assert_eq!(end, d("9999-12-31"));
     }
 
+    // @spec MCP-TOOL-017
     #[test]
     fn bad_dates_and_inverted_ranges_are_rejected() {
-        assert!(date_range(Some("09/01/2026"), None).is_err());
-        assert!(date_range(Some("2026-09-22"), Some("2026-09-01")).is_err());
+        let message = |since: Option<&str>, until: Option<&str>| match date_range(since, until) {
+            Err(TurfOpsError::InvalidData(msg)) => msg,
+            other => panic!("expected a range error, got ok={}", other.is_ok()),
+        };
+        assert_eq!(
+            message(Some("09/01/2026"), None),
+            "`since` must be a date as YYYY-MM-DD, got 09/01/2026"
+        );
+        assert_eq!(
+            message(None, Some("2026-13-01")),
+            "`until` must be a date as YYYY-MM-DD, got 2026-13-01"
+        );
+        assert_eq!(
+            message(Some("2026-09-22"), Some("2026-09-01")),
+            "`since` must not be after `until`"
+        );
+    }
+
+    // @spec MCP-TOOL-017
+    #[tokio::test]
+    async fn the_tool_reports_a_bad_range_as_a_tool_error() {
+        use crate::mcp::test_support::*;
+        let state = state(unreachable_pool(), &Lake::missing("range")).await;
+        let reply = call_tool(&state, "applications", serde_json::json!({"until": "soon"})).await;
+        assert!(reply.is_error);
+        assert_eq!(reply.text, "`until` must be a date as YYYY-MM-DD, got soon");
     }
 }

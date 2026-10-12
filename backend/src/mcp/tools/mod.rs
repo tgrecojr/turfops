@@ -1,10 +1,22 @@
 //! Tool routers, one file per area; `TurfOpsMcp::tools` sums them.
 
 mod disease;
+#[cfg(test)]
+mod error_tests;
+#[cfg(test)]
+mod history_tests;
 mod lawn;
 mod log;
+#[cfg(all(test, feature = "db-tests"))]
+mod log_db_tests;
 mod season;
+#[cfg(all(test, feature = "db-tests"))]
+mod season_db_tests;
 mod shelf;
+#[cfg(all(test, feature = "db-tests"))]
+mod shelf_db_tests;
+#[cfg(all(test, feature = "db-tests"))]
+mod snapshot_db_tests;
 mod weather;
 
 use crate::error::TurfOpsError;
@@ -37,12 +49,14 @@ pub(super) const INTERNAL_ERROR: &str =
 
 /// A failed handler as a tool-level error the model can read and relay. Only messages
 /// written for users pass through; anything else (SQL, lake internals) stays in the log.
+// @spec MCP-ERR-001
 fn tool_error(err: TurfOpsError) -> CallToolResult {
     CallToolResult::error(vec![ContentBlock::text(error_message(err))])
 }
 
 const MISSING_DATA_HINT: &str = "Tell the user this data is missing rather than estimating it.";
 
+// @spec MCP-ERR-002, MCP-ERR-003, MCP-ERR-004, MCP-ERR-005
 fn error_message(err: TurfOpsError) -> String {
     match err {
         TurfOpsError::NotFound(msg) | TurfOpsError::InvalidData(msg) => msg,
@@ -76,6 +90,7 @@ fn error_message(err: TurfOpsError) -> String {
 }
 
 /// Run a REST handler and return its JSON body as the tool result.
+// @spec MCP-TOOL-002
 async fn call<T, F>(handler: F) -> Result<CallToolResult, ErrorData>
 where
     T: Serialize,
@@ -88,6 +103,7 @@ where
 }
 
 /// Run a REST handler and reshape its body with `trim` before returning it.
+// @spec MCP-TOOL-002
 async fn call_trimmed<T, F>(
     handler: F,
     trim: fn(Value) -> Value,
@@ -116,6 +132,7 @@ where
 mod tests {
     use super::*;
 
+    // @spec MCP-ERR-002
     #[test]
     fn user_facing_errors_pass_through() {
         assert_eq!(
@@ -138,6 +155,7 @@ mod tests {
         assert!(msg.ends_with(MISSING_DATA_HINT), "{msg}");
     }
 
+    // @spec MCP-ERR-003
     #[test]
     fn lake_errors_say_what_is_missing_without_the_path() {
         let err = duckdb::Error::InvalidPath("/data/silver/weather/x.parquet".into());
@@ -163,6 +181,7 @@ mod tests {
         assert!(text.contains("internal error"), "{text}");
     }
 
+    // @spec MCP-ERR-005
     #[test]
     fn internal_errors_are_not_leaked() {
         let msg = error_message(TurfOpsError::Config("DATABASE_PASSWORD=hunter2".into()));

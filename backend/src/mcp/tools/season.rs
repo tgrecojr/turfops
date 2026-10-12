@@ -29,6 +29,7 @@ pub struct YearParams {
 
 #[tool_router(router = season_tools, vis = "pub(in crate::mcp)")]
 impl TurfOpsMcp {
+    // @spec MCP-TOOL-007
     #[tool(
         description = "Seeding (fall / spring / dormant) and pre-emergent (spring / fall) \
                        windows with this season's state, each boundary's date and source \
@@ -50,6 +51,7 @@ impl TurfOpsMcp {
         }
     }
 
+    // @spec MCP-TOOL-008
     #[tool(
         description = "The year's lawn-care plan: each activity (pre-emergent, feedings, \
                        grub control, seeding, aeration, weed control, winterizer, plant \
@@ -71,6 +73,7 @@ impl TurfOpsMcp {
         .await
     }
 
+    // @spec MCP-TOOL-009
     #[tool(
         description = "Growing degree days (base 50°F) accumulated this year and the \
                        crabgrass germination model (status, estimated germination date). \
@@ -92,6 +95,7 @@ impl TurfOpsMcp {
         .await
     }
 
+    // @spec MCP-TOOL-010
     #[tool(
         description = "10 cm soil temperature outlook for the forecast days (air-to-soil \
                        regression, with fit quality) and the predicted crossings of the \
@@ -106,6 +110,7 @@ impl TurfOpsMcp {
         .await
     }
 
+    // @spec MCP-TOOL-011
     #[tool(
         description = "Lawn nitrogen budget for the year: target for the grass type, lbs \
                        N / 1000 sq ft applied so far (with each feeding), remaining and \

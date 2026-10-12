@@ -64,6 +64,7 @@ async fn only_post_is_allowed() {
     );
 }
 
+// @spec MCP-AUTH-001
 #[tokio::test]
 async fn the_bearer_guard_still_answers_first() {
     assert_eq!(

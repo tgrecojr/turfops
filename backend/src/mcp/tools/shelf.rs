@@ -26,7 +26,7 @@ pub struct ProductsParams {
 
 #[tool_router(router = shelf_tools, vis = "pub(in crate::mcp)")]
 impl TurfOpsMcp {
-    // @spec MCP-TOOL-023
+    // @spec MCP-TOOL-023, MCP-TOOL-021
     #[tool(
         description = "The product shelf: every product the owner has, with category, form, \
                        N-P-K, FRAC classes, herbicide timing (pre / post-emergent), targets, \
@@ -56,6 +56,7 @@ impl TurfOpsMcp {
         .await
     }
 
+    // @spec MCP-TOOL-024
     #[tool(
         description = "The shopping list built from the active recommendations: Buy (a \
                        need nothing on the shelf covers, with the recommendations that call \
@@ -67,6 +68,7 @@ impl TurfOpsMcp {
         call(api::inventory::get_shopping_list(State(self.state.clone()))).await
     }
 
+    // @spec MCP-TOOL-025
     #[tool(
         description = "Landscape plants (shrubs, trees, perennials, …) with location, \
                        planting date and each plant's AI-generated care plan: task windows \
@@ -80,7 +82,7 @@ impl TurfOpsMcp {
 }
 
 /// The `category` argument as a product category.
-// @spec MCP-TOOL-022
+// @spec MCP-TOOL-022, MCP-TOOL-021
 fn category_filter(raw: Option<&str>) -> Result<Option<ProductCategory>, TurfOpsError> {
     raw.map(|c| {
         ProductCategory::from_str(c).map_err(|_| {

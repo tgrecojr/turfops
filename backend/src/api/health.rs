@@ -15,6 +15,7 @@ pub struct HealthResponse {
     pub mcp: &'static str,
 }
 
+// @spec MCP-CFG-006
 pub async fn health_check(State(state): State<AppState>) -> Json<HealthResponse> {
     let db_ok = tokio::time::timeout(
         Duration::from_secs(2),

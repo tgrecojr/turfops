@@ -224,6 +224,7 @@ async fn main() -> anyhow::Result<()> {
         .with_state(state.clone());
 
     // MCP server for LLM clients: server-to-server, so merged after the CORS layer.
+    // @spec MCP-CFG-001, MCP-CFG-003, MCP-CFG-005
     let app = match mcp_token {
         Some(token) => {
             tracing::info!("MCP server mounted at /mcp (bearer token required)");

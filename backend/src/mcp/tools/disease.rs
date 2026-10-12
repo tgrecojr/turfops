@@ -19,6 +19,7 @@ pub struct DiseaseDetailParams {
 
 #[tool_router(router = disease_tools, vis = "pub(in crate::mcp)")]
 impl TurfOpsMcp {
+    // @spec MCP-TOOL-012
     #[tool(
         description = "Turf disease risk for brown patch, dollar spot, Pythium blight, gray \
                        leaf spot and red thread: each disease's tier (Low / Moderate / High \
@@ -39,6 +40,7 @@ impl TurfOpsMcp {
         }
     }
 
+    // @spec MCP-TOOL-013, MCP-TOOL-014
     #[tool(
         description = "One disease in full: the 11-day daily risk series (observed and \
                        forecast days flagged), factors, methodology, cultural practices, \
