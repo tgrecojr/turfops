@@ -4,7 +4,7 @@ Deployment, Configuration & Operations — leaf segment `DEPLOY` under the root 
 
 ## Status
 
-**OK** — audited 2026-10-12 (git SHA `0e3be7a`): every implemented spec was checked against the code while linking it. 67 of 69 implemented specs are linked to both code and a test.
+**OK** — audited 2026-10-12 (git SHA `2bf061e`): every implemented spec was checked against the code while linking it. 69 of 69 implemented specs are linked to both code and a test.
 
 ## References
 
@@ -75,6 +75,8 @@ Deployment, Configuration & Operations — leaf segment `DEPLOY` under the root 
 - [backend/src/mcp/resources.rs](../../backend/src/mcp/resources.rs)
 - [backend/src/web.rs](../../backend/src/web.rs)
 - [docker-compose.yml](../../docker-compose.yml)
+- [renovate.json5](../../renovate.json5)
+- [scripts/github-protection.sh](../../scripts/github-protection.sh)
 
 ## Architecture
 
@@ -105,15 +107,14 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | HTTP | DEPLOY-HTTP-001 – DEPLOY-HTTP-011 | 9 | 0 | 0 | 9 | 9 |
 | HEALTH | DEPLOY-HEALTH-001 – DEPLOY-HEALTH-003 | 3 | 0 | 0 | 3 | 3 |
 | LOG | DEPLOY-LOG-001 – DEPLOY-LOG-003 | 3 | 0 | 0 | 3 | 3 |
-| CI | DEPLOY-CI-001 – DEPLOY-CI-010 | 10 | 0 | 0 | 8 | 9 |
-| **Total** | | **69** | **0** | **0** | **67** | **68** |
+| CI | DEPLOY-CI-001 – DEPLOY-CI-010 | 10 | 0 | 0 | 10 | 10 |
+| **Total** | | **69** | **0** | **0** | **69** | **69** |
 
-**Summary:** 69 of 69 active specs implemented; 0 deferred; 68 implemented specs cited by a test, 1 cited nowhere.
+**Summary:** 69 of 69 active specs implemented; 0 deferred; 69 implemented specs cited by a test, 0 cited nowhere.
 
 ## Key Findings
 
-1. **No code anchor — DEPLOY-CI-007:** tested (`deployment_tests/ci.rs`); `renovate.json` cannot hold a comment.
-2. **No code anchor — DEPLOY-CI-008:** enforced by GitHub repository settings and process; nothing in the repo to annotate or test.
+1. No findings.
 
 ## Work Required
 
@@ -124,5 +125,4 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 - None.
 
 ### Nice to Have
-- DEPLOY-CI-007: tested (`deployment_tests/ci.rs`); `renovate.json` cannot hold a comment.
-- DEPLOY-CI-008: enforced by GitHub repository settings and process; nothing in the repo to annotate or test.
+- None.

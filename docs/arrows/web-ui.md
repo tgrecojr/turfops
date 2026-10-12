@@ -4,7 +4,7 @@ Web UI Shell & Conventions — leaf segment `UI` under the root HLD.
 
 ## Status
 
-**OK** — audited 2026-10-12 (git SHA `0e3be7a`): every implemented spec was checked against the code while linking it. 63 of 64 implemented specs are linked to both code and a test.
+**OK** — audited 2026-10-12 (git SHA `2bf061e`): every implemented spec was checked against the code while linking it. 64 of 64 implemented specs are linked to both code and a test.
 
 ## References
 
@@ -60,7 +60,7 @@ Web UI Shell & Conventions — leaf segment `UI` under the root HLD.
 - [backend/src/main.rs](../../backend/src/main.rs)
 - [backend/src/web.rs](../../backend/src/web.rs)
 - [frontend/README.md](../../frontend/README.md)
-- [frontend/biome.json](../../frontend/biome.json)
+- [frontend/biome.jsonc](../../frontend/biome.jsonc)
 - [frontend/index.html](../../frontend/index.html)
 - [frontend/package.json](../../frontend/package.json)
 - [frontend/src/App.tsx](../../frontend/src/App.tsx)
@@ -141,15 +141,15 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | TYPE | UI-TYPE-001 – UI-TYPE-004 | 4 | 0 | 0 | 4 | 4 |
 | UTIL | UI-UTIL-001 – UI-UTIL-006 | 6 | 0 | 0 | 6 | 6 |
 | CONV | UI-CONV-001 – UI-CONV-005 | 5 | 0 | 0 | 5 | 5 |
-| BUILD | UI-BUILD-001 – UI-BUILD-010 | 10 | 0 | 0 | 9 | 10 |
+| BUILD | UI-BUILD-001 – UI-BUILD-010 | 10 | 0 | 0 | 10 | 10 |
 | SRV | UI-SRV-001 – UI-SRV-010 | 9 | 0 | 0 | 9 | 9 |
-| **Total** | | **64** | **0** | **0** | **63** | **64** |
+| **Total** | | **64** | **0** | **0** | **64** | **64** |
 
 **Summary:** 64 of 64 active specs implemented; 0 deferred; 64 implemented specs cited by a test, 0 cited nowhere.
 
 ## Key Findings
 
-1. **No code anchor — UI-BUILD-003:** tested; `biome.json` / `package.json` cannot hold a comment.
+1. No findings.
 
 ## Work Required
 
@@ -160,4 +160,4 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 - None.
 
 ### Nice to Have
-- UI-BUILD-003: tested; `biome.json` / `package.json` cannot hold a comment.
+- None.

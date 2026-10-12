@@ -188,7 +188,7 @@ The duplicate-application text tells the owner how to fix the entry (edit the ex
 - The container must be able to read the lake as uid 65532.
 - No log line may contain a credential. The OpenWeatherMap key travels in the request URL's query string, so its client formats every reqwest error with `without_url()` (`request_error`, `backend/src/datasources/openweathermap.rs`).
 
-## CI, Release and Supply Chain (`.github/workflows/`, `renovate.json`)
+## CI, Release and Supply Chain (`.github/workflows/`, `renovate.json5`, `scripts/github-protection.sh`)
 
 | Workflow | Trigger | Gates / output |
 |---|---|---|
@@ -201,12 +201,13 @@ The duplicate-application text tells the owner how to fix the entry (edit the ex
 
 **Renovate.** Runs off-hours on weekdays and anytime on weekends (America/New_York), at most 3 open PRs, creating them immediately and rebasing when behind. Docker images are digest-pinned. Minor and patch updates are grouped, wait 3 days (1 day for common images such as `postgres`) and auto-merge; digest updates auto-merge at any time; majors are labeled `major-update` and wait for review. Weekly lock-file maintenance runs Monday before 4 am; vulnerability alerts are labeled `security`.
 
-**Branch policy.** All changes reach `main` through a PR; the owner merges.
+**Branch policy.** All changes reach `main` through a PR. The owner merges them, except the non-major dependency updates Renovate auto-merges once their checks pass. GitHub's protection on `main` requires a PR (no approvals, since the owner is the only reviewer), keeps the GitGuardian check required, forbids force-pushes and deleting `main`, and the repository deletes each head branch on merge. The settings live in `scripts/github-protection.sh`, which states them once and either checks them against the GitHub API (`check`, the default) or applies them (`apply`); it needs a `gh` login with admin rights on the repository, so it runs by hand rather than in CI. **Renovate's config** is `renovate.json5` (JSON5 allows the comments that carry its `@spec` annotation).
 
 ## Decisions & Alternatives
 
 | Decision | Chosen | Alternatives Considered | Rationale |
 |---|---|---|---|
+| Branch protection for the owner | The PR requirement does not bind admins (`enforce_admins` off); CI jobs are not required checks | Enforce for admins; require the Backend, Frontend and Supply-chain jobs | The owner keeps an emergency path to `main` and judges a red check case by case; policy (always use a PR) carries what enforcement does not. GitGuardian stays required because a leaked secret cannot be undone. |
 | Runtime base | Chainguard `glibc-dynamic` distroless | Debian slim; Alpine/musl; scratch | No shell or package manager, non-root by default, small CVE surface; glibc avoids musl build friction with bundled DuckDB. [inferred] |
 | C++ runtime for DuckDB | Static `-static-libstdc++ -static-libgcc` | Ship `libstdc++.so.6` in the image; a runtime base that has it | The distroless runtime lacks libstdc++; linking it statically keeps the runtime glibc-only without widening the image. |
 | Weather lake delivery | Read-only bind mount at `/data`, paths derived from `DATALAKE_ROOT` | Weather HTTP API; Postgres copy | Local parquet is fast and always current; read-only protects the pipeline's data. Overrides exist for a different layout. |
@@ -251,7 +252,7 @@ The duplicate-application text tells the owner how to fix the entry (edit the ex
 
 ## References
 
-- `Dockerfile`, `docker-compose.yml`, `.dockerignore`, `.gitignore`, `renovate.json`
+- `Dockerfile`, `docker-compose.yml`, `.dockerignore`, `.gitignore`, `renovate.json5`, `scripts/github-protection.sh`
 - `backend/src/main.rs`, `backend/src/config.rs`, `backend/src/error.rs`, `backend/src/api/json_errors.rs`, `backend/src/db/pool.rs`, `backend/src/db/migrations/`, `backend/src/api/health.rs`, `backend/src/mcp/config.rs`, `backend/src/mcp/resources.rs`
 - `backend/Cargo.toml`, `backend/.cargo/audit.toml`, `backend/osv-scanner.toml`, `backend/.env.example`
 - `.github/workflows/ci.yml`, `supply-chain.yml`, `docker-publish.yml`, `ghcr-retention.yml`
