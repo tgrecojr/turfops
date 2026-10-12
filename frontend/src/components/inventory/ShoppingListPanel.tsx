@@ -17,6 +17,7 @@ interface Props {
 
 const COMPACT_LIMIT = 4;
 
+// @spec INV-UI-012
 /**
  * Needs nothing on the shelf covers, and Low / Out products an active recommendation
  * calls for. Keyed by the page on the shelf version so it re-fetches after changes.

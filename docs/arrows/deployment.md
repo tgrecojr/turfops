@@ -4,7 +4,7 @@ Deployment, Configuration & Operations — leaf segment `DEPLOY` under the root 
 
 ## Status
 
-**MAPPED** — overlay bootstrapped 2026-10-11 from the existing LID docs; not yet audited (`audited_sha: null`). 67 specs `[x]`, 0 `[D]`, 0 `[ ]`; 23 of 67 implemented specs carry a `@spec` annotation.
+**PARTIAL** — audited 2026-10-11 (git SHA `65245e3`): every implemented spec was checked against the code while linking it. 65 of 68 implemented specs are linked to both code and a test; 1 disagree with the code (see Key Findings).
 
 ## References
 
@@ -15,7 +15,7 @@ Deployment, Configuration & Operations — leaf segment `DEPLOY` under the root 
 - [docs/intent/deployment/deployment-design.md](../../docs/intent/deployment/deployment-design.md)
 
 ### EARS
-- [docs/intent/deployment/deployment-specs.md](../../docs/intent/deployment/deployment-specs.md) (67 specs, prefix `DEPLOY`)
+- [docs/intent/deployment/deployment-specs.md](../../docs/intent/deployment/deployment-specs.md) (68 specs, prefix `DEPLOY`)
 
 ### Related docs
 - [docs/agronomy-methods.md](../../docs/agronomy-methods.md)
@@ -23,16 +23,33 @@ Deployment, Configuration & Operations — leaf segment `DEPLOY` under the root 
 - [docs/timing-windows.md](../../docs/timing-windows.md)
 
 ### Tests
+- [backend/src/api/health/probe_tests.rs](../../backend/src/api/health/probe_tests.rs)
+- [backend/src/config/defaults_tests.rs](../../backend/src/config/defaults_tests.rs)
 - [backend/src/config/load_tests.rs](../../backend/src/config/load_tests.rs)
 - [backend/src/db/pool/tests.rs](../../backend/src/db/pool/tests.rs)
 - [backend/src/deployment_tests.rs](../../backend/src/deployment_tests.rs)
+- [backend/src/deployment_tests/ci.rs](../../backend/src/deployment_tests/ci.rs)
+- [backend/src/deployment_tests/compose.rs](../../backend/src/deployment_tests/compose.rs)
+- [backend/src/deployment_tests/image.rs](../../backend/src/deployment_tests/image.rs)
+- [backend/src/deployment_tests/shutdown.rs](../../backend/src/deployment_tests/shutdown.rs)
+- [backend/src/deployment_tests/sources.rs](../../backend/src/deployment_tests/sources.rs)
+- [backend/src/deployment_tests/startup.rs](../../backend/src/deployment_tests/startup.rs)
+- [backend/src/deployment_tests/startup_db.rs](../../backend/src/deployment_tests/startup_db.rs)
+- [backend/src/error/contract_tests.rs](../../backend/src/error/contract_tests.rs)
 - [backend/src/health_probe/tests.rs](../../backend/src/health_probe/tests.rs)
+- [backend/src/web/tests.rs](../../backend/src/web/tests.rs)
 - [frontend/src/api/client.test.ts](../../frontend/src/api/client.test.ts)
 - Inline `#[cfg(test)]` modules citing this prefix: `backend/src/api/json_errors.rs`, `backend/src/api/today.rs`, `backend/src/clock.rs`, `backend/src/error.rs`, `backend/src/logging.rs`
 
 ### Code
 - [./frontend](../.././frontend)
+- [.dockerignore](../../.dockerignore)
 - [.github/workflows](../../.github/workflows)
+- [.github/workflows/ci.yml](../../.github/workflows/ci.yml)
+- [.github/workflows/docker-publish.yml](../../.github/workflows/docker-publish.yml)
+- [.github/workflows/ghcr-retention.yml](../../.github/workflows/ghcr-retention.yml)
+- [.github/workflows/supply-chain.yml](../../.github/workflows/supply-chain.yml)
+- [Dockerfile](../../Dockerfile)
 - [backend/.cargo/audit.toml](../../backend/.cargo/audit.toml)
 - [backend/.env.example](../../backend/.env.example)
 - [backend/Cargo.toml](../../backend/Cargo.toml)
@@ -45,6 +62,7 @@ Deployment, Configuration & Operations — leaf segment `DEPLOY` under the root 
 - [backend/src/config/load.rs](../../backend/src/config/load.rs)
 - [backend/src/datasources/openweathermap.rs](../../backend/src/datasources/openweathermap.rs)
 - [backend/src/db/migrations](../../backend/src/db/migrations)
+- [backend/src/db/mod.rs](../../backend/src/db/mod.rs)
 - [backend/src/db/pool.rs](../../backend/src/db/pool.rs)
 - [backend/src/error.rs](../../backend/src/error.rs)
 - [backend/src/health_probe.rs](../../backend/src/health_probe.rs)
@@ -53,6 +71,8 @@ Deployment, Configuration & Operations — leaf segment `DEPLOY` under the root 
 - [backend/src/main.rs](../../backend/src/main.rs)
 - [backend/src/mcp/config.rs](../../backend/src/mcp/config.rs)
 - [backend/src/mcp/resources.rs](../../backend/src/mcp/resources.rs)
+- [backend/src/web.rs](../../backend/src/web.rs)
+- [docker-compose.yml](../../docker-compose.yml)
 
 ## Architecture
 
@@ -75,32 +95,33 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 
 | Facet | Spec IDs | Implemented | Deferred | Gaps | `@spec` in code | `@spec` in tests |
 |---|---|---|---|---|---|---|
-| IMAGE | DEPLOY-IMAGE-001 – DEPLOY-IMAGE-010 | 10 | 0 | 0 | 1 | 3 |
-| COMPOSE | DEPLOY-COMPOSE-001 – DEPLOY-COMPOSE-010 | 9 | 0 | 0 | 0 | 3 |
-| CONFIG | DEPLOY-CONFIG-001 – DEPLOY-CONFIG-013 | 11 | 0 | 0 | 3 | 4 |
-| TZ | DEPLOY-TZ-001 – DEPLOY-TZ-006 | 6 | 0 | 0 | 4 | 4 |
-| START | DEPLOY-START-001 – DEPLOY-START-007 | 7 | 0 | 0 | 2 | 1 |
-| HTTP | DEPLOY-HTTP-001 – DEPLOY-HTTP-011 | 9 | 0 | 0 | 4 | 4 |
-| HEALTH | DEPLOY-HEALTH-001 – DEPLOY-HEALTH-003 | 3 | 0 | 0 | 0 | 0 |
-| LOG | DEPLOY-LOG-001 – DEPLOY-LOG-003 | 3 | 0 | 0 | 1 | 2 |
-| CI | DEPLOY-CI-001 – DEPLOY-CI-009 | 9 | 0 | 0 | 0 | 1 |
-| **Total** | | **67** | **0** | **0** | **15** | **22** |
+| IMAGE | DEPLOY-IMAGE-001 – DEPLOY-IMAGE-010 | 10 | 0 | 0 | 10 | 10 |
+| COMPOSE | DEPLOY-COMPOSE-001 – DEPLOY-COMPOSE-010 | 9 | 0 | 0 | 9 | 9 |
+| CONFIG | DEPLOY-CONFIG-001 – DEPLOY-CONFIG-013 | 11 | 0 | 0 | 11 | 11 |
+| TZ | DEPLOY-TZ-001 – DEPLOY-TZ-006 | 6 | 0 | 0 | 6 | 6 |
+| START | DEPLOY-START-001 – DEPLOY-START-007 | 7 | 0 | 0 | 7 | 7 |
+| HTTP | DEPLOY-HTTP-001 – DEPLOY-HTTP-011 | 9 | 0 | 0 | 8 | 8 |
+| HEALTH | DEPLOY-HEALTH-001 – DEPLOY-HEALTH-003 | 3 | 0 | 0 | 3 | 3 |
+| LOG | DEPLOY-LOG-001 – DEPLOY-LOG-003 | 3 | 0 | 0 | 3 | 3 |
+| CI | DEPLOY-CI-001 – DEPLOY-CI-010 | 10 | 0 | 0 | 8 | 9 |
+| **Total** | | **68** | **0** | **0** | **65** | **66** |
 
-**Summary:** 67 of 67 active specs implemented; 0 deferred; 22 implemented specs cited by a test, 44 cited nowhere.
+**Summary:** 68 of 68 active specs implemented; 0 deferred; 66 implemented specs cited by a test, 2 cited nowhere.
 
 ## Key Findings
 
-1. **44 implemented specs have no `@spec` annotation** — the specs were written to describe existing code and never linked back: DEPLOY-IMAGE-001/002/003/004/005/006/007; DEPLOY-COMPOSE-001/002/003/004/005/006; DEPLOY-CONFIG-001/003/004/007/008/009/011; DEPLOY-TZ-001/002; DEPLOY-START-001/002/003/004/005; DEPLOY-HTTP-001/004/005/006/007; DEPLOY-HEALTH-001/002/003; DEPLOY-LOG-002; DEPLOY-CI-001/002/003/004/005/006/007/008.
-2. **1 specs are annotated in code but cited by no test** — DEPLOY-START-006.
+1. **No code anchor — DEPLOY-CI-007:** tested (`deployment_tests/ci.rs`); `renovate.json` cannot hold a comment.
+2. **No code anchor — DEPLOY-CI-008:** enforced by GitHub repository settings and process; nothing in the repo to annotate or test.
+3. **Spec ≠ code — DEPLOY-HTTP-007:** spec + design error table: a DataLake error is logged at ERROR (as a 500); code logs it at WARN and answers 503 (`error.rs:258`, per WX-SRC-LAKE-014) — spec stale.
 
 ## Work Required
 
 ### Must Fix
-- None.
+- Decide DEPLOY-HTTP-007: fix the code or correct the spec, then link it.
 
 ### Should Fix
-1. Add `@spec` annotations (entry point + exercising test) for the 44 unlinked specs.
-2. Annotate a test for the 1 code-only specs.
+- None.
 
 ### Nice to Have
-- Audit each `[x]` against the code and move the segment to `AUDITED`.
+- DEPLOY-CI-007: tested (`deployment_tests/ci.rs`); `renovate.json` cannot hold a comment.
+- DEPLOY-CI-008: enforced by GitHub repository settings and process; nothing in the repo to annotate or test.

@@ -68,6 +68,7 @@ export function useProductActions(deps: Deps) {
 		}).then(replace);
 	};
 
+	// @spec INV-UI-008
 	const handleRefresh = (p: Product) =>
 		run(p.id ?? -1, "refresh", async () => {
 			if (p.id == null) return;
@@ -96,6 +97,7 @@ export function useProductActions(deps: Deps) {
 		});
 	};
 
+	// @spec INV-LOG-004
 	const handleLink = (p: Product) =>
 		run(p.id ?? -1, "link", async () => {
 			if (p.id == null) return;

@@ -93,7 +93,7 @@ struct OwmCoord {
     lon: f64,
 }
 
-// @spec WX-SRC-OWM-005
+// @spec WX-SRC-OWM-005, DEPLOY-LOG-003
 /// A failed request as a data-source error. The request URL carries the API key in its
 /// query string, and reqwest's error text includes the URL, so it is stripped here: no
 /// caller, log line or response can then leak the key.
@@ -118,12 +118,13 @@ impl OpenWeatherMapClient {
 
     /// A client aimed at another endpoint (tests).
     #[cfg(test)]
-    fn with_base_url(mut self, base_url: &str) -> Self {
+    pub(crate) fn with_base_url(mut self, base_url: &str) -> Self {
         self.base_url = base_url.to_string();
         self
     }
 
     /// Fetch 5-day/3-hour forecast from OpenWeatherMap
+    // @spec WX-SRC-OWM-001
     pub async fn fetch_forecast(&self) -> Result<WeatherForecast> {
         let url = format!(
             "{}/forecast?lat={}&lon={}&appid={}&units=imperial",
@@ -298,5 +299,7 @@ impl OpenWeatherMapClient {
     }
 }
 
+#[cfg(test)]
+mod fetch_tests;
 #[cfg(test)]
 mod tests;

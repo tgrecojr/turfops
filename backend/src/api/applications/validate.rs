@@ -14,7 +14,7 @@ pub(super) struct Validated {
 }
 
 /// Check a create or update request's type, dates and plant link.
-// @spec APP-API-009, APP-API-010, APP-LOG-012
+// @spec APP-API-004, APP-API-009, APP-API-010, APP-LOG-012
 pub(super) fn validate(
     req: &CreateApplicationRequest,
     existing: Option<&Application>,

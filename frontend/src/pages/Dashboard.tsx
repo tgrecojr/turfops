@@ -70,6 +70,7 @@ function Stale<T>({
 	);
 }
 
+// @spec FEED-UI-008, FEED-UI-009, FEED-UI-011, UI-DASH-001, UI-DASH-002
 export default function Dashboard() {
 	const [data, setData] = useState<DashboardResponse | null>(null);
 	const [widgets, setWidgets] = useState<Widgets<DashboardWidgets> | null>(
@@ -117,6 +118,7 @@ export default function Dashboard() {
 		}
 	}, []);
 
+	// @spec FEED-UI-010
 	useEffect(() => {
 		fetchData();
 
@@ -282,6 +284,7 @@ export default function Dashboard() {
 					<Stale widget={widgets.nBudget}>
 						{(d) => <NitrogenBudgetWidget data={d} />}
 					</Stale>
+					{/* @spec WX-OUTLOOK-UI-003: a failed outlook leaves no widget */}
 					<Stale widget={widgets.soilForecast}>
 						{(d) => (
 							<SoilTempForecastWidget

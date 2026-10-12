@@ -10,6 +10,7 @@ interface Props {
 	status: InventoryStatus;
 }
 
+// @spec INV-UI-009
 /** On hand / Low / Need to buy / Partly on hand — symbol + label, hover for the products. */
 export default function InventoryBadge({ status }: Props) {
 	const color = INVENTORY_STATE_COLORS[status.state];

@@ -189,6 +189,19 @@ impl SyncState {
         self.forecast_tried_at = Some(now);
     }
 
+    /// Move the sensor part's last refresh `by` into the past (tests).
+    #[cfg(test)]
+    pub(crate) fn age_sensors(&mut self, by: Duration) {
+        self.sensors_at = self.sensors_at.map(|t| t - by);
+    }
+
+    /// Move the forecast part's last fetch and attempt `by` into the past (tests).
+    #[cfg(test)]
+    pub(crate) fn age_forecast(&mut self, by: Duration) {
+        self.forecast_ok_at = self.forecast_ok_at.map(|t| t - by);
+        self.forecast_tried_at = self.forecast_tried_at.map(|t| t - by);
+    }
+
     /// The summary as of `now`: the stored sensor part plus the last good forecast while
     /// it is under `FORECAST_MAX_AGE` old.
     // @spec SYNC-FAIL-006, SYNC-FAIL-007

@@ -5,6 +5,7 @@ fn at(s: &str) -> DateTime<Utc> {
     s.parse().unwrap()
 }
 
+// @spec TIME-ENG-038
 #[test]
 fn a_record_is_fresh_for_an_hour() {
     let read = at("2026-10-11T12:00:00Z");

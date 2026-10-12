@@ -14,6 +14,7 @@ pub struct ListRecommendationsQuery {
     pub include_inactive: bool,
 }
 
+// @spec FEED-API-001, FEED-PIPE-017
 /// GET /api/v1/recommendations
 /// Evaluates all rules against current environmental data and application history.
 /// Returns active recommendations; `?include_inactive=true` adds the answered ones.
@@ -48,6 +49,7 @@ pub struct PatchRecommendationRequest {
     pub severity: Option<Severity>,
 }
 
+// @spec FEED-API-002, FEED-API-003, FEED-API-004, FEED-API-005
 /// PATCH /api/v1/recommendations/:id
 /// Mark a recommendation as dismissed or addressed, or clear both to restore it.
 pub async fn patch_recommendation(
@@ -78,3 +80,6 @@ pub async fn patch_recommendation(
         "addressed": addressed,
     })))
 }
+
+#[cfg(all(test, feature = "db-tests"))]
+mod db_tests;

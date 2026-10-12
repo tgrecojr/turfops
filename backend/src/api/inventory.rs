@@ -7,6 +7,7 @@ use crate::state::AppState;
 use axum::extract::State;
 use axum::Json;
 
+// @spec INV-SHOP-001
 pub async fn get_shopping_list(
     State(state): State<AppState>,
 ) -> Result<Json<ShoppingList>, TurfOpsError> {

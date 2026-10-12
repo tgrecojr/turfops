@@ -22,6 +22,7 @@ const SEVERE_PRESSURE_PENALTY_DAYS: i64 = 7;
 const LABEL_NOTE: &str = "Efficacy ratings summarize university extension guidance. Rates are \
      product-specific, so none are given — always read and follow the product label.";
 
+// @spec DIS-MGMT-ACT-002, DIS-MGMT-ACT-006
 pub(super) fn plan(
     disease: Disease,
     tier: RiskTier,
@@ -116,6 +117,7 @@ pub(super) fn plan(
     }
 }
 
+// @spec DIS-MGMT-ACT-001
 fn action_for(disease: Disease, tier: RiskTier, protected: bool) -> ManagementAction {
     match tier {
         RiskTier::Low => ManagementAction::NoAction,
@@ -153,6 +155,7 @@ fn last_used_class(
         .collect()
 }
 
+// @spec DIS-MGMT-PICK-001, DIS-MGMT-PICK-002
 /// Best unrestricted option that isn't the class used last. Among equals, one the user
 /// owns wins; then list order. The shelf is only ever a tiebreak — it never promotes a
 /// weaker class and never overrides rotation. With `curative_only`, the pick must itself
@@ -201,6 +204,7 @@ fn shelf_note(ctx: &DiseaseContext, pick: Option<FracClass>) -> String {
     }
 }
 
+// @spec DIS-MGMT-PICK-004
 fn options(
     spec: &ProgramSpec,
     last_used: &[FracClass],
@@ -235,6 +239,7 @@ fn options(
         .collect()
 }
 
+// @spec DIS-MGMT-PROT-002
 fn protection_days(class: FracClass, tier: RiskTier) -> i64 {
     let base = if class.is_multisite() || class == FracClass::FracP07 {
         CONTACT_PROTECTION_DAYS
@@ -248,6 +253,7 @@ fn protection_days(class: FracClass, tier: RiskTier) -> i64 {
     }
 }
 
+// @spec DIS-MGMT-PROT-001, DIS-MGMT-PROT-003, DIS-MGMT-PROT-004
 /// The most recent logged application that is at least Good on this disease and whose
 /// residual window still covers today. Some chemistry is good enough at High pressure
 /// but not trusted once pressure is Severe (`protects_at_severe`).

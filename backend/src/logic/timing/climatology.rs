@@ -21,6 +21,7 @@ fn is_freeze(day: &ClimateDay) -> bool {
     day.air_min_f.is_some_and(|min| min <= FREEZE_F)
 }
 
+// @spec TIME-ENG-016
 /// Last freeze of the first half of `year`, whatever that year's data coverage.
 pub fn last_spring_freeze(days: &[ClimateDay], year: i32) -> Option<NaiveDate> {
     year_days(days, year)
@@ -29,6 +30,7 @@ pub fn last_spring_freeze(days: &[ClimateDay], year: i32) -> Option<NaiveDate> {
         .last()
 }
 
+// @spec TIME-ENG-016
 /// First freeze on or after Aug 1 of `year`, whatever that year's data coverage.
 pub fn first_fall_freeze(days: &[ClimateDay], year: i32) -> Option<NaiveDate> {
     year_days(days, year)
@@ -63,6 +65,7 @@ fn spring_freeze_is_sound(days: &[ClimateDay], freeze: NaiveDate) -> bool {
         .is_some_and(|to| air_coverage(days, freeze, to) >= MIN_FREEZE_COVERAGE)
 }
 
+// @spec TIME-ENG-017
 pub fn spring_freeze_history(days: &[ClimateDay], years: &[i32]) -> Vec<(i32, NaiveDate)> {
     years
         .iter()
@@ -71,6 +74,7 @@ pub fn spring_freeze_history(days: &[ClimateDay], years: &[i32]) -> Vec<(i32, Na
         .collect()
 }
 
+// @spec TIME-ENG-017
 /// `(year, date)` of each historical first fall freeze with enough Oct–Dec data.
 pub fn fall_freeze_history(days: &[ClimateDay], years: &[i32]) -> Vec<(i32, NaiveDate)> {
     years
@@ -80,6 +84,7 @@ pub fn fall_freeze_history(days: &[ClimateDay], years: &[i32]) -> Vec<(i32, Naiv
         .collect()
 }
 
+// @spec TIME-ENG-018
 /// First day the year's running GDD (base 50 °F) total reaches `target`.
 pub fn gdd_reached(days: &[ClimateDay], year: i32, target: f64) -> Option<NaiveDate> {
     let mut total = 0.0;
@@ -96,6 +101,7 @@ pub fn gdd_reached(days: &[ClimateDay], year: i32, target: f64) -> Option<NaiveD
     None
 }
 
+// @spec TIME-ENG-015
 /// Complete calendar years before `current_year` with enough soil data, ascending.
 pub fn history_years(days: &[ClimateDay], current_year: i32) -> Vec<i32> {
     let Some(first) = days.first().map(|d| d.date.year()) else {
@@ -119,6 +125,7 @@ fn confidence(sample_count: usize) -> WindowConfidence {
     }
 }
 
+// @spec TIME-ENG-020
 /// Summarize one event across years. Each event is `(season_year, date)`; it is reduced
 /// to days since Jan 1 of its season year, so events that spill into the following
 /// calendar year (dormant seeding) keep their order. Results are dates in
@@ -192,6 +199,7 @@ mod tests {
         }
     }
 
+    // @spec TIME-ENG-016
     #[test]
     fn finds_last_spring_and_first_fall_freeze() {
         let days = year_of(2024, typical_min);
@@ -200,6 +208,7 @@ mod tests {
         assert_eq!(first_fall_freeze(&days, 2023), None);
     }
 
+    // @spec TIME-ENG-017
     #[test]
     fn freeze_history_skips_years_missing_the_season() {
         let mut days = year_of(2023, typical_min);
@@ -216,6 +225,7 @@ mod tests {
         );
     }
 
+    // @spec TIME-ENG-017
     #[test]
     fn an_outage_after_the_first_freeze_does_not_discard_it() {
         // The real station, 2018: first freeze Oct 22, then most of December missing.
@@ -236,6 +246,7 @@ mod tests {
         assert!(fall_freeze_history(&holed, &[2023]).is_empty());
     }
 
+    // @spec TIME-ENG-018
     #[test]
     fn gdd_target_date_requires_coverage() {
         let days = year_of(2024, typical_min);
@@ -246,6 +257,7 @@ mod tests {
         assert_eq!(gdd_reached(&sparse, 2024, 200.0), None);
     }
 
+    // @spec TIME-ENG-015
     #[test]
     fn history_excludes_current_and_sparse_years() {
         let mut days = year_of(2023, typical_min);
@@ -255,6 +267,7 @@ mod tests {
         assert_eq!(history_years(&days, 2026), vec![2023, 2025]);
     }
 
+    // @spec TIME-ENG-020
     #[test]
     fn date_stat_reports_median_and_spread_in_the_target_year() {
         let events = [
@@ -274,6 +287,7 @@ mod tests {
         assert_eq!(date_stat(&[], 2026), None);
     }
 
+    // @spec TIME-ENG-020
     #[test]
     fn date_stat_keeps_order_across_the_new_year() {
         // Dormant-seeding style events: two in December, one the following January.

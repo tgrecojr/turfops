@@ -88,7 +88,7 @@ Design: [deployment-design.md](deployment-design.md). Prefix `DEPLOY`. Facets: `
 
 ## CI, release and supply chain
 
-- [x] **DEPLOY-CI-001**: When code is pushed to `main` or a pull request targets `main`, CI shall run `cargo fmt --check`, `cargo clippy -- -D warnings` and `cargo test` on the backend, and `npm ci` and `npm run lint` on the frontend (Node 26).
+- [x] **DEPLOY-CI-001**: When code is pushed to `main` or a pull request targets `main`, CI shall run `cargo fmt --check`, `cargo clippy -- -D warnings` and `cargo test --features db-tests` (against a PostgreSQL 18 service) on the backend, and `npm ci` and `npm run lint` on the frontend (Node 26).
 - [x] **DEPLOY-CI-002**: When code is pushed to `main` or a pull request targets `main`, CI shall run the supply-chain scan: frontend install with `--ignore-scripts`, `npm audit signatures`, a Socket scan of `./frontend` with `--org grecolabs`, an OSV scan of every lockfile, and `cargo audit`.
 - [x] **DEPLOY-CI-003**: Where the `SOCKET_SECURITY_API_KEY` secret is absent (bot-authored pull requests), the supply-chain scan shall skip the Socket step and still run its other checks.
 - [x] **DEPLOY-CI-004**: When a pull request targets `main`, the image workflow shall build the Docker image (including the frontend production build) after the supply-chain scan passes, without pushing it.
@@ -97,3 +97,4 @@ Design: [deployment-design.md](deployment-design.md). Prefix `DEPLOY`. Facets: `
 - [x] **DEPLOY-CI-007**: Renovate shall pin Docker images by digest; group minor and patch updates and auto-merge them after a 3-day soak (1 day for common images such as `postgres`); auto-merge digest updates at any time; label major updates `major-update` and leave them for review; keep at most 3 open PRs; run lock-file maintenance Mondays before 4 am; and label vulnerability alerts `security`.
 - [x] **DEPLOY-CI-008**: Every change shall reach `main` through a pull request that the owner merges.
 - [x] **DEPLOY-CI-009**: The supply-chain scan's advisory ignore lists (`backend/.cargo/audit.toml` for `cargo audit`, `backend/osv-scanner.toml` for OSV) shall name an advisory only while its affected crate is in `backend/Cargo.lock`, each with a written justification.
+- [x] **DEPLOY-CI-010**: The backend's PostgreSQL-backed tests shall be compiled only with the `db-tests` Cargo feature, so `cargo test` without it needs no database; with it, each such test shall run against a fresh database with every migration applied, on the server `DATABASE_URL` names.

@@ -2,6 +2,7 @@ import { Component, lazy, type ReactNode, Suspense } from "react";
 import { BrowserRouter, Link, Route, Routes } from "react-router";
 import Layout from "./components/Layout";
 
+// @spec UI-SHELL-003
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const DiseaseRisk = lazy(() => import("./pages/DiseaseRisk"));
 const Applications = lazy(() => import("./pages/Applications"));
@@ -10,12 +11,13 @@ const Environmental = lazy(() => import("./pages/Environmental"));
 const Inventory = lazy(() => import("./pages/Inventory"));
 const Landscape = lazy(() => import("./pages/Landscape"));
 const Recommendations = lazy(() => import("./pages/Recommendations"));
+// @spec SOIL-UI-001
 const SoilTests = lazy(() => import("./pages/SoilTests"));
 const SeasonalPlan = lazy(() => import("./pages/SeasonalPlan"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Timing = lazy(() => import("./pages/Timing"));
 
-// @spec UI-ERR-011
+// @spec UI-ERR-011, UI-SHELL-004
 class ErrorBoundary extends Component<
 	{ children: ReactNode },
 	{ error: Error | null }
@@ -65,6 +67,7 @@ class ErrorBoundary extends Component<
 	}
 }
 
+// @spec UI-SHELL-002
 function NotFound() {
 	return (
 		<div style={{ padding: "2rem", textAlign: "center" }}>
@@ -83,6 +86,7 @@ const routeFallback = (
 	<div style={{ padding: "2rem", color: "#718096" }}>Loading...</div>
 );
 
+// @spec UI-SHELL-001, UI-SHELL-006
 export default function App() {
 	return (
 		<ErrorBoundary>
@@ -93,6 +97,7 @@ export default function App() {
 							<Route index element={<Dashboard />} />
 							<Route path="applications" element={<Applications />} />
 							<Route path="inventory" element={<Inventory />} />
+							{/* @spec PLANT-UI-001 */}
 							<Route path="landscape" element={<Landscape />} />
 							<Route path="calendar" element={<Calendar />} />
 							<Route path="environmental" element={<Environmental />} />

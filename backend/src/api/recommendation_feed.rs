@@ -39,6 +39,7 @@ pub async fn all(
     Ok(all_with_history(state, profile, summary).await?.0)
 }
 
+// @spec FEED-PIPE-001, FEED-PIPE-002, FEED-PIPE-003, FEED-PIPE-012, FEED-PIPE-014, FEED-PIPE-018
 /// Every current recommendation together with the application log it was judged on, for
 /// readers that must judge the same log (the seasonal plan's rule states).
 pub async fn all_with_history(
@@ -110,7 +111,7 @@ pub(crate) struct Stages<'a> {
 
 /// Everything after the sources, in order: the nitrogen guard over marked feedings, the
 /// shelf, the owner's answers that still hold, then one stable sort by severity.
-// @spec FEED-PIPE-004, FEED-PIPE-006, FEED-PIPE-007, FEED-PIPE-008, FEED-PIPE-009
+// @spec FEED-PIPE-004, FEED-PIPE-006, FEED-PIPE-007, FEED-PIPE-008, FEED-PIPE-009, FEED-PIPE-005, FEED-STATE-009
 pub(crate) fn assemble(
     mut recommendations: Vec<Recommendation>,
     stages: &Stages,
@@ -141,6 +142,15 @@ pub(crate) fn assemble(
     recommendations.sort_by_key(|r| std::cmp::Reverse(r.severity));
     recommendations
 }
+
+#[cfg(all(test, feature = "db-tests"))]
+mod feed_db_tests;
+#[cfg(test)]
+pub(crate) mod fixtures;
+#[cfg(test)]
+mod outage_tests;
+#[cfg(test)]
+mod stage_tests;
 
 #[cfg(test)]
 mod tests {

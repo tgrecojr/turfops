@@ -27,6 +27,8 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use tower_http::limit::RequestBodyLimitLayer;
 
+// @spec DEPLOY-START-001, DEPLOY-START-003, DEPLOY-START-004, DEPLOY-HTTP-001, DEPLOY-LOG-002
+// @spec DEPLOY-CONFIG-004, DEPLOY-CONFIG-011
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     #[cfg(feature = "dev-env")]
@@ -213,6 +215,7 @@ async fn main() -> anyhow::Result<()> {
             "/api/v1/soil-tests/{id}",
             put(api::soil_tests::update_soil_test).delete(api::soil_tests::delete_soil_test),
         )
+        // @spec UI-SRV-003
         .layer(RequestBodyLimitLayer::new(1024 * 1024)); // 1MB request body limit
                                                          // Every /api/v1 error is JSON with a plain message, including unknown paths and
                                                          // requests rejected before a handler runs.
@@ -224,6 +227,7 @@ async fn main() -> anyhow::Result<()> {
         .with_state(state.clone());
 
     // MCP server for LLM clients: server-to-server, so merged after the CORS layer.
+    // @spec MCP-CFG-001, MCP-CFG-003, MCP-CFG-005
     let app = match mcp_token {
         Some(token) => {
             tracing::info!("MCP server mounted at /mcp (bearer token required)");
@@ -284,6 +288,7 @@ async fn shutdown_signal() {
 }
 
 /// Create a default lawn profile from config if no profile exists in the DB.
+// @spec APP-PROF-005, DEPLOY-CONFIG-009
 async fn ensure_default_profile(pool: &sqlx::PgPool, config: &Config) -> anyhow::Result<()> {
     if queries::get_default_lawn_profile(pool).await?.is_some() {
         return Ok(());

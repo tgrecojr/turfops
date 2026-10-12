@@ -1,7 +1,7 @@
 //! Prompt and strict JSON schema for landscape-plant maintenance plans.
 use serde_json::json;
 
-// @spec PLANT-PROMPT-006, PLANT-PROMPT-007
+// @spec PLANT-PROMPT-002, PLANT-PROMPT-003, PLANT-PROMPT-004, PLANT-PROMPT-005, PLANT-PROMPT-006, PLANT-PROMPT-007
 pub(super) const SYSTEM_PROMPT: &str = "You are a landscape-maintenance assistant helping a HOMEOWNER \
 (not a professional arborist or horticulturist) care for the plants, shrubs, and bushes around \
 their lawn. The user will give you a common name OR a genus/species, their USDA hardiness zone, \
@@ -31,6 +31,7 @@ Output MUST conform to the provided JSON schema exactly. Do not include any pros
 JSON. If you cannot identify the plant at all, return a plan with identification_confidence \
 \"Low\", a summary explaining why, and an empty tasks array.";
 
+// @spec PLANT-PROMPT-008
 pub(super) fn plan_json_schema() -> serde_json::Value {
     json!({
         "type": "object",

@@ -174,6 +174,7 @@ fn threshold_crossing_rising() {
     assert!(crossings.iter().all(|c| c.threshold_temp_f != 55.0));
 }
 
+// @spec WX-OUTLOOK-CROSS-001, WX-OUTLOOK-CROSS-002
 #[test]
 fn thresholds_are_only_announced_in_their_direction() {
     let day = |d: u32, temp: f64| SoilTempPrediction {
@@ -248,6 +249,7 @@ fn no_crossings_when_stable() {
     assert!(exact_crossings.is_empty());
 }
 
+// @spec WX-OUTLOOK-MODEL-006
 #[test]
 fn confidence_levels() {
     assert_eq!(compute_confidence(0.9, 1), PredictionConfidence::High);

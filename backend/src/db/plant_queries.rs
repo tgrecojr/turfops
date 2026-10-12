@@ -49,6 +49,7 @@ pub async fn get_plant(pool: &PgPool, id: i64) -> Result<Option<Plant>> {
     row.map(PlantRow::into_plant).transpose()
 }
 
+// @spec PLANT-DATA-001
 pub async fn create_plant(pool: &PgPool, plant: &Plant) -> Result<i64> {
     let plan_json = serde_json::to_value(&plant.maintenance_plan)
         .map_err(|e| TurfOpsError::InvalidData(format!("Plan serialization: {}", e)))?;
@@ -159,7 +160,7 @@ pub async fn update_plant_plan(
 /// Delete a plant, first writing its name onto its applications so they stay landscape
 /// history (never lawn entries) once the link is gone. The rows then sit outside both
 /// application duplicate indexes, so the delete cannot collide with anything.
-// @spec APP-LOG-009, APP-LOG-011
+// @spec APP-LOG-009, APP-LOG-011, PLANT-API-011
 pub async fn delete_plant(pool: &PgPool, id: i64) -> Result<u64> {
     let mut tx = pool.begin().await?;
     sqlx::query(
@@ -196,6 +197,7 @@ struct PlantRow {
 }
 
 impl PlantRow {
+    // @spec PLANT-DATA-003
     fn into_plant(self) -> Result<Plant> {
         let plant_type = PlantType::from_str(&self.plant_type).unwrap_or_else(|_| {
             warn!(
@@ -230,6 +232,9 @@ impl PlantRow {
         })
     }
 }
+
+#[cfg(test)]
+mod row_tests;
 
 #[cfg(test)]
 mod tests {

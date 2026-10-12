@@ -90,6 +90,7 @@ fn forecast_alerts(forecast: &[DailyForecast]) -> Vec<String> {
     alerts
 }
 
+// @spec TIME-ENG-042
 pub fn build_context(
     days: &[ClimateDay],
     history_years: &[i32],
@@ -120,6 +121,7 @@ pub fn build_context(
     }
 }
 
+// @spec TIME-ENG-043
 /// The chart: every day of this calendar year with the smoothed soil temperature for
 /// this year (observed, then forecast), last year, and the mean of the history years.
 pub fn build_series(
@@ -171,6 +173,7 @@ mod tests {
             .collect()
     }
 
+    // @spec TIME-ENG-042
     #[test]
     fn anomaly_compares_to_the_same_dates_in_past_years() {
         let values = septembers(&[(2023, 64.0), (2024, 66.0), (2025, 65.0), (2026, 68.0)]);
@@ -178,6 +181,7 @@ mod tests {
         assert!((result - 3.0).abs() < 1e-9);
     }
 
+    // @spec TIME-ENG-042
     #[test]
     fn anomaly_needs_three_baseline_years_and_current_coverage() {
         let values = septembers(&[(2024, 66.0), (2025, 65.0), (2026, 68.0)]);
@@ -189,6 +193,7 @@ mod tests {
         );
     }
 
+    // @spec TIME-ENG-042
     #[test]
     fn summary_prefers_soil_and_names_the_direction() {
         let warm = describe(Some(-2.0), Some(2.4)).unwrap();
@@ -200,6 +205,7 @@ mod tests {
         assert_eq!(describe(None, None), None);
     }
 
+    // @spec TIME-ENG-043
     #[test]
     fn series_separates_observed_forecast_and_history() {
         let point = |d: NaiveDate, temp_f: f64, is_forecast: bool| SoilPoint {

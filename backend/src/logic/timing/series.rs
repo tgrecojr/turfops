@@ -111,6 +111,7 @@ pub fn smooth(daily: &[SoilPoint]) -> Vec<SoilPoint> {
     out
 }
 
+// @spec TIME-ENG-010, TIME-ENG-011, TIME-ENG-012, TIME-ENG-013, TIME-ENG-014
 /// First run in the scan range that either holds for `SUSTAIN_DAYS` observed days
 /// (confirmed) or is still holding at the end of the series (tentative or forecast).
 /// A data gap or a day back across the threshold resets the run.
@@ -184,6 +185,7 @@ mod tests {
         scan_to: SeasonDay::new(0, 12, 31),
     };
 
+    // @spec TIME-ENG-006
     #[test]
     fn smoothing_needs_four_of_five_days() {
         let mut daily = observed(date(9, 1), &[60.0, 62.0, 64.0, 66.0, 68.0]);
@@ -194,6 +196,7 @@ mod tests {
         assert!((smoothed[0].temp_f - 64.5).abs() < 1e-9);
     }
 
+    // @spec TIME-ENG-010, TIME-ENG-011
     #[test]
     fn cold_snap_shorter_than_sustain_is_ignored() {
         // Three cool days, a rebound, then the real transition.
@@ -208,6 +211,7 @@ mod tests {
         assert!(detected.confirmed());
     }
 
+    // @spec TIME-ENG-012
     #[test]
     fn run_in_progress_is_tentative_until_held() {
         let series = observed(date(9, 1), &[74.0, 73.0, 69.0, 68.0]);
@@ -217,12 +221,14 @@ mod tests {
         assert!(!detected.confirmed());
     }
 
+    // @spec TIME-ENG-010, TIME-ENG-012
     #[test]
     fn broken_run_is_not_reported() {
         let series = observed(date(9, 1), &[74.0, 69.0, 68.0, 72.0]);
         assert_eq!(detect(&series, 2026, &FALL_70), None);
     }
 
+    // @spec TIME-ENG-011
     #[test]
     fn forecast_days_do_not_confirm_a_crossing() {
         let mut series = observed(date(9, 1), &[74.0, 73.0, 69.0, 68.0, 67.0, 66.0, 65.0]);
@@ -239,12 +245,14 @@ mod tests {
         assert!(detect(&series, 2026, &FALL_70).unwrap().forecast_only());
     }
 
+    // @spec TIME-ENG-013
     #[test]
     fn season_already_past_threshold_opens_on_scan_start() {
         let series = observed(date(7, 28), &[68.0; 10]);
         assert_eq!(detect(&series, 2026, &FALL_70).unwrap().date, date(8, 1));
     }
 
+    // @spec TIME-ENG-010
     #[test]
     fn data_gap_resets_the_run() {
         let mut series = observed(date(9, 1), &[69.0; 9]);
@@ -252,6 +260,7 @@ mod tests {
         assert_eq!(detect(&series, 2026, &FALL_70).unwrap().date, date(9, 5));
     }
 
+    // @spec TIME-ENG-014
     #[test]
     fn run_starting_right_after_an_outage_is_flagged() {
         // Sensor down from Aug 20; back on Oct 16 with the soil long since below 70°F.
@@ -268,6 +277,7 @@ mod tests {
         assert!(!detect(&open_at_start, 2026, &FALL_70).unwrap().after_gap);
     }
 
+    // @spec TIME-ENG-010
     #[test]
     fn rising_crossing_scans_the_following_year_when_offset() {
         let closes = Crossing {

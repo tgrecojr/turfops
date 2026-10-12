@@ -46,6 +46,7 @@ pub enum WindowConfidence {
 }
 
 /// Activity status computed at response time from application history.
+// @spec PLAN-ACT-023
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum ActivityStatus {
     Upcoming,

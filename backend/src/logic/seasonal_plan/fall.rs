@@ -5,6 +5,7 @@ use crate::models::seasonal_plan::*;
 use crate::models::{Application, ApplicationType};
 use chrono::NaiveDate;
 
+// @spec PLAN-ACT-001, PLAN-ACT-012, PLAN-ACT-014, PLAN-ACT-015, PLAN-ACT-016
 pub(super) fn fall_activities(
     year: i32,
     crossings: &[ThresholdCrossing],
@@ -13,6 +14,7 @@ pub(super) fn fall_activities(
 ) -> Vec<PlannedActivity> {
     let mut activities = Vec::new();
 
+    // @spec PLAN-ACT-007
     // 5. Core Aeration (fall — soil falling through 65°F → 50°F)
     if let Some(start) = aggregate_crossings(crossings, "soil_65f_falling", year) {
         let end = aggregate_crossings(crossings, "soil_50f_falling", year);
@@ -42,6 +44,7 @@ pub(super) fn fall_activities(
         });
     }
 
+    // @spec PLAN-ACT-008
     // 6. Fall Overseeding (soil falling through 65°F → 50°F)
     if let Some(start) = aggregate_crossings(crossings, "soil_65f_falling", year) {
         let end = aggregate_crossings(crossings, "soil_50f_falling", year);
@@ -78,6 +81,7 @@ pub(super) fn fall_activities(
         });
     }
 
+    // @spec PLAN-ACT-009
     // 7. Early Fall Fertilization (soil falling through 65°F, Sept)
     if let Some(start) = aggregate_crossings(crossings, "soil_65f_falling", year) {
         let start_date = start.median;
@@ -113,6 +117,7 @@ pub(super) fn fall_activities(
         });
     }
 
+    // @spec PLAN-ACT-009
     // 8. Mid Fall Fertilization (21 days after early fall)
     if let Some(start) = aggregate_crossings(crossings, "soil_65f_falling", year) {
         let start_date = start.median + chrono::Duration::days(21);
@@ -148,6 +153,7 @@ pub(super) fn fall_activities(
         });
     }
 
+    // @spec PLAN-ACT-009
     // 9. Winterizer (soil falling through 45°F)
     if let Some(start) = aggregate_crossings(crossings, "soil_45f_falling", year) {
         let end_date = start.median + chrono::Duration::days(14);
@@ -182,6 +188,7 @@ pub(super) fn fall_activities(
         });
     }
 
+    // @spec PLAN-ACT-011
     // 10. Fall Broadleaf Herbicide (soil falling through 65°F → 55°F)
     if let Some(start) = aggregate_crossings(crossings, "soil_65f_falling", year) {
         let end = aggregate_crossings(crossings, "soil_55f_falling", year);

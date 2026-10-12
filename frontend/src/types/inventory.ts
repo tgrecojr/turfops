@@ -190,12 +190,14 @@ export const STOCK_STATUS_LABELS: Record<StockStatus, string> = {
 };
 
 // Status palette shared with timing / disease risk; never color alone.
+// @spec UI-CONV-002
 export const STOCK_STATUS_COLORS: Record<StockStatus, string> = {
 	InStock: "#0ca30c",
 	Low: "#fab219",
 	Out: "#d03b3b",
 };
 
+// @spec INV-UI-006
 /** In stock → Low → Out → In stock (the pill's click cycle). */
 export function nextStockStatus(status: StockStatus): StockStatus {
 	if (status === "InStock") return "Low";
@@ -308,6 +310,7 @@ export const INVENTORY_STATE_LABELS: Record<InventoryState, string> = {
 };
 
 // Status palette; never color alone — always symbol + label.
+// @spec UI-CONV-002
 export const INVENTORY_STATE_COLORS: Record<InventoryState, string> = {
 	OnHand: "#0ca30c",
 	Low: "#fab219",

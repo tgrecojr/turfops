@@ -53,6 +53,7 @@ const APP_TYPES: ApplicationType[] = [
 	"WinterProtection",
 ];
 
+// @spec APP-LIST-001
 export default function Applications() {
 	const [apps, setApps] = useState<Application[]>([]);
 	const [filter, setFilter] = useState("");
@@ -89,6 +90,7 @@ export default function Applications() {
 		fetchApps();
 	}, [fetchApps]);
 
+	// @spec APP-LIST-002
 	const loadMore = async () => {
 		setLoadingMore(true);
 		try {
@@ -124,6 +126,7 @@ export default function Applications() {
 	// @spec APP-LIST-003: the server filters by scope before paging.
 	const visibleApps = apps;
 
+	// @spec APP-LIST-004
 	const handleDelete = async (id: number) => {
 		if (!confirm("Delete this application?")) return;
 		setDeletingId(id);
@@ -332,6 +335,7 @@ export default function Applications() {
 	);
 }
 
+// @spec APP-FORM-001, APP-FORM-003, APP-FRAC-002
 function ApplicationForm({
 	initial,
 	plants,
@@ -405,6 +409,7 @@ function ApplicationForm({
 	};
 
 	/** Picking from the shelf fills the name, N-P-K, FRAC classes and label rate. */
+	// @spec APP-FORM-008
 	const handlePick = (p: Product | null) => {
 		setPicked(p);
 		setProductId(p?.id ?? null);
@@ -414,10 +419,12 @@ function ApplicationForm({
 		setPhosphorusPct(p.phosphorus_pct != null ? String(p.phosphorus_pct) : "");
 		setPotassiumPct(p.potassium_pct != null ? String(p.potassium_pct) : "");
 		setFracClasses(p.frac_classes);
+		// @spec INV-RATE-001
 		if (p.label_rate_per_1000sqft != null)
 			setRate(String(p.label_rate_per_1000sqft));
 	};
 
+	// @spec APP-FORM-005, APP-FORM-009
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		const problem = formProblem({

@@ -4,7 +4,7 @@ Soil Tests — leaf segment `SOIL` under the root HLD.
 
 ## Status
 
-**MAPPED** — overlay bootstrapped 2026-10-11 from the existing LID docs; not yet audited (`audited_sha: null`). 64 specs `[x]`, 8 `[D]`, 0 `[ ]`; 17 of 64 implemented specs carry a `@spec` annotation.
+**PARTIAL** — audited 2026-10-11 (git SHA `65245e3`): every implemented spec was checked against the code while linking it. 63 of 64 implemented specs are linked to both code and a test; 1 disagree with the code (see Key Findings).
 
 ## References
 
@@ -21,14 +21,21 @@ Soil Tests — leaf segment `SOIL` under the root HLD.
 - [docs/plans/product-inventory.md](../../docs/plans/product-inventory.md)
 
 ### Tests
-- [backend/src/api/soil_tests.rs](../../backend/src/api/soil_tests.rs)
+- [backend/src/api/soil_tests/db_data_tests.rs](../../backend/src/api/soil_tests/db_data_tests.rs)
+- [backend/src/api/soil_tests/db_tests.rs](../../backend/src/api/soil_tests/db_tests.rs)
 - [backend/src/api/soil_tests/tests.rs](../../backend/src/api/soil_tests/tests.rs)
+- [backend/src/logic/soil_test_recommendations/advice_tests.rs](../../backend/src/logic/soil_test_recommendations/advice_tests.rs)
 - [backend/src/logic/soil_test_recommendations/gap_tests.rs](../../backend/src/logic/soil_test_recommendations/gap_tests.rs)
+- [backend/src/logic/soil_test_recommendations/npk_tests.rs](../../backend/src/logic/soil_test_recommendations/npk_tests.rs)
+- [backend/src/logic/soil_test_recommendations/ph_tests.rs](../../backend/src/logic/soil_test_recommendations/ph_tests.rs)
 - [backend/src/logic/soil_test_recommendations/tests.rs](../../backend/src/logic/soil_test_recommendations/tests.rs)
-- [backend/src/models/soil_test.rs](../../backend/src/models/soil_test.rs)
+- [frontend/src/components/soilTests/AdvicePanel.test.tsx](../../frontend/src/components/soilTests/AdvicePanel.test.tsx)
 - [frontend/src/components/soilTests/display.test.ts](../../frontend/src/components/soilTests/display.test.ts)
+- [frontend/src/pages/SoilTests.route.test.tsx](../../frontend/src/pages/SoilTests.route.test.tsx)
+- [frontend/src/pages/SoilTests.test.tsx](../../frontend/src/pages/SoilTests.test.tsx)
 
 ### Code
+- [backend/src/api/soil_tests.rs](../../backend/src/api/soil_tests.rs)
 - [backend/src/db/migrations/20240101000007_soil_tests.sql](../../backend/src/db/migrations/20240101000007_soil_tests.sql)
 - [backend/src/db/soil_test_queries.rs](../../backend/src/db/soil_test_queries.rs)
 - [backend/src/logic/rules/nitrogen_guard.rs](../../backend/src/logic/rules/nitrogen_guard.rs)
@@ -42,6 +49,7 @@ Soil Tests — leaf segment `SOIL` under the root HLD.
 - [backend/src/models/nitrogen_budget.rs](../../backend/src/models/nitrogen_budget.rs)
 - [backend/src/models/product/profile.rs](../../backend/src/models/product/profile.rs)
 - [backend/src/models/recommendation_state.rs](../../backend/src/models/recommendation_state.rs)
+- [backend/src/models/soil_test.rs](../../backend/src/models/soil_test.rs)
 - [frontend/src/App.tsx](../../frontend/src/App.tsx)
 - [frontend/src/api/client.ts](../../frontend/src/api/client.ts)
 - [frontend/src/components/soilTests](../../frontend/src/components/soilTests)
@@ -71,32 +79,30 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 
 | Facet | Spec IDs | Implemented | Deferred | Gaps | `@spec` in code | `@spec` in tests |
 |---|---|---|---|---|---|---|
-| DATA | SOIL-DATA-001 – SOIL-DATA-005 | 5 | 0 | 0 | 1 | 1 |
-| API | SOIL-API-001 – SOIL-API-012 | 12 | 0 | 0 | 0 | 2 |
-| ADV | SOIL-ADV-001 – SOIL-ADV-005 | 5 | 0 | 0 | 0 | 0 |
-| PH | SOIL-PH-001 – SOIL-PH-007 | 6 | 1 | 0 | 0 | 0 |
-| NPK | SOIL-NPK-001 – SOIL-NPK-013 | 13 | 0 | 0 | 4 | 4 |
-| NUTR | SOIL-NUTR-001 – SOIL-NUTR-005 | 5 | 0 | 0 | 2 | 2 |
-| UI | SOIL-UI-001 – SOIL-UI-018 | 18 | 0 | 0 | 8 | 7 |
+| DATA | SOIL-DATA-001 – SOIL-DATA-005 | 5 | 0 | 0 | 5 | 5 |
+| API | SOIL-API-001 – SOIL-API-012 | 12 | 0 | 0 | 12 | 12 |
+| ADV | SOIL-ADV-001 – SOIL-ADV-005 | 5 | 0 | 0 | 5 | 5 |
+| PH | SOIL-PH-001 – SOIL-PH-007 | 6 | 1 | 0 | 5 | 5 |
+| NPK | SOIL-NPK-001 – SOIL-NPK-013 | 13 | 0 | 0 | 13 | 13 |
+| NUTR | SOIL-NUTR-001 – SOIL-NUTR-005 | 5 | 0 | 0 | 5 | 5 |
+| UI | SOIL-UI-001 – SOIL-UI-018 | 18 | 0 | 0 | 18 | 18 |
 | REJOIN | SOIL-REJOIN-001 – SOIL-REJOIN-007 | 0 | 7 | 0 | 0 | 0 |
-| **Total** | | **64** | **8** | **0** | **15** | **16** |
+| **Total** | | **64** | **8** | **0** | **63** | **63** |
 
-**Summary:** 64 of 64 active specs implemented; 8 deferred; 16 implemented specs cited by a test, 47 cited nowhere.
+**Summary:** 64 of 64 active specs implemented; 8 deferred; 63 implemented specs cited by a test, 1 cited nowhere.
 
 ## Key Findings
 
-1. **47 implemented specs have no `@spec` annotation** — the specs were written to describe existing code and never linked back: SOIL-DATA-001/002/003/004; SOIL-API-001/002/003/004/005/006/007/008/009/010; SOIL-ADV-001/002/003/004/005; SOIL-PH-001/002/003/004/005/006; SOIL-NPK-001/002/003/005/006/007/008/009/011; SOIL-NUTR-001/002/003; SOIL-UI-001/002/003/004/005/006/007/008/010/011.
-2. **1 specs are annotated in code but cited by no test** — SOIL-UI-013.
-3. **Deferred:** SOIL-PH-007, SOIL-REJOIN-001, SOIL-REJOIN-002, SOIL-REJOIN-003, SOIL-REJOIN-004, SOIL-REJOIN-005, SOIL-REJOIN-006, SOIL-REJOIN-007.
+1. **Spec ≠ code — SOIL-PH-006:** with no soil type only the advising N-P-K branch says "Soil type not set — using Loam defaults"; the nothing-to-apply branch never mentions it (`logic/soil_test_recommendations.rs:143-163`).
+2. **Deferred:** SOIL-PH-007, SOIL-REJOIN-001, SOIL-REJOIN-002, SOIL-REJOIN-003, SOIL-REJOIN-004, SOIL-REJOIN-005, SOIL-REJOIN-006, SOIL-REJOIN-007.
 
 ## Work Required
 
 ### Must Fix
-- None.
+- Decide SOIL-PH-006: fix the code or correct the spec, then link it.
 
 ### Should Fix
-1. Add `@spec` annotations (entry point + exercising test) for the 47 unlinked specs.
-2. Annotate a test for the 1 code-only specs.
+- None.
 
 ### Nice to Have
-- Audit each `[x]` against the code and move the segment to `AUDITED`.
+- None.

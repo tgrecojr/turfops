@@ -1,3 +1,4 @@
+# @spec DEPLOY-CI-002
 name: Supply chain scan
 
 on:
@@ -39,6 +40,7 @@ jobs:
         working-directory: frontend
         run: npm audit signatures
 
+      # @spec DEPLOY-CI-003
       - name: Socket Security scan (frontend)
         if: ${{ env.SOCKET_SECURITY_API_KEY != '' }}
         run: |

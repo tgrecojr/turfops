@@ -4,7 +4,7 @@ Environmental Views — leaf segment `WX-VIEW` under the `weather-data` sub-HLD.
 
 ## Status
 
-**MAPPED** — overlay bootstrapped 2026-10-11 from the existing LID docs; not yet audited (`audited_sha: null`). 18 specs `[x]`, 0 `[D]`, 0 `[ ]`; 9 of 18 implemented specs carry a `@spec` annotation.
+**OK** — audited 2026-10-11 (git SHA `65245e3`): every implemented spec was checked against the code while linking it. 18 of 18 implemented specs are linked to both code and a test.
 
 ## References
 
@@ -19,8 +19,12 @@ Environmental Views — leaf segment `WX-VIEW` under the `weather-data` sub-HLD.
 - [docs/intent/weather-data/environmental-views/environmental-views-specs.md](../../../docs/intent/weather-data/environmental-views/environmental-views-specs.md) (18 specs, prefix `WX-VIEW`)
 
 ### Tests
+- [backend/src/api/environmental/tests.rs](../../../backend/src/api/environmental/tests.rs)
+- [backend/src/api/historical/handler_tests.rs](../../../backend/src/api/historical/handler_tests.rs)
 - [backend/src/datasources/weather/tests.rs](../../../backend/src/datasources/weather/tests.rs)
 - [frontend/src/components/environmental/display.test.ts](../../../frontend/src/components/environmental/display.test.ts)
+- [frontend/src/pages/Environmental.test.tsx](../../../frontend/src/pages/Environmental.test.tsx)
+- [frontend/src/pages/Environmental.trends.test.tsx](../../../frontend/src/pages/Environmental.trends.test.tsx)
 - Inline `#[cfg(test)]` modules citing this prefix: `backend/src/api/historical.rs`
 
 ### Code
@@ -50,17 +54,16 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 
 | Facet | Spec IDs | Implemented | Deferred | Gaps | `@spec` in code | `@spec` in tests |
 |---|---|---|---|---|---|---|
-| API | WX-VIEW-API-001 – WX-VIEW-API-006 | 6 | 0 | 0 | 2 | 2 |
+| API | WX-VIEW-API-001 – WX-VIEW-API-006 | 6 | 0 | 0 | 6 | 6 |
 | PROBE | WX-VIEW-PROBE-001 | 1 | 0 | 0 | 1 | 1 |
-| PAGE | WX-VIEW-PAGE-001 – WX-VIEW-PAGE-011 | 11 | 0 | 0 | 6 | 5 |
-| **Total** | | **18** | **0** | **0** | **9** | **8** |
+| PAGE | WX-VIEW-PAGE-001 – WX-VIEW-PAGE-011 | 11 | 0 | 0 | 11 | 11 |
+| **Total** | | **18** | **0** | **0** | **18** | **18** |
 
-**Summary:** 18 of 18 active specs implemented; 0 deferred; 8 implemented specs cited by a test, 9 cited nowhere.
+**Summary:** 18 of 18 active specs implemented; 0 deferred; 18 implemented specs cited by a test, 0 cited nowhere.
 
 ## Key Findings
 
-1. **9 implemented specs have no `@spec` annotation** — the specs were written to describe existing code and never linked back: WX-VIEW-API-001/002/004/006; WX-VIEW-PAGE-001/002/003/004/005.
-2. **1 specs are annotated in code but cited by no test** — WX-VIEW-PAGE-006.
+1. No findings.
 
 ## Work Required
 
@@ -68,8 +71,7 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 - None.
 
 ### Should Fix
-1. Add `@spec` annotations (entry point + exercising test) for the 9 unlinked specs.
-2. Annotate a test for the 1 code-only specs.
+- None.
 
 ### Nice to Have
-- Audit each `[x]` against the code and move the segment to `AUDITED`.
+- None.

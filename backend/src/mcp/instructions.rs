@@ -1,7 +1,7 @@
 //! The server instructions returned at `initialize`: how a model should use TurfOps.
 //! The lawn itself (grass, size, soil, irrigation) comes from the `lawn_profile` tool.
 
-// @spec MCP-DOC-004, MCP-DOC-005, MCP-DOC-011
+// @spec MCP-DOC-001, MCP-DOC-002, MCP-DOC-003, MCP-DOC-004, MCP-DOC-005, MCP-DOC-006, MCP-DOC-007, MCP-DOC-008, MCP-DOC-009, MCP-DOC-010, MCP-DOC-011
 pub const INSTRUCTIONS: &str = "\
 TurfOps is the source of truth for one home lawn: its weather and soil readings, \
 agronomic recommendations, seeding / pre-emergent timing windows, disease risk, \

@@ -11,6 +11,15 @@ use axum::Json;
 use chrono::{Datelike, NaiveDate, TimeZone, Utc};
 use serde::Deserialize;
 
+#[cfg(all(test, feature = "db-tests"))]
+mod cache_db_tests;
+#[cfg(all(test, feature = "db-tests"))]
+pub(crate) mod db_support;
+#[cfg(all(test, feature = "db-tests"))]
+mod fill_db_tests;
+#[cfg(all(test, feature = "db-tests"))]
+mod merge_db_tests;
+
 #[derive(Debug, Deserialize)]
 pub struct SeasonalPlanQuery {
     pub year: Option<i32>,
@@ -21,6 +30,7 @@ pub struct SeasonalPlanQuery {
 /// Returns a seasonal plan for the requested year based on historical
 /// soil temperature threshold crossings from NOAA data.
 /// Lazily fills the threshold crossing cache from the weather data lake on first call.
+// @spec PLAN-MERGE-001, PLAN-MERGE-002, PLAN-MERGE-003, PLAN-MERGE-004, PLAN-MERGE-005, PLAN-MERGE-007, PLAN-MERGE-008
 pub async fn get_seasonal_plan(
     State(state): State<AppState>,
     Query(params): Query<SeasonalPlanQuery>,

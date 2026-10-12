@@ -14,6 +14,7 @@ function freezeText(stat: DateStat | null, early: "p10" | "p90"): string {
 	return `${edge} ${formatMonthDay(stat[early])} · ${stat.sample_count} yr`;
 }
 
+// @spec TIME-UI-001, TIME-UI-008
 export default function Timing() {
 	const [data, setData] = useState<TimingResponse | null>(null);
 	const [error, setError] = useState<string | null>(null);

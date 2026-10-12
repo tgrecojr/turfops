@@ -21,6 +21,7 @@ use crate::models::{
 };
 use chrono::{Duration, NaiveDate};
 
+// @spec DIS-MODEL-DAY-008
 /// Observed days shown before today.
 pub const HISTORY_DAYS: i64 = 6;
 /// Observed days fetched, so trailing windows are full on the first displayed day.
@@ -30,6 +31,7 @@ pub const FORECAST_DAYS: i64 = 4;
 /// A day needs this many hours of data to drive a headline or a trailing window.
 pub const MIN_USABLE_HOURS: f64 = 12.0;
 
+// @spec DIS-MODEL-SCORE-006, DIS-MODEL-SCORE-007, DIS-MODEL-HEAD-003
 /// Run every disease model. `series` must be ascending by date; diseases with no
 /// usable data in the window are omitted.
 pub fn assess_all(
@@ -56,6 +58,7 @@ pub(crate) fn is_usable(day: &DailyWeather) -> bool {
     day.hours_covered >= MIN_USABLE_HOURS && day.covers_dawn && day.covers_afternoon
 }
 
+// @spec DIS-MODEL-DAY-009
 /// Mean of `field` over the usable days in the `window`-day span ending at `idx`
 /// (the day at `idx` always counts). `None` with fewer than `min_days` contributing.
 fn trailing_mean(
@@ -86,6 +89,7 @@ struct ScoredWindow {
     headline_value: f64,
 }
 
+// @spec DIS-MODEL-HEAD-001, DIS-MODEL-HEAD-002
 /// Score each day in `[today - HISTORY_DAYS, today + FORECAST_DAYS]` with `value_at`.
 /// The headline is the latest usable day up to today: today itself once enough of it
 /// is covered, otherwise the most recent complete day.
@@ -125,6 +129,7 @@ fn score_window(
     })
 }
 
+// @spec DIS-MODEL-AMP-004
 /// Raise every tier at or above Moderate by one step (history-driven amplifiers never
 /// manufacture risk when the weather says Low).
 fn amplify(tier: RiskTier) -> RiskTier {
@@ -210,6 +215,13 @@ pub(crate) mod test_support {
 }
 
 #[cfg(test)]
+mod amplifier_tests;
+#[cfg(test)]
+mod score_tests;
+#[cfg(test)]
+mod window_tests;
+
+#[cfg(test)]
 mod tests {
     use super::test_support::*;
     use super::*;
@@ -223,6 +235,7 @@ mod tests {
         assert_eq!(trapezoid(40.0, 18.0, 25.0, 30.0, 35.0), 0.0);
     }
 
+    // @spec DIS-MODEL-DAY-009
     #[test]
     fn trailing_mean_skips_partial_days_but_keeps_current() {
         let mut series = run_of(date(9, 20), 5, |d| day(d, 20.0, 15.0, 25.0, 80.0));
@@ -234,6 +247,7 @@ mod tests {
         assert!((mean - 22.5).abs() < 1e-9);
     }
 
+    // @spec DIS-MODEL-HEAD-002
     #[test]
     fn headline_falls_back_to_last_complete_day() {
         let today = date(9, 20);

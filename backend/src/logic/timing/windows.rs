@@ -76,6 +76,7 @@ pub struct WindowSpec {
     pub closes: Boundary,
 }
 
+// @spec TIME-ENG-002
 fn rising(threshold_f: f64) -> Boundary {
     // Feb 1 keeps a January thaw from opening a spring window.
     Boundary::Soil(Crossing {
@@ -86,6 +87,7 @@ fn rising(threshold_f: f64) -> Boundary {
     })
 }
 
+// @spec TIME-ENG-002
 fn falling(threshold_f: f64, scan_from: SeasonDay) -> Boundary {
     Boundary::Soil(Crossing {
         threshold_f,
@@ -100,6 +102,7 @@ const AUG_1: SeasonDay = SeasonDay::new(0, 8, 1);
 /// even in a cool spell.
 const AUG_15: SeasonDay = SeasonDay::new(0, 8, 15);
 
+// @spec TIME-ENG-003
 /// Days a new stand needs before the first freeze: `(comfortable, minimum)`. Kentucky
 /// bluegrass is slow to germinate (2–4 weeks); perennial ryegrass is up in under one.
 pub fn establishment_days(grass: GrassType) -> (i64, i64) {
@@ -182,6 +185,7 @@ fn seeding_specs(grass: GrassType) -> Vec<WindowSpec> {
     ]
 }
 
+// @spec TIME-ENG-001
 /// Pre-emergent windows apply to any turf; the seeding windows are cool-season only.
 pub fn specs_for(grass: GrassType) -> Vec<WindowSpec> {
     let mut specs = pre_emergent_specs();
@@ -191,6 +195,7 @@ pub fn specs_for(grass: GrassType) -> Vec<WindowSpec> {
     specs
 }
 
+// @spec TIME-ENG-005
 /// Calendar year a window opens in, for the season `today` belongs to. Spring windows
 /// roll to next year once summer ends; dormant seeding opened last year until July.
 pub fn season_year(id: WindowId, today: NaiveDate) -> i32 {
@@ -220,6 +225,7 @@ mod tests {
         assert_eq!(specs_for(GrassType::TallFescue).len(), 5);
     }
 
+    // @spec TIME-ENG-003
     #[test]
     fn bluegrass_needs_a_longer_runway_than_ryegrass() {
         let specs = specs_for(GrassType::KentuckyBluegrass);
@@ -231,6 +237,7 @@ mod tests {
         assert!(establishment_days(GrassType::PerennialRyegrass).1 < 30);
     }
 
+    // @spec TIME-ENG-005
     #[test]
     fn season_year_rolls_by_window() {
         assert_eq!(season_year(WindowId::SpringPreEmergent, date(4, 1)), 2026);

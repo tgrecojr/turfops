@@ -8,6 +8,7 @@ interface RiskMeterProps {
 	compact?: boolean;
 }
 
+// @spec DIS-UI-CHART-001, DIS-UI-CHART-002
 /**
  * Four tier bands laid out on the model's native scale with a marker at the score and
  * the tier thresholds ticked beneath. The active band is drawn at full strength.

@@ -52,6 +52,7 @@ impl std::fmt::Display for RecommendationCategory {
     }
 }
 
+// @spec FEED-REC-002
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Severity {
     Info,
@@ -108,6 +109,7 @@ impl DataPoint {
     }
 }
 
+// @spec FEED-REC-001, FEED-REC-003
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Recommendation {
     pub id: String,
@@ -205,3 +207,6 @@ impl Recommendation {
         !self.dismissed && !self.addressed
     }
 }
+
+#[cfg(test)]
+mod contract_tests;

@@ -17,6 +17,7 @@ pub struct HistoricalQuery {
 /// Returns time-series environmental data for the requested range, read directly from
 /// the data lake (silver hourly observations + gold daily GDD).
 /// Supported ranges: 7d, 30d, 90d
+// @spec WX-VIEW-API-002, WX-VIEW-API-004, WX-VIEW-API-006
 pub async fn get_historical(
     State(state): State<AppState>,
     Query(params): Query<HistoricalQuery>,
@@ -166,6 +167,9 @@ fn gdd_window(
     let accum_start = NaiveDate::from_ymd_opt(start_date.year(), 1, 1).unwrap_or(start_date);
     (accum_start, start_date, clock.local_date(now))
 }
+
+#[cfg(test)]
+mod handler_tests;
 
 #[cfg(test)]
 mod tests {

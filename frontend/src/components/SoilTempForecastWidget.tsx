@@ -34,6 +34,7 @@ function describeCrossing(c: ThresholdPrediction): string {
 		: `until soil drops below ${c.threshold_temp_f}°F`;
 }
 
+// @spec WX-OUTLOOK-UI-002
 export default function SoilTempForecastWidget({
 	crossings,
 	predictions,

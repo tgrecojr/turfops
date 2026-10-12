@@ -34,6 +34,7 @@ import { factsOf } from "../types/inventory";
 import type { TimingResponse } from "../types/timing";
 import { ApiError, sentenceForStatus } from "./errors";
 
+// @spec UI-API-001
 const BASE = "/api/v1";
 const DEFAULT_TIMEOUT_MS = 15_000;
 
@@ -56,6 +57,7 @@ function errorMessage(body: string, status: number): string {
 	return sentenceForStatus(status);
 }
 
+// @spec UI-API-002
 export async function fetchJson<T>(
 	url: string,
 	init?: RequestInit,
@@ -209,6 +211,7 @@ export const refreshEnvironmental = () =>
 		method: "POST",
 	});
 
+// @spec UI-API-004
 export const getFracClasses = (product?: string) =>
 	fetchJson<FracClassLookup>(
 		`${BASE}/frac-classes${product ? `?product=${encodeURIComponent(product)}` : ""}`,
@@ -225,6 +228,7 @@ export const getRecommendations = (includeInactive = false) =>
  * `severity` is what the recommendation showed when the user clicked, so an escalation
  * past it brings the alert back. Clearing both flags restores the recommendation.
  */
+// @spec UI-API-004
 export const patchRecommendation = (
 	id: string,
 	data: { dismissed?: boolean; addressed?: boolean; severity?: Severity },
@@ -328,6 +332,7 @@ type CreatePlantBody = {
 	notes?: string;
 };
 
+// @spec PLANT-UI-004
 export const createPlant = (data: CreatePlantBody) =>
 	// LLM round-trip can take a while — extend the client-side timeout.
 	fetchJson<Plant>(
@@ -357,6 +362,7 @@ export const updatePlant = (id: number, data: UpdatePlantBody) =>
 export const deletePlant = (id: number) =>
 	fetchJson<void>(`${BASE}/plants/${id}`, { method: "DELETE" });
 
+// @spec PLANT-UI-004
 export const refreshPlantPlan = (id: number) =>
 	fetchJson<Plant>(
 		`${BASE}/plants/${id}/refresh-plan`,
@@ -386,6 +392,7 @@ export type CreateProductBody = {
 	assist?: boolean;
 };
 
+// @spec INV-UI-003
 export const createProduct = (data: CreateProductBody) =>
 	// The assistant round-trip can take a while — extend the client-side timeout.
 	fetchJson<ProductCreated>(
@@ -411,6 +418,7 @@ export const updateProduct = (id: number, data: UpdateProductBody) =>
 export const deleteProduct = (id: number) =>
 	fetchJson<void>(`${BASE}/products/${id}`, { method: "DELETE" });
 
+// @spec INV-UI-003
 export const refreshProductProfile = (id: number) =>
 	fetchJson<ProductRefreshed>(
 		`${BASE}/products/${id}/refresh-profile`,

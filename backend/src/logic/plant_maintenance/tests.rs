@@ -70,6 +70,7 @@ pub(super) fn pruning_app(plant_id: i64, date: NaiveDate) -> Application {
     }
 }
 
+// @spec PLANT-WIN-001
 #[test]
 fn parse_month_day_clamps_invalid_day() {
     assert_eq!(
@@ -78,6 +79,7 @@ fn parse_month_day_clamps_invalid_day() {
     );
 }
 
+// @spec PLANT-WIN-003
 #[test]
 fn resolve_window_handles_wrap() {
     let task = make_task(TaskType::WinterProtection, "11-15", "02-15", Severity::Info);
@@ -102,6 +104,7 @@ fn recommendation_emitted_in_window() {
     assert!(recs[0].title.contains("Test Hydrangea"));
 }
 
+// @spec PLANT-REC-001
 #[test]
 fn recommendation_suppressed_when_completed() {
     let task = make_task(TaskType::Pruning, "03-01", "03-31", Severity::Advisory);
@@ -173,6 +176,7 @@ fn build_plant_activities_status_completed_with_app() {
     assert!(matches!(acts[0].status, ActivityStatus::Completed));
 }
 
+// @spec PLANT-PLAN-002
 #[test]
 fn build_plant_activities_status_missed() {
     let task = make_task(TaskType::Pruning, "03-01", "03-31", Severity::Advisory);
@@ -182,6 +186,7 @@ fn build_plant_activities_status_missed() {
     assert!(matches!(acts[0].status, ActivityStatus::Missed));
 }
 
+// @spec PLANT-WIN-004
 #[test]
 fn a_window_that_wraps_the_new_year_stays_open_in_january() {
     let task = make_task(TaskType::Pruning, "12-01", "02-28", Severity::Advisory);
@@ -219,6 +224,7 @@ fn a_window_that_wraps_the_new_year_stays_open_in_january() {
     .is_empty());
 }
 
+// @spec PLANT-WIN-005
 #[test]
 fn completion_belongs_to_one_window() {
     // Two pruning windows a year: the spring job must not complete the fall one.
@@ -244,6 +250,7 @@ fn completion_belongs_to_one_window() {
     assert!(matches!(acts[1].status, ActivityStatus::Active));
 }
 
+// @spec PLANT-WATER-002
 #[test]
 fn watering_waits_out_the_rain_but_other_tasks_do_not() {
     let plant = make_plant(

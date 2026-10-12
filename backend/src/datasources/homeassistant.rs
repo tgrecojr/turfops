@@ -30,6 +30,7 @@ impl HomeAssistantClient {
         Self { client, config }
     }
 
+    // @spec WX-SRC-HA-001, WX-SRC-HA-002
     pub async fn fetch_current(&self) -> Result<EnvironmentalReading> {
         let mut reading = EnvironmentalReading::new(DataSource::HomeAssistant);
 
@@ -129,3 +130,6 @@ impl HomeAssistantClient {
         Ok(response.status().is_success())
     }
 }
+
+#[cfg(test)]
+mod tests;

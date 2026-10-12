@@ -53,6 +53,7 @@ pub struct WeatherHistory {
 
 #[tool_router(router = weather_tools, vis = "pub(in crate::mcp)")]
 impl TurfOpsMcp {
+    // @spec MCP-HIST-001
     #[tool(
         description = "Daily station weather for the last N days (default 30, max 120): air \
                        mean / min / max °F, mean humidity, rain (inches), 5 cm soil mean °F, \
@@ -74,6 +75,7 @@ impl TurfOpsMcp {
 }
 
 impl TurfOpsMcp {
+    // @spec MCP-HIST-003
     async fn history(&self, days: i64) -> Result<WeatherHistory, TurfOpsError> {
         let client = self
             .state
@@ -100,6 +102,7 @@ fn history_start(today: NaiveDate, days: i64) -> NaiveDate {
 
 /// Merge the silver daily aggregates with the climate record, one row per date from
 /// `start`, ascending.
+// @spec MCP-HIST-003, MCP-HIST-004, MCP-HIST-005, MCP-HIST-006
 fn join_days(
     observed: &[DailyWeather],
     climate: &[ClimateDay],
@@ -192,6 +195,7 @@ mod tests {
         }
     }
 
+    // @spec MCP-HIST-004, MCP-HIST-006
     #[test]
     fn joins_by_date_converts_units_and_totals() {
         let history = join_days(
@@ -219,6 +223,7 @@ mod tests {
         assert_eq!(history.gdd50_total, 22.5);
     }
 
+    // @spec MCP-HIST-003, MCP-HIST-005
     #[test]
     fn days_before_start_are_dropped_and_gold_fills_missing_air() {
         let history = join_days(

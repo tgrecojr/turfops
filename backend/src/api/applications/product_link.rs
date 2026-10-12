@@ -8,6 +8,7 @@ use crate::state::AppState;
 /// The product must exist, belong to this lawn and accept the application type. Returns
 /// the product's name to use when the request did not carry one, so the copy on the
 /// application row survives a later rename or delete of the product.
+// @spec APP-LINK-003
 pub async fn resolve(
     state: &AppState,
     lawn_profile_id: i64,
@@ -30,7 +31,7 @@ pub async fn resolve(
 const NOT_ON_SHELF: &str = "That product is no longer on your shelf";
 
 /// The linked product, if it is this lawn's and accepts the application type.
-// @spec APP-LINK-001
+// @spec APP-LINK-001, APP-LINK-002
 pub(super) fn check_link(
     product: Option<Product>,
     lawn_profile_id: i64,
@@ -94,5 +95,25 @@ mod tests {
         ));
         assert_eq!(foreign, "That product is no longer on your shelf");
         assert!(check_link(Some(fertilizer(1)), 1, 5, ApplicationType::Fertilizer).is_ok());
+    }
+
+    // @spec APP-LINK-002
+    #[test]
+    fn a_product_whose_category_cannot_be_logged_as_the_type_is_named() {
+        let msg = shelf_message(check_link(
+            Some(fertilizer(1)),
+            1,
+            5,
+            ApplicationType::Fungicide,
+        ));
+        assert_eq!(
+            msg,
+            "Milorganite is a Fertilizer product and cannot be logged as Fungicide"
+        );
+        assert!(check_link(Some(fertilizer(1)), 1, 5, ApplicationType::PlantFertilizer).is_ok());
+        assert!(
+            check_link(Some(fertilizer(1)), 1, 5, ApplicationType::Other).is_ok(),
+            "Other accepts anything"
+        );
     }
 }

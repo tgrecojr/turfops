@@ -1,5 +1,6 @@
 const MM_PER_INCH = 25.4;
 
+// @spec WX-VIEW-PAGE-004, UI-UTIL-003
 export function mmToInches(mm: number): number {
 	return mm / MM_PER_INCH;
 }

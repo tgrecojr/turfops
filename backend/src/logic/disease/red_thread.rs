@@ -60,6 +60,7 @@ pub(super) fn nitrogen_hungry(ctx: &DiseaseContext) -> bool {
         .is_none_or(|days| days > NITROGEN_DEFICIT_DAYS)
 }
 
+// @spec DIS-MODEL-SCORE-005, DIS-MODEL-AMP-003, DIS-MODEL-AMP-004
 pub(super) fn assess(
     series: &[DailyWeather],
     today: NaiveDate,
@@ -235,6 +236,7 @@ mod tests {
         assert_eq!(daily_index(&d), 50.0);
     }
 
+    // @spec DIS-MODEL-AMP-003, DIS-MODEL-AMP-004
     #[test]
     fn nitrogen_deficit_raises_tier() {
         let today = date(5, 10);

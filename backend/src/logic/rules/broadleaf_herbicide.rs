@@ -17,6 +17,7 @@ use chrono::{Datelike, Local, NaiveDate};
 /// Blocked if overseeded within 60 days (herbicide kills seedlings).
 pub struct BroadleafHerbicideRule;
 
+// @spec RULE-BROAD-001, RULE-BROAD-002, RULE-BROAD-003, RULE-ENG-004
 impl Rule for BroadleafHerbicideRule {
     fn evaluate(
         &self,
@@ -28,6 +29,7 @@ impl Rule for BroadleafHerbicideRule {
             return None;
         }
 
+        // @spec RULE-ENG-005
         let today = Local::now().date_naive();
         let month = today.month();
 
@@ -153,6 +155,7 @@ fn build_spring_herbicide_rec(soil_temp: f64, gdd_ytd: Option<f64>) -> Recommend
     rec
 }
 
+// @spec RULE-BROAD-004
 fn broadleaf_need() -> ProductNeed {
     ProductNeed::new(
         "post-emergent broadleaf herbicide",
@@ -300,3 +303,6 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod rule_tests;

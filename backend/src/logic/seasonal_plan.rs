@@ -6,10 +6,14 @@ use std::collections::HashSet;
 use std::ops::RangeInclusive;
 
 #[cfg(test)]
+mod activity_tests;
+#[cfg(test)]
 mod completion_tests;
 #[cfg(test)]
 mod crossing_tests;
 mod crossings;
+#[cfg(test)]
+mod details_tests;
 mod fall;
 mod spring;
 #[cfg(test)]
@@ -42,7 +46,7 @@ const COOL_SEASON_ONLY: [&str; 6] = [
 /// Build the full seasonal plan from aggregated threshold data and application history.
 /// Only settled years (PLAN-CACHE-005) with cached crossings vote: the 10 most recent before
 /// the plan year. Statuses are judged on `today`, the lawn's local date.
-// @spec PLAN-CROSS-010
+// @spec PLAN-CROSS-010, PLAN-MERGE-008
 pub fn build_seasonal_plan(
     year: i32,
     crossings: &[ThresholdCrossing],
@@ -158,6 +162,7 @@ fn make_window_with_dates(
     }
 }
 
+// @spec PLAN-CROSS-007
 fn confidence_from_count(count: usize) -> WindowConfidence {
     if count >= 5 {
         WindowConfidence::High
@@ -168,6 +173,7 @@ fn confidence_from_count(count: usize) -> WindowConfidence {
     }
 }
 
+// @spec PLAN-ACT-013
 fn compute_status(
     completed: bool,
     start: NaiveDate,

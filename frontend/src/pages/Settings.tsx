@@ -46,6 +46,7 @@ const SOIL_LABELS: Record<SoilType, string> = {
 	SandyLoam: "Sandy Loam",
 };
 
+// @spec APP-SET-001, APP-SET-002
 export default function Settings() {
 	const [profile, setProfile] = useState<LawnProfile | null>(null);
 	const [error, setError] = useState<string | null>(null);

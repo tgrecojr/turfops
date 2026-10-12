@@ -14,6 +14,7 @@ import { sharedStyles } from "../styles/shared";
 import type { SoilTest, SoilTestSummary } from "../types";
 import { futureDateWarning, todayLocalISO } from "../utils/dates";
 
+// @spec SOIL-UI-002, SOIL-UI-003, SOIL-UI-004, SOIL-UI-005, SOIL-UI-010, SOIL-UI-011
 export default function SoilTests() {
 	const [tests, setTests] = useState<SoilTest[]>([]);
 	const [summary, setSummary] = useState<SoilTestSummary | null>(null);

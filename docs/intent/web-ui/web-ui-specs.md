@@ -84,6 +84,7 @@ Design: [web-ui-design.md](web-ui-design.md). Prefix `UI`. Facets: `SHELL` (entr
 - [x] **UI-BUILD-007**: The CI frontend job shall type-check the app with `npx tsc -b` (the root `tsconfig.json` is a solution file, so `tsc --noEmit` checks no files).
 - [x] **UI-BUILD-008**: The frontend shall have a Vitest test runner (`npm test`) whose suite covers at least the API client's error mapping: the HTTP status kept and the `error` message unwrapped from `{"error": …}` (UI-ERR-004), and the plain timeout message (UI-ERR-008).
 - [x] **UI-BUILD-009**: The CI frontend job shall run the frontend tests (`npm test`) on every push to `main` and every pull request against `main`.
+- [x] **UI-BUILD-010**: Frontend component tests shall render in jsdom with Testing Library, each opting in with a `// @vitest-environment jsdom` docblock while other suites run in Node, and the shared setup (`src/test/setup.ts`) shall register the jest-dom matchers, clean up after every test, and stub `ResizeObserver` and `matchMedia`.
 
 ## SPA serving and CORS
 

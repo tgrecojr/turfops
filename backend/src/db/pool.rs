@@ -5,7 +5,7 @@ use std::future::Future;
 use std::time::Duration;
 
 /// Connect (retrying while PostgreSQL comes up, `startup_delays`) and run migrations.
-// @spec DEPLOY-START-007
+// @spec DEPLOY-START-007, DEPLOY-START-002, DEPLOY-START-003, DEPLOY-CONFIG-008
 pub async fn create_pool(options: PgConnectOptions, max_conn: u32) -> Result<PgPool> {
     let pool = with_retry(&startup_delays(), unreachable, || {
         PgPoolOptions::new()

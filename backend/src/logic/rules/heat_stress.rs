@@ -18,6 +18,7 @@ use crate::models::{
 /// - Critical: >95°F expected
 pub struct HeatStressRule;
 
+// @spec RULE-WX-005
 impl Rule for HeatStressRule {
     fn evaluate(
         &self,
@@ -31,6 +32,7 @@ impl Rule for HeatStressRule {
         }
 
         let forecast = env.forecast.as_ref()?;
+        // @spec RULE-ENG-005
         let today = chrono::Local::now().date_naive();
 
         // Find max temp in next 3 days

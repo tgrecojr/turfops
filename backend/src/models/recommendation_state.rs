@@ -8,6 +8,7 @@
 use super::{Recommendation, RecommendationCategory, Severity};
 use chrono::{DateTime, Duration, Utc};
 
+// @spec FEED-STATE-001
 /// Persisted answer to one recommendation id.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RecommendationState {
@@ -27,6 +28,7 @@ const DISEASE_EPISODE_DAYS: i64 = 21;
 /// was answered in, short enough to be gone before the same season next year.
 const SEASON_DAYS: i64 = 120;
 
+// @spec FEED-STATE-006
 /// How long an answer to `rec` holds. `None` = until it escalates (ids that already name
 /// one event, e.g. a follow-up for one application).
 fn episode_days(rec: &Recommendation) -> Option<i64> {
@@ -55,6 +57,7 @@ fn episode_days(rec: &Recommendation) -> Option<i64> {
 }
 
 impl RecommendationState {
+    // @spec FEED-STATE-002, FEED-STATE-003, FEED-STATE-004, FEED-STATE-005, FEED-STATE-007, FEED-STATE-008
     /// Does this stored answer still hide `rec`?
     pub fn suppresses(&self, rec: &Recommendation, now: DateTime<Utc>) -> bool {
         if !self.dismissed && !self.addressed {
@@ -72,6 +75,9 @@ impl RecommendationState {
         }
     }
 }
+
+#[cfg(test)]
+mod policy_tests;
 
 #[cfg(test)]
 mod tests {
@@ -111,6 +117,7 @@ mod tests {
         );
     }
 
+    // @spec FEED-STATE-003
     #[test]
     fn escalation_brings_an_alert_back() {
         let state = answered(Some(Severity::Info), 1);
@@ -177,6 +184,7 @@ mod tests {
         assert!(answered(Some(Severity::Advisory), 200).suppresses(&follow_up, Utc::now()));
     }
 
+    // @spec FEED-STATE-005
     #[test]
     fn rows_from_before_severity_was_tracked_only_expire() {
         let severe = rec(

@@ -168,6 +168,7 @@ pub fn frac_class_for_product(name: &str) -> Option<FracClass> {
     frac_classes_for_product(name).into_iter().next()
 }
 
+// @spec DIS-MGMT-FRAC-001, DIS-MGMT-FRAC-003
 /// FRAC classes of a logged fungicide: what the user recorded from the label, otherwise
 /// whatever the product name resolves to. Empty = unknown, and an unknown fungicide earns
 /// no protection and no rotation credit.

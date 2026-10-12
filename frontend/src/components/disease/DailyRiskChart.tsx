@@ -42,7 +42,7 @@ function dayKind(row: DailyRisk): string {
 	return row.is_forecast ? "Forecast" : "Observed";
 }
 
-function RiskTooltip({
+export function RiskTooltip({
 	active,
 	payload,
 	scale,
@@ -72,6 +72,7 @@ function RiskTooltip({
 	);
 }
 
+// @spec DIS-UI-CHART-003, DIS-UI-CHART-004, DIS-UI-CONV-003
 export default function DailyRiskChart({
 	daily,
 	scale,

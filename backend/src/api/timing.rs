@@ -1,3 +1,9 @@
+#[cfg(all(test, feature = "db-tests"))]
+mod db_harness;
+#[cfg(all(test, feature = "db-tests"))]
+mod handler_tests;
+#[cfg(all(test, feature = "db-tests"))]
+mod hook_tests;
 mod memo;
 #[cfg(test)]
 mod memo_tests;
@@ -22,6 +28,7 @@ const HISTORY_LOOKBACK_DAYS: i64 = 550;
 /// Fewer complete years than this and the typical dates are flagged as rough.
 const MIN_SOLID_HISTORY_YEARS: usize = 5;
 
+// @spec TIME-ENG-040, TIME-ENG-041
 /// GET /api/v1/timing-windows
 /// Seeding and pre-emergent windows from the station's 5 cm soil record, freeze
 /// climatology, the soil forecast and the application log.
@@ -34,6 +41,7 @@ pub async fn get_timing_windows(
     Ok(Json(compute(&state, &profile).await?))
 }
 
+// @spec TIME-ENG-015
 /// First day of the climate record: Jan 1, `HISTORY_YEARS` before the lawn's current year.
 pub(crate) fn climate_start(today: NaiveDate) -> Option<NaiveDate> {
     NaiveDate::from_ymd_opt(today.year() - timing::HISTORY_YEARS, 1, 1)
@@ -57,7 +65,7 @@ pub(crate) async fn climate_record(
 /// The memoized climate record, re-read from the lake when missing or an hour old. When
 /// the re-read fails, the slot is left as it is and its record stands in while under a
 /// day old; only with no such record does the error reach the caller.
-// @spec SYNC-MEMO-001, SYNC-MEMO-002
+// @spec SYNC-MEMO-001, SYNC-MEMO-002, TIME-ENG-038
 pub(crate) async fn climate_read(
     state: &AppState,
     client: &WeatherLakeClient,
@@ -95,6 +103,7 @@ pub(crate) async fn climate_read(
     }
 }
 
+// @spec TIME-ENG-009
 /// The lake client and the forecast's full days: the inputs the Timing page and the
 /// seasonal plan's timing activities both evaluate the windows with.
 async fn lake_and_forecast(
@@ -111,6 +120,7 @@ async fn lake_and_forecast(
     Ok((client, full_days))
 }
 
+// @spec TIME-ENG-045
 async fn compute(state: &AppState, profile: &LawnProfile) -> Result<TimingResponse, TurfOpsError> {
     let (client, forecast) = lake_and_forecast(state).await?;
 
@@ -160,6 +170,7 @@ async fn compute(state: &AppState, profile: &LawnProfile) -> Result<TimingRespon
     })
 }
 
+// @spec FEED-PIPE-016, TIME-FEED-007
 /// What the timing windows contribute to the feed/dashboard: one recommendation per
 /// actionable window, core aeration (same window as seeding), and the fall herbicide
 /// reconciled with the seeding decision. Like disease risk this is additive: a lake
@@ -192,6 +203,7 @@ pub(crate) async fn apply_to_feed(
     timing::companions::reconcile_fall_herbicide(recommendations, &response.windows);
 }
 
+// @spec TIME-PLAN-006
 /// Seasonal-plan activities for `year` from the timing windows. `None` (so the plan keeps
 /// its own versions) when the lake is unavailable or has no usable history.
 pub(crate) async fn plan_activities(
@@ -248,6 +260,7 @@ async fn plan_for(
     ))
 }
 
+// @spec TIME-ENG-044
 /// Plain-language caveats about the inputs behind this response.
 fn data_notes(assessment: &Assessment, profile: &LawnProfile, has_forecast: bool) -> Vec<String> {
     let mut notes = Vec::new();
@@ -310,12 +323,14 @@ mod tests {
         }
     }
 
+    // @spec TIME-ENG-044
     #[test]
     fn no_notes_when_inputs_are_healthy() {
         let notes = data_notes(&assessment(true, 10), &LawnProfile::default(), true);
         assert!(notes.is_empty(), "{notes:?}");
     }
 
+    // @spec TIME-ENG-044
     #[test]
     fn notes_flag_stale_soil_thin_history_and_missing_forecast() {
         let notes = data_notes(&assessment(false, 2), &LawnProfile::default(), false);

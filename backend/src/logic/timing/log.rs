@@ -56,6 +56,7 @@ fn latest_in(
         .max()
 }
 
+// @spec TIME-LOG-001, TIME-LOG-002, TIME-LOG-004
 pub fn check(id: WindowId, season_year: i32, history: &[Application]) -> Logged {
     let (own, done_span, conflict_span) = spans(id);
     let (opposite, message): (_, fn(NaiveDate) -> String) = match own {
@@ -106,6 +107,7 @@ mod tests {
         }
     }
 
+    // @spec TIME-LOG-001, TIME-LOG-002
     #[test]
     fn fall_overseed_completes_seeding_and_blocks_fall_pre_emergent() {
         let history = [applied(ApplicationType::Overseed, 2026, 9, 12)];
@@ -125,6 +127,7 @@ mod tests {
         );
     }
 
+    // @spec TIME-LOG-001, TIME-LOG-002
     #[test]
     fn dormant_seeding_blocks_the_following_spring_pre_emergent() {
         let history = [applied(ApplicationType::Overseed, 2026, 12, 5)];
@@ -140,6 +143,7 @@ mod tests {
         );
     }
 
+    // @spec TIME-LOG-001, TIME-LOG-002
     #[test]
     fn spring_pre_emergent_blocks_spring_seeding_but_not_fall() {
         let history = [applied(ApplicationType::PreEmergent, 2026, 4, 2)];

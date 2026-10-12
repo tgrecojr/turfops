@@ -6,12 +6,12 @@ use super::*;
 use crate::models::{ApplicationType, GrassType};
 use chrono::{NaiveDate, Utc};
 
-fn d(y: i32, m: u32, day: u32) -> NaiveDate {
+pub(super) fn d(y: i32, m: u32, day: u32) -> NaiveDate {
     NaiveDate::from_ymd_opt(y, m, day).unwrap()
 }
 
 /// A lawn feeding of `lbs` N per 1,000 sq ft on `date` (a 20% N analysis).
-fn fed(date: NaiveDate, lbs: f64) -> Application {
+pub(super) fn fed(date: NaiveDate, lbs: f64) -> Application {
     Application {
         id: None,
         lawn_profile_id: 1,

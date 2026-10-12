@@ -24,7 +24,7 @@ fn required(get: Lookup, key: &str) -> Result<String> {
 
 /// A setting parsed as `T`; unset or blank uses `default`, and a value that won't parse
 /// uses it too with a warning naming the setting and the default.
-// @spec DEPLOY-CONFIG-012
+// @spec DEPLOY-CONFIG-012, DEPLOY-CONFIG-007
 fn parsed<T: std::str::FromStr>(
     get: Lookup,
     key: &str,
@@ -117,6 +117,7 @@ fn flag(get: Lookup, key: &str) -> bool {
 }
 
 /// The configuration the variables describe, and a warning for each value it could not use.
+// @spec WX-SRC-CFG-001, DEPLOY-CONFIG-001, DEPLOY-CONFIG-003, DEPLOY-CONFIG-008
 pub fn from_vars(get: Lookup) -> Result<(Config, Vec<String>)> {
     let mut warnings: Vec<String> = Vec::new();
     let w = &mut warnings;
@@ -208,4 +209,15 @@ pub fn from_vars(get: Lookup) -> Result<(Config, Vec<String>)> {
         },
     };
     Ok((config, warnings))
+}
+
+/// The configuration `pairs` describe (every other variable unset), for tests.
+#[cfg(test)]
+pub(crate) fn test_config(pairs: &[(&str, &str)]) -> Config {
+    let vars: std::collections::HashMap<String, String> = [("DATABASE_PASSWORD", "test-password")]
+        .iter()
+        .chain(pairs)
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect();
+    from_vars(&|key| vars.get(key).cloned()).unwrap().0
 }

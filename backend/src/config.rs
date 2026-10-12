@@ -3,9 +3,19 @@ pub use crate::mcp::McpConfig;
 use serde::Deserialize;
 use sqlx::postgres::PgConnectOptions;
 
-mod load;
+#[cfg(test)]
+mod cors_origin_tests;
+#[cfg(test)]
+mod defaults_tests;
+#[cfg(test)]
+mod lake_config_tests;
+pub(crate) mod load;
+#[cfg(test)]
+pub(crate) use load::test_config;
 #[cfg(test)]
 mod load_tests;
+#[cfg(all(test, feature = "db-tests"))]
+mod startup_profile_db_tests;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Config {
@@ -59,6 +69,7 @@ pub struct HomeAssistantConfig {
     pub temperature_unit: TemperatureUnit,
 }
 
+// @spec DEPLOY-CONFIG-010, DEPLOY-LOG-003
 impl std::fmt::Debug for HomeAssistantConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("HomeAssistantConfig")
@@ -92,6 +103,7 @@ fn default_enabled() -> bool {
     true
 }
 
+// @spec DEPLOY-CONFIG-010, DEPLOY-LOG-003
 impl std::fmt::Debug for OpenWeatherMapConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("OpenWeatherMapConfig")
@@ -127,6 +139,7 @@ fn default_openrouter_base_url() -> String {
     "https://openrouter.ai/api/v1".to_string()
 }
 
+// @spec PLANT-AI-009, DEPLOY-CONFIG-010, DEPLOY-LOG-003
 impl std::fmt::Debug for OpenRouterConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("OpenRouterConfig")
@@ -156,6 +169,7 @@ pub struct DatabaseConfig {
     pub max_connections: u32,
 }
 
+// @spec DEPLOY-CONFIG-010, DEPLOY-LOG-003
 impl std::fmt::Debug for DatabaseConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("DatabaseConfig")
@@ -180,6 +194,8 @@ impl DatabaseConfig {
 }
 
 impl Config {
+    /// The configuration, read once from the process environment at startup.
+    // @spec DEPLOY-CONFIG-001
     pub fn from_env() -> Result<Self> {
         let (config, warnings) = load::from_vars(&|key| std::env::var(key).ok())?;
         for warning in warnings {
@@ -192,7 +208,7 @@ impl Config {
 impl LawnConfig {
     /// The lawn profile the `LAWN_*` settings describe, and a warning for each value that
     /// could not be used.
-    // @spec APP-PROF-006
+    // @spec APP-PROF-006, DEPLOY-CONFIG-007
     pub fn seed_profile(&self) -> (crate::models::LawnProfile, Vec<String>) {
         use crate::models::{GrassType, IrrigationType, LawnProfile, SoilType};
         use std::str::FromStr;

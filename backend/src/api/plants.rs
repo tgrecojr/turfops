@@ -10,12 +10,14 @@ use chrono::{NaiveDate, Utc};
 use serde::Deserialize;
 use std::str::FromStr;
 
+// @spec PLANT-API-001
 pub async fn list_plants(State(state): State<AppState>) -> Result<Json<Vec<Plant>>, TurfOpsError> {
     let profile_id = active_profile_id(&state).await?;
     let plants = plant_queries::list_plants_for_profile(&state.pool, profile_id).await?;
     Ok(Json(plants))
 }
 
+// @spec PLANT-API-008
 pub async fn get_plant(
     State(state): State<AppState>,
     Path(id): Path<i64>,
@@ -36,6 +38,7 @@ pub struct CreatePlantRequest {
     pub notes: Option<String>,
 }
 
+// @spec PLANT-API-002, PLANT-API-005, PLANT-API-006, PLANT-API-007, PLANT-AI-006
 pub async fn create_plant(
     State(state): State<AppState>,
     Json(req): Json<CreatePlantRequest>,
@@ -108,6 +111,7 @@ pub struct UpdatePlantRequest {
     pub notes: Option<Option<String>>,
 }
 
+// @spec PLANT-API-010
 pub async fn update_plant(
     State(state): State<AppState>,
     Path(id): Path<i64>,
@@ -146,6 +150,7 @@ pub async fn update_plant(
     Ok(Json(updated))
 }
 
+// @spec PLANT-API-011
 pub async fn delete_plant(
     State(state): State<AppState>,
     Path(id): Path<i64>,
@@ -155,6 +160,7 @@ pub async fn delete_plant(
     Ok(StatusCode::NO_CONTENT)
 }
 
+// @spec PLANT-API-007, PLANT-API-012, PLANT-AI-006
 pub async fn refresh_plant_plan(
     State(state): State<AppState>,
     Path(id): Path<i64>,
@@ -202,6 +208,7 @@ pub(crate) struct NewPlant {
     pub planting_date: Option<NaiveDate>,
 }
 
+// @spec PLANT-API-003
 pub(crate) fn validate_new_plant(req: &CreatePlantRequest) -> Result<NewPlant, TurfOpsError> {
     let plant_type = PlantType::from_str(&req.plant_type).map_err(|_| {
         TurfOpsError::InvalidData(format!(
@@ -255,5 +262,11 @@ async fn active_profile_id(state: &AppState) -> Result<i64, TurfOpsError> {
         .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))
 }
 
+#[cfg(all(test, feature = "db-tests"))]
+mod db_crud_tests;
+#[cfg(all(test, feature = "db-tests"))]
+mod db_support;
+#[cfg(all(test, feature = "db-tests"))]
+mod db_tests;
 #[cfg(test)]
 mod tests;

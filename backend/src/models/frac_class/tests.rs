@@ -87,6 +87,7 @@ fn rotation_single_known_product() {
     assert!(advice.rotation_warning.is_none()); // only 1 consecutive
 }
 
+// @spec DIS-MGMT-FRAC-004
 #[test]
 fn rotation_consecutive_same_class() {
     let apps = vec![
@@ -117,6 +118,7 @@ fn rotation_mixed_classes_no_warning() {
     assert!(advice.rotation_warning.is_none());
 }
 
+// @spec DIS-MGMT-FRAC-003
 #[test]
 fn rotation_unknown_products_handled() {
     let apps = vec![
@@ -144,6 +146,7 @@ fn rotation_multisite_excluded() {
     assert_eq!(advice.consecutive_same_class, 1);
 }
 
+// @spec DIS-MGMT-FRAC-004
 #[test]
 fn rotation_three_apps_general_warning() {
     let apps = vec![
@@ -208,6 +211,7 @@ fn rotation_ignores_plant_applications() {
     assert!(advice.rotation_warning.is_none());
 }
 
+// @spec DIS-MGMT-FRAC-001
 #[test]
 fn premixes_and_homeowner_products_resolve() {
     assert_eq!(
@@ -235,6 +239,7 @@ fn premixes_and_homeowner_products_resolve() {
     );
 }
 
+// @spec DIS-MGMT-FRAC-001
 #[test]
 fn recorded_classes_win_over_the_product_name() {
     let mut app = make_fungicide_app(Some("Store-brand lawn fungicide"), 3);
@@ -247,6 +252,7 @@ fn recorded_classes_win_over_the_product_name() {
     assert_eq!(classes_of(&named), vec![FracClass::Frac11]);
 }
 
+// @spec DIS-MGMT-FRAC-002
 #[test]
 fn a_premix_counts_toward_rotation_for_each_class() {
     let apps = vec![

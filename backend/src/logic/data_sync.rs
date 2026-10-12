@@ -1,5 +1,19 @@
+#[cfg(all(test, feature = "db-tests"))]
+mod db_tests;
+#[cfg(test)]
+mod memo_slot_tests;
 mod probes;
+#[cfg(test)]
+mod service_tests;
+#[cfg(test)]
+mod source_tests;
 mod sync_state;
+#[cfg(test)]
+mod test_double;
+#[cfg(test)]
+pub(crate) mod test_env;
+#[cfg(test)]
+pub(crate) mod test_support;
 #[cfg(test)]
 mod tests;
 
@@ -25,9 +39,11 @@ pub struct DataSyncService {
 }
 
 impl DataSyncService {
+    // @spec SYNC-REFRESH-001, SYNC-REFRESH-007
     /// Create a new DataSyncService with lazy external connections.
     /// Clients are configured but not tested — connections are validated
     /// on first data fetch, avoiding slow startup when external services are down.
+    // @spec WX-SRC-CFG-002, DEPLOY-START-004
     pub async fn initialize(config: &Config, pool: PgPool) -> Self {
         let homeassistant_client = if !config.homeassistant.token.is_empty() {
             tracing::info!(
@@ -77,7 +93,7 @@ impl DataSyncService {
     /// Return the cached summary, refreshing first whichever part is stale.
     /// Sensor data refreshes after 5 minutes, the forecast after 30 (a failed fetch is
     /// retried after 5).
-    // @spec SYNC-REFRESH-003, SYNC-REFRESH-004
+    // @spec SYNC-REFRESH-003, SYNC-REFRESH-004, SYNC-REFRESH-006
     pub async fn get_or_refresh(&mut self) -> crate::error::Result<EnvironmentalSummary> {
         let due = self.state.due(Utc::now());
         self.refresh(due.sensors, due.forecast).await;
@@ -132,9 +148,29 @@ impl DataSyncService {
         up
     }
 
+    /// Test-only: fetch the forecast with `client` (e.g. one pointed at a local stub).
+    #[cfg(all(test, feature = "db-tests"))]
+    pub(crate) fn set_forecast_client(&mut self, client: OpenWeatherMapClient) {
+        self.openweathermap_client = Some(client);
+    }
+
+    /// The same service reading its forecast from `client`.
+    #[cfg(all(test, feature = "db-tests"))]
+    pub(crate) fn with_forecast_client(mut self, client: OpenWeatherMapClient) -> Self {
+        self.set_forecast_client(client);
+        self
+    }
+
     /// Provide access to the weather lake client for direct queries (GDD, historical).
     pub fn weather_client(&self) -> Option<&WeatherLakeClient> {
         self.weather_client.as_ref()
+    }
+
+    /// The same service with no weather lake, as if none were configured.
+    #[cfg(all(test, feature = "db-tests"))]
+    pub(crate) fn without_weather_lake(mut self) -> Self {
+        self.weather_client = None;
+        self
     }
 
     /// Read the stale parts' sources, then store everything at once: until every read is

@@ -11,6 +11,7 @@ fn with_final_days(mut days: Vec<ClimateDay>, n: usize, temp_f: f64) -> Vec<Clim
     days
 }
 
+// @spec TIME-ENG-023, TIME-ENG-034
 #[test]
 fn a_brief_touch_of_the_closing_threshold_reads_closing_not_closed() {
     // Apr 12: the curve sits near 52°F. One freak 75°F day lifts the 5-day mean past
@@ -45,6 +46,7 @@ fn a_brief_touch_of_the_closing_threshold_reads_closing_not_closed() {
     );
 }
 
+// @spec TIME-ENG-025
 #[test]
 fn a_run_in_progress_when_the_station_went_quiet_is_not_trusted() {
     // Data stops Mar 10 during a two-day warm spell; six days later nobody knows whether
@@ -59,6 +61,7 @@ fn a_run_in_progress_when_the_station_went_quiet_is_not_trusted() {
     assert_ne!(pre_em.state, WindowState::Open);
 }
 
+// @spec TIME-ENG-029, TIME-ENG-031
 #[test]
 fn a_typical_date_inside_the_lake_lag_is_not_overdue_yet() {
     // A fall running 3°F warm: 70°F is late. The typical date is about Sep 7; on Sep 8

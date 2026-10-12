@@ -4,6 +4,7 @@
 use crate::models::ApplicationType;
 use serde::{Deserialize, Serialize};
 
+// @spec INV-SHELF-003
 macro_rules! string_enum {
     ($(#[$meta:meta])* $name:ident { $($(#[$vmeta:meta])* $variant:ident),+ $(,)? }) => {
         $(#[$meta])*
@@ -38,6 +39,7 @@ macro_rules! string_enum {
     };
 }
 
+// @spec INV-SHELF-002
 string_enum! {
     /// What a product is for. Drives which recommendations it can satisfy and which
     /// application types it can be logged under.
@@ -65,6 +67,7 @@ string_enum! {
 impl ProductCategory {
     /// Whether a product of this category can be logged under `t`. `Other` on either side
     /// accepts anything; the user is not second-guessed on a catch-all.
+    // @spec INV-SHELF-005
     pub fn accepts(&self, t: ApplicationType) -> bool {
         use ApplicationType as A;
         if t == A::Other {
@@ -119,6 +122,7 @@ string_enum! {
     SuitableFor { Turf, Ornamentals, Both }
 }
 
+// @spec INV-SHELF-004
 string_enum! {
     /// What a product controls, supplies or contains. A closed list so recommendations can
     /// match on it; free text would make matching impossible.
@@ -166,6 +170,7 @@ mod tests {
     use super::*;
     use std::str::FromStr;
 
+    // @spec INV-SHELF-003
     #[test]
     fn as_str_matches_serde_name() {
         for c in ProductCategory::ALL {
@@ -174,6 +179,7 @@ mod tests {
         }
     }
 
+    // @spec INV-SHELF-005
     #[test]
     fn category_accepts_matching_application_types_and_other() {
         assert!(ProductCategory::Herbicide.accepts(ApplicationType::PreEmergent));
@@ -184,6 +190,7 @@ mod tests {
         assert!(!ProductCategory::Seed.accepts(ApplicationType::Aeration));
     }
 
+    // @spec INV-SHELF-007
     #[test]
     fn targets_fit_their_own_family_only() {
         assert!(ProductTarget::Grubs.fits_category(ProductCategory::InsectControl));

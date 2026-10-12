@@ -7,6 +7,9 @@ use crate::models::{Application, DataSource, Recommendation, RecommendationCateg
 use chrono::NaiveDate;
 use std::collections::HashMap;
 
+#[cfg(test)]
+mod reminder_tests;
+
 const LEAD_DAYS: i64 = 7;
 const STALE_DAYS: i64 = 90;
 
@@ -39,6 +42,7 @@ fn severity_for(today: NaiveDate, follow_up: NaiveDate) -> Severity {
     }
 }
 
+// @spec APP-FOLLOW-001, APP-FOLLOW-002, APP-FOLLOW-004, APP-FOLLOW-005, APP-FOLLOW-006, APP-FOLLOW-007
 pub fn generate_follow_up_recommendations(
     applications: &[Application],
     plants_by_id: &HashMap<i64, &Plant>,

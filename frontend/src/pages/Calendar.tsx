@@ -56,6 +56,7 @@ export default function Calendar() {
 		requested ?? (data ? { year: data.year, month: data.month } : null);
 	const planYear = shown?.year;
 
+	// @spec PLAN-CALUI-002
 	// Fetch seasonal plan (per year, silently fail)
 	useEffect(() => {
 		if (planYear === undefined) return;
@@ -154,6 +155,7 @@ export default function Calendar() {
 	const dateKey = (day: number) =>
 		`${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 
+	// @spec PLAN-CALUI-004
 	// Get planned activities whose window includes the given date
 	const getActivitiesForDate = (dateStr: string): PlannedActivity[] => {
 		if (!plan) return [];
@@ -277,6 +279,7 @@ export default function Calendar() {
 											}}
 										>
 											<div style={styles.dayNum}>{day}</div>
+											{/* @spec PLAN-CALUI-003 */}
 											{/* Application dots */}
 											<div style={styles.dots}>
 												{dayApps.map((a) => (
@@ -341,6 +344,7 @@ export default function Calendar() {
 				</table>
 			</div>
 
+			{/* @spec PLAN-CALUI-007 */}
 			{/* Detail panel */}
 			{selectedDate && (
 				<div style={styles.detail}>

@@ -6,6 +6,7 @@ interface DiseaseRiskWidgetProps {
 	data: DiseaseRiskResponse;
 }
 
+// @spec DIS-UI-WIDGET-001
 /** Dashboard card: every tracked disease with its current tier, linking to detail. */
 export default function DiseaseRiskWidget({ data }: DiseaseRiskWidgetProps) {
 	return (

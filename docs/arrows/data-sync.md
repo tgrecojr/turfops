@@ -4,7 +4,7 @@ Data Sync — leaf segment `SYNC` under the root HLD.
 
 ## Status
 
-**MAPPED** — overlay bootstrapped 2026-10-11 from the existing LID docs; not yet audited (`audited_sha: null`). 31 specs `[x]`, 0 `[D]`, 0 `[ ]`; 24 of 31 implemented specs carry a `@spec` annotation.
+**PARTIAL** — audited 2026-10-11 (git SHA `65245e3`): every implemented spec was checked against the code while linking it. 30 of 31 implemented specs are linked to both code and a test; 1 disagree with the code (see Key Findings).
 
 ## References
 
@@ -18,7 +18,12 @@ Data Sync — leaf segment `SYNC` under the root HLD.
 - [docs/intent/data-sync/data-sync-specs.md](../../docs/intent/data-sync/data-sync-specs.md) (31 specs, prefix `SYNC`)
 
 ### Tests
+- [backend/src/api/health/db_tests.rs](../../backend/src/api/health/db_tests.rs)
+- [backend/src/api/health/tests.rs](../../backend/src/api/health/tests.rs)
 - [backend/src/api/timing/memo_tests.rs](../../backend/src/api/timing/memo_tests.rs)
+- [backend/src/logic/data_sync/db_tests.rs](../../backend/src/logic/data_sync/db_tests.rs)
+- [backend/src/logic/data_sync/memo_slot_tests.rs](../../backend/src/logic/data_sync/memo_slot_tests.rs)
+- [backend/src/logic/data_sync/service_tests.rs](../../backend/src/logic/data_sync/service_tests.rs)
 - [backend/src/logic/data_sync/tests.rs](../../backend/src/logic/data_sync/tests.rs)
 
 ### Code
@@ -37,6 +42,7 @@ Data Sync — leaf segment `SYNC` under the root HLD.
 - [backend/src/logic/data_sync/probes.rs](../../backend/src/logic/data_sync/probes.rs)
 - [backend/src/logic/data_sync/sync_state.rs](../../backend/src/logic/data_sync/sync_state.rs)
 - [backend/src/main.rs](../../backend/src/main.rs)
+- [backend/src/mcp/tools/lawn.rs](../../backend/src/mcp/tools/lawn.rs)
 - [backend/src/models/environmental.rs](../../backend/src/models/environmental.rs)
 - [backend/src/state.rs](../../backend/src/state.rs)
 - [frontend/src/pages/Dashboard.tsx](../../frontend/src/pages/Dashboard.tsx)
@@ -59,28 +65,26 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 
 | Facet | Spec IDs | Implemented | Deferred | Gaps | `@spec` in code | `@spec` in tests |
 |---|---|---|---|---|---|---|
-| REFRESH | SYNC-REFRESH-001 – SYNC-REFRESH-008 | 8 | 0 | 0 | 4 | 2 |
+| REFRESH | SYNC-REFRESH-001 – SYNC-REFRESH-008 | 8 | 0 | 0 | 7 | 7 |
 | MERGE | SYNC-MERGE-001 – SYNC-MERGE-006 | 6 | 0 | 0 | 6 | 6 |
-| FAIL | SYNC-FAIL-001 – SYNC-FAIL-009 | 9 | 0 | 0 | 9 | 8 |
-| CONN | SYNC-CONN-001 – SYNC-CONN-006 | 6 | 0 | 0 | 3 | 1 |
-| MEMO | SYNC-MEMO-001 – SYNC-MEMO-002 | 2 | 0 | 0 | 2 | 1 |
-| **Total** | | **31** | **0** | **0** | **24** | **18** |
+| FAIL | SYNC-FAIL-001 – SYNC-FAIL-009 | 9 | 0 | 0 | 9 | 9 |
+| CONN | SYNC-CONN-001 – SYNC-CONN-006 | 6 | 0 | 0 | 6 | 6 |
+| MEMO | SYNC-MEMO-001 – SYNC-MEMO-002 | 2 | 0 | 0 | 2 | 2 |
+| **Total** | | **31** | **0** | **0** | **30** | **30** |
 
-**Summary:** 31 of 31 active specs implemented; 0 deferred; 18 implemented specs cited by a test, 7 cited nowhere.
+**Summary:** 31 of 31 active specs implemented; 0 deferred; 30 implemented specs cited by a test, 1 cited nowhere.
 
 ## Key Findings
 
-1. **7 implemented specs have no `@spec` annotation** — the specs were written to describe existing code and never linked back: SYNC-REFRESH-001/005/006/007; SYNC-CONN-003/004/005.
-2. **6 specs are annotated in code but cited by no test** — SYNC-REFRESH-003/004; SYNC-FAIL-001; SYNC-CONN-001/002; SYNC-MEMO-001.
+1. **Spec ≠ code — SYNC-REFRESH-005:** spec + design: `/seasonal-plan` never refreshes; code: `rule_states` calls `get_or_refresh()` (`api/seasonal_plan.rs:169`).
 
 ## Work Required
 
 ### Must Fix
-- None.
+- Decide SYNC-REFRESH-005: fix the code or correct the spec, then link it.
 
 ### Should Fix
-1. Add `@spec` annotations (entry point + exercising test) for the 7 unlinked specs.
-2. Annotate a test for the 6 code-only specs.
+- None.
 
 ### Nice to Have
-- Audit each `[x]` against the code and move the segment to `AUDITED`.
+- None.

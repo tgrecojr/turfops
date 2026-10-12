@@ -23,6 +23,7 @@ import {
 } from "../types/inventory";
 import { guessCategory } from "../types/inventoryCompat";
 
+// @spec INV-UI-001, INV-UI-004, INV-UI-006, INV-LOG-003
 export default function Inventory() {
 	const [products, setProducts] = useState<Product[]>([]);
 	const [loading, setLoading] = useState(true);

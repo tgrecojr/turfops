@@ -28,6 +28,7 @@ pub struct RecommendationsParams {
 
 #[tool_router(router = lawn_tools, vis = "pub(in crate::mcp)")]
 impl TurfOpsMcp {
+    // @spec MCP-TOOL-004
     #[tool(
         description = "The lawn's profile: name, grass type, USDA zone, soil type, size in \
                        sq ft and irrigation. Use to tailor advice to this lawn.",
@@ -37,6 +38,7 @@ impl TurfOpsMcp {
         call(api::profile::get_profile(State(self.state.clone()))).await
     }
 
+    // @spec SYNC-CONN-005, MCP-SNAP-001, MCP-SNAP-002, MCP-SNAP-003, MCP-SNAP-004, MCP-SNAP-005, MCP-SNAP-006, MCP-SNAP-007, MCP-SNAP-008, MCP-SNAP-009
     #[tool(
         description = "CALL FIRST for any question about what to do on this lawn now or \
                        this season. One call returns: the profile, current conditions + \
@@ -114,6 +116,7 @@ impl TurfOpsMcp {
         json_result(&snapshot)
     }
 
+    // @spec MCP-TOOL-005
     #[tool(
         description = "Current conditions: live soil temp / moisture (station, with \
                        `soil_observed_at`), patio air temp / humidity, 7-day averages and \
@@ -129,6 +132,7 @@ impl TurfOpsMcp {
         .await
     }
 
+    // @spec MCP-TOOL-006
     #[tool(
         description = "The recommendation feed exactly as the app shows it: each item's id, \
                        category, severity, title, explanation, suggested action, the data \

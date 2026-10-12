@@ -18,6 +18,7 @@ pub struct ListSoilTestsQuery {
     pub offset: Option<i64>,
 }
 
+// @spec SOIL-API-001, SOIL-API-010
 /// GET /api/v1/soil-tests
 pub async fn list_soil_tests(
     State(state): State<AppState>,
@@ -66,7 +67,7 @@ pub struct CreateSoilTestRequest {
 }
 
 /// The request's test date, or a 400 naming what is wrong with the body.
-// @spec SOIL-API-011
+// @spec SOIL-API-011, SOIL-API-006, SOIL-API-007
 pub(crate) fn validate_request(req: &CreateSoilTestRequest) -> Result<NaiveDate, TurfOpsError> {
     let test_date = NaiveDate::parse_from_str(&req.test_date, "%Y-%m-%d").map_err(|_| {
         TurfOpsError::InvalidData(format!(
@@ -117,6 +118,7 @@ pub(crate) fn deleted(rows_affected: u64, id: i64) -> Result<(), TurfOpsError> {
     Ok(())
 }
 
+// @spec SOIL-API-002, SOIL-API-010
 /// POST /api/v1/soil-tests
 pub async fn create_soil_test(
     State(state): State<AppState>,
@@ -164,6 +166,7 @@ pub async fn create_soil_test(
     Ok((StatusCode::CREATED, Json(created)))
 }
 
+// @spec SOIL-API-003, SOIL-API-004, SOIL-API-010
 /// PUT /api/v1/soil-tests/:id
 pub async fn update_soil_test(
     State(state): State<AppState>,
@@ -207,6 +210,7 @@ pub async fn update_soil_test(
     Ok(Json(updated))
 }
 
+// @spec SOIL-API-005, SOIL-API-012
 /// DELETE /api/v1/soil-tests/:id
 pub async fn delete_soil_test(
     State(state): State<AppState>,
@@ -219,6 +223,7 @@ pub async fn delete_soil_test(
     Ok(StatusCode::NO_CONTENT)
 }
 
+// @spec SOIL-API-008, SOIL-API-009, SOIL-API-010, SOIL-ADV-001, SOIL-DATA-004
 /// GET /api/v1/soil-tests/recommendations
 pub async fn get_soil_test_recommendations(
     State(state): State<AppState>,
@@ -252,5 +257,9 @@ pub async fn get_soil_test_recommendations(
     Ok(Json(summary))
 }
 
+#[cfg(all(test, feature = "db-tests"))]
+mod db_data_tests;
+#[cfg(all(test, feature = "db-tests"))]
+mod db_tests;
 #[cfg(test)]
 mod tests;

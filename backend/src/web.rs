@@ -10,7 +10,7 @@ use tower_http::services::{ServeDir, ServeFile};
 /// `app` serving the SPA from `static_dir`: existing files as they are, every other path
 /// the client router owns with `index.html` and 200, so a reload or a deep link loads the
 /// app. Without a bundled frontend, `/` says so.
-// @spec UI-SRV-001, UI-SRV-010
+// @spec UI-SRV-001, UI-SRV-010, UI-SRV-002, DEPLOY-HTTP-004
 pub fn with_frontend(app: Router, static_dir: &Path) -> Router {
     let index_file = static_dir.join("index.html");
     if index_file.exists() {
@@ -33,6 +33,7 @@ but the web frontend was not bundled into this build. The API is at <code>/api/v
 
 /// Build CORS layer from config. Defaults to same-origin (the server's own address)
 /// when CORS_ALLOWED_ORIGIN is not set. Set to "*" for permissive access.
+// @spec UI-SRV-004, UI-SRV-005, UI-SRV-006
 pub fn cors_layer(origin: Option<&str>, port: u16) -> CorsLayer {
     use axum::http::Method;
 
@@ -74,5 +75,9 @@ pub fn cors_layer(origin: Option<&str>, port: u16) -> CorsLayer {
     }
 }
 
+#[cfg(test)]
+mod cors_tests;
+#[cfg(test)]
+mod limits_tests;
 #[cfg(test)]
 mod tests;

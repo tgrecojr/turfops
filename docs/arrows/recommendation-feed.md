@@ -4,7 +4,7 @@ Recommendation Feed & Answered State — leaf segment `FEED` under the root HLD.
 
 ## Status
 
-**MAPPED** — overlay bootstrapped 2026-10-11 from the existing LID docs; not yet audited (`audited_sha: null`). 49 specs `[x]`, 1 `[D]`, 0 `[ ]`; 10 of 49 implemented specs carry a `@spec` annotation.
+**PARTIAL** — audited 2026-10-11 (git SHA `65245e3`): every implemented spec was checked against the code while linking it. 47 of 49 implemented specs are linked to both code and a test; 1 disagree with the code (see Key Findings).
 
 ## References
 
@@ -18,9 +18,17 @@ Recommendation Feed & Answered State — leaf segment `FEED` under the root HLD.
 - [docs/intent/recommendation-feed/recommendation-feed-specs.md](../../docs/intent/recommendation-feed/recommendation-feed-specs.md) (50 specs, prefix `FEED`)
 
 ### Tests
+- [backend/src/api/recommendation_feed/feed_db_tests.rs](../../backend/src/api/recommendation_feed/feed_db_tests.rs)
+- [backend/src/api/recommendation_feed/outage_tests.rs](../../backend/src/api/recommendation_feed/outage_tests.rs)
+- [backend/src/api/recommendation_feed/stage_tests.rs](../../backend/src/api/recommendation_feed/stage_tests.rs)
+- [backend/src/api/recommendations/db_tests.rs](../../backend/src/api/recommendations/db_tests.rs)
+- [backend/src/models/recommendation/contract_tests.rs](../../backend/src/models/recommendation/contract_tests.rs)
+- [backend/src/models/recommendation_state/policy_tests.rs](../../backend/src/models/recommendation_state/policy_tests.rs)
 - [frontend/src/components/dashboard/loadDashboard.test.ts](../../frontend/src/components/dashboard/loadDashboard.test.ts)
+- [frontend/src/pages/Dashboard.test.tsx](../../frontend/src/pages/Dashboard.test.tsx)
+- [frontend/src/pages/Recommendations.test.tsx](../../frontend/src/pages/Recommendations.test.tsx)
 - [frontend/tests/repo.test.ts](../../frontend/tests/repo.test.ts)
-- Inline `#[cfg(test)]` modules citing this prefix: `backend/src/api/recommendation_feed.rs`, `backend/src/models/recommendation_state.rs`
+- Inline `#[cfg(test)]` modules citing this prefix: `backend/src/api/recommendation_feed.rs`, `backend/src/logic/rules/spring_nitrogen.rs`, `backend/src/models/recommendation_state.rs`
 
 ### Code
 - [backend/src/api/dashboard.rs](../../backend/src/api/dashboard.rs)
@@ -33,7 +41,9 @@ Recommendation Feed & Answered State — leaf segment `FEED` under the root HLD.
 - [backend/src/db/migrations/20260921000100_recommendation_state_severity.sql](../../backend/src/db/migrations/20260921000100_recommendation_state_severity.sql)
 - [backend/src/db/queries.rs](../../backend/src/db/queries.rs)
 - [backend/src/logic/inventory.rs](../../backend/src/logic/inventory.rs)
+- [backend/src/logic/plant_maintenance.rs](../../backend/src/logic/plant_maintenance.rs)
 - [backend/src/logic/rules/nitrogen_guard.rs](../../backend/src/logic/rules/nitrogen_guard.rs)
+- [backend/src/logic/rules/spring_nitrogen.rs](../../backend/src/logic/rules/spring_nitrogen.rs)
 - [backend/src/mcp/tools/lawn.rs](../../backend/src/mcp/tools/lawn.rs)
 - [backend/src/models/recommendation.rs](../../backend/src/models/recommendation.rs)
 - [backend/src/models/recommendation_state.rs](../../backend/src/models/recommendation_state.rs)
@@ -61,29 +71,28 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 
 | Facet | Spec IDs | Implemented | Deferred | Gaps | `@spec` in code | `@spec` in tests |
 |---|---|---|---|---|---|---|
-| REC | FEED-REC-001 – FEED-REC-004 | 4 | 0 | 0 | 1 | 1 |
-| PIPE | FEED-PIPE-001 – FEED-PIPE-018 | 16 | 1 | 0 | 6 | 3 |
-| STATE | FEED-STATE-001 – FEED-STATE-010 | 10 | 0 | 0 | 1 | 1 |
-| API | FEED-API-001 – FEED-API-006 | 6 | 0 | 0 | 1 | 0 |
-| UI | FEED-UI-001 – FEED-UI-013 | 13 | 0 | 0 | 1 | 1 |
-| **Total** | | **49** | **1** | **0** | **10** | **6** |
+| REC | FEED-REC-001 – FEED-REC-004 | 4 | 0 | 0 | 4 | 4 |
+| PIPE | FEED-PIPE-001 – FEED-PIPE-018 | 16 | 1 | 0 | 15 | 14 |
+| STATE | FEED-STATE-001 – FEED-STATE-010 | 10 | 0 | 0 | 10 | 10 |
+| API | FEED-API-001 – FEED-API-006 | 6 | 0 | 0 | 6 | 6 |
+| UI | FEED-UI-001 – FEED-UI-013 | 13 | 0 | 0 | 13 | 13 |
+| **Total** | | **49** | **1** | **0** | **48** | **47** |
 
-**Summary:** 49 of 49 active specs implemented; 1 deferred; 6 implemented specs cited by a test, 39 cited nowhere.
+**Summary:** 49 of 49 active specs implemented; 1 deferred; 47 implemented specs cited by a test, 1 cited nowhere.
 
 ## Key Findings
 
-1. **39 implemented specs have no `@spec` annotation** — the specs were written to describe existing code and never linked back: FEED-REC-001/002/003; FEED-PIPE-002/003/005/011/012/014/015/016/017/018; FEED-STATE-001/002/003/004/005/006/007/008/009; FEED-API-001/002/003/004/005; FEED-UI-001/002/003/004/005/006/007/008/009/010/011/012.
-2. **4 specs are annotated in code but cited by no test** — FEED-PIPE-001/007/008; FEED-API-006.
+1. **No test possible — FEED-PIPE-003:** timing-after-rules ordering is not observable: it needs a lake plus a rules-produced `broadleaf_fall`, both tied to the real date (`Clock::today()` reads `Utc::now()`).
+2. **Spec ≠ code — FEED-PIPE-011:** spec: the feed reads the log once and hands it to every source; code: disease risk (`api/disease_risk.rs:73`, 365 d) and timing (`api/timing.rs:126`, 550 d) run their own range queries.
 3. **Deferred:** FEED-PIPE-010.
 
 ## Work Required
 
 ### Must Fix
-- None.
+- Decide FEED-PIPE-011: fix the code or correct the spec, then link it.
 
 ### Should Fix
-1. Add `@spec` annotations (entry point + exercising test) for the 39 unlinked specs.
-2. Annotate a test for the 4 code-only specs.
+- None.
 
 ### Nice to Have
-- Audit each `[x]` against the code and move the segment to `AUDITED`.
+- FEED-PIPE-003: timing-after-rules ordering is not observable: it needs a lake plus a rules-produced `broadleaf_fall`, both tied to the real date (`Clock::today()` reads `Utc::now()`).

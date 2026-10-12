@@ -8,6 +8,9 @@ use crate::models::FracClass;
 use serde::Serialize;
 use serde_json::{json, Value};
 
+#[cfg(test)]
+mod schema_tests;
+
 #[derive(Debug, Serialize)]
 pub struct ProductProfileRequest<'a> {
     pub name: &'a str,
@@ -46,6 +49,7 @@ impl OpenRouterClient {
     }
 }
 
+// @spec INV-LLM-006
 pub(super) const PRODUCT_SYSTEM_PROMPT: &str = "You are cataloguing lawn-care products for a \
 HOMEOWNER's shelf: fertilizers, nutrient supplements, fungicides, herbicides, insect control, \
 grass seed, soil amendments and surfactants. The user gives a product name as printed on the \
@@ -88,6 +92,7 @@ fn nullable_number() -> Value {
     json!({ "type": ["number", "null"] })
 }
 
+// @spec INV-LLM-005
 pub(super) fn product_json_schema() -> Value {
     json!({
         "type": "object",
@@ -169,6 +174,7 @@ mod tests {
     use super::*;
     use crate::error::TurfOpsError;
 
+    // @spec INV-LLM-005
     #[test]
     fn schema_requires_every_profile_field_and_has_no_rate_interval() {
         let schema = product_json_schema();

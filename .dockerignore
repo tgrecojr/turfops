@@ -1,10 +1,12 @@
 .git
+# @spec DEPLOY-IMAGE-007
 .env
 .env.*
 !.env.example
 target/
 frontend/node_modules/
 frontend/dist/
+# @spec DEPLOY-IMAGE-004 (root-anchored: docs/*.md stays in the context)
 *.md
 .claude/
 src/

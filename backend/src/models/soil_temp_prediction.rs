@@ -95,6 +95,7 @@ pub struct SoilTempModelInfo {
     pub quality: String,
 }
 
+// @spec WX-OUTLOOK-MODEL-006
 impl From<&SoilTempModel> for SoilTempModelInfo {
     fn from(model: &SoilTempModel) -> Self {
         let quality = if model.r_squared >= 0.7 {

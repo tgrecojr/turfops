@@ -33,6 +33,7 @@ fn scale() -> RiskScale {
     }
 }
 
+// @spec DIS-MODEL-SCORE-001
 pub(super) fn assess(
     series: &[DailyWeather],
     today: NaiveDate,
@@ -193,6 +194,7 @@ mod tests {
     use super::*;
     use crate::logic::disease::test_support::{date, day, run_of};
 
+    // @spec DIS-MODEL-SCORE-001
     #[test]
     fn e_index_matches_published_example() {
         // Tmin 18.6°C, RH 86.3% → E = 6.07 (hand-computed; reference tool shows 6.08

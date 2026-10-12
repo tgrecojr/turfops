@@ -4,7 +4,7 @@ Seeding & Pre-Emergent Timing Windows — leaf segment `TIME` under the root HLD
 
 ## Status
 
-**MAPPED** — overlay bootstrapped 2026-10-11 from the existing LID docs; not yet audited (`audited_sha: null`). 74 specs `[x]`, 0 `[D]`, 0 `[ ]`; 8 of 74 implemented specs carry a `@spec` annotation.
+**PARTIAL** — audited 2026-10-11 (git SHA `65245e3`): every implemented spec was checked against the code while linking it. 73 of 74 implemented specs are linked to both code and a test; 1 disagree with the code (see Key Findings).
 
 ## References
 
@@ -23,8 +23,28 @@ Seeding & Pre-Emergent Timing Windows — leaf segment `TIME` under the root HLD
 - [docs/timing-windows.md](../../docs/timing-windows.md)
 
 ### Tests
+- [backend/src/api/timing/handler_tests.rs](../../backend/src/api/timing/handler_tests.rs)
+- [backend/src/api/timing/hook_tests.rs](../../backend/src/api/timing/hook_tests.rs)
 - [backend/src/api/timing/memo_tests.rs](../../backend/src/api/timing/memo_tests.rs)
-- Inline `#[cfg(test)]` modules citing this prefix: `backend/src/api/timing.rs`, `backend/src/logic/timing/evaluate.rs`, `backend/src/logic/timing/recommendations.rs`
+- [backend/src/logic/timing/plan/spec_tests.rs](../../backend/src/logic/timing/plan/spec_tests.rs)
+- [backend/src/logic/timing/plan/tests.rs](../../backend/src/logic/timing/plan/tests.rs)
+- [backend/src/logic/timing/tests.rs](../../backend/src/logic/timing/tests.rs)
+- [backend/src/logic/timing/tests/confirmation.rs](../../backend/src/logic/timing/tests/confirmation.rs)
+- [backend/src/logic/timing/tests/definitions.rs](../../backend/src/logic/timing/tests/definitions.rs)
+- [backend/src/logic/timing/tests/feed.rs](../../backend/src/logic/timing/tests/feed.rs)
+- [backend/src/logic/timing/tests/history.rs](../../backend/src/logic/timing/tests/history.rs)
+- [backend/src/logic/timing/tests/log_spans.rs](../../backend/src/logic/timing/tests/log_spans.rs)
+- [backend/src/logic/timing/tests/outlook.rs](../../backend/src/logic/timing/tests/outlook.rs)
+- [backend/src/logic/timing/tests/resolve.rs](../../backend/src/logic/timing/tests/resolve.rs)
+- [backend/src/logic/timing/tests/season_context.rs](../../backend/src/logic/timing/tests/season_context.rs)
+- [backend/src/logic/timing/tests/states.rs](../../backend/src/logic/timing/tests/states.rs)
+- [frontend/src/components/timing/SoilSeasonChart.test.tsx](../../frontend/src/components/timing/SoilSeasonChart.test.tsx)
+- [frontend/src/components/timing/StateBadge.test.tsx](../../frontend/src/components/timing/StateBadge.test.tsx)
+- [frontend/src/components/timing/TimingWidget.test.tsx](../../frontend/src/components/timing/TimingWidget.test.tsx)
+- [frontend/src/components/timing/WindowCard.test.tsx](../../frontend/src/components/timing/WindowCard.test.tsx)
+- [frontend/src/components/timing/WindowTimeline.test.tsx](../../frontend/src/components/timing/WindowTimeline.test.tsx)
+- [frontend/src/pages/Timing.test.tsx](../../frontend/src/pages/Timing.test.tsx)
+- Inline `#[cfg(test)]` modules citing this prefix: `backend/src/api/timing.rs`, `backend/src/logic/timing/climatology.rs`, `backend/src/logic/timing/companions.rs`, `backend/src/logic/timing/context.rs`, `backend/src/logic/timing/evaluate.rs`, `backend/src/logic/timing/log.rs`, `backend/src/logic/timing/recommendations.rs`, `backend/src/logic/timing/series.rs`, `backend/src/logic/timing/text.rs`, `backend/src/logic/timing/windows.rs`
 
 ### Code
 - [backend/src/api/seasonal_plan.rs](../../backend/src/api/seasonal_plan.rs)
@@ -33,10 +53,24 @@ Seeding & Pre-Emergent Timing Windows — leaf segment `TIME` under the root HLD
 - [backend/src/datasources/weather/climatology.rs](../../backend/src/datasources/weather/climatology.rs)
 - [backend/src/logic/data_sync.rs](../../backend/src/logic/data_sync.rs)
 - [backend/src/logic/timing](../../backend/src/logic/timing)
+- [backend/src/logic/timing/climatology.rs](../../backend/src/logic/timing/climatology.rs)
+- [backend/src/logic/timing/companions.rs](../../backend/src/logic/timing/companions.rs)
+- [backend/src/logic/timing/context.rs](../../backend/src/logic/timing/context.rs)
 - [backend/src/logic/timing/evaluate.rs](../../backend/src/logic/timing/evaluate.rs)
+- [backend/src/logic/timing/log.rs](../../backend/src/logic/timing/log.rs)
+- [backend/src/logic/timing/mod.rs](../../backend/src/logic/timing/mod.rs)
+- [backend/src/logic/timing/plan.rs](../../backend/src/logic/timing/plan.rs)
 - [backend/src/logic/timing/recommendations.rs](../../backend/src/logic/timing/recommendations.rs)
+- [backend/src/logic/timing/series.rs](../../backend/src/logic/timing/series.rs)
+- [backend/src/logic/timing/text.rs](../../backend/src/logic/timing/text.rs)
+- [backend/src/logic/timing/windows.rs](../../backend/src/logic/timing/windows.rs)
 - [backend/src/models/timing.rs](../../backend/src/models/timing.rs)
 - [frontend/src/components/timing](../../frontend/src/components/timing)
+- [frontend/src/components/timing/SoilSeasonChart.tsx](../../frontend/src/components/timing/SoilSeasonChart.tsx)
+- [frontend/src/components/timing/StateBadge.tsx](../../frontend/src/components/timing/StateBadge.tsx)
+- [frontend/src/components/timing/TimingWidget.tsx](../../frontend/src/components/timing/TimingWidget.tsx)
+- [frontend/src/components/timing/WindowCard.tsx](../../frontend/src/components/timing/WindowCard.tsx)
+- [frontend/src/components/timing/WindowTimeline.tsx](../../frontend/src/components/timing/WindowTimeline.tsx)
 - [frontend/src/pages/Timing.tsx](../../frontend/src/pages/Timing.tsx)
 - [frontend/src/types/timing.ts](../../frontend/src/types/timing.ts)
 
@@ -50,28 +84,26 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 
 | Facet | Spec IDs | Implemented | Deferred | Gaps | `@spec` in code | `@spec` in tests |
 |---|---|---|---|---|---|---|
-| ENG | TIME-ENG-001 – TIME-ENG-046 | 46 | 0 | 0 | 3 | 3 |
-| FEED | TIME-FEED-001 – TIME-FEED-009 | 9 | 0 | 0 | 3 | 3 |
-| LOG | TIME-LOG-001 – TIME-LOG-004 | 4 | 0 | 0 | 0 | 0 |
-| PLAN | TIME-PLAN-001 – TIME-PLAN-007 | 7 | 0 | 0 | 1 | 0 |
-| UI | TIME-UI-001 – TIME-UI-008 | 8 | 0 | 0 | 1 | 0 |
-| **Total** | | **74** | **0** | **0** | **8** | **6** |
+| ENG | TIME-ENG-001 – TIME-ENG-046 | 46 | 0 | 0 | 45 | 45 |
+| FEED | TIME-FEED-001 – TIME-FEED-009 | 9 | 0 | 0 | 9 | 9 |
+| LOG | TIME-LOG-001 – TIME-LOG-004 | 4 | 0 | 0 | 4 | 4 |
+| PLAN | TIME-PLAN-001 – TIME-PLAN-007 | 7 | 0 | 0 | 7 | 7 |
+| UI | TIME-UI-001 – TIME-UI-008 | 8 | 0 | 0 | 8 | 8 |
+| **Total** | | **74** | **0** | **0** | **73** | **73** |
 
-**Summary:** 74 of 74 active specs implemented; 0 deferred; 6 implemented specs cited by a test, 66 cited nowhere.
+**Summary:** 74 of 74 active specs implemented; 0 deferred; 73 implemented specs cited by a test, 1 cited nowhere.
 
 ## Key Findings
 
-1. **66 implemented specs have no `@spec` annotation** — the specs were written to describe existing code and never linked back: TIME-ENG-001/002/003/004/005/006/007/008/009/010/011/012/013/014/015/016/017/018/019/020/021/022/023/024/025/026/027/029/030/031/032/033/034/035/036/037/038/040/041/042/043/044/045; TIME-FEED-001/002/004/005/006/007; TIME-LOG-001/002/003/004; TIME-PLAN-001/002/003/004/005/006; TIME-UI-001/002/003/004/005/006/007.
-2. **2 specs are annotated in code but cited by no test** — TIME-PLAN-007; TIME-UI-008.
+1. **Spec ≠ code — TIME-ENG-004:** spec: every lawn gets all five windows; code: warm-season grasses get only the two pre-emergent windows (`logic/timing/windows.rs` `specs_for`), which the design doc supports — spec wording likely stale.
 
 ## Work Required
 
 ### Must Fix
-- None.
+- Decide TIME-ENG-004: fix the code or correct the spec, then link it.
 
 ### Should Fix
-1. Add `@spec` annotations (entry point + exercising test) for the 66 unlinked specs.
-2. Annotate a test for the 2 code-only specs.
+- None.
 
 ### Nice to Have
-- Audit each `[x]` against the code and move the segment to `AUDITED`.
+- None.

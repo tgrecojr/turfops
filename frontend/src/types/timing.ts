@@ -114,6 +114,7 @@ export const WINDOW_STATE_LABELS: Record<WindowState, string> = {
 
 // Status palette shared with disease risk (good / warning) plus neutrals. State is
 // never carried by color alone — always pair with the symbol + label.
+// @spec UI-CONV-002
 export const WINDOW_STATE_COLORS: Record<WindowState, string> = {
 	NotYet: "#a0aec0",
 	OpeningSoon: "#3182ce",

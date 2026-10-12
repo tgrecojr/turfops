@@ -17,7 +17,8 @@ Containerized web application for tracking lawn care activities with data-driven
 
 ### Backend
 - `cd backend && cargo build` — Build backend
-- `cd backend && cargo test` — Run tests (523 tests)
+- `cd backend && cargo test` — Run tests (945 tests; no database needed)
+- `cd backend && DATABASE_URL=postgres://postgres@127.0.0.1:5434/postgres cargo test --features db-tests` — All 1,088 tests, including the PostgreSQL-backed ones (`#[sqlx::test]`, a fresh migrated DB each; e.g. `docker run -d --name turfops-testdb -p 127.0.0.1:5434:5432 -e POSTGRES_HOST_AUTH_METHOD=trust postgres:18`)
 - `cd backend && cargo fmt` — Format code
 - `cd backend && cargo clippy` — Run linter
 - `cd backend && cargo run` — Run API server (needs PostgreSQL)
@@ -28,7 +29,7 @@ Containerized web application for tracking lawn care activities with data-driven
 - `cd frontend && npm run build` — Production build to dist/ (if `npm` is wrapped by Socket and rolldown fails with "loading addons is disabled", run `tsc -b && node node_modules/vite/bin/vite.js build`)
 - `cd frontend && npx tsc -b` — Type check (`--noEmit` checks nothing: the root tsconfig is a solution file)
 - `cd frontend && npm run lint` — Biome lint + format check
-- `cd frontend && npm test` — Vitest (API client error mapping)
+- `cd frontend && npm test` — Vitest (logic suites in Node; component suites in jsdom with Testing Library via `// @vitest-environment jsdom`). If the Socket-wrapped `npm` breaks rolldown, run `node node_modules/vitest/vitest.mjs run`
 - `cd frontend && npm run format` — Biome auto-format
 
 ### Docker

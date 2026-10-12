@@ -19,6 +19,7 @@ fn when(boundary: &BoundaryView) -> String {
     }
 }
 
+// @spec TIME-ENG-035
 pub fn headline(state: WindowState, views: &WindowViews, done_on: Option<NaiveDate>) -> String {
     match state {
         WindowState::Done => match done_on {
@@ -45,6 +46,7 @@ pub fn headline(state: WindowState, views: &WindowViews, done_on: Option<NaiveDa
     }
 }
 
+// @spec TIME-ENG-036
 /// A sentence on where the deciding trigger stands, for the states that hinge on one.
 pub fn detail(state: WindowState, views: &WindowViews, today: NaiveDate) -> String {
     let deciding = match state {
@@ -97,6 +99,7 @@ fn describe(boundary: &BoundaryView, today: NaiveDate) -> String {
     }
 }
 
+// @spec TIME-ENG-037
 /// Standing advice per window. Never rates — the product label governs.
 pub fn guidance(id: WindowId, state: WindowState) -> Vec<String> {
     let lines: &[&str] = match (id, state) {
@@ -174,6 +177,7 @@ mod tests {
         }
     }
 
+    // @spec TIME-ENG-035
     #[test]
     fn typical_dates_are_hedged_and_observed_dates_are_not() {
         let sep18 = NaiveDate::from_ymd_opt(2026, 9, 18);
@@ -199,6 +203,7 @@ mod tests {
         assert!(detail(WindowState::Open, &v, today()).contains("held 3 of 5 days"));
     }
 
+    // @spec TIME-ENG-035
     #[test]
     fn overdue_trigger_has_no_invented_date() {
         let v = views(
@@ -211,6 +216,7 @@ mod tests {
         );
     }
 
+    // @spec TIME-ENG-036
     #[test]
     fn running_behind_is_reserved_for_a_genuinely_late_season() {
         use crate::models::seasonal_plan::WindowConfidence;
@@ -235,6 +241,7 @@ mod tests {
         assert!(detail(WindowState::NotYet, &v, d(9, 28)).contains("running behind"));
     }
 
+    // @spec TIME-ENG-037
     #[test]
     fn guidance_never_gives_rates_and_is_empty_when_done() {
         assert!(guidance(WindowId::FallSeeding, WindowState::Done).is_empty());

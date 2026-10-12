@@ -18,6 +18,7 @@ pub struct FungicideRotationAdvice {
     pub rotation_warning: Option<String>,
 }
 
+// @spec DIS-MGMT-FRAC-004
 /// Analyze fungicide application history for the current season and produce
 /// FRAC-class-aware rotation advice.
 ///

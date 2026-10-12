@@ -18,6 +18,7 @@ fn find<'a>(plan: &'a [PlannedActivity], id: &str) -> Option<&'a PlannedActivity
     plan.iter().find(|a| a.id == id)
 }
 
+// @spec TIME-PLAN-001
 #[test]
 fn plan_uses_the_timing_windows_for_seeding_aeration_and_pre_emergent() {
     let plan = plan(&[]);
@@ -46,6 +47,7 @@ fn plan_uses_the_timing_windows_for_seeding_aeration_and_pre_emergent() {
     assert!(find(&plan, "fall_pre_emergent").is_some());
 }
 
+// @spec TIME-PLAN-002, TIME-PLAN-003
 #[test]
 fn overseeding_drops_fall_pre_emergent_from_the_plan() {
     let plan = plan(&[applied(ApplicationType::Overseed, date(2026, 9, 12))]);
@@ -54,6 +56,7 @@ fn overseeding_drops_fall_pre_emergent_from_the_plan() {
     assert!(matches!(seeding.status, ActivityStatus::Completed));
 }
 
+// @spec TIME-PLAN-002, TIME-PLAN-003
 #[test]
 fn fall_pre_emergent_does_not_complete_the_spring_application() {
     let plan = plan(&[applied(ApplicationType::PreEmergent, date(2026, 9, 5))]);
@@ -89,6 +92,7 @@ fn plan_on(
     )
 }
 
+// @spec TIME-PLAN-002
 #[test]
 fn this_seasons_status_follows_the_window_not_the_typical_dates() {
     // A spring running 6°F cold: on Apr 28 (typical close ≈ Apr 21) the soil has not
@@ -109,6 +113,7 @@ fn this_seasons_status_follows_the_window_not_the_typical_dates() {
     ));
 }
 
+// @spec TIME-PLAN-004
 #[test]
 fn the_windows_answer_for_their_activities_even_when_one_is_blocked() {
     let owned = owned_ids(GrassType::TallFescue);

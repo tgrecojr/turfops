@@ -188,6 +188,7 @@ Every error the UI shows is plain language that says what went wrong and, where 
 | Biome 2 | `frontend/biome.json` | Recommended rules + React domain, `style/useComponentExportOnlyModules: error`. Ignores `dist` and `public`. `npm run lint` = `biome check .` (lint + format). |
 | Build | `npm run build` = `tsc -b && vite build` | Output `frontend/dist`, copied into the image as `/app/static`. |
 | Vitest 5 | `npm test` = `vitest run` | Shares the Vite config and transform. Suites live beside the code (`src/api/client.test.ts`, `src/api/errors.test.ts`) and cover the API client's error mapping (status kept, `{"error": …}` unwrapped, a non-JSON body never shown, empty 2xx, timeout message) and `describeError`. The CI frontend job's "Test" step runs it after lint. |
+| Testing Library + jsdom | `// @vitest-environment jsdom` per file | Component tests render in jsdom with `@testing-library/react` and `user-event`; every other suite stays in Node. `src/test/setup.ts` registers the jest-dom matchers, cleans up after each test and stubs `ResizeObserver` (Recharts' `ResponsiveContainer`) and `matchMedia`. |
 
 **The es-toolkit redirect.** Recharts imports `es-toolkit/compat/<fn>` deep paths, which resolve only to es-toolkit's CommonJS build. Rolldown mis-compiles those circular CJS modules into a self-referential initializer (`var require_get = require_get()`, minified to `var t = t()`), so any page that renders a chart crashes in the **production** bundle with "t is not a function". Development mode does not show the bug. `esToolkitCompatEsm()` runs with `enforce: "pre"` so it resolves before Vite's own resolver. It maps each `es-toolkit/compat/<fn>` to a virtual module `export { <fn> as default } from 'es-toolkit/compat'`, i.e. the pure-ESM barrel, and leaves the bare barrel import alone. The guard covers every current and future chart page. A suspected bundler bug of this kind is diagnosed by running the production build in a real browser.
 
@@ -195,7 +196,7 @@ Every error the UI shows is plain language that says what went wrong and, where 
 
 **Fast-refresh rule.** `useComponentExportOnlyModules` is why `ErrorBoundary` and `NotFound` are unexported locals of `App.tsx`, and why gauge configs, label maps and helpers live in `.ts` modules apart from the components that use them.
 
-Unit tests (Vitest) guard the logic that pages share, starting with the API client's error mapping, where a regression would put raw JSON or status codes in front of the owner on every page. Rendering and layout rest on the type check, Biome and manual checks of the production build.
+Unit tests (Vitest) guard the logic that pages share, starting with the API client's error mapping, where a regression would put raw JSON or status codes in front of the owner on every page. Rendering and interaction are covered by component tests in jsdom (Testing Library); visual layout rests on manual checks of the production build.
 
 ## SPA Serving and CORS (backend side)
 
