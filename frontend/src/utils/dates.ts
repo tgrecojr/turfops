@@ -62,6 +62,11 @@ export function formatMonthDay(iso: string): string {
 	return `${MONTHS[Number(month) - 1]} ${Number(day)}`;
 }
 
+/** `2026-03-23` → `Mar 23, 2026`. */
+export function formatFullDate(iso: string): string {
+	return `${formatMonthDay(iso)}, ${iso.slice(0, 4)}`;
+}
+
 /** `2026-09-18`, `2026-10-02` → `Sep 18 – Oct 2`. */
 export function formatDateRange(start: string, end: string): string {
 	return `${formatMonthDay(start)} – ${formatMonthDay(end)}`;

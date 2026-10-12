@@ -1,0 +1,58 @@
+export const adviceStyles: Record<string, React.CSSProperties> = {
+	recTitle: {
+		fontSize: "0.95rem",
+		fontWeight: 700,
+		color: "#2d3748",
+		margin: "0 0 0.75rem",
+	},
+	recRow: {
+		display: "flex",
+		justifyContent: "space-between",
+		alignItems: "center",
+		padding: "0.25rem 0",
+		gap: "0.5rem",
+	},
+	recLabel: {
+		fontSize: "0.8rem",
+		color: "#718096",
+	},
+	recValue: {
+		fontSize: "0.85rem",
+		color: "#2d3748",
+		display: "flex",
+		alignItems: "center",
+		gap: "0.5rem",
+	},
+	recExplanation: {
+		fontSize: "0.8rem",
+		color: "#718096",
+		marginTop: "0.75rem",
+		lineHeight: 1.5,
+		borderTop: "1px solid #e2e8f0",
+		paddingTop: "0.5rem",
+	},
+	basis: {
+		color: "#4a5568",
+		fontSize: "0.85rem",
+		margin: "-0.25rem 0 0.75rem",
+	},
+	retest: {
+		color: "#975a16",
+		backgroundColor: "#fefcbf",
+		border: "1px solid #ecc94b",
+		borderRadius: 6,
+		padding: "0.5rem 0.75rem",
+		fontSize: "0.85rem",
+		marginBottom: "0.75rem",
+	},
+	budgetRow: {
+		display: "flex",
+		justifyContent: "space-between",
+		alignItems: "center",
+		gap: "0.5rem",
+		marginTop: "0.5rem",
+		padding: "0.5rem",
+		backgroundColor: "#f7fafc",
+		borderRadius: 4,
+	},
+};
