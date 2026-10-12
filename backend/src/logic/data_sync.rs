@@ -2,6 +2,8 @@ mod probes;
 #[cfg(test)]
 mod source_tests;
 mod sync_state;
+#[cfg(all(test, feature = "db-tests"))]
+mod test_double;
 #[cfg(test)]
 pub(crate) mod test_support;
 #[cfg(test)]

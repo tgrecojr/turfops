@@ -8,6 +8,9 @@ use chrono::{Datelike, Local, NaiveDate};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+#[cfg(all(test, feature = "db-tests"))]
+mod db_tests;
+
 #[derive(Debug, Deserialize)]
 pub struct CalendarQuery {
     pub year: Option<i32>,
@@ -21,6 +24,7 @@ pub struct CalendarResponse {
     pub days: BTreeMap<String, Vec<Application>>,
 }
 
+// @spec PLAN-CAL-001, PLAN-CAL-002, PLAN-CAL-003
 pub async fn get_calendar(
     State(state): State<AppState>,
     Query(params): Query<CalendarQuery>,
