@@ -27,6 +27,7 @@ fn logged<T>(f: impl FnOnce() -> T) -> (T, String) {
         .with_ansi(false)
         .with_writer(move || writer.clone())
         .finish();
+    crate::test_support::keep_tracing_interest_shared();
     let value = tracing::subscriber::with_default(subscriber, f);
     let log = String::from_utf8(captured.0.lock().unwrap().clone()).unwrap();
     (value, log)

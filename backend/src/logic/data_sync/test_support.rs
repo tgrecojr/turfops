@@ -6,6 +6,7 @@ use super::*;
 use crate::models::{DailyForecast, ForecastLocation, WeatherCondition, WeatherForecast};
 use crate::state::AppState;
 use chrono::NaiveDate;
+use chrono::Utc;
 
 impl DataSyncService {
     pub(crate) fn for_tests(

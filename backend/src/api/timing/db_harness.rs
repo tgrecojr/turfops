@@ -19,7 +19,7 @@ pub(super) const ZONE: Clock = Clock::Zone(chrono_tz::America::New_York);
 const CURVE: &str = "(55 + 22 * cos(2 * pi() * (dayofyear(d) - 200) / 365.0))";
 
 /// Silver + gold parquet in a directory of its own, removed on drop.
-pub(super) struct Lake {
+pub(crate) struct Lake {
     dir: PathBuf,
 }
 
@@ -65,6 +65,56 @@ impl Lake {
         lake
     }
 
+    /// Every silver column the 7-day summary and the climate record read, hourly from Jan 1
+    /// `years` years before `end` up to the hour before `end` (UTC), on the typical-year
+    /// curve: 5 and 10 cm soil on it, air 5 °F under it, RH 70 %, no rain, moisture 0.25.
+    pub(crate) fn full_until(years: i32, end: DateTime<Utc>) -> Self {
+        let start = NaiveDate::from_ymd_opt(end.year() - years, 1, 1).unwrap();
+        let end_ts = end.naive_utc();
+        let lake = Self {
+            dir: Self::new_dir(),
+        };
+        let curve = CURVE.replace("dayofyear(d)", "dayofyear(CAST(ts AS DATE))");
+        let gold_curve = CURVE;
+        let hours = format!(
+            "range(TIMESTAMP '{start} 00:00:00', TIMESTAMP '{end_ts}', INTERVAL 1 HOUR) t(ts)"
+        );
+        let days = format!(
+            "range(TIMESTAMP '{start}', TIMESTAMP '{}', INTERVAL 1 DAY) t(d)",
+            end_ts.date()
+        );
+        let conn = duckdb::Connection::open_in_memory().unwrap();
+        conn.execute_batch(&format!(
+            "COPY (
+                SELECT '03761' AS wbanno, ts AS obs_ts_utc, ts - INTERVAL 4 HOUR AS obs_ts_local,
+                       CAST(ts - INTERVAL 4 HOUR AS DATE) AS obs_date_local,
+                       ({curve} - 32) * 5 / 9 AS soil_temp_5, ({curve} - 32) * 5 / 9 AS soil_temp_10,
+                       CAST(NULL AS DOUBLE) AS soil_temp_20, CAST(NULL AS DOUBLE) AS soil_temp_50,
+                       CAST(NULL AS DOUBLE) AS soil_temp_100,
+                       0.25 AS soil_moisture_5, 0.25 AS soil_moisture_10, 0.25 AS soil_moisture_20,
+                       CAST(NULL AS DOUBLE) AS soil_moisture_50, CAST(NULL AS DOUBLE) AS soil_moisture_100,
+                       ({curve} - 5 - 32) * 5 / 9 AS air_temp_c,
+                       CAST(NULL AS DOUBLE) AS air_temp_min_c, CAST(NULL AS DOUBLE) AS air_temp_max_c,
+                       70.0 AS rh_pct, 0.0 AS precip_mm
+                FROM {hours}
+             ) TO '{silver}' (FORMAT PARQUET);
+             COPY (
+                SELECT CAST(d AS DATE) AS day,
+                       {gold_curve} - 16.5 AS air_temp_min_f,
+                       {gold_curve} - 5 AS air_temp_avg_f,
+                       {gold_curve} + 5 AS air_temp_max_f,
+                       {gold_curve} AS soil_temp_10_f_mean,
+                       greatest({gold_curve} - 55, 0) AS gdd50,
+                       24 AS hours_observed
+                FROM {days}
+             ) TO '{gold}' (FORMAT PARQUET);",
+            silver = lake.silver(),
+            gold = lake.gold(),
+        ))
+        .unwrap();
+        lake
+    }
+
     /// A lake whose parquet files do not exist.
     pub(super) fn missing() -> Self {
         Self {
@@ -93,9 +143,16 @@ impl Drop for Lake {
     }
 }
 
-/// App state over `lake`, with the forecast fetched from `forecast_base` when given.
-pub(super) async fn app_state(pool: &PgPool, lake: &Lake, forecast_base: Option<&str>) -> AppState {
-    let mut config: Config = serde_json::from_value(serde_json::json!({
+/// App state over `lake` on `clock`, with no forecast.
+pub(crate) async fn app_state_on(pool: &PgPool, lake: &Lake, clock: Clock) -> AppState {
+    let mut config = config_for(lake);
+    config.clock = clock;
+    let sync = DataSyncService::initialize(&config, pool.clone()).await;
+    AppState::new(pool.clone(), sync, None, false, clock)
+}
+
+fn config_for(lake: &Lake) -> Config {
+    serde_json::from_value(serde_json::json!({
         "lawn": { "name": "Test", "grass_type": "TallFescue", "usda_zone": "7a" },
         "noaa": { "station_wbanno": 3761 },
         "datalake": { "silver_weather_path": lake.silver(), "gold_weather_path": lake.gold() },
@@ -110,7 +167,12 @@ pub(super) async fn app_state(pool: &PgPool, lake: &Lake, forecast_base: Option<
         },
         "mcp": {}
     }))
-    .unwrap();
+    .unwrap()
+}
+
+/// App state over `lake`, with the forecast fetched from `forecast_base` when given.
+pub(super) async fn app_state(pool: &PgPool, lake: &Lake, forecast_base: Option<&str>) -> AppState {
+    let mut config = config_for(lake);
     config.clock = ZONE;
     let mut sync = DataSyncService::initialize(&config, pool.clone()).await;
     if let Some(base) = forecast_base {
@@ -126,7 +188,7 @@ pub(super) async fn app_state(pool: &PgPool, lake: &Lake, forecast_base: Option<
 }
 
 /// Insert the lawn profile and return it as stored.
-pub(super) async fn lawn(pool: &PgPool) -> LawnProfile {
+pub(crate) async fn lawn(pool: &PgPool) -> LawnProfile {
     let profile = LawnProfile::new("Test".into(), GrassType::TallFescue, "7a".into());
     queries::create_lawn_profile(pool, &profile).await.unwrap();
     queries::get_default_lawn_profile(pool)

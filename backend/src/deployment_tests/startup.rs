@@ -115,6 +115,7 @@ impl Logs {
             .with_ansi(false)
             .with_max_level(tracing::Level::INFO)
             .finish();
+        crate::test_support::keep_tracing_interest_shared();
         let guard = tracing::subscriber::set_default(subscriber);
         // A callsite first reached on another test's thread (no subscriber) may have
         // cached "never"; recompute against this subscriber.

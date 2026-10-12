@@ -71,6 +71,7 @@ fn capture_logs() -> (Captured, tracing::subscriber::DefaultGuard) {
         .with_writer(move || writer.clone())
         .with_ansi(false)
         .finish();
+    crate::test_support::keep_tracing_interest_shared();
     (captured, tracing::subscriber::set_default(subscriber))
 }
 

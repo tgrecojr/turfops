@@ -4,7 +4,7 @@ Lawn Profile & Application Log — leaf segment `APP` under the root HLD.
 
 ## Status
 
-**OK** — audited 2026-10-12 (git SHA `2124c26`): every implemented spec was checked against the code while linking it. 75 of 75 implemented specs are linked to both code and a test.
+**OK** — audited 2026-10-12 (git SHA `0e3be7a`): every implemented spec was checked against the code while linking it. 75 of 75 implemented specs are linked to both code and a test.
 
 ## References
 

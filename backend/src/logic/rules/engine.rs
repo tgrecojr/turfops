@@ -5,6 +5,7 @@ use super::{
     irrigation_forecast::IrrigationForecastRule, mowing_height::MowingHeightRule,
     rain_delay::RainDelayRule, spring_nitrogen::SpringNitrogenRule, Rule,
 };
+use crate::clock::Moment;
 use crate::models::{Application, EnvironmentalSummary, LawnProfile, Recommendation};
 
 pub struct RulesEngine {
@@ -40,10 +41,11 @@ impl RulesEngine {
         env: &EnvironmentalSummary,
         profile: &LawnProfile,
         history: &[Application],
+        at: Moment,
     ) -> Vec<Recommendation> {
         self.rules
             .iter()
-            .filter_map(|rule| rule.evaluate(env, profile, history))
+            .filter_map(|rule| rule.evaluate(env, profile, history, at))
             .collect()
     }
 }

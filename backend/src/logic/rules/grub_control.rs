@@ -1,10 +1,11 @@
 use super::thresholds::*;
 use super::Rule;
+use crate::clock::Moment;
 use crate::models::{
     Application, ApplicationType, DataSource, EnvironmentalSummary, LawnProfile, ProductCategory,
     ProductNeed, ProductTarget, Recommendation, RecommendationCategory, Severity,
 };
-use chrono::{Datelike, Local, NaiveDate};
+use chrono::{Datelike, NaiveDate};
 
 /// Grub control timing rule
 ///
@@ -24,9 +25,10 @@ impl Rule for GrubControlRule {
         env: &EnvironmentalSummary,
         _profile: &LawnProfile,
         history: &[Application],
+        at: Moment,
     ) -> Option<Recommendation> {
         // @spec RULE-ENG-005
-        self.evaluate_on(Local::now().date_naive(), env, history)
+        self.evaluate_on(at.today, env, history)
     }
 }
 
@@ -258,7 +260,12 @@ mod tests {
         assert!(env.gdd_base50_ytd.is_none());
         let rule = GrubControlRule;
         // Result depends on current date (calendar gating), but should not panic.
-        let _ = rule.evaluate(&env, &base_profile(), &[]);
+        let _ = rule.evaluate(
+            &env,
+            &base_profile(),
+            &[],
+            crate::clock::Clock::System.moment(),
+        );
     }
 
     #[test]
@@ -268,7 +275,12 @@ mod tests {
         let mut env = base_env(65.0, 64.0);
         env.gdd_base50_ytd = Some(400.0);
         let rule = GrubControlRule;
-        let result = rule.evaluate(&env, &base_profile(), &[]);
+        let result = rule.evaluate(
+            &env,
+            &base_profile(),
+            &[],
+            crate::clock::Clock::System.moment(),
+        );
         // Outside calendar window (test runs year-round), result may be None.
         // If inside window, severity should be Advisory (not Warning from GDD).
         if let Some(rec) = result {
@@ -288,7 +300,12 @@ mod tests {
         let mut env = base_env(65.0, 64.0);
         env.gdd_base50_ytd = Some(700.0);
         let rule = GrubControlRule;
-        let result = rule.evaluate(&env, &base_profile(), &[]);
+        let result = rule.evaluate(
+            &env,
+            &base_profile(),
+            &[],
+            crate::clock::Clock::System.moment(),
+        );
         if let Some(rec) = result {
             assert_eq!(
                 rec.severity,
@@ -304,7 +321,12 @@ mod tests {
         let mut env = base_env(65.0, 64.0);
         env.gdd_base50_ytd = Some(900.0);
         let rule = GrubControlRule;
-        let result = rule.evaluate(&env, &base_profile(), &[]);
+        let result = rule.evaluate(
+            &env,
+            &base_profile(),
+            &[],
+            crate::clock::Clock::System.moment(),
+        );
         if let Some(rec) = result {
             assert_eq!(rec.severity, Severity::Warning);
             // Should include GDD data point

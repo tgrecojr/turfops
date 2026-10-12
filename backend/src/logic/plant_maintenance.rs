@@ -2,6 +2,7 @@
 //! Recommendation entries (when a window is open) and PlannedActivity entries
 //! (for calendar / seasonal plan overlays). Pure functions — no IO.
 
+use crate::clock::Moment;
 use crate::models::plant::{MaintenanceTask, Plant, TaskType};
 use crate::models::seasonal_plan::{
     ActivityDetails, ActivityStatus, DateWindow, PlannedActivity, WindowConfidence,
@@ -130,10 +131,11 @@ pub fn generate_plant_maintenance_recommendations(
     plants: &[Plant],
     applications: &[Application],
     env: &EnvironmentalSummary,
-    today: NaiveDate,
+    at: Moment,
 ) -> Vec<Recommendation> {
+    let today = at.today;
     let mut recs = Vec::new();
-    let water = WaterSignals::from_env(env);
+    let water = WaterSignals::from_env(env, at.now);
     let weather_is_watering = water.wet_reason().is_some();
 
     for plant in plants {

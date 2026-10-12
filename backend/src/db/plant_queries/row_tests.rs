@@ -24,6 +24,7 @@ fn warnings_during<T>(f: impl FnOnce() -> T) -> (T, String) {
         .with_ansi(false)
         .with_writer(move || SinkWriter(sink.clone()))
         .finish();
+    crate::test_support::keep_tracing_interest_shared();
     let out = tracing::subscriber::with_default(subscriber, f);
     let text = String::from_utf8(buf.lock().unwrap().clone()).unwrap();
     (out, text)

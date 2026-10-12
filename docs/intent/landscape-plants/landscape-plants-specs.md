@@ -2,7 +2,7 @@
 
 Design: [landscape-plants-design.md](landscape-plants-design.md). Prefix `PLANT`. Facets: `DATA` (plant model and stored plan), `API` (plants endpoints), `AI` (shared OpenRouter client), `PROMPT` (plant care-plan prompt and schema), `WIN` (maintenance windows and completion), `REC` (plant task recommendations), `WATER` (watering hold-back), `PLAN` (seasonal-plan activities), `UI` (Landscape page).
 
-A **care plan** is the LLM-written list of maintenance **tasks** cached on a plant; each task has a type, a yearly **window** given as "MM-DD" start and end strings, a frequency, a description, a severity and an optional zone note. "Today" below is the server's local date (`chrono::Local`, governed by `TZ`). A **plant-linked application** is a log entry whose `plant_id` is that plant (plant-scoped application types and the link are owned by Applications).
+A **care plan** is the LLM-written list of maintenance **tasks** cached on a plant; each task has a type, a yearly **window** given as "MM-DD" start and end strings, a frequency, a description, a severity and an optional zone note. "Today" below is the lawn's local date from the app clock (governed by `TZ`). A **plant-linked application** is a log entry whose `plant_id` is that plant (plant-scoped application types and the link are owned by Applications).
 
 ## Plant model and stored plan
 

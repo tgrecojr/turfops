@@ -88,3 +88,13 @@ pub fn production_code(file: &Path) -> String {
         .unwrap_or(lines.len());
     lines[..cut].join("\n")
 }
+
+/// Keep a second tracing dispatcher alive for the whole test process. With exactly one
+/// dispatcher registered, tracing-core asks only the *registering thread's* default
+/// subscriber whether a log site is interesting; a test thread with no subscriber that
+/// reaches a site first then caches it as "never", and another thread's log capture
+/// silently sees nothing. With two, every live dispatcher is asked.
+pub fn keep_tracing_interest_shared() {
+    static SECOND: std::sync::OnceLock<tracing::Dispatch> = std::sync::OnceLock::new();
+    SECOND.get_or_init(|| tracing::Dispatch::new(tracing::subscriber::NoSubscriber::default()));
+}

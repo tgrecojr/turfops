@@ -54,7 +54,9 @@ pub async fn all_with_history(
         queries::get_applications_for_profile(&state.pool, profile_id, RULE_HISTORY_LIMIT, 0)
             .await?;
 
-    let mut recommendations = state.rules_engine.evaluate(summary, profile, &apps);
+    // One reading of the app clock for every source and stage.
+    let at = state.clock.moment();
+    let mut recommendations = state.rules_engine.evaluate(summary, profile, &apps, at);
 
     // Per-disease risk (High/Severe tiers) and the seeding / pre-emergent windows.
     recommendations.extend(super::disease_risk::recommendations(state, profile).await);
@@ -62,9 +64,9 @@ pub async fn all_with_history(
 
     // Plant maintenance for landscape plants.
     let plants = plant_queries::list_plants_for_profile(&state.pool, profile_id).await?;
-    let today = state.clock.today();
+    let today = at.today;
     recommendations.extend(generate_plant_maintenance_recommendations(
-        &plants, &apps, summary, today,
+        &plants, &apps, summary, at,
     ));
 
     // Follow-up reminders for applications that scheduled one.
@@ -92,7 +94,7 @@ pub async fn all_with_history(
             today,
             products: products.as_deref(),
             answers: &rec_states,
-            now: Utc::now(),
+            now: at.now,
         },
     );
     Ok((feed, apps))
@@ -143,6 +145,8 @@ pub(crate) fn assemble(
     recommendations
 }
 
+#[cfg(all(test, feature = "db-tests"))]
+mod clock_db_tests;
 #[cfg(all(test, feature = "db-tests"))]
 mod feed_db_tests;
 #[cfg(test)]

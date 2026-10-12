@@ -54,7 +54,12 @@ fn busy_day() -> EnvironmentalSummary {
 #[test]
 fn the_engine_returns_rules_in_their_fixed_order() {
     let ids: Vec<String> = RulesEngine::new()
-        .evaluate(&busy_day(), &fescue(), &[])
+        .evaluate(
+            &busy_day(),
+            &fescue(),
+            &[],
+            crate::clock::Clock::System.moment(),
+        )
         .into_iter()
         .map(|r| r.id)
         .collect();
@@ -77,8 +82,18 @@ fn the_engine_returns_rules_in_their_fixed_order() {
 #[test]
 fn each_rule_is_a_pure_function_giving_at_most_one_recommendation() {
     let engine = RulesEngine::new();
-    let first = engine.evaluate(&busy_day(), &fescue(), &[]);
-    let again = engine.evaluate(&busy_day(), &fescue(), &[]);
+    let first = engine.evaluate(
+        &busy_day(),
+        &fescue(),
+        &[],
+        crate::clock::Clock::System.moment(),
+    );
+    let again = engine.evaluate(
+        &busy_day(),
+        &fescue(),
+        &[],
+        crate::clock::Clock::System.moment(),
+    );
     let key = |recs: &[crate::models::Recommendation]| -> Vec<(String, Severity, String)> {
         recs.iter()
             .map(|r| (r.id.clone(), r.severity, r.description.clone()))
@@ -96,7 +111,12 @@ fn each_rule_is_a_pure_function_giving_at_most_one_recommendation() {
 fn a_missing_input_means_no_recommendation_not_a_calendar_guess() {
     let engine = RulesEngine::new();
     assert!(engine
-        .evaluate(&EnvironmentalSummary::default(), &fescue(), &[])
+        .evaluate(
+            &EnvironmentalSummary::default(),
+            &fescue(),
+            &[],
+            crate::clock::Clock::System.moment()
+        )
         .is_empty());
     // GDD and a forecast, but no soil: none of the soil-driven rules speaks.
     let no_soil = EnvironmentalSummary {
@@ -104,7 +124,12 @@ fn a_missing_input_means_no_recommendation_not_a_calendar_guess() {
         forecast: Some(forecast(dry_days_from_today(&[70.0; 5]), Vec::new())),
         ..Default::default()
     };
-    for rec in engine.evaluate(&no_soil, &fescue(), &[]) {
+    for rec in engine.evaluate(
+        &no_soil,
+        &fescue(),
+        &[],
+        crate::clock::Clock::System.moment(),
+    ) {
         assert!(
             ![
                 "spring_n_",
@@ -128,7 +153,7 @@ fn the_rules_read_the_local_calendar_date() {
     // The grub rule's `evaluate` is `evaluate_on` the local today, and its id carries the
     // local year.
     let env = busy_day();
-    let rec = GrubControlRule.evaluate(&env, &fescue(), &[]);
+    let rec = GrubControlRule.evaluate(&env, &fescue(), &[], crate::clock::Clock::System.moment());
     if today.month() >= 4 {
         assert_eq!(
             rec.map(|r| r.id),
@@ -139,7 +164,12 @@ fn the_rules_read_the_local_calendar_date() {
     }
     // The month gates follow the local month.
     let fall = FallFertilizationRule
-        .evaluate(&soil(Some(55.0), None), &fescue(), &[])
+        .evaluate(
+            &soil(Some(55.0), None),
+            &fescue(),
+            &[],
+            crate::clock::Clock::System.moment(),
+        )
         .map(|r| r.id);
     let expected_fall = match today.month() {
         9 => Some("fall_fert_early"),
@@ -149,7 +179,12 @@ fn the_rules_read_the_local_calendar_date() {
     };
     assert_eq!(fall.as_deref(), expected_fall);
     let spring = SpringNitrogenRule
-        .evaluate(&soil(Some(58.0), None), &fescue(), &[])
+        .evaluate(
+            &soil(Some(58.0), None),
+            &fescue(),
+            &[],
+            crate::clock::Clock::System.moment(),
+        )
         .map(|r| r.id);
     let expected_spring = match today.month() {
         2..=4 => Some("spring_n_ready"),

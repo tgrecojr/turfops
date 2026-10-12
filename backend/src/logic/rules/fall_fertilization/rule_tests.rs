@@ -13,7 +13,12 @@ fn month() -> u32 {
 
 fn decide(avg: Option<f64>, history: &[Application]) -> Option<(String, Severity)> {
     FallFertilizationRule
-        .evaluate(&soil(avg, None), &fescue(), history)
+        .evaluate(
+            &soil(avg, None),
+            &fescue(),
+            history,
+            crate::clock::Clock::System.moment(),
+        )
         .map(|r| (r.id, r.severity))
 }
 

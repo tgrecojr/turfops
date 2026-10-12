@@ -1,5 +1,6 @@
 use super::thresholds::*;
 use super::Rule;
+use crate::clock::Moment;
 use crate::models::{
     Application, DataSource, EnvironmentalSummary, LawnProfile, ProductCategory, ProductNeed,
     Recommendation, RecommendationCategory, Severity,
@@ -24,6 +25,7 @@ impl Rule for IrrigationForecastRule {
         env: &EnvironmentalSummary,
         profile: &LawnProfile,
         _history: &[Application],
+        at: Moment,
     ) -> Option<Recommendation> {
         let forecast = env.forecast.as_ref()?;
         let current = env.current.as_ref()?;
@@ -38,7 +40,7 @@ impl Rule for IrrigationForecastRule {
         // Calculate total precipitation expected in next 5 days
         // @spec RULE-ENG-005
         let total_precip: f64 = forecast
-            .next_days(chrono::Local::now().date_naive(), 5)
+            .next_days(at.today, 5)
             .iter()
             .map(|d| d.total_precipitation_mm)
             .sum();
@@ -204,7 +206,12 @@ mod tests {
     fn a_trace_or_a_coin_flip_does_not_cancel_a_drought_alert() {
         // 0.3 mm of drizzle and one 50% slot with no accumulation: still bone dry.
         let rec = IrrigationForecastRule
-            .evaluate(&env(&[(0.3, 0.2), (0.0, 0.5)]), &profile(), &[])
+            .evaluate(
+                &env(&[(0.3, 0.2), (0.0, 0.5)]),
+                &profile(),
+                &[],
+                crate::clock::Clock::System.moment(),
+            )
             .expect("dry soil with no meaningful rain needs irrigation");
         assert_eq!(rec.severity, Severity::Critical);
     }

@@ -4,7 +4,7 @@ use crate::models::{nitrogen_budget::annual_n_target, NitrogenApplication, Nitro
 use crate::state::AppState;
 use axum::extract::{Query, State};
 use axum::Json;
-use chrono::{Datelike, Local, NaiveDate};
+use chrono::{Datelike, NaiveDate};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -19,7 +19,7 @@ pub async fn get_nitrogen_budget(
     State(state): State<AppState>,
     Query(params): Query<NitrogenBudgetQuery>,
 ) -> Result<Json<NitrogenBudget>, TurfOpsError> {
-    let year = params.year.unwrap_or_else(|| Local::now().year());
+    let year = params.year.unwrap_or_else(|| state.clock.today().year());
 
     let profile = queries::get_default_lawn_profile(&state.pool)
         .await?

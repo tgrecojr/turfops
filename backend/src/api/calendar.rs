@@ -4,7 +4,7 @@ use crate::models::Application;
 use crate::state::AppState;
 use axum::extract::{Query, State};
 use axum::Json;
-use chrono::{Datelike, Local, NaiveDate};
+use chrono::{Datelike, NaiveDate};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -29,7 +29,8 @@ pub async fn get_calendar(
     State(state): State<AppState>,
     Query(params): Query<CalendarQuery>,
 ) -> Result<Json<CalendarResponse>, TurfOpsError> {
-    let today = Local::now().date_naive();
+    // @spec PLAN-CAL-001
+    let today = state.clock.today();
     let year = params.year.unwrap_or(today.year());
     let month = params.month.unwrap_or(today.month());
 

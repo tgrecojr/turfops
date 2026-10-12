@@ -14,7 +14,10 @@ fn recs(plant: &Plant, apps: &[Application], today: NaiveDate) -> Vec<Recommenda
         std::slice::from_ref(plant),
         apps,
         &EnvironmentalSummary::default(),
-        today,
+        crate::clock::Moment {
+            now: chrono::Utc::now(),
+            today,
+        },
     )
 }
 

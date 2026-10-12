@@ -10,10 +10,12 @@ fn rain_delay(points: Vec<ForecastPoint>) -> Option<Severity> {
         forecast: Some(forecast(Vec::new(), points)),
         ..conditions(None, None)
     };
-    RainDelayRule.evaluate(&env, &fescue(), &[]).map(|r| {
-        assert_eq!(r.id, "rain_delay");
-        r.severity
-    })
+    RainDelayRule
+        .evaluate(&env, &fescue(), &[], crate::clock::Clock::System.moment())
+        .map(|r| {
+            assert_eq!(r.id, "rain_delay");
+            r.severity
+        })
 }
 
 // @spec RULE-WX-001
