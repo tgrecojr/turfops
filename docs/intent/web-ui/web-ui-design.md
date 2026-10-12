@@ -185,7 +185,7 @@ Every error the UI shows is plain language that says what went wrong and, where 
 |---|---|---|
 | Vite 8 (rolldown) | `frontend/vite.config.ts` | Plugins: `esToolkitCompatEsm()` then `@vitejs/plugin-react`. Dev server on 5173, `/api` proxied to `localhost:3000`. |
 | TypeScript 7 | `tsconfig.json` (solution: `files: []` + references to `tsconfig.app.json` and `tsconfig.node.json`) | App: ES2023, `strict`, `noUnusedLocals/Parameters`, `erasableSyntaxOnly`, `verbatimModuleSyntax`, bundler resolution, `noEmit`. |
-| Biome 2 | `frontend/biome.json` | Recommended rules + React domain, `style/useComponentExportOnlyModules: error`. Ignores `dist` and `public`. `npm run lint` = `biome check .` (lint + format). |
+| Biome 2 | `frontend/biome.jsonc` (JSONC, so the config can carry its `@spec` comment) | Recommended rules + React domain, `style/useComponentExportOnlyModules: error`. Ignores `dist` and `public`. `npm run lint` = `biome check .` (lint + format). |
 | Build | `npm run build` = `tsc -b && vite build` | Output `frontend/dist`, copied into the image as `/app/static`. |
 | Vitest 5 | `npm test` = `vitest run` | Shares the Vite config and transform. Suites live beside the code (`src/api/client.test.ts`, `src/api/errors.test.ts`) and cover the API client's error mapping (status kept, `{"error": …}` unwrapped, a non-JSON body never shown, empty 2xx, timeout message) and `describeError`. The CI frontend job's "Test" step runs it after lint. |
 | Testing Library + jsdom | `// @vitest-environment jsdom` per file | Component tests render in jsdom with `@testing-library/react` and `user-event`; every other suite stays in Node. `src/test/setup.ts` registers the jest-dom matchers, cleans up after each test and stubs `ResizeObserver` (Recharts' `ResponsiveContainer`) and `matchMedia`. |
@@ -282,7 +282,7 @@ The bundled SPA is same-origin, so CORS never applies to it. The Vite dev server
 - `frontend/src/api/client.ts`, `frontend/src/api/errors.ts` and their tests (`client.test.ts`, `errors.test.ts`)
 - `frontend/src/types/index.ts` (and the feature mirrors `types/disease.ts`, `types/timing.ts`, `types/inventory.ts`)
 - `frontend/src/styles/shared.ts`, `frontend/src/utils/dates.ts`, `frontend/src/utils/units.ts`
-- `frontend/vite.config.ts`, `frontend/biome.json`, `frontend/tsconfig*.json`, `frontend/package.json`, `frontend/README.md`
+- `frontend/vite.config.ts`, `frontend/biome.jsonc`, `frontend/tsconfig*.json`, `frontend/package.json`, `frontend/README.md`
 - `components/disease/TierBadge.tsx`, `components/disease/DailyRiskChart.tsx`, `components/timing/SoilSeasonChart.tsx`, `components/timing/SoilSeasonTable.tsx`, `components/InventoryBadge.tsx`, `components/AlertCard.tsx`
 - `backend/src/main.rs` (router, SPA fallback, `build_cors_layer`), `backend/src/api/json_errors.rs` (API 404 and JSON error bodies), `backend/src/config.rs` (`CORS_ALLOWED_ORIGIN`, `SERVER_PORT`), `backend/src/error.rs` (error body)
 - `.github/workflows/ci.yml`, `.github/workflows/docker-publish.yml`, `Dockerfile` (frontend build stage, `STATIC_DIR`)

@@ -77,7 +77,7 @@ Design: [web-ui-design.md](web-ui-design.md). Prefix `UI`. Facets: `SHELL` (entr
 
 - [x] **UI-BUILD-001**: The frontend production build (`npm run build`) shall type-check the whole app with `tsc -b` before bundling with Vite into `frontend/dist`, and fail on any type error.
 - [x] **UI-BUILD-002**: The frontend TypeScript configuration shall enable `strict`, `noUnusedLocals`, `noUnusedParameters`, `erasableSyntaxOnly` and `verbatimModuleSyntax`.
-- [x] **UI-BUILD-003**: The frontend lint (`npm run lint`) shall run Biome's recommended rules with the React domain and `useComponentExportOnlyModules` as an error, plus Biome's format check, over everything but `dist` and `public`.
+- [x] **UI-BUILD-003**: The frontend lint (`npm run lint`) shall run, as configured in `frontend/biome.jsonc`, Biome's recommended rules with the React domain and `useComponentExportOnlyModules` as an error, plus Biome's format check, over everything but `dist` and `public`.
 - [x] **UI-BUILD-004**: The frontend bundler shall redirect every `es-toolkit/compat/<fn>` deep import to a named re-export of the `es-toolkit/compat` ESM barrel, resolved before Vite's own resolver, so charts do not crash in the production bundle.
 - [x] **UI-BUILD-005**: The Vite dev server shall run on port 5173 and proxy `/api` to `http://localhost:3000`, so the SPA calls the API same-origin in development.
 - [x] **UI-BUILD-006**: The CI frontend job shall run `npm run lint` on every push to `main` and every pull request against `main`.

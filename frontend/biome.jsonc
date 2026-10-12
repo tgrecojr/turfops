@@ -1,5 +1,6 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.5.7/schema.json",
+	// @spec UI-BUILD-003
+	"$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
 	"files": {
 		"includes": ["**", "!dist", "!public"]
 	},

@@ -122,7 +122,13 @@ describe("lint", () => {
 	// @spec UI-BUILD-003
 	it("runs Biome's recommended rules with the React domain and the format check", () => {
 		expect(pkg.scripts.lint).toBe("biome check .");
-		const biome = JSON.parse(read("biome.json")) as {
+		const text = read("biome.jsonc");
+		expect(text).toContain("@spec UI-BUILD-003");
+		const json = text
+			.split("\n")
+			.filter((line) => !line.trim().startsWith("//"))
+			.join("\n");
+		const biome = JSON.parse(json) as {
 			files: { includes: string[] };
 			linter: {
 				rules?: { recommended?: boolean; style?: Record<string, string> };

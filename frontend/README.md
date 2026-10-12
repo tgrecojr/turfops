@@ -18,7 +18,7 @@ backend.
 
 [Biome](https://biomejs.dev) handles both linting and formatting (default
 Biome style, recommended rules plus the React domain). Configuration lives in
-`biome.json`. Fix most issues automatically with:
+`biome.jsonc`. Fix most issues automatically with:
 
 ```sh
 npx biome check --write .

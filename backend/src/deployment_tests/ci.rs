@@ -4,7 +4,18 @@ const CI: &str = include_str!("../../../.github/workflows/ci.yml");
 const SUPPLY_CHAIN: &str = include_str!("../../../.github/workflows/supply-chain.yml");
 const PUBLISH: &str = include_str!("../../../.github/workflows/docker-publish.yml");
 const RETENTION: &str = include_str!("../../../.github/workflows/ghcr-retention.yml");
-const RENOVATE: &str = include_str!("../../../renovate.json");
+const RENOVATE: &str = include_str!("../../../renovate.json5");
+const PROTECTION: &str = include_str!("../../../scripts/github-protection.sh");
+
+/// A JSON5 config written as JSON plus whole-line `//` comments, parsed as JSON.
+fn json_without_comments(text: &str) -> serde_json::Value {
+    let json: String = text
+        .lines()
+        .filter(|l| !l.trim_start().starts_with("//"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    serde_json::from_str(&json).expect("JSON once the comment lines are dropped")
+}
 
 /// The text of job `name` in a workflow (up to the next job), one `\n` per line.
 fn job(workflow: &str, name: &str) -> String {
@@ -150,7 +161,11 @@ fn retention_keeps_latest_and_five_tagged_versions_weekly() {
 // @spec DEPLOY-CI-007
 #[test]
 fn renovate_pins_groups_soaks_and_labels_as_agreed() {
-    let config: serde_json::Value = serde_json::from_str(RENOVATE).unwrap();
+    let config = json_without_comments(RENOVATE);
+    assert!(
+        RENOVATE.contains("@spec DEPLOY-CI-007"),
+        "the config carries its spec"
+    );
     let rules = config["packageRules"].as_array().unwrap();
     let rule = |pred: &dyn Fn(&serde_json::Value) -> bool| {
         rules
@@ -194,4 +209,31 @@ fn renovate_pins_groups_soaks_and_labels_as_agreed() {
         "before 4am on monday"
     );
     assert_eq!(config["vulnerabilityAlerts"]["labels"][0], "security");
+}
+
+// @spec DEPLOY-CI-008
+#[test]
+fn the_branch_protection_script_states_the_agreed_settings() {
+    for setting in [
+        // A PR is required, with no approvals (the owner is the only reviewer).
+        r#""required_approving_review_count": 0"#,
+        // GitGuardian stays a required, up-to-date check.
+        r#""context": "GitGuardian Security Checks", "app_id": 46505"#,
+        r#""strict": true"#,
+        // The owner keeps an emergency path; force-pushes and deleting main stay off.
+        r#""enforce_admins": false"#,
+        r#""allow_force_pushes": false"#,
+        r#""allow_deletions": false"#,
+        // Merged PR branches are deleted.
+        r#""delete_branch_on_merge": true"#,
+    ] {
+        assert!(PROTECTION.contains(setting), "missing {setting}");
+    }
+    assert!(PROTECTION.contains("check)") && PROTECTION.contains("apply)"));
+    assert!(PROTECTION.contains(r#"REPO="tgrecojr/turfops""#));
+    assert!(PROTECTION.contains("repos/$REPO/branches/main/protection"));
+    assert!(
+        !PROTECTION.contains("GITHUB_TOKEN="),
+        "no token in the script"
+    );
 }

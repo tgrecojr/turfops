@@ -59,7 +59,7 @@ function collectSpecIdsFromCode() {
   let output;
   try {
     output = execSync(
-      `grep -rn "@spec" --exclude-dir=docs --exclude-dir=.claude --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" --include="*.py" --include="*.go" --include="*.rs" --include="*.yml" --include="*.yaml" --include="*.toml" --include="*.html" --include="Dockerfile" --include=".dockerignore" --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist --exclude-dir=build --exclude-dir=target --exclude-dir=cdk.out --exclude-dir=coverage --exclude-dir=.next --exclude-dir=__pycache__ .`,
+      `grep -rn "@spec" --exclude-dir=docs --exclude-dir=.claude --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" --include="*.py" --include="*.go" --include="*.rs" --include="*.yml" --include="*.yaml" --include="*.toml" --include="*.html" --include="Dockerfile" --include=".dockerignore" --include="*.json5" --include="*.jsonc" --include="*.sh" --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=dist --exclude-dir=build --exclude-dir=target --exclude-dir=cdk.out --exclude-dir=coverage --exclude-dir=.next --exclude-dir=__pycache__ .`,
       { cwd: ROOT, encoding: 'utf-8', maxBuffer: 50 * 1024 * 1024 }
     );
   } catch (e) {
