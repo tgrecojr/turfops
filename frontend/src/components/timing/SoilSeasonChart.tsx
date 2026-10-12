@@ -66,6 +66,7 @@ function SoilTooltip({
 	);
 }
 
+// @spec TIME-UI-006
 /** 5 cm soil temperature (5-day mean): this year vs last year vs the typical year. */
 export default function SoilSeasonChart({
 	series,

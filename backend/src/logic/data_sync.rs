@@ -139,6 +139,12 @@ impl DataSyncService {
         up
     }
 
+    /// Test-only: fetch the forecast with `client` (e.g. one pointed at a local stub).
+    #[cfg(test)]
+    pub(crate) fn set_forecast_client(&mut self, client: OpenWeatherMapClient) {
+        self.openweathermap_client = Some(client);
+    }
+
     /// Provide access to the weather lake client for direct queries (GDD, historical).
     pub fn weather_client(&self) -> Option<&WeatherLakeClient> {
         self.weather_client.as_ref()

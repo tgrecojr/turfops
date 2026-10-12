@@ -36,6 +36,7 @@ pub struct Resolved {
     pub days_held: Option<u32>,
 }
 
+// @spec TIME-ENG-019
 /// When the boundary fell in a past year. A freeze-anchored boundary is dated from that
 /// year's own freeze so the typical spread reflects how much the freeze really moves;
 /// only the current season (`resolve`) pins it to the typical freeze, since by the time
@@ -73,6 +74,7 @@ pub fn typical(boundary: &Boundary, season: &Season, season_year: i32) -> Option
     date_stat(&events, season_year)
 }
 
+// @spec TIME-ENG-029, TIME-ENG-030, TIME-ENG-031, TIME-ENG-032
 /// A trigger not seen in the data: judge it against its typical date. While station
 /// data is current and the scan range is still open, a typical date in the past means
 /// "overdue" (no date), not "passed".
@@ -126,6 +128,7 @@ fn from_detected(detected: Detected, today: NaiveDate) -> Resolved {
     }
 }
 
+// @spec TIME-ENG-022, TIME-ENG-023, TIME-ENG-024, TIME-ENG-025, TIME-ENG-026, TIME-ENG-027
 pub fn resolve(boundary: &Boundary, season: &Season, season_year: i32) -> Resolved {
     let median = || typical(boundary, season, season_year).map(|s| s.median);
     match boundary {
@@ -228,6 +231,7 @@ impl WindowViews {
         self.closes.passed && self.closes.source == DateSource::Tentative
     }
 
+    // @spec TIME-ENG-033, TIME-ENG-034
     /// State from weather and climatology alone, before the application log is considered.
     pub fn weather_state(&self, today: NaiveDate) -> WindowState {
         if self.closes.passed && !self.closing_tentatively() {
@@ -263,6 +267,7 @@ impl WindowViews {
 mod tests {
     use super::*;
 
+    // @spec TIME-ENG-024
     #[test]
     fn forecast_crossing_in_the_lake_lag_is_dated_today_not_in_the_past() {
         // Last station day Sep 18, today Sep 20: the outlook's first day is Sep 19.
@@ -278,6 +283,7 @@ mod tests {
         assert!(!resolved.passed);
     }
 
+    // @spec TIME-ENG-019, TIME-ENG-026
     #[test]
     fn freeze_anchored_boundaries_carry_the_freezes_own_spread() {
         use crate::logic::timing::tests::{date, station};

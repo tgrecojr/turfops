@@ -118,7 +118,7 @@ impl OpenWeatherMapClient {
 
     /// A client aimed at another endpoint (tests).
     #[cfg(test)]
-    fn with_base_url(mut self, base_url: &str) -> Self {
+    pub(crate) fn with_base_url(mut self, base_url: &str) -> Self {
         self.base_url = base_url.to_string();
         self
     }

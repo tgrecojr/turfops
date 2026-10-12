@@ -69,6 +69,7 @@ fn observed_points(days: &[ClimateDay]) -> Vec<SoilPoint> {
         .collect()
 }
 
+// @spec TIME-ENG-007, TIME-ENG-008
 /// Estimate 5 cm soil for each day after the last observation through the end of the
 /// forecast, using the lagged air→soil regression fit on the most recent month and the
 /// shared continuous air series, anchored to the last measured soil temperature.
@@ -113,6 +114,7 @@ fn forecast_points(days: &[ClimateDay], forecast: &[DailyForecast]) -> Vec<SoilP
         .collect()
 }
 
+// @spec TIME-LOG-003
 fn evaluate_window(
     spec: &windows::WindowSpec,
     season: &Season,
@@ -157,6 +159,7 @@ pub struct SeasonData {
 }
 
 impl SeasonData {
+    // @spec TIME-ENG-006
     pub fn build(days: &[ClimateDay], forecast: &[DailyForecast], current_year: i32) -> Self {
         let mut points = observed_points(days);
         let last_observed = points.last().map(|p| p.date);
@@ -171,6 +174,7 @@ impl SeasonData {
         }
     }
 
+    // @spec TIME-ENG-021
     pub fn season<'a>(&'a self, days: &'a [ClimateDay], today: NaiveDate) -> Season<'a> {
         Season {
             today,
