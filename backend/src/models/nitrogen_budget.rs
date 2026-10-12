@@ -31,6 +31,7 @@ pub struct GrassTypeNTarget {
     pub recommended_lbs_per_1000sqft: f64,
 }
 
+// @spec RULE-BUDGET-002
 /// Get the recommended annual N target for a grass type (lbs N per 1000 sqft per year).
 pub fn annual_n_target(grass_type: GrassType) -> GrassTypeNTarget {
     match grass_type {
@@ -95,6 +96,22 @@ mod tests {
         assert_eq!(target.recommended_lbs_per_1000sqft, 3.5);
         assert_eq!(target.min_lbs_per_1000sqft, 2.0);
         assert_eq!(target.max_lbs_per_1000sqft, 4.0);
+    }
+
+    // @spec RULE-BUDGET-002
+    #[test]
+    fn cool_season_targets_are_the_recommended_annual_nitrogen() {
+        for (grass, target) in [
+            (GrassType::TallFescue, 3.5),
+            (GrassType::KentuckyBluegrass, 4.0),
+            (GrassType::PerennialRyegrass, 3.0),
+            (GrassType::FineFescue, 2.0),
+            (GrassType::Mixed, 3.0),
+        ] {
+            let t = annual_n_target(grass);
+            assert_eq!(t.recommended_lbs_per_1000sqft, target, "{grass:?}");
+            assert_eq!(t.grass_type, grass);
+        }
     }
 
     #[test]

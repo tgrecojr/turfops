@@ -12,6 +12,7 @@ pub struct NitrogenBudgetQuery {
     pub year: Option<i32>,
 }
 
+// @spec RULE-BUDGET-001, RULE-BUDGET-003, RULE-BUDGET-004
 /// GET /api/v1/nitrogen-budget?year=2026
 /// Returns nitrogen budget for the requested year based on application history.
 pub async fn get_nitrogen_budget(
@@ -87,6 +88,9 @@ fn budget_window(year: i32, today: NaiveDate) -> Option<(NaiveDate, NaiveDate)> 
     let next_year = NaiveDate::from_ymd_opt(year + 1, 1, 1)?;
     Some((start, next_year.min(today.succ_opt()?)))
 }
+
+#[cfg(all(test, feature = "db-tests"))]
+mod db_tests;
 
 #[cfg(test)]
 mod tests {

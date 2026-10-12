@@ -17,6 +17,7 @@ use chrono::{Datelike, NaiveDate};
 /// This rule provides advisory-level recommendations when good windows exist.
 pub struct ApplicationWindowRule;
 
+// @spec RULE-WX-006, RULE-WX-007
 impl Rule for ApplicationWindowRule {
     fn evaluate(
         &self,

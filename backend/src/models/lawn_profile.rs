@@ -27,6 +27,7 @@ impl GrassType {
         }
     }
 
+    // @spec RULE-ENG-006
     pub fn is_cool_season(&self) -> bool {
         matches!(
             self,

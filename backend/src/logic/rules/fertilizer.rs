@@ -15,6 +15,7 @@ use crate::models::{
 /// - Soil moisture <0.10 (drought stress) or >0.40 (saturated)
 pub struct FertilizerRule;
 
+// @spec RULE-BLOCK-001, RULE-BLOCK-002
 impl Rule for FertilizerRule {
     fn evaluate(
         &self,

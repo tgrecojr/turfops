@@ -20,6 +20,7 @@ use chrono::{Datelike, Local, NaiveDate};
 /// Optimal conditions: Soil temp 50-60°F, grass still green
 pub struct FallFertilizationRule;
 
+// @spec RULE-FALL-001, RULE-FALL-003, RULE-FALL-004, RULE-FALL-005, RULE-FALL-006
 impl Rule for FallFertilizationRule {
     fn evaluate(
         &self,
@@ -32,6 +33,7 @@ impl Rule for FallFertilizationRule {
             return None;
         }
 
+        // @spec RULE-ENG-005
         let today = Local::now().date_naive();
         let current_year = today.year();
 
@@ -95,6 +97,7 @@ impl Rule for FallFertilizationRule {
     }
 }
 
+// @spec RULE-FALL-002
 /// This year's lawn feedings through today. A feeding is a lawn fertilizer that carried
 /// nitrogen (or whose analysis wasn't recorded) — not shrub fertilizer, not 0-0-50 potash.
 fn feedings_this_year(history: &[Application], today: NaiveDate) -> Vec<&Application> {
@@ -142,3 +145,6 @@ fn determine_fall_phase(today: NaiveDate, year: i32) -> FallPhase {
         FallPhase::TooLate
     }
 }
+
+#[cfg(test)]
+mod rule_tests;

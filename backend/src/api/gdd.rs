@@ -12,6 +12,7 @@ pub struct GddQuery {
     pub year: Option<i32>,
 }
 
+// @spec RULE-GDD-006
 /// GET /api/v1/gdd?year=2026
 /// Returns GDD accumulation data for the requested year (defaults to current year).
 /// Reads the gold daily layer's precomputed `gdd50` from the data lake and accumulates
@@ -50,3 +51,6 @@ pub async fn get_gdd(
     let summary = gdd::build_gdd_summary(year, &records);
     Ok(Json(summary))
 }
+
+#[cfg(test)]
+mod handler_tests;

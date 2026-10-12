@@ -190,3 +190,24 @@ pub struct ConnectionStatus {
     pub homeassistant: bool,
     pub openweathermap: bool,
 }
+
+#[cfg(test)]
+impl DataSyncService {
+    /// A service with only a weather lake client (or none) and no other sources, for
+    /// handler tests that need an `AppState`.
+    pub(crate) fn for_tests(
+        pool: PgPool,
+        weather_client: Option<WeatherLakeClient>,
+        clock: Clock,
+    ) -> Self {
+        Self {
+            pool,
+            weather_client,
+            homeassistant_client: None,
+            openweathermap_client: None,
+            state: SyncState::default(),
+            probes: Mutex::new(ProbeCache::default()),
+            clock,
+        }
+    }
+}

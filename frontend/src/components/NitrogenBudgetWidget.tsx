@@ -4,6 +4,7 @@ interface NitrogenBudgetWidgetProps {
 	data: NitrogenBudget;
 }
 
+// @spec RULE-UI-002
 export default function NitrogenBudgetWidget({
 	data,
 }: NitrogenBudgetWidgetProps) {
