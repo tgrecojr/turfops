@@ -8,6 +8,7 @@ use axum::extract::{Path, State};
 use axum::Json;
 use serde::Serialize;
 
+// @spec INV-LOG-001
 pub async fn logged_product_suggestions(
     State(state): State<AppState>,
 ) -> Result<Json<Vec<LoggedProductSuggestion>>, TurfOpsError> {
@@ -22,6 +23,7 @@ pub struct LinkedApplications {
     pub linked: u64,
 }
 
+// @spec INV-LOG-002
 pub async fn link_applications(
     State(state): State<AppState>,
     Path(id): Path<i64>,

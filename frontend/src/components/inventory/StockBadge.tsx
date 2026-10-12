@@ -12,6 +12,7 @@ interface Props {
 	busy?: boolean;
 }
 
+// @spec INV-UI-010, INV-UI-006
 /** Stock pill: tinted status color behind ink text, always symbol + label. */
 export default function StockBadge({ status, onCycle, busy }: Props) {
 	const color = STOCK_STATUS_COLORS[status];

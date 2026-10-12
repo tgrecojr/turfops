@@ -419,6 +419,7 @@ function ApplicationForm({
 		setPhosphorusPct(p.phosphorus_pct != null ? String(p.phosphorus_pct) : "");
 		setPotassiumPct(p.potassium_pct != null ? String(p.potassium_pct) : "");
 		setFracClasses(p.frac_classes);
+		// @spec INV-RATE-001
 		if (p.label_rate_per_1000sqft != null)
 			setRate(String(p.label_rate_per_1000sqft));
 	};

@@ -37,6 +37,7 @@ interface Props {
 	onError: (msg: string) => void;
 }
 
+// @spec INV-UI-005, INV-UI-008
 export default function ProductRow(props: Props) {
 	const { product: p, expanded, editing, suggestion, busy } = props;
 	const profile = p.profile;

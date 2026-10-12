@@ -1,12 +1,15 @@
 //! The feed's inventory pass: for every recommendation that declares needs, ask the shelf
 //! and record the answer. Runs after every source has contributed and before the user's
 //! persisted answers are applied, so ids and severities are untouched.
+#[cfg(test)]
+mod enrich_tests;
 pub mod shopping;
 
 use crate::models::{DataPoint, InventoryStatus, Product, Recommendation};
 
 const SOURCE: &str = "Inventory";
 
+// @spec INV-ENRICH-003, INV-ENRICH-004, INV-RATE-001
 pub fn enrich(recommendations: &mut [Recommendation], products: &[Product]) {
     for rec in recommendations.iter_mut().filter(|r| !r.needs.is_empty()) {
         let Some(status) = InventoryStatus::assess(&rec.needs, products) else {
@@ -46,6 +49,7 @@ mod tests {
         r
     }
 
+    // @spec INV-ENRICH-003, INV-ENRICH-004
     #[test]
     fn only_recommendations_with_needs_are_touched_and_ids_stay_put() {
         let now = Utc::now();

@@ -197,6 +197,7 @@ export const STOCK_STATUS_COLORS: Record<StockStatus, string> = {
 	Out: "#d03b3b",
 };
 
+// @spec INV-UI-006
 /** In stock → Low → Out → In stock (the pill's click cycle). */
 export function nextStockStatus(status: StockStatus): StockStatus {
 	if (status === "InStock") return "Low";

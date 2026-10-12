@@ -20,6 +20,7 @@ pub struct ProductRefreshed {
     pub changed_fields: Vec<&'static str>,
 }
 
+// @spec INV-LLM-008, INV-LLM-009, INV-SHELF-007
 pub async fn refresh_product_profile(
     State(state): State<AppState>,
     Path(id): Path<i64>,

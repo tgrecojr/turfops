@@ -26,6 +26,7 @@ interface Props {
 	onError: (msg: string) => void;
 }
 
+// @spec INV-UI-002, INV-UI-003
 /**
  * One free-text name; the assistant fills in the rest when it is on. With it off (or
  * unavailable) the category is required and the product is saved by hand.
