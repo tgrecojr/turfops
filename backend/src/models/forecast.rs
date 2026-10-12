@@ -10,6 +10,7 @@ pub struct WeatherForecast {
     pub daily_summary: Vec<DailyForecast>, // Aggregated by day
 }
 
+// @spec WX-SRC-OWM-004
 impl WeatherForecast {
     /// Get forecast points for the next N hours
     pub fn next_hours(&self, hours: u32) -> Vec<&ForecastPoint> {
@@ -23,6 +24,7 @@ impl WeatherForecast {
     /// Daily summaries that cover enough of the day for their high/low (and the mean
     /// derived from them) to mean something. The 5-day feed starts and ends mid-day, so
     /// its first and last buckets are usually an evening or a few night hours.
+    // @spec WX-SRC-OWM-003
     pub fn full_days(&self) -> impl Iterator<Item = &DailyForecast> {
         self.daily_summary.iter().filter(|d| d.is_full_day())
     }
@@ -122,6 +124,7 @@ pub struct DailyForecast {
 const FULL_DAY_HOURS: u32 = 18;
 
 impl DailyForecast {
+    // @spec WX-SRC-OWM-003
     pub fn is_full_day(&self) -> bool {
         self.hours_covered >= FULL_DAY_HOURS
     }
@@ -177,6 +180,9 @@ impl std::fmt::Display for WeatherCondition {
         write!(f, "{}", self.as_str())
     }
 }
+
+#[cfg(test)]
+mod day_tests;
 
 #[cfg(test)]
 mod tests {

@@ -8,7 +8,13 @@ use duckdb::Connection;
 
 mod climatology;
 mod disease;
+#[cfg(test)]
+pub(crate) mod fixtures;
+#[cfg(test)]
+mod gold_tests;
 mod latest;
+#[cfg(test)]
+mod silver_tests;
 #[cfg(test)]
 mod tests;
 
@@ -47,6 +53,7 @@ impl WeatherLakeClient {
     }
 
     /// Wrap a blocking DuckDB closure in `spawn_blocking` and normalize errors.
+    // @spec WX-SRC-LAKE-001
     async fn run<T, F>(f: F) -> Result<T>
     where
         T: Send + 'static,
@@ -62,6 +69,7 @@ impl WeatherLakeClient {
         })?
     }
 
+    // @spec WX-SRC-LAKE-002
     /// `read_parquet('<path>')` with single quotes escaped (paths come from trusted config).
     fn parquet(path: &str) -> String {
         format!("read_parquet('{}')", path.replace('\'', "''"))
@@ -98,6 +106,7 @@ impl WeatherLakeClient {
     }
 
     /// Current reading plus 7-day rolling averages and the soil-temp trend.
+    // @spec WX-SRC-LAKE-005
     pub async fn fetch_summary(&self) -> Result<EnvironmentalSummary> {
         let now = Utc::now();
         let seven_days_ago = now - Duration::days(7);
@@ -110,6 +119,7 @@ impl WeatherLakeClient {
 
     /// Daily mean soil temp at 10cm (°F) per day in range, for the seasonal plan.
     /// Sourced from the gold layer (already aggregated + converted to °F).
+    // @spec WX-SRC-LAKE-007
     pub async fn fetch_daily_soil_temp_averages(
         &self,
         start: DateTime<Utc>,
@@ -139,6 +149,7 @@ impl WeatherLakeClient {
     }
 
     /// Daily paired `(date, air_temp_avg_f, soil_temp_10_f_mean)` for the regression model.
+    // @spec WX-SRC-LAKE-007
     pub async fn fetch_daily_paired_averages(
         &self,
         start: DateTime<Utc>,
@@ -170,6 +181,7 @@ impl WeatherLakeClient {
 
     /// Daily GDD rows `(date, high_f, low_f, gdd50)` from the gold layer for [start, end].
     /// `gdd50` is precomputed in the lake with the identical base-50°F formula.
+    // @spec WX-SRC-LAKE-008
     pub async fn fetch_daily_gdd(
         &self,
         start: NaiveDate,
@@ -203,7 +215,7 @@ impl WeatherLakeClient {
 
     /// Year-to-date cumulative GDD (base 50°F): the sum of daily `gdd50` from Jan 1 of
     /// `today`'s year through `today` (the lawn's local date). `None` with no rows.
-    // @spec RULE-GDD-002
+    // @spec RULE-GDD-002, WX-SRC-LAKE-008, WX-SRC-LAKE-012
     pub async fn fetch_gdd_ytd(&self, today: NaiveDate) -> Result<Option<f64>> {
         let year = today.year();
         let jan1 = NaiveDate::from_ymd_opt(year, 1, 1)
@@ -239,7 +251,7 @@ impl WeatherLakeClient {
 
 /// The 7-day summary from the newest reading and the week's silver hours (newest first).
 /// A week with no hours has no trend to report: Unknown, not Stable.
-// @spec WX-SRC-LAKE-013
+// @spec WX-SRC-LAKE-013, WX-SRC-LAKE-005
 pub(crate) fn summarize_week(
     current: Option<EnvironmentalReading>,
     readings: &[EnvironmentalReading],
@@ -296,6 +308,7 @@ fn fmt_date(ts: DateTime<Utc>) -> String {
 
 /// Map a silver hourly row to an `EnvironmentalReading`, converting °C → °F.
 /// Column order must match the SELECT lists above.
+// @spec WX-SRC-LAKE-003
 fn row_to_reading(row: &duckdb::Row) -> duckdb::Result<EnvironmentalReading> {
     let ts: NaiveDateTime = row.get(0)?;
     let mut reading = EnvironmentalReading::new(DataSource::SoilData);
@@ -326,6 +339,7 @@ fn row_to_reading(row: &duckdb::Row) -> duckdb::Result<EnvironmentalReading> {
 
 /// Soil-temp trend from hourly readings (newest first): compares the last 24h to the
 /// previous 24h. Identical thresholds to the retired SoilData implementation.
+// @spec WX-SRC-LAKE-006
 fn calculate_trend(readings: &[EnvironmentalReading]) -> Trend {
     if readings.len() < 48 {
         return Trend::Unknown;

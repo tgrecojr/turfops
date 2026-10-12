@@ -1,5 +1,9 @@
 mod probes;
+#[cfg(test)]
+mod source_tests;
 mod sync_state;
+#[cfg(test)]
+pub(crate) mod test_support;
 #[cfg(test)]
 mod tests;
 
@@ -28,6 +32,7 @@ impl DataSyncService {
     /// Create a new DataSyncService with lazy external connections.
     /// Clients are configured but not tested — connections are validated
     /// on first data fetch, avoiding slow startup when external services are down.
+    // @spec WX-SRC-CFG-002
     pub async fn initialize(config: &Config, pool: PgPool) -> Self {
         let homeassistant_client = if !config.homeassistant.token.is_empty() {
             tracing::info!(

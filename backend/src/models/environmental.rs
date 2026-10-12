@@ -45,6 +45,7 @@ impl std::fmt::Display for DataSource {
     }
 }
 
+// @spec WX-SRC-MODEL-003
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EnvironmentalReading {
     pub timestamp: DateTime<Utc>,
@@ -85,6 +86,7 @@ impl EnvironmentalReading {
         }
     }
 
+    // @spec WX-SRC-MODEL-002
     pub fn primary_soil_moisture(&self) -> Option<f64> {
         self.soil_moisture_10
             .or(self.soil_moisture_5)
@@ -98,6 +100,7 @@ impl Default for EnvironmentalReading {
     }
 }
 
+// @spec WX-SRC-MODEL-001
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct EnvironmentalSummary {
     pub current: Option<EnvironmentalReading>,
@@ -186,6 +189,7 @@ mod tests {
         assert!((celsius_to_fahrenheit(29.4) - 84.9).abs() < 0.2);
     }
 
+    // @spec WX-SRC-MODEL-002
     #[test]
     fn environmental_reading_primary_soil_moisture() {
         let mut reading = EnvironmentalReading::new(DataSource::SoilData);
@@ -196,6 +200,10 @@ mod tests {
         // Only 20cm set
         reading.soil_moisture_20 = Some(0.30);
         assert_eq!(reading.primary_soil_moisture(), Some(0.30));
+
+        // 5cm before 20cm
+        reading.soil_moisture_5 = Some(0.28);
+        assert_eq!(reading.primary_soil_moisture(), Some(0.28));
 
         // 10cm takes precedence
         reading.soil_moisture_10 = Some(0.25);

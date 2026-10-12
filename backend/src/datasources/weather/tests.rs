@@ -4,7 +4,7 @@ use super::*;
 use crate::config::DataLakeConfig;
 use duckdb::Connection;
 
-// @spec RULE-GDD-002
+// @spec RULE-GDD-002, WX-SRC-LAKE-012
 #[tokio::test]
 async fn gdd_ytd_runs_through_the_lawns_today_in_the_lawns_year() {
     let gold = std::env::temp_dir().join(format!("turfops_gddytd_{}.parquet", std::process::id()));
@@ -85,4 +85,56 @@ async fn the_probe_needs_both_silver_and_gold() {
 fn no_silver_rows_is_an_unknown_trend() {
     let summary = summarize_week(None, &[], Utc::now());
     assert_eq!(summary.soil_temp_trend, Trend::Unknown);
+}
+
+fn soil_hours(
+    recent_f: Option<f64>,
+    previous_f: Option<f64>,
+    count: usize,
+) -> Vec<EnvironmentalReading> {
+    (0..count)
+        .map(|i| {
+            let mut r = EnvironmentalReading::new(DataSource::SoilData);
+            r.soil_temp_10_f = if i < 24 { recent_f } else { previous_f };
+            r
+        })
+        .collect()
+}
+
+// @spec WX-SRC-LAKE-006
+#[test]
+fn the_trend_compares_the_newest_24_hours_with_the_24_before() {
+    assert_eq!(
+        calculate_trend(&soil_hours(Some(62.1), Some(60.0), 48)),
+        Trend::Rising
+    );
+    assert_eq!(
+        calculate_trend(&soil_hours(Some(57.9), Some(60.0), 48)),
+        Trend::Falling
+    );
+    assert_eq!(
+        calculate_trend(&soil_hours(Some(62.0), Some(60.0), 48)),
+        Trend::Stable
+    );
+    assert_eq!(
+        calculate_trend(&soil_hours(Some(58.0), Some(60.0), 72)),
+        Trend::Stable
+    );
+}
+
+// @spec WX-SRC-LAKE-006
+#[test]
+fn the_trend_is_unknown_without_two_full_days_of_10cm_values() {
+    assert_eq!(
+        calculate_trend(&soil_hours(Some(70.0), Some(60.0), 47)),
+        Trend::Unknown
+    );
+    assert_eq!(
+        calculate_trend(&soil_hours(None, Some(60.0), 48)),
+        Trend::Unknown
+    );
+    assert_eq!(
+        calculate_trend(&soil_hours(Some(70.0), None, 48)),
+        Trend::Unknown
+    );
 }

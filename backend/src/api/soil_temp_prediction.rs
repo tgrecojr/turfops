@@ -6,6 +6,7 @@ use axum::extract::State;
 use axum::Json;
 use chrono::{Duration, Utc};
 
+// @spec WX-OUTLOOK-API-001, WX-OUTLOOK-API-002, WX-OUTLOOK-MODEL-004, WX-OUTLOOK-MODEL-005
 /// GET /api/v1/soil-temp-forecast
 /// Fetches 30-day paired NOAA data, fits model, applies to OWM forecast.
 pub async fn get_soil_temp_forecast(
@@ -73,3 +74,6 @@ pub async fn get_soil_temp_forecast(
 
     Ok(Json(forecast))
 }
+
+#[cfg(test)]
+mod tests;

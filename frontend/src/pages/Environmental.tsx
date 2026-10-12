@@ -36,6 +36,7 @@ const POLL_INTERVAL = 30_000;
 
 type HistRange = "7d" | "30d" | "90d";
 
+// @spec WX-VIEW-PAGE-001, WX-VIEW-PAGE-003, WX-VIEW-PAGE-005
 export default function Environmental() {
 	const [data, setData] = useState<EnvironmentalSummary | null>(null);
 	const [histData, setHistData] = useState<HistoricalData | null>(null);
@@ -140,6 +141,7 @@ export default function Environmental() {
 		};
 	}, [histRange]);
 
+	// @spec WX-VIEW-PAGE-002
 	const handleRefresh = async () => {
 		setRefreshing(true);
 		try {
@@ -247,7 +249,7 @@ export default function Environmental() {
 				</div>
 			</div>
 
-			{/* 7-day summary */}
+			{/* 7-day summary — @spec WX-VIEW-PAGE-004: mm become inches only here */}
 			<div style={styles.summaryGrid}>
 				<SummaryCard
 					label="7-Day Soil Temp Avg"
@@ -337,7 +339,7 @@ export default function Environmental() {
 				</>
 			)}
 
-			{/* Soil Temperature Forecast */}
+			{/* Soil Temperature Forecast — @spec WX-OUTLOOK-UI-001, WX-OUTLOOK-UI-003 */}
 			{soilForecast && (
 				<>
 					<h2 style={sharedStyles.sectionTitle}>Soil Temperature Forecast</h2>
@@ -385,7 +387,7 @@ export default function Environmental() {
 				</>
 			)}
 
-			{/* Historical Trends — @spec WX-VIEW-PAGE-007: reference lines from TREND_REFERENCES only */}
+			{/* Historical Trends — @spec WX-VIEW-PAGE-005, WX-VIEW-PAGE-007: reference lines from TREND_REFERENCES only */}
 			<div style={styles.trendHeader}>
 				<h2 style={sharedStyles.sectionTitle}>Historical Trends</h2>
 				<div style={styles.rangeButtons}>

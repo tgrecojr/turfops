@@ -124,6 +124,7 @@ impl OpenWeatherMapClient {
     }
 
     /// Fetch 5-day/3-hour forecast from OpenWeatherMap
+    // @spec WX-SRC-OWM-001
     pub async fn fetch_forecast(&self) -> Result<WeatherForecast> {
         let url = format!(
             "{}/forecast?lat={}&lon={}&appid={}&units=imperial",
@@ -298,5 +299,7 @@ impl OpenWeatherMapClient {
     }
 }
 
+#[cfg(test)]
+mod fetch_tests;
 #[cfg(test)]
 mod tests;

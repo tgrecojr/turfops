@@ -46,6 +46,7 @@ impl WeatherLakeClient {
     /// Soil comes from the silver hourly layer because gold only aggregates the 10 cm
     /// probe, and germination thresholds are defined at ~2 in (5 cm). Air temperature
     /// and `gdd50` come from gold, which already carries them per local day.
+    // @spec WX-SRC-LAKE-010, WX-SRC-LAKE-011
     pub async fn fetch_climate_record(&self, start: NaiveDate) -> Result<ClimateRecord> {
         let silver = Self::parquet(&self.silver_weather_path);
         let gold = Self::parquet(&self.gold_weather_path);
@@ -130,6 +131,7 @@ mod tests {
         .unwrap();
     }
 
+    // @spec WX-SRC-LAKE-010
     #[tokio::test]
     async fn merges_silver_soil_with_gold_air_by_local_day() {
         let dir = std::env::temp_dir();
