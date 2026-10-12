@@ -1,3 +1,4 @@
+# @spec DEPLOY-CI-001
 name: CI
 
 on:
@@ -78,6 +79,7 @@ jobs:
       - name: Test
         run: npm test
 
+  # @spec DEPLOY-CI-002
   supply-chain:
     name: Supply chain
     uses: ./.github/workflows/supply-chain.yml

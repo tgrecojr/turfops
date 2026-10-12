@@ -1,3 +1,5 @@
+// Queries use sqlx's runtime API only: no compile-time-checked macros, no offline data.
+// @spec DEPLOY-START-005
 pub mod plant_queries;
 pub mod pool;
 pub mod product_queries;

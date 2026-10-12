@@ -6,6 +6,16 @@ const AUDIT: &str = include_str!("../.cargo/audit.toml");
 const OSV: &str = include_str!("../osv-scanner.toml");
 const LOCK: &str = include_str!("../Cargo.lock");
 
+mod ci;
+mod compose;
+mod image;
+#[cfg(unix)]
+mod shutdown;
+mod sources;
+mod startup;
+#[cfg(feature = "db-tests")]
+mod startup_db;
+
 // @spec DEPLOY-IMAGE-008
 #[test]
 fn the_image_declares_a_health_check_the_binary_runs() {

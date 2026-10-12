@@ -53,7 +53,7 @@ const DUPLICATE_MESSAGE: &str =
 pub type Result<T> = std::result::Result<T, TurfOpsError>;
 
 /// The status and owner message for a unique-index violation on `constraint`.
-// @spec DEPLOY-HTTP-011
+// @spec DEPLOY-HTTP-011, DEPLOY-HTTP-006
 pub(crate) fn unique_violation(constraint: Option<&str>) -> (StatusCode, &'static str) {
     let message = if is_application_duplicate(constraint) {
         DUPLICATE_MESSAGE
@@ -237,7 +237,7 @@ impl TurfOpsError {
 pub const SERVER_ERROR_MESSAGE: &str =
     "Something went wrong on the server. Try again; the details are in the server log.";
 
-// @spec DEPLOY-HTTP-008, DEPLOY-HTTP-009, UI-ERR-003, UI-ERR-001
+// @spec DEPLOY-HTTP-008, DEPLOY-HTTP-009, UI-ERR-003, UI-ERR-001, DEPLOY-HTTP-005, DEPLOY-HTTP-006
 impl IntoResponse for TurfOpsError {
     fn into_response(self) -> Response {
         let status = match &self {
@@ -392,5 +392,7 @@ mod tests {
     }
 }
 
+#[cfg(test)]
+mod contract_tests;
 #[cfg(test)]
 mod error_body_tests;

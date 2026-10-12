@@ -1,3 +1,4 @@
+# @spec DEPLOY-COMPOSE-001
 services:
   db:
     image: postgres:18-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
@@ -5,14 +6,18 @@ services:
     environment:
       POSTGRES_DB: turfops
       POSTGRES_USER: turfops
+      # @spec DEPLOY-COMPOSE-002
       # Required: compose refuses to start when DB_PASSWORD is unset (set it in .env).
       POSTGRES_PASSWORD: ${DB_PASSWORD:?}
     ports:
+      # @spec DEPLOY-COMPOSE-007
       # Loopback only: a local `cargo run` can use it, the network cannot.
       - "127.0.0.1:5433:5432"
     volumes:
+      # @spec DEPLOY-COMPOSE-009
       # PostgreSQL 18 images keep the cluster under /var/lib/postgresql/18/docker.
       - turfops_data:/var/lib/postgresql
+    # @spec DEPLOY-COMPOSE-003
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U turfops"]
       interval: 5s
@@ -26,13 +31,16 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000"
+    # @spec DEPLOY-COMPOSE-003
     depends_on:
       db:
         condition: service_healthy
     volumes:
+      # @spec DEPLOY-COMPOSE-004
       # Mount the NOAA weather data lake read-only. Set DATALAKE_HOST_PATH to the host
       # directory whose children are silver/ and gold/ (defaults to /data).
       - ${DATALAKE_HOST_PATH:-/data}:/data:ro
+    # @spec DEPLOY-COMPOSE-006
     environment:
       # App database (managed by this compose stack)
       DATABASE_HOST: ${DATABASE_HOST:-db}
@@ -44,6 +52,7 @@ services:
       # Server
       SERVER_HOST: "0.0.0.0"
       SERVER_PORT: "3000"
+      # @spec DEPLOY-COMPOSE-005
       # The lawn's timezone: "today" for the rules, nitrogen budget, plan and calendar.
       TZ: ${TZ:-America/New_York}
 
@@ -72,6 +81,7 @@ services:
       HA_TEMPERATURE_UNIT: ${HA_TEMPERATURE_UNIT:-fahrenheit}
 
       # OpenWeatherMap (optional)
+      # @spec DEPLOY-COMPOSE-010
       OWM_API_KEY: ${OWM_API_KEY:-}
       OWM_LATITUDE: ${OWM_LATITUDE:-}
       OWM_LONGITUDE: ${OWM_LONGITUDE:-}
