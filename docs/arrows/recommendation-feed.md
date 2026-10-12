@@ -4,7 +4,7 @@ Recommendation Feed & Answered State — leaf segment `FEED` under the root HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-10-11 (git SHA `65245e3`): every implemented spec was checked against the code while linking it. 47 of 49 implemented specs are linked to both code and a test; 1 disagree with the code (see Key Findings).
+**OK** — audited 2026-10-12 (git SHA `4505fbc`): every implemented spec was checked against the code while linking it. 48 of 49 implemented specs are linked to both code and a test.
 
 ## References
 
@@ -20,6 +20,7 @@ Recommendation Feed & Answered State — leaf segment `FEED` under the root HLD.
 ### Tests
 - [backend/src/api/recommendation_feed/feed_db_tests.rs](../../backend/src/api/recommendation_feed/feed_db_tests.rs)
 - [backend/src/api/recommendation_feed/outage_tests.rs](../../backend/src/api/recommendation_feed/outage_tests.rs)
+- [backend/src/api/recommendation_feed/shared_log_db_tests.rs](../../backend/src/api/recommendation_feed/shared_log_db_tests.rs)
 - [backend/src/api/recommendation_feed/stage_tests.rs](../../backend/src/api/recommendation_feed/stage_tests.rs)
 - [backend/src/api/recommendations/db_tests.rs](../../backend/src/api/recommendations/db_tests.rs)
 - [backend/src/models/recommendation/contract_tests.rs](../../backend/src/models/recommendation/contract_tests.rs)
@@ -72,24 +73,23 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | Facet | Spec IDs | Implemented | Deferred | Gaps | `@spec` in code | `@spec` in tests |
 |---|---|---|---|---|---|---|
 | REC | FEED-REC-001 – FEED-REC-004 | 4 | 0 | 0 | 4 | 4 |
-| PIPE | FEED-PIPE-001 – FEED-PIPE-018 | 16 | 1 | 0 | 15 | 14 |
+| PIPE | FEED-PIPE-001 – FEED-PIPE-018 | 16 | 1 | 0 | 16 | 15 |
 | STATE | FEED-STATE-001 – FEED-STATE-010 | 10 | 0 | 0 | 10 | 10 |
 | API | FEED-API-001 – FEED-API-006 | 6 | 0 | 0 | 6 | 6 |
 | UI | FEED-UI-001 – FEED-UI-013 | 13 | 0 | 0 | 13 | 13 |
-| **Total** | | **49** | **1** | **0** | **48** | **47** |
+| **Total** | | **49** | **1** | **0** | **49** | **48** |
 
-**Summary:** 49 of 49 active specs implemented; 1 deferred; 47 implemented specs cited by a test, 1 cited nowhere.
+**Summary:** 49 of 49 active specs implemented; 1 deferred; 48 implemented specs cited by a test, 0 cited nowhere.
 
 ## Key Findings
 
 1. **No test possible — FEED-PIPE-003:** timing-after-rules ordering is not observable: it needs a lake plus a rules-produced `broadleaf_fall`, both tied to the real date (`Clock::today()` reads `Utc::now()`).
-2. **Spec ≠ code — FEED-PIPE-011:** spec: the feed reads the log once and hands it to every source; code: disease risk (`api/disease_risk.rs:73`, 365 d) and timing (`api/timing.rs:126`, 550 d) run their own range queries.
-3. **Deferred:** FEED-PIPE-010.
+2. **Deferred:** FEED-PIPE-010.
 
 ## Work Required
 
 ### Must Fix
-- Decide FEED-PIPE-011: fix the code or correct the spec, then link it.
+- None.
 
 ### Should Fix
 - None.

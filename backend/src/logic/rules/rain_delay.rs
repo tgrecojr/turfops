@@ -5,15 +5,14 @@ use crate::models::{
     RecommendationCategory, Severity,
 };
 
-/// Rain delay rule - blocks fertilizer/herbicide applications when rain is imminent
+// @spec RULE-WX-001
+/// Rain delay rule: hold fertilizer, herbicide and fungicide while rain is coming.
 ///
-/// Conditions:
-/// - Rain forecasted (>0.1" or >50% probability) within 24-48 hours
-///
-/// Severity levels:
-/// - Advisory: Rain in 24-48h with <50% probability
-/// - Warning: Rain in 24h with >50% probability
-/// - Critical: Rain in 12h with >70% probability
+/// Each window (12, 24, 48 h) is judged by its highest chance and its total amount; a
+/// window with under 0.1 mm in total and no slot at 50% or more is skipped.
+/// - Critical: within 12 h, ≥ 70% or ≥ 2.5 mm
+/// - Warning: within 24 h, ≥ 50% or ≥ 2.5 mm
+/// - Advisory: within 48 h, ≥ 30% or ≥ 5 mm
 pub struct RainDelayRule;
 
 impl Rule for RainDelayRule {

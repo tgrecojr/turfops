@@ -4,7 +4,7 @@ Web UI Shell & Conventions — leaf segment `UI` under the root HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-10-11 (git SHA `65245e3`): every implemented spec was checked against the code while linking it. 58 of 64 implemented specs are linked to both code and a test; 5 disagree with the code (see Key Findings).
+**PARTIAL** — audited 2026-10-12 (git SHA `4505fbc`): every implemented spec was checked against the code while linking it. 59 of 64 implemented specs are linked to both code and a test; 4 disagree with the code (see Key Findings).
 
 ## References
 
@@ -24,6 +24,7 @@ Web UI Shell & Conventions — leaf segment `UI` under the root HLD.
 - [backend/src/config/cors_origin_tests.rs](../../backend/src/config/cors_origin_tests.rs)
 - [backend/src/config/load_tests.rs](../../backend/src/config/load_tests.rs)
 - [backend/src/error/error_body_tests.rs](../../backend/src/error/error_body_tests.rs)
+- [backend/src/error/log_level_tests.rs](../../backend/src/error/log_level_tests.rs)
 - [backend/src/web/cors_tests.rs](../../backend/src/web/cors_tests.rs)
 - [backend/src/web/limits_tests.rs](../../backend/src/web/limits_tests.rs)
 - [backend/src/web/tests.rs](../../backend/src/web/tests.rs)
@@ -130,15 +131,15 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | NAV | UI-NAV-001 – UI-NAV-003 | 3 | 0 | 0 | 3 | 3 |
 | DASH | UI-DASH-001 – UI-DASH-003 | 3 | 0 | 0 | 3 | 3 |
 | API | UI-API-001 – UI-API-006 | 6 | 0 | 0 | 6 | 6 |
-| ERR | UI-ERR-001 – UI-ERR-011 | 11 | 0 | 0 | 10 | 10 |
+| ERR | UI-ERR-001 – UI-ERR-011 | 11 | 0 | 0 | 11 | 11 |
 | TYPE | UI-TYPE-001 – UI-TYPE-004 | 4 | 0 | 0 | 3 | 3 |
 | UTIL | UI-UTIL-001 – UI-UTIL-006 | 6 | 0 | 0 | 6 | 6 |
 | CONV | UI-CONV-001 – UI-CONV-005 | 5 | 0 | 0 | 2 | 2 |
 | BUILD | UI-BUILD-001 – UI-BUILD-010 | 10 | 0 | 0 | 9 | 10 |
 | SRV | UI-SRV-001 – UI-SRV-010 | 9 | 0 | 0 | 9 | 9 |
-| **Total** | | **64** | **0** | **0** | **58** | **59** |
+| **Total** | | **64** | **0** | **0** | **59** | **60** |
 
-**Summary:** 64 of 64 active specs implemented; 0 deferred; 59 implemented specs cited by a test, 5 cited nowhere.
+**Summary:** 64 of 64 active specs implemented; 0 deferred; 60 implemented specs cited by a test, 4 cited nowhere.
 
 ## Key Findings
 
@@ -146,8 +147,7 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 2. **Spec ≠ code — UI-CONV-001:** the disease contributing-factor indicator shows symbol + note; its status word is only an `aria-label` and the symbol sits in an exposed `role="img"` span (`components/disease/DiseaseDetail.tsx:66-76`).
 3. **Spec ≠ code — UI-CONV-004:** `SoilSeasonChart` marks today with an inline "Today" label; its legend has no entry for it (`components/timing/SoilSeasonChart.tsx:176-187`, legend 225-255).
 4. **Spec ≠ code — UI-CONV-005:** `PredictionChart` draws observed soil `#e67e22` and the forecast `#3b82f6` dashed (a different hue), not `#2a78d6`/`#eb6834` with the forecast in the same hue (`components/PredictionChart.tsx:160-175`).
-5. **Spec ≠ code — UI-ERR-002:** spec: a 500 says "An internal error occurred" and lake errors are 500; code: `SERVER_ERROR_MESSAGE` ("Something went wrong on the server…") and DataLake → 503 per WX-SRC-LAKE-014 (`backend/src/error.rs`) — spec stale.
-6. **Spec ≠ code — UI-TYPE-004:** contradicts WX-OUTLOOK-UI-002: "the UI computes no agronomic result" vs `SoilTempForecastWidget.isMeaningfulCrossing`, which WX-OUTLOOK-UI-002 requires (`components/SoilTempForecastWidget.tsx:11-22`).
+5. **Spec ≠ code — UI-TYPE-004:** contradicts WX-OUTLOOK-UI-002: "the UI computes no agronomic result" vs `SoilTempForecastWidget.isMeaningfulCrossing`, which WX-OUTLOOK-UI-002 requires (`components/SoilTempForecastWidget.tsx:11-22`).
 
 ## Work Required
 
@@ -155,7 +155,6 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 - Decide UI-CONV-001: fix the code or correct the spec, then link it.
 - Decide UI-CONV-004: fix the code or correct the spec, then link it.
 - Decide UI-CONV-005: fix the code or correct the spec, then link it.
-- Decide UI-ERR-002: fix the code or correct the spec, then link it.
 - Decide UI-TYPE-004: fix the code or correct the spec, then link it.
 
 ### Should Fix

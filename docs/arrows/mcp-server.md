@@ -4,7 +4,7 @@ MCP Server — leaf segment `MCP` under the root HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-10-11 (git SHA `65245e3`): every implemented spec was checked against the code while linking it. 80 of 82 implemented specs are linked to both code and a test; 2 disagree with the code (see Key Findings).
+**PARTIAL** — audited 2026-10-12 (git SHA `4505fbc`): every implemented spec was checked against the code while linking it. 81 of 82 implemented specs are linked to both code and a test; 1 disagree with the code (see Key Findings).
 
 ## References
 
@@ -84,23 +84,21 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | SRV | MCP-SRV-001 – MCP-SRV-007 | 7 | 0 | 0 | 6 | 6 |
 | TOOL | MCP-TOOL-001 – MCP-TOOL-027 | 27 | 0 | 0 | 27 | 27 |
 | SNAP | MCP-SNAP-001 – MCP-SNAP-010 | 10 | 0 | 0 | 10 | 10 |
-| HIST | MCP-HIST-001 – MCP-HIST-007 | 7 | 0 | 0 | 6 | 6 |
+| HIST | MCP-HIST-001 – MCP-HIST-007 | 7 | 0 | 0 | 7 | 7 |
 | ERR | MCP-ERR-001 – MCP-ERR-007 | 7 | 0 | 0 | 7 | 7 |
 | DOC | MCP-DOC-001 – MCP-DOC-011 | 11 | 0 | 0 | 11 | 11 |
 | RES | MCP-RES-001 – MCP-RES-004 | 4 | 0 | 0 | 4 | 4 |
-| **Total** | | **82** | **0** | **0** | **80** | **80** |
+| **Total** | | **82** | **0** | **0** | **81** | **81** |
 
-**Summary:** 82 of 82 active specs implemented; 0 deferred; 80 implemented specs cited by a test, 2 cited nowhere.
+**Summary:** 82 of 82 active specs implemented; 0 deferred; 81 implemented specs cited by a test, 1 cited nowhere.
 
 ## Key Findings
 
-1. **Spec ≠ code — MCP-HIST-007:** spec quotes "Data source unavailable: weather data lake not configured."; code returns "Data source unavailable: " + the owner sentence, per MCP-ERR-006 (`mcp/tools/mod.rs` `error_message`) — spec stale.
-2. **Spec ≠ code — MCP-SRV-005:** soft: `seasonal_plan`, `disease_risk`, `soil_tests`, `shopping_list`, `plants`, `gdd` (arguably `recommendations`) say what they return, not when to call them.
+1. **Spec ≠ code — MCP-SRV-005:** soft: `seasonal_plan`, `disease_risk`, `soil_tests`, `shopping_list`, `plants`, `gdd` (arguably `recommendations`) say what they return, not when to call them.
 
 ## Work Required
 
 ### Must Fix
-- Decide MCP-HIST-007: fix the code or correct the spec, then link it.
 - Decide MCP-SRV-005: fix the code or correct the spec, then link it.
 
 ### Should Fix

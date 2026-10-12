@@ -68,7 +68,7 @@ Design: [applications-design.md](applications-design.md). Prefix `APP`. Facets: 
 - [x] **APP-FRAC-002**: While the application form's type is Fungicide, the form shall show a FRAC class checkbox grid of the options from `GET /api/v1/frac-classes`, with each class's example products as its tooltip.
 - [x] **APP-FRAC-003**: When the product name in the application form changes, the FRAC picker shall, after a 300 ms pause, look the name up and tick the matched classes, unless the entry already has recorded classes, a shelf product was picked, or the owner has ticked or unticked a box.
 - [x] **APP-FRAC-004**: While the application form's product name is non-empty, the lookup matched no class and no box is ticked, the FRAC picker shall warn that TurfOps doesn't recognize the product and that without a class the application can't count toward disease protection or fungicide rotation.
-- [x] **APP-FRAC-005**: If the FRAC lookup fails, then the FRAC picker shall stay usable by hand.
+- [x] **APP-FRAC-005**: If the FRAC lookup fails, then the application form shall still save the entry, recording only the classes ticked by hand (none when the grid never loaded), so the backend resolves classes from the product name.
 
 ## Follow-up reminders
 

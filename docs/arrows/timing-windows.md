@@ -4,7 +4,7 @@ Seeding & Pre-Emergent Timing Windows — leaf segment `TIME` under the root HLD
 
 ## Status
 
-**PARTIAL** — audited 2026-10-11 (git SHA `65245e3`): every implemented spec was checked against the code while linking it. 73 of 74 implemented specs are linked to both code and a test; 1 disagree with the code (see Key Findings).
+**OK** — audited 2026-10-12 (git SHA `4505fbc`): every implemented spec was checked against the code while linking it. 74 of 74 implemented specs are linked to both code and a test.
 
 ## References
 
@@ -84,23 +84,23 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 
 | Facet | Spec IDs | Implemented | Deferred | Gaps | `@spec` in code | `@spec` in tests |
 |---|---|---|---|---|---|---|
-| ENG | TIME-ENG-001 – TIME-ENG-046 | 46 | 0 | 0 | 45 | 45 |
+| ENG | TIME-ENG-001 – TIME-ENG-046 | 46 | 0 | 0 | 46 | 46 |
 | FEED | TIME-FEED-001 – TIME-FEED-009 | 9 | 0 | 0 | 9 | 9 |
 | LOG | TIME-LOG-001 – TIME-LOG-004 | 4 | 0 | 0 | 4 | 4 |
 | PLAN | TIME-PLAN-001 – TIME-PLAN-007 | 7 | 0 | 0 | 7 | 7 |
 | UI | TIME-UI-001 – TIME-UI-008 | 8 | 0 | 0 | 8 | 8 |
-| **Total** | | **74** | **0** | **0** | **73** | **73** |
+| **Total** | | **74** | **0** | **0** | **74** | **74** |
 
-**Summary:** 74 of 74 active specs implemented; 0 deferred; 73 implemented specs cited by a test, 1 cited nowhere.
+**Summary:** 74 of 74 active specs implemented; 0 deferred; 74 implemented specs cited by a test, 0 cited nowhere.
 
 ## Key Findings
 
-1. **Spec ≠ code — TIME-ENG-004:** spec: every lawn gets all five windows; code: warm-season grasses get only the two pre-emergent windows (`logic/timing/windows.rs` `specs_for`), which the design doc supports — spec wording likely stale.
+1. No findings.
 
 ## Work Required
 
 ### Must Fix
-- Decide TIME-ENG-004: fix the code or correct the spec, then link it.
+- None.
 
 ### Should Fix
 - None.

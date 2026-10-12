@@ -125,3 +125,25 @@ async fn the_result_totals_rain_and_gdd_and_explains_partial_days() {
         "{note}"
     );
 }
+
+// @spec MCP-HIST-007
+#[tokio::test]
+async fn with_no_lake_configured_the_tool_says_so_and_how_to_fix_it() {
+    let pool = unreachable_pool();
+    let sync = crate::logic::data_sync::DataSyncService::with_lake_only(
+        pool.clone(),
+        None,
+        crate::clock::Clock::System,
+    );
+    let state = crate::state::AppState::new(pool, sync, None, true, crate::clock::Clock::System);
+    let reply = call_tool(&state, "weather_history", json!({})).await;
+    assert!(reply.is_error);
+    assert_eq!(
+        reply.text,
+        format!(
+            "Data source unavailable: The weather data lake isn't configured, so soil, disease, \
+             timing and history data are unavailable. Set DATALAKE_ROOT and restart TurfOps. {}",
+            crate::mcp::tools::MISSING_DATA_HINT
+        )
+    );
+}

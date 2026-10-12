@@ -4,7 +4,7 @@ Soil-Temperature Outlook — leaf segment `WX-OUTLOOK` under the `weather-data` 
 
 ## Status
 
-**OK** — audited 2026-10-11 (git SHA `65245e3`): every implemented spec was checked against the code while linking it. 20 of 20 implemented specs are linked to both code and a test.
+**OK** — audited 2026-10-12 (git SHA `4505fbc`): every implemented spec was checked against the code while linking it. 20 of 20 implemented specs are linked to both code and a test.
 
 ## References
 

@@ -4,7 +4,7 @@ Deployment, Configuration & Operations — leaf segment `DEPLOY` under the root 
 
 ## Status
 
-**PARTIAL** — audited 2026-10-11 (git SHA `65245e3`): every implemented spec was checked against the code while linking it. 65 of 68 implemented specs are linked to both code and a test; 1 disagree with the code (see Key Findings).
+**OK** — audited 2026-10-12 (git SHA `4505fbc`): every implemented spec was checked against the code while linking it. 66 of 68 implemented specs are linked to both code and a test.
 
 ## References
 
@@ -36,6 +36,7 @@ Deployment, Configuration & Operations — leaf segment `DEPLOY` under the root 
 - [backend/src/deployment_tests/startup.rs](../../backend/src/deployment_tests/startup.rs)
 - [backend/src/deployment_tests/startup_db.rs](../../backend/src/deployment_tests/startup_db.rs)
 - [backend/src/error/contract_tests.rs](../../backend/src/error/contract_tests.rs)
+- [backend/src/error/log_level_tests.rs](../../backend/src/error/log_level_tests.rs)
 - [backend/src/health_probe/tests.rs](../../backend/src/health_probe/tests.rs)
 - [backend/src/web/tests.rs](../../backend/src/web/tests.rs)
 - [frontend/src/api/client.test.ts](../../frontend/src/api/client.test.ts)
@@ -100,24 +101,23 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | CONFIG | DEPLOY-CONFIG-001 – DEPLOY-CONFIG-013 | 11 | 0 | 0 | 11 | 11 |
 | TZ | DEPLOY-TZ-001 – DEPLOY-TZ-006 | 6 | 0 | 0 | 6 | 6 |
 | START | DEPLOY-START-001 – DEPLOY-START-007 | 7 | 0 | 0 | 7 | 7 |
-| HTTP | DEPLOY-HTTP-001 – DEPLOY-HTTP-011 | 9 | 0 | 0 | 8 | 8 |
+| HTTP | DEPLOY-HTTP-001 – DEPLOY-HTTP-011 | 9 | 0 | 0 | 9 | 9 |
 | HEALTH | DEPLOY-HEALTH-001 – DEPLOY-HEALTH-003 | 3 | 0 | 0 | 3 | 3 |
 | LOG | DEPLOY-LOG-001 – DEPLOY-LOG-003 | 3 | 0 | 0 | 3 | 3 |
 | CI | DEPLOY-CI-001 – DEPLOY-CI-010 | 10 | 0 | 0 | 8 | 9 |
-| **Total** | | **68** | **0** | **0** | **65** | **66** |
+| **Total** | | **68** | **0** | **0** | **66** | **67** |
 
-**Summary:** 68 of 68 active specs implemented; 0 deferred; 66 implemented specs cited by a test, 2 cited nowhere.
+**Summary:** 68 of 68 active specs implemented; 0 deferred; 67 implemented specs cited by a test, 1 cited nowhere.
 
 ## Key Findings
 
 1. **No code anchor — DEPLOY-CI-007:** tested (`deployment_tests/ci.rs`); `renovate.json` cannot hold a comment.
 2. **No code anchor — DEPLOY-CI-008:** enforced by GitHub repository settings and process; nothing in the repo to annotate or test.
-3. **Spec ≠ code — DEPLOY-HTTP-007:** spec + design error table: a DataLake error is logged at ERROR (as a 500); code logs it at WARN and answers 503 (`error.rs:258`, per WX-SRC-LAKE-014) — spec stale.
 
 ## Work Required
 
 ### Must Fix
-- Decide DEPLOY-HTTP-007: fix the code or correct the spec, then link it.
+- None.
 
 ### Should Fix
 - None.

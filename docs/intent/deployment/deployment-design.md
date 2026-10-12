@@ -165,7 +165,8 @@ All handler errors are `TurfOpsError` and render as JSON `{"error": "<message>"}
 | `Database` violating `applications_unique_turf` / `applications_unique_plant` | 409 | fixed duplicate-application text | no |
 | `Database` violating any other unique index | 409 | generic plain-language conflict text (the record conflicts with one that already exists) | no |
 | `Config(msg)`, `Internal(msg)` | 500 | `SERVER_ERROR_MESSAGE`: "Something went wrong on the server. Try again; the details are in the server log." | ERROR |
-| `Database` (other), `DataLake`, `Http`, `Io`, `Json` | 500 | `SERVER_ERROR_MESSAGE` | ERROR |
+| `DataLake` | 503 | the weather-lake owner sentence (Weather data access, WX-SRC-LAKE-014) | WARN |
+| `Database` (other), `Http`, `Io`, `Json` | 500 | `SERVER_ERROR_MESSAGE` | ERROR |
 
 `owner_message()` builds the `error` text; `IntoResponse` picks the status and does the logging. `Internal` marks the server's own data being inconsistent (a stored profile row without an id, for example).
 

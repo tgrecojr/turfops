@@ -4,7 +4,7 @@ Lawn Profile & Application Log — leaf segment `APP` under the root HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-10-11 (git SHA `65245e3`): every implemented spec was checked against the code while linking it. 74 of 75 implemented specs are linked to both code and a test; 1 disagree with the code (see Key Findings).
+**OK** — audited 2026-10-12 (git SHA `4505fbc`): every implemented spec was checked against the code while linking it. 75 of 75 implemented specs are linked to both code and a test.
 
 ## References
 
@@ -100,23 +100,23 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | DUP | APP-DUP-001 – APP-DUP-003 | 3 | 0 | 0 | 3 | 3 |
 | API | APP-API-001 – APP-API-012 | 12 | 0 | 0 | 12 | 12 |
 | LINK | APP-LINK-001 – APP-LINK-004 | 4 | 0 | 0 | 4 | 4 |
-| FRAC | APP-FRAC-001 – APP-FRAC-005 | 5 | 0 | 0 | 4 | 4 |
+| FRAC | APP-FRAC-001 – APP-FRAC-005 | 5 | 0 | 0 | 5 | 5 |
 | FOLLOW | APP-FOLLOW-001 – APP-FOLLOW-008 | 8 | 0 | 0 | 8 | 8 |
 | LIST | APP-LIST-001 – APP-LIST-005 | 5 | 0 | 0 | 5 | 5 |
 | FORM | APP-FORM-001 – APP-FORM-011 | 11 | 0 | 0 | 11 | 11 |
 | SET | APP-SET-001 – APP-SET-003 | 3 | 0 | 0 | 3 | 3 |
-| **Total** | | **75** | **0** | **0** | **74** | **74** |
+| **Total** | | **75** | **0** | **0** | **75** | **75** |
 
-**Summary:** 75 of 75 active specs implemented; 0 deferred; 74 implemented specs cited by a test, 1 cited nowhere.
+**Summary:** 75 of 75 active specs implemented; 0 deferred; 75 implemented specs cited by a test, 0 cited nowhere.
 
 ## Key Findings
 
-1. **Spec ≠ code — APP-FRAC-005:** spec: the FRAC picker stays usable by hand when the lookup fails; code: options come only from `GET /frac-classes`, so a failed first lookup renders no checkboxes (`frontend/src/components/FracClassPicker.tsx:26,32-50`).
+1. No findings.
 
 ## Work Required
 
 ### Must Fix
-- Decide APP-FRAC-005: fix the code or correct the spec, then link it.
+- None.
 
 ### Should Fix
 - None.

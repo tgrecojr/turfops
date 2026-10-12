@@ -68,7 +68,7 @@ Design: [agronomic-rules-design.md](agronomic-rules-design.md). Prefix `RULE`. F
 
 ## Weather rules
 
-- [x] **RULE-WX-001**: When a forecast point within 12 hours has precipitation probability ≥ 70% or ≥ 2.5 mm, the rain delay rule shall emit `rain_delay` at Critical; otherwise, when a point within 24 hours has ≥ 50% or ≥ 2.5 mm, at Warning; otherwise, when a point within 48 hours has ≥ 30% or ≥ 5 mm, at Advisory.
+- [x] **RULE-WX-001**: The rain delay rule shall judge the forecast points within 12, then 24, then 48 hours by their highest precipitation probability and their total amount, skipping a window whose total is under 0.1 mm and whose highest probability is under 50%, and shall emit `rain_delay` at Critical when the 12-hour window reaches 70% or 2.5 mm; otherwise at Warning when the 24-hour window reaches 50% or 2.5 mm; otherwise at Advisory when the 48-hour window reaches 30% or 5 mm.
 - [x] **RULE-WX-002**: When both the forecast and soil moisture are present, soil moisture is below 0.20, and the 5-day forecast precipitation amount is at most 2.5 mm, the irrigation rule shall emit `irrigation_forecast`, at Critical below 0.10, Warning below 0.15, otherwise Advisory.
 - [x] **RULE-WX-003**: The irrigation rule shall let only the forecast precipitation amount, never its probability alone, cancel the alert.
 - [x] **RULE-WX-004**: When the irrigation rule emits a recommendation, it shall declare an optional Surfactant need, which never puts the recommendation on the shopping list.

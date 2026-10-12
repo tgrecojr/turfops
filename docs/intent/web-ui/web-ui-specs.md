@@ -38,7 +38,7 @@ Design: [web-ui-design.md](web-ui-design.md). Prefix `UI`. Facets: `SHELL` (entr
 ## Human-readable errors
 
 - [x] **UI-ERR-001**: When an `/api/v1` handler fails, the API shall respond with the JSON body `{"error": "<message>"}` and status 404 (not found), 400 (invalid data), 409 (duplicate application-log entry), 503 (data source unavailable) or 500 (anything else).
-- [x] **UI-ERR-002**: If an `/api/v1` request fails for an internal reason (database, lake query, configuration, I/O or parse error), then the API shall log the detail and respond 500 with the error message "An internal error occurred".
+- [x] **UI-ERR-002**: If an `/api/v1` request fails for an internal reason (configuration, database, I/O or parse error), then the API shall log the detail and respond 500 with the error message "Something went wrong on the server. Try again; the details are in the server log."; a weather-lake query failure is instead the lake's 503 (WX-SRC-LAKE-014).
 - [x] **UI-ERR-003**: The API's `error` message shall be written for the owner and shall not contain upstream response bodies, raw LLM output, URLs or internal error text (OpenRouter, OpenWeatherMap, Home Assistant or lake details); that detail shall go to the log only.
 - [x] **UI-ERR-004**: When an API request returns a non-2xx status, the API client shall raise an error that carries the HTTP status (for page logic) and the `error` message unwrapped from the `{"error": …}` body, never the raw body text.
 - [x] **UI-ERR-005**: Every error message the web UI shows (pages, widgets and forms) shall be plain language saying what went wrong and, where there is one, what to do, and shall never show raw JSON, a bare HTTP status code, a stack trace, a file path or an upstream service's response body.

@@ -1,5 +1,6 @@
 //! Helpers shared by tests.
 
+use std::path::{Path, PathBuf};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 
@@ -22,4 +23,68 @@ pub async fn stub_http(status: u16, body: &'static str) -> String {
         }
     });
     format!("http://{addr}")
+}
+
+/// The production module tree: every file reachable from `main.rs` through `mod` items
+/// that are not gated on `test`. Test modules and test helpers are left out by how they are
+/// declared, whatever their file names.
+fn walk(file: &Path, out: &mut Vec<PathBuf>) {
+    out.push(file.to_path_buf());
+    let text = std::fs::read_to_string(file).unwrap();
+    let stem = file.file_stem().unwrap().to_string_lossy();
+    let dir = if matches!(stem.as_ref(), "main" | "lib" | "mod") {
+        file.parent().unwrap().to_path_buf()
+    } else {
+        file.with_extension("")
+    };
+    let mut test_gated = false;
+    for line in text.lines().map(str::trim) {
+        if line.starts_with("#[cfg(") {
+            test_gated = line.contains("test");
+            continue;
+        }
+        let decl = line
+            .strip_prefix("pub(crate) ")
+            .or_else(|| line.strip_prefix("pub(super) "))
+            .or_else(|| line.strip_prefix("pub "))
+            .unwrap_or(line);
+        if let Some(name) = decl.strip_prefix("mod ").and_then(|r| r.strip_suffix(';')) {
+            if !test_gated {
+                let flat = dir.join(format!("{name}.rs"));
+                let nested = dir.join(name).join("mod.rs");
+                walk(if flat.exists() { &flat } else { &nested }, out);
+            }
+        }
+        if !line.starts_with("#[") {
+            test_gated = false;
+        }
+    }
+}
+
+/// Every production source file, from `src/main.rs` down.
+pub fn production_sources() -> Vec<PathBuf> {
+    let mut files = Vec::new();
+    walk(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("src/main.rs"),
+        &mut files,
+    );
+    assert!(files.len() > 50, "walked the module tree: {}", files.len());
+    files
+}
+
+/// A production file's code without its inline `#[cfg(test)] mod … { … }` block (which
+/// sits at the end of the file by convention).
+pub fn production_code(file: &Path) -> String {
+    let text = std::fs::read_to_string(file).unwrap();
+    let lines: Vec<&str> = text.lines().collect();
+    let cut = lines
+        .windows(2)
+        .position(|w| {
+            w[0].trim().starts_with("#[cfg(")
+                && w[0].contains("test")
+                && w[1].trim_end().ends_with('{')
+                && w[1].trim_start().starts_with("mod ")
+        })
+        .unwrap_or(lines.len());
+    lines[..cut].join("\n")
 }

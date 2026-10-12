@@ -4,7 +4,7 @@ Product Inventory (the Shelf) — leaf segment `INV` under the root HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-10-11 (git SHA `65245e3`): every implemented spec was checked against the code while linking it. 70 of 71 implemented specs are linked to both code and a test; 1 disagree with the code (see Key Findings).
+**OK** — audited 2026-10-12 (git SHA `4505fbc`): every implemented spec was checked against the code while linking it. 71 of 71 implemented specs are linked to both code and a test.
 
 ## References
 
@@ -27,6 +27,7 @@ Product Inventory (the Shelf) — leaf segment `INV` under the root HLD.
 - [backend/src/api/products/crud_db_tests.rs](../../backend/src/api/products/crud_db_tests.rs)
 - [backend/src/api/products/edit_db_tests.rs](../../backend/src/api/products/edit_db_tests.rs)
 - [backend/src/api/products/link_db_tests.rs](../../backend/src/api/products/link_db_tests.rs)
+- [backend/src/api/products/missing_category_db_tests.rs](../../backend/src/api/products/missing_category_db_tests.rs)
 - [backend/src/datasources/openrouter/product/schema_tests.rs](../../backend/src/datasources/openrouter/product/schema_tests.rs)
 - [backend/src/db/product_queries/row_tests.rs](../../backend/src/db/product_queries/row_tests.rs)
 - [backend/src/logic/inventory/enrich_tests.rs](../../backend/src/logic/inventory/enrich_tests.rs)
@@ -111,7 +112,7 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | Facet | Spec IDs | Implemented | Deferred | Gaps | `@spec` in code | `@spec` in tests |
 |---|---|---|---|---|---|---|
 | SHELF | INV-SHELF-001 – INV-SHELF-011 | 11 | 0 | 0 | 11 | 11 |
-| API | INV-API-001 – INV-API-014 | 14 | 0 | 0 | 13 | 13 |
+| API | INV-API-001 – INV-API-014 | 14 | 0 | 0 | 14 | 14 |
 | LLM | INV-LLM-001 – INV-LLM-011 | 11 | 0 | 0 | 11 | 11 |
 | RATE | INV-RATE-001 – INV-RATE-002 | 2 | 0 | 0 | 2 | 2 |
 | LOG | INV-LOG-001 – INV-LOG-004 | 4 | 0 | 0 | 4 | 4 |
@@ -119,19 +120,18 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | ENRICH | INV-ENRICH-001 – INV-ENRICH-005 | 5 | 0 | 0 | 5 | 5 |
 | SHOP | INV-SHOP-001 – INV-SHOP-006 | 6 | 0 | 0 | 6 | 6 |
 | UI | INV-UI-001 – INV-UI-013 | 13 | 0 | 0 | 13 | 13 |
-| **Total** | | **71** | **1** | **0** | **70** | **70** |
+| **Total** | | **71** | **1** | **0** | **71** | **71** |
 
-**Summary:** 71 of 71 active specs implemented; 1 deferred; 70 implemented specs cited by a test, 1 cited nowhere.
+**Summary:** 71 of 71 active specs implemented; 1 deferred; 71 implemented specs cited by a test, 0 cited nowhere.
 
 ## Key Findings
 
-1. **Spec ≠ code — INV-API-005:** spec: no category + assistant requested + OpenRouter not configured → 400; code and design doc: 503 `not_configured` (`api/products.rs:120-122`) — spec stale.
-2. **Deferred:** INV-NEED-006.
+1. **Deferred:** INV-NEED-006.
 
 ## Work Required
 
 ### Must Fix
-- Decide INV-API-005: fix the code or correct the spec, then link it.
+- None.
 
 ### Should Fix
 - None.

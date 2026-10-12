@@ -241,7 +241,7 @@ The picker is the form side of the shelf link. It loads every product, archived 
 
 ### FracClassPicker (`frontend/src/components/FracClassPicker.tsx`)
 
-The picker shows a checkbox grid of the 12 classes, with example products as tooltips. After a 300 ms debounce on the product name it calls `/frac-classes?product=` and pre-fills `matched`, unless the value is already `recorded` (editing an entry with classes, or a shelf product picked) or the owner has touched a box. The form remounts it (`key={productId ?? "manual"}`) on a pick, so a product's confirmed classes are not overwritten by the lookup. When the name is non-empty, unmatched and nothing is ticked, it warns that without a class the entry earns no disease protection or rotation credit. A failed lookup leaves the picker usable by hand.
+The picker shows a checkbox grid of the 12 classes, with example products as tooltips. After a 300 ms debounce on the product name it calls `/frac-classes?product=` and pre-fills `matched`, unless the value is already `recorded` (editing an entry with classes, or a shelf product picked) or the owner has touched a box. The form remounts it (`key={productId ?? "manual"}`) on a pick, so a product's confirmed classes are not overwritten by the lookup. When the name is non-empty, unmatched and nothing is ticked, it warns that without a class the entry earns no disease protection or rotation credit. A failed lookup keeps whatever grid an earlier lookup loaded; when the first lookup fails the grid is empty. Either way the entry still saves, and with no classes recorded the backend resolves them from the product name. The lookup only fails when the API is unreachable, and then saving fails too.
 
 ### Settings page (`frontend/src/pages/Settings.tsx`, route `/settings`)
 
@@ -255,7 +255,7 @@ The page edits the profile: name and USDA zone are required, plus grass type, so
 
 - **No profile row:** the application endpoints and `GET /profile` return 404, and pages point the owner to Settings, where saving creates the profile (`PUT /profile`). Startup normally prevents this.
 - **Shelf unreachable in the form:** `ProductPicker` treats a failed product list as an empty shelf and shows the free-text field. Logging still works.
-- **FRAC lookup fails:** the picker works by hand. The backend falls back to the name when no classes are recorded.
+- **FRAC lookup fails:** the grid keeps what an earlier lookup loaded (empty if none did); the entry saves with the classes ticked, if any, and the backend falls back to the name when none are recorded.
 - **Plant deleted:** the delete always succeeds. Each entry gets the plant's name in `plant_name`, `plant_id` becomes null and the row keeps its type, so it is never `is_turf()`, stays out of lawn models whatever its type, shows as "<name> (deleted)" and remains editable without a plant.
 - **Product deleted:** `product_id` becomes null and `product_name` remains.
 - **Unparseable stored values:** type becomes `Other`, unknown FRAC codes are dropped, an unknown grass type reads as `TallFescue`. Each logs a warning, and the read never fails.

@@ -39,7 +39,7 @@ pub async fn all(
     Ok(all_with_history(state, profile, summary).await?.0)
 }
 
-// @spec FEED-PIPE-001, FEED-PIPE-002, FEED-PIPE-003, FEED-PIPE-012, FEED-PIPE-014, FEED-PIPE-018
+// @spec FEED-PIPE-001, FEED-PIPE-002, FEED-PIPE-003, FEED-PIPE-011, FEED-PIPE-012, FEED-PIPE-014, FEED-PIPE-018
 /// Every current recommendation together with the application log it was judged on, for
 /// readers that must judge the same log (the seasonal plan's rule states).
 pub async fn all_with_history(
@@ -149,6 +149,8 @@ mod feed_db_tests;
 pub(crate) mod fixtures;
 #[cfg(test)]
 mod outage_tests;
+#[cfg(all(test, feature = "db-tests"))]
+mod shared_log_db_tests;
 #[cfg(test)]
 mod stage_tests;
 

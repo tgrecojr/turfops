@@ -133,6 +133,8 @@ async fn compute(state: &AppState, profile: &LawnProfile) -> Result<TimingRespon
     let profile_id = profile
         .id
         .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
+    // Its own range, so the feed and this page judge the same log.
+    // @spec FEED-PIPE-011
     let history = queries::get_applications_for_profile_in_range(
         &state.pool,
         profile_id,
@@ -260,7 +262,7 @@ async fn plan_for(
     ))
 }
 
-// @spec TIME-ENG-044
+// @spec TIME-ENG-044, TIME-ENG-004
 /// Plain-language caveats about the inputs behind this response.
 fn data_notes(assessment: &Assessment, profile: &LawnProfile, has_forecast: bool) -> Vec<String> {
     let mut notes = Vec::new();
@@ -328,6 +330,24 @@ mod tests {
     fn no_notes_when_inputs_are_healthy() {
         let notes = data_notes(&assessment(true, 10), &LawnProfile::default(), true);
         assert!(notes.is_empty(), "{notes:?}");
+    }
+
+    // @spec TIME-ENG-004
+    #[test]
+    fn a_warm_season_lawn_is_told_seeding_windows_are_cool_season_only() {
+        let warm = LawnProfile {
+            grass_type: crate::models::GrassType::Bermuda,
+            ..LawnProfile::default()
+        };
+        assert_eq!(
+            data_notes(&assessment(true, 10), &warm, true),
+            vec!["Seeding windows cover cool-season turf only.".to_string()]
+        );
+        let mixed = LawnProfile {
+            grass_type: crate::models::GrassType::Mixed,
+            ..LawnProfile::default()
+        };
+        assert!(data_notes(&assessment(true, 10), &mixed, true).is_empty());
     }
 
     // @spec TIME-ENG-044

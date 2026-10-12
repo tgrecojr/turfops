@@ -26,7 +26,7 @@ pub(crate) fn name_conflict(name: &str) -> TurfOpsError {
 /// The facts for a product saved without an assistant profile: the owner's category and
 /// form (Other when not given) and the curated FRAC classes for its name. With no category,
 /// only a failed assistant saves the product (as Other); otherwise a category is required.
-// @spec INV-LLM-011
+// @spec INV-LLM-011, INV-API-005
 pub(crate) fn facts_without_profile(
     category: Option<ProductCategory>,
     form: Option<ProductForm>,

@@ -80,7 +80,7 @@ A "tool error" below is an MCP tool result with `isError: true` and one text blo
 - [x] **MCP-HIST-004**: Each MCP `weather_history` row shall carry `date`, `air_mean_f`, `air_min_f` and `air_max_f` (silver, °F, 0.1), `rh_mean_pct` (silver, 0.1), `rain_in` (silver mm ÷ 25.4, 0.01), `hours_observed` (silver hours covered), and `soil_5cm_f` and `gdd50` (climate record, 0.1), each `null` when its source has no value for that day.
 - [x] **MCP-HIST-005**: When silver has no row for a day, the MCP `weather_history` tool shall fill that day's `air_mean_f` and `air_min_f` from the climate record's gold air values.
 - [x] **MCP-HIST-006**: The MCP `weather_history` result shall carry `rain_total_in` (sum of the rows' `rain_in`, 0.01), `gdd50_total` (sum of the rows' `gdd50`, 0.1) and a fixed `note` explaining that a day with fewer than 24 hours observed is partial.
-- [x] **MCP-HIST-007**: If no weather lake is configured, then the MCP `weather_history` tool shall return the tool error "Data source unavailable: weather data lake not configured." with the missing-data hint; if either lake read fails, it shall return the tool error for that failure (MCP-ERR).
+- [x] **MCP-HIST-007**: If no weather lake is configured, then the MCP `weather_history` tool shall return the weather lake's not-configured tool error ("Data source unavailable: " followed by the lake's not-configured sentence and the missing-data hint, per MCP-ERR-006); if either lake read fails, it shall return the tool error for that failure (MCP-ERR).
 
 ## Errors
 
