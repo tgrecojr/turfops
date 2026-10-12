@@ -3,21 +3,39 @@ use crate::models::SoilTest;
 use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::PgPool;
 
+/// Newest first: the first row is the test the advice reads. Among tests sharing a date
+/// the most recently entered one comes first. A macro so the queries stay `'static` SQL.
+// @spec SOIL-DATA-005
+macro_rules! newest_first {
+    () => {
+        "test_date DESC, created_at DESC, id DESC"
+    };
+}
+#[cfg(test)]
+pub(crate) use newest_first;
+
+macro_rules! columns {
+    () => {
+        "id, lawn_profile_id, test_date, lab_name, ph, buffer_ph, \
+         phosphorus_ppm, potassium_ppm, calcium_ppm, magnesium_ppm, \
+         sulfur_ppm, iron_ppm, manganese_ppm, zinc_ppm, boron_ppm, copper_ppm, \
+         organic_matter_pct, cec, notes, created_at"
+    };
+}
+
 pub async fn get_soil_tests_for_profile(
     pool: &PgPool,
     profile_id: i64,
     limit: i64,
     offset: i64,
 ) -> Result<Vec<SoilTest>> {
-    let rows = sqlx::query_as::<_, SoilTestRow>(
-        r#"SELECT id, lawn_profile_id, test_date, lab_name, ph, buffer_ph,
-           phosphorus_ppm, potassium_ppm, calcium_ppm, magnesium_ppm,
-           sulfur_ppm, iron_ppm, manganese_ppm, zinc_ppm, boron_ppm, copper_ppm,
-           organic_matter_pct, cec, notes, created_at
-           FROM soil_tests WHERE lawn_profile_id = $1
-           ORDER BY test_date DESC
-           LIMIT $2 OFFSET $3"#,
-    )
+    let rows = sqlx::query_as::<_, SoilTestRow>(concat!(
+        "SELECT ",
+        columns!(),
+        " FROM soil_tests WHERE lawn_profile_id = $1 ORDER BY ",
+        newest_first!(),
+        " LIMIT $2 OFFSET $3"
+    ))
     .bind(profile_id)
     .bind(limit)
     .bind(offset)
@@ -28,14 +46,13 @@ pub async fn get_soil_tests_for_profile(
 }
 
 pub async fn get_latest_soil_test(pool: &PgPool, profile_id: i64) -> Result<Option<SoilTest>> {
-    let row = sqlx::query_as::<_, SoilTestRow>(
-        r#"SELECT id, lawn_profile_id, test_date, lab_name, ph, buffer_ph,
-           phosphorus_ppm, potassium_ppm, calcium_ppm, magnesium_ppm,
-           sulfur_ppm, iron_ppm, manganese_ppm, zinc_ppm, boron_ppm, copper_ppm,
-           organic_matter_pct, cec, notes, created_at
-           FROM soil_tests WHERE lawn_profile_id = $1
-           ORDER BY test_date DESC LIMIT 1"#,
-    )
+    let row = sqlx::query_as::<_, SoilTestRow>(concat!(
+        "SELECT ",
+        columns!(),
+        " FROM soil_tests WHERE lawn_profile_id = $1 ORDER BY ",
+        newest_first!(),
+        " LIMIT 1"
+    ))
     .bind(profile_id)
     .fetch_optional(pool)
     .await?;
@@ -123,12 +140,13 @@ pub async fn update_soil_test(pool: &PgPool, id: i64, test: &SoilTest) -> Result
     }
 }
 
-pub async fn delete_soil_test(pool: &PgPool, id: i64) -> Result<()> {
-    sqlx::query("DELETE FROM soil_tests WHERE id = $1")
+/// The number of rows deleted (0 when no test has `id`).
+pub async fn delete_soil_test(pool: &PgPool, id: i64) -> Result<u64> {
+    let result = sqlx::query("DELETE FROM soil_tests WHERE id = $1")
         .bind(id)
         .execute(pool)
         .await?;
-    Ok(())
+    Ok(result.rows_affected())
 }
 
 #[derive(sqlx::FromRow)]

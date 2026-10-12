@@ -7,10 +7,11 @@ import {
 	updateSoilTest,
 } from "../api/client";
 import { describeError } from "../api/errors";
+import AdvicePanel from "../components/soilTests/AdvicePanel";
+import { deleteConfirmText } from "../components/soilTests/display";
 import { useServerToday } from "../components/useServerToday";
 import { sharedStyles } from "../styles/shared";
-import type { NutrientLevel, SoilTest, SoilTestSummary } from "../types";
-import { NUTRIENT_LEVEL_COLORS } from "../types";
+import type { SoilTest, SoilTestSummary } from "../types";
 import { futureDateWarning, todayLocalISO } from "../utils/dates";
 
 export default function SoilTests() {
@@ -155,9 +156,11 @@ export default function SoilTests() {
 		}
 	};
 
-	const handleDelete = async (id: number) => {
+	// @spec SOIL-UI-017: a deleted test can't be recovered and may be the one advised on
+	const handleDelete = async (test: SoilTest) => {
+		if (test.id == null || !confirm(deleteConfirmText(test))) return;
 		try {
-			await deleteSoilTest(id);
+			await deleteSoilTest(test.id);
 			await loadData();
 		} catch (e) {
 			setError(describeError(e));
@@ -417,7 +420,7 @@ export default function SoilTests() {
 			)}
 
 			{/* Recommendations Panel */}
-			{summary && <SoilTestRecommendationsPanel summary={summary} />}
+			{summary && <AdvicePanel summary={summary} today={serverToday} />}
 
 			{/* Historical Tests Table */}
 			<h2 style={sharedStyles.sectionTitle}>Test History</h2>
@@ -478,200 +481,11 @@ export default function SoilTests() {
 										</button>
 										<button
 											type="button"
-											onClick={() => t.id && handleDelete(t.id)}
+											onClick={() => handleDelete(t)}
 											style={styles.deleteBtn}
 										>
 											Delete
 										</button>
-									</td>
-								</tr>
-							))}
-						</tbody>
-					</table>
-				</div>
-			)}
-		</div>
-	);
-}
-
-function LevelBadge({ level }: { level: NutrientLevel }) {
-	const color = NUTRIENT_LEVEL_COLORS[level];
-	return (
-		<span
-			style={{
-				...sharedStyles.badge,
-				backgroundColor: `${color}22`,
-				color,
-				borderColor: color,
-			}}
-		>
-			{level}
-		</span>
-	);
-}
-
-function SoilTestRecommendationsPanel({
-	summary,
-}: {
-	summary: SoilTestSummary;
-}) {
-	const {
-		ph_recommendation,
-		npk_recommendation,
-		micronutrient_recommendations,
-	} = summary;
-	const hasRecs =
-		ph_recommendation ||
-		npk_recommendation ||
-		micronutrient_recommendations.length > 0;
-
-	if (!hasRecs) {
-		return (
-			<div style={{ ...sharedStyles.card, marginBottom: "1.5rem" }}>
-				<h2 style={sharedStyles.sectionTitle}>Recommendations</h2>
-				<p style={{ color: "#718096", fontSize: "0.9rem" }}>
-					All soil nutrient levels are adequate. No amendments recommended.
-				</p>
-			</div>
-		);
-	}
-
-	return (
-		<div style={{ marginBottom: "1.5rem" }}>
-			<h2 style={sharedStyles.sectionTitle}>Recommendations</h2>
-			<div
-				style={{
-					display: "grid",
-					gap: "1rem",
-					gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-				}}
-			>
-				{ph_recommendation && (
-					<div style={sharedStyles.card}>
-						<h3 style={styles.recTitle}>pH Adjustment</h3>
-						<div style={styles.recRow}>
-							<span style={styles.recLabel}>Current pH</span>
-							<span style={styles.recValue}>
-								{ph_recommendation.current_ph.toFixed(1)}
-							</span>
-						</div>
-						<div style={styles.recRow}>
-							<span style={styles.recLabel}>Target pH</span>
-							<span style={styles.recValue}>
-								{ph_recommendation.target_ph.toFixed(1)}
-							</span>
-						</div>
-						<div style={styles.recRow}>
-							<span style={styles.recLabel}>Amendment</span>
-							<span style={styles.recValue}>{ph_recommendation.amendment}</span>
-						</div>
-						<div style={styles.recRow}>
-							<span style={styles.recLabel}>Rate</span>
-							<span style={{ ...styles.recValue, fontWeight: 700 }}>
-								{ph_recommendation.rate_lbs_per_1000sqft.toFixed(0)} lbs/1000
-								sqft
-							</span>
-						</div>
-						<p style={styles.recExplanation}>{ph_recommendation.explanation}</p>
-					</div>
-				)}
-
-				{npk_recommendation && (
-					<div style={sharedStyles.card}>
-						<h3 style={styles.recTitle}>Fertilizer Recommendation</h3>
-						<div style={styles.recRow}>
-							<span style={styles.recLabel}>Recommended Ratio</span>
-							<span
-								style={{
-									...styles.recValue,
-									fontWeight: 700,
-									fontSize: "1.1rem",
-								}}
-							>
-								{npk_recommendation.recommended_ratio}
-							</span>
-						</div>
-						<div style={styles.recRow}>
-							<span style={styles.recLabel}>N rate</span>
-							<span style={styles.recValue}>
-								{npk_recommendation.nitrogen_rate_lbs_per_1000sqft.toFixed(2)}{" "}
-								lbs/1000sqft
-							</span>
-						</div>
-						<div style={styles.recRow}>
-							<span style={styles.recLabel}>P₂O₅ rate</span>
-							<span style={styles.recValue}>
-								{npk_recommendation.phosphorus_rate_lbs_per_1000sqft.toFixed(2)}{" "}
-								lbs/1000sqft
-								<LevelBadge level={npk_recommendation.phosphorus_level} />
-							</span>
-						</div>
-						<div style={styles.recRow}>
-							<span style={styles.recLabel}>K₂O rate</span>
-							<span style={styles.recValue}>
-								{npk_recommendation.potassium_rate_lbs_per_1000sqft.toFixed(2)}{" "}
-								lbs/1000sqft
-								<LevelBadge level={npk_recommendation.potassium_level} />
-							</span>
-						</div>
-						{npk_recommendation.example_product_ratio !== "N/A" && (
-							<div style={styles.recRow}>
-								<span style={styles.recLabel}>Example Product</span>
-								<span style={styles.recValue}>
-									{npk_recommendation.example_product_ratio} at{" "}
-									{npk_recommendation.product_rate_lbs_per_1000sqft.toFixed(1)}{" "}
-									lbs/1000sqft
-								</span>
-							</div>
-						)}
-						<div
-							style={{
-								...styles.recRow,
-								marginTop: "0.5rem",
-								padding: "0.5rem",
-								backgroundColor: "#f7fafc",
-								borderRadius: 4,
-							}}
-						>
-							<span style={styles.recLabel}>N Budget Remaining</span>
-							<span style={{ ...styles.recValue, fontWeight: 700 }}>
-								{npk_recommendation.remaining_n_budget_lbs_per_1000sqft.toFixed(
-									2,
-								)}{" "}
-								lbs/1000sqft
-							</span>
-						</div>
-						<p style={styles.recExplanation}>
-							{npk_recommendation.explanation}
-						</p>
-					</div>
-				)}
-			</div>
-
-			{micronutrient_recommendations.length > 0 && (
-				<div style={{ ...sharedStyles.card, marginTop: "1rem" }}>
-					<h3 style={styles.recTitle}>Micronutrient Deficiencies</h3>
-					<table style={sharedStyles.table}>
-						<thead>
-							<tr>
-								<th style={sharedStyles.th}>Nutrient</th>
-								<th style={sharedStyles.th}>Current (ppm)</th>
-								<th style={sharedStyles.th}>Threshold (ppm)</th>
-								<th style={sharedStyles.th}>Status</th>
-								<th style={sharedStyles.th}>Suggestion</th>
-							</tr>
-						</thead>
-						<tbody>
-							{micronutrient_recommendations.map((m) => (
-								<tr key={m.nutrient}>
-									<td style={sharedStyles.td}>{m.nutrient}</td>
-									<td style={sharedStyles.td}>{m.current_ppm.toFixed(1)}</td>
-									<td style={sharedStyles.td}>{m.threshold_ppm.toFixed(1)}</td>
-									<td style={sharedStyles.td}>
-										<LevelBadge level={m.level} />
-									</td>
-									<td style={{ ...sharedStyles.td, fontSize: "0.8rem" }}>
-										{m.suggestion}
 									</td>
 								</tr>
 							))}
@@ -752,37 +566,5 @@ const styles: Record<string, React.CSSProperties> = {
 		border: "1px solid #e2e8f0",
 		borderRadius: 4,
 		fontSize: "0.85rem",
-	},
-	recTitle: {
-		fontSize: "0.95rem",
-		fontWeight: 700,
-		color: "#2d3748",
-		margin: "0 0 0.75rem",
-	},
-	recRow: {
-		display: "flex",
-		justifyContent: "space-between",
-		alignItems: "center",
-		padding: "0.25rem 0",
-		gap: "0.5rem",
-	},
-	recLabel: {
-		fontSize: "0.8rem",
-		color: "#718096",
-	},
-	recValue: {
-		fontSize: "0.85rem",
-		color: "#2d3748",
-		display: "flex",
-		alignItems: "center",
-		gap: "0.5rem",
-	},
-	recExplanation: {
-		fontSize: "0.8rem",
-		color: "#718096",
-		marginTop: "0.75rem",
-		lineHeight: 1.5,
-		borderTop: "1px solid #e2e8f0",
-		paddingTop: "0.5rem",
 	},
 };

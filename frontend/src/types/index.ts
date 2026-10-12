@@ -543,7 +543,7 @@ export interface SoilTest {
 	created_at: string;
 }
 
-export type NutrientLevel = "Low" | "Adequate" | "High";
+export type NutrientLevel = "Low" | "Adequate" | "High" | "NotTested";
 
 export interface PhRecommendation {
 	current_ph: number;
@@ -585,6 +585,7 @@ export const NUTRIENT_LEVEL_COLORS: Record<NutrientLevel, string> = {
 	Low: "#ef4444",
 	Adequate: "#22c55e",
 	High: "#eab308",
+	NotTested: "#64748b",
 };
 
 // Display helpers

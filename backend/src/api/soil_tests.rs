@@ -6,7 +6,7 @@ use crate::state::AppState;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::Json;
-use chrono::{Datelike, Local, NaiveDate, Utc};
+use chrono::{Datelike, Duration, NaiveDate, Utc};
 use serde::Deserialize;
 
 const DEFAULT_PAGE_LIMIT: i64 = 50;
@@ -65,6 +65,58 @@ pub struct CreateSoilTestRequest {
     pub notes: Option<String>,
 }
 
+/// The request's test date, or a 400 naming what is wrong with the body.
+// @spec SOIL-API-011
+pub(crate) fn validate_request(req: &CreateSoilTestRequest) -> Result<NaiveDate, TurfOpsError> {
+    let test_date = NaiveDate::parse_from_str(&req.test_date, "%Y-%m-%d").map_err(|_| {
+        TurfOpsError::InvalidData(format!(
+            "Invalid date format: {}. Expected YYYY-MM-DD",
+            req.test_date
+        ))
+    })?;
+
+    if req.ph < 0.0 || req.ph > 14.0 {
+        return Err(TurfOpsError::InvalidData(
+            "pH must be between 0 and 14".into(),
+        ));
+    }
+
+    // Concentrations and indices: a negative one is a typo.
+    let measured = [
+        ("Buffer pH", req.buffer_ph),
+        ("Phosphorus", req.phosphorus_ppm),
+        ("Potassium", req.potassium_ppm),
+        ("Calcium", req.calcium_ppm),
+        ("Magnesium", req.magnesium_ppm),
+        ("Sulfur", req.sulfur_ppm),
+        ("Iron", req.iron_ppm),
+        ("Manganese", req.manganese_ppm),
+        ("Zinc", req.zinc_ppm),
+        ("Boron", req.boron_ppm),
+        ("Copper", req.copper_ppm),
+        ("Organic matter", req.organic_matter_pct),
+        ("CEC", req.cec),
+    ];
+    if let Some((field, _)) = measured
+        .iter()
+        .find(|(_, value)| value.is_some_and(|v| v < 0.0))
+    {
+        return Err(TurfOpsError::InvalidData(format!(
+            "{field} can't be negative. Check the value on your lab report."
+        )));
+    }
+    Ok(test_date)
+}
+
+/// 404 when a delete touched no row.
+// @spec SOIL-API-012
+pub(crate) fn deleted(rows_affected: u64, id: i64) -> Result<(), TurfOpsError> {
+    if rows_affected == 0 {
+        return Err(TurfOpsError::NotFound(format!("Soil test {id} not found")));
+    }
+    Ok(())
+}
+
 /// POST /api/v1/soil-tests
 pub async fn create_soil_test(
     State(state): State<AppState>,
@@ -78,18 +130,7 @@ pub async fn create_soil_test(
         .id
         .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
 
-    let test_date = NaiveDate::parse_from_str(&req.test_date, "%Y-%m-%d").map_err(|_| {
-        TurfOpsError::InvalidData(format!(
-            "Invalid date format: {}. Expected YYYY-MM-DD",
-            req.test_date
-        ))
-    })?;
-
-    if req.ph < 0.0 || req.ph > 14.0 {
-        return Err(TurfOpsError::InvalidData(
-            "pH must be between 0 and 14".into(),
-        ));
-    }
+    let test_date = validate_request(&req)?;
 
     let test = SoilTest {
         id: None,
@@ -137,18 +178,7 @@ pub async fn update_soil_test(
         .id
         .ok_or_else(|| TurfOpsError::InvalidData("Profile missing ID".into()))?;
 
-    let test_date = NaiveDate::parse_from_str(&req.test_date, "%Y-%m-%d").map_err(|_| {
-        TurfOpsError::InvalidData(format!(
-            "Invalid date format: {}. Expected YYYY-MM-DD",
-            req.test_date
-        ))
-    })?;
-
-    if req.ph < 0.0 || req.ph > 14.0 {
-        return Err(TurfOpsError::InvalidData(
-            "pH must be between 0 and 14".into(),
-        ));
-    }
+    let test_date = validate_request(&req)?;
 
     let test = SoilTest {
         id: Some(id),
@@ -182,7 +212,10 @@ pub async fn delete_soil_test(
     State(state): State<AppState>,
     Path(id): Path<i64>,
 ) -> Result<StatusCode, TurfOpsError> {
-    soil_test_queries::delete_soil_test(&state.pool, id).await?;
+    deleted(
+        soil_test_queries::delete_soil_test(&state.pool, id).await?,
+        id,
+    )?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -202,19 +235,22 @@ pub async fn get_soil_test_recommendations(
         .await?
         .ok_or_else(|| TurfOpsError::NotFound("No soil tests found".into()))?;
 
-    // Get current year applications for N budget calculation
-    let year = Local::now().year();
-    let start_date = NaiveDate::from_ymd_opt(year, 1, 1).unwrap();
-    let end_date = NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap();
+    // This year's applications through today on the lawn's calendar, the nitrogen
+    // budget's basis (the range end is exclusive).
+    let today = state.clock.today();
+    let start_date = NaiveDate::from_ymd_opt(today.year(), 1, 1).unwrap_or(today);
     let apps = queries::get_applications_for_profile_in_range(
         &state.pool,
         profile_id,
         start_date,
-        end_date,
+        today + Duration::days(1),
     )
     .await?;
 
-    let summary = generate_soil_test_recommendations(&test, &profile, &apps);
+    let summary = generate_soil_test_recommendations(&test, &profile, &apps, today);
 
     Ok(Json(summary))
 }
+
+#[cfg(test)]
+mod tests;

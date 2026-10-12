@@ -30,6 +30,8 @@ pub enum NutrientLevel {
     Low,
     Adequate,
     High,
+    /// The lab did not report the nutrient.
+    NotTested,
 }
 
 impl NutrientLevel {
@@ -38,6 +40,7 @@ impl NutrientLevel {
             NutrientLevel::Low => "Low",
             NutrientLevel::Adequate => "Adequate",
             NutrientLevel::High => "High",
+            NutrientLevel::NotTested => "Not tested",
         }
     }
 }
