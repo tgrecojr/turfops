@@ -282,6 +282,7 @@ export default function Dashboard() {
 					<Stale widget={widgets.nBudget}>
 						{(d) => <NitrogenBudgetWidget data={d} />}
 					</Stale>
+					{/* @spec WX-OUTLOOK-UI-003: a failed outlook leaves no widget */}
 					<Stale widget={widgets.soilForecast}>
 						{(d) => (
 							<SoilTempForecastWidget

@@ -26,6 +26,7 @@ impl WeatherLakeClient {
     /// Aggregate silver hourly observations into one row per local calendar day from
     /// `start` onward. Hours missing air temp or RH are skipped, so `hours_covered`
     /// reflects usable hours only.
+    // @spec WX-SRC-LAKE-009, WX-SRC-LAKE-011
     pub async fn fetch_daily_disease_inputs(&self, start: NaiveDate) -> Result<LakeDailyWeather> {
         let src = Self::parquet(&self.silver_weather_path);
         let station = self.station_wbanno;
@@ -121,6 +122,7 @@ mod tests {
         .unwrap();
     }
 
+    // @spec WX-SRC-LAKE-009
     #[tokio::test]
     async fn aggregates_silver_hours_into_local_days() {
         let path =

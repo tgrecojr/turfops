@@ -117,6 +117,7 @@ fn flag(get: Lookup, key: &str) -> bool {
 }
 
 /// The configuration the variables describe, and a warning for each value it could not use.
+// @spec WX-SRC-CFG-001
 pub fn from_vars(get: Lookup) -> Result<(Config, Vec<String>)> {
     let mut warnings: Vec<String> = Vec::new();
     let w = &mut warnings;

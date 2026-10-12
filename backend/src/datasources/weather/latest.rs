@@ -32,6 +32,7 @@ impl WeatherLakeClient {
     /// regularly exists with empty soil columns. Taking it as-is blanked the soil gauges
     /// and silenced every rule that needs the current soil temperature each afternoon,
     /// with a perfectly good reading from an hour or two earlier sitting right below it.
+    // @spec WX-SRC-LAKE-004
     pub async fn fetch_latest(&self) -> Result<Option<EnvironmentalReading>> {
         let src = Self::parquet(&self.silver_weather_path);
         let station = self.station_wbanno;
@@ -65,6 +66,7 @@ mod tests {
     use crate::config::DataLakeConfig;
     use duckdb::Connection;
 
+    // @spec WX-SRC-LAKE-004
     #[tokio::test]
     async fn a_dropped_soil_hour_falls_back_to_the_last_good_value() {
         let path = std::env::temp_dir().join(format!(

@@ -25,6 +25,7 @@ const THRESHOLDS = [
 	{ temp: 75, label: "Heat Stress", color: "#dc2626" },
 ];
 
+// @spec WX-OUTLOOK-UI-001
 export default function PredictionChart({
 	recentSoilTemps,
 	predictions,

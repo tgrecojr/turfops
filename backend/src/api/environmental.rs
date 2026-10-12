@@ -4,6 +4,7 @@ use crate::state::AppState;
 use axum::extract::State;
 use axum::Json;
 
+// @spec WX-VIEW-API-001
 /// GET /api/v1/environmental
 /// Returns environmental data, refreshing from datasources only if stale.
 /// Sensors refresh after 5 minutes, forecast after 30 minutes.
@@ -15,6 +16,7 @@ pub async fn get_environmental(
     Ok(Json(summary))
 }
 
+// @spec WX-VIEW-API-001
 /// POST /api/v1/environmental/refresh
 /// Forces an immediate refresh from all datasources regardless of cache age.
 pub async fn refresh_environmental(
@@ -24,3 +26,6 @@ pub async fn refresh_environmental(
     let summary = service.force_refresh().await?;
     Ok(Json(summary))
 }
+
+#[cfg(test)]
+mod tests;

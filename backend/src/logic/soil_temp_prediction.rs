@@ -56,7 +56,7 @@ pub fn linear_regression(xs: &[f64], ys: &[f64]) -> Option<(f64, f64, f64)> {
 /// is left out rather than paired with a neighbour's air.
 /// `daily_pairs` is (date, avg_air_temp_f, avg_soil_temp_f).
 /// Returns None if no lag has 10 date-aligned pairs or the best R² is below 0.3.
-// @spec WX-OUTLOOK-MODEL-001
+// @spec WX-OUTLOOK-MODEL-001, WX-OUTLOOK-MODEL-003
 pub fn fit_model(daily_pairs: &[(NaiveDate, f64, f64)]) -> Option<SoilTempModel> {
     let air_by_date: HashMap<NaiveDate, f64> =
         daily_pairs.iter().map(|(d, air, _)| (*d, *air)).collect();
@@ -103,7 +103,7 @@ pub fn fit_model(daily_pairs: &[(NaiveDate, f64, f64)]) -> Option<SoilTempModel>
 /// `forecast_daily_air` = OWM forecast daily avg air temps (date, temp_f), chronological.
 /// The model uses air temp from `lag_days` before each prediction date.
 /// `today` is the lawn's local date; each prediction's confidence depends on its days out.
-// @spec WX-OUTLOOK-MODEL-007
+// @spec WX-OUTLOOK-MODEL-007, WX-OUTLOOK-MODEL-002, WX-OUTLOOK-MODEL-003
 pub fn predict_soil_temps(
     model: &SoilTempModel,
     recent_daily_air: &[(NaiveDate, f64)],
@@ -154,6 +154,7 @@ pub fn predict_soil_temps(
     predictions
 }
 
+// @spec WX-OUTLOOK-MODEL-006
 fn compute_confidence(r_squared: f64, days_out: i64) -> PredictionConfidence {
     if r_squared >= 0.7 && days_out <= 2 {
         PredictionConfidence::High
@@ -176,6 +177,7 @@ pub struct AgronomicThreshold {
     pub direction: Option<CrossingDirection>,
 }
 
+// @spec WX-OUTLOOK-CROSS-001
 pub const THRESHOLDS: &[AgronomicThreshold] = &[
     AgronomicThreshold {
         name: "Winterizer / Dormancy",
@@ -200,7 +202,7 @@ pub const THRESHOLDS: &[AgronomicThreshold] = &[
 ];
 
 /// Detect which agronomic thresholds will be crossed based on current soil temp + predictions.
-// @spec WX-OUTLOOK-CROSS-005
+// @spec WX-OUTLOOK-CROSS-005, WX-OUTLOOK-CROSS-002, WX-OUTLOOK-CROSS-003, WX-OUTLOOK-CROSS-004
 pub fn predict_threshold_crossings(
     current_soil_temp_f: f64,
     predictions: &[SoilTempPrediction],
@@ -331,6 +333,10 @@ pub fn build_forecast(
 mod series;
 pub use series::{anchored_outlook, continuous_air};
 
+#[cfg(test)]
+mod crossing_tests;
+#[cfg(test)]
+mod model_tests;
 #[cfg(test)]
 mod outlook_tests;
 #[cfg(test)]
