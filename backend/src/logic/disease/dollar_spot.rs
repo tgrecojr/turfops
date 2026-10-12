@@ -45,6 +45,7 @@ fn window_means(series: &[DailyWeather], idx: usize) -> Option<(f64, f64)> {
     Some((temp, rh))
 }
 
+// @spec DIS-MODEL-SCORE-002
 pub(super) fn assess(
     series: &[DailyWeather],
     today: NaiveDate,
@@ -181,6 +182,7 @@ mod tests {
     use super::*;
     use crate::logic::disease::test_support::{date, day, run_of};
 
+    // @spec DIS-MODEL-SCORE-002
     #[test]
     fn probability_matches_published_worked_example() {
         // UW Turfgrass Diagnostic Lab example: MEANAT 25°C, MEANRH 75% → 53%.

@@ -19,7 +19,7 @@ pub(super) struct Outlook {
 
 /// First usable forecast day within the outlook window at High or above. A partial day
 /// (a few hours at the end of the feed) is not evidence of risk.
-// @spec DIS-MGMT-PROT-008
+// @spec DIS-MGMT-PROT-008, DIS-MGMT-PROT-005, DIS-MGMT-PROT-006
 pub(super) fn outlook_escalation(daily: &[DailyRisk], today: NaiveDate) -> Option<&DailyRisk> {
     daily.iter().find(|d| {
         !d.partial
@@ -43,6 +43,7 @@ pub(super) fn pick_text(recommended: Option<FracClass>) -> String {
     }
 }
 
+// @spec DIS-MGMT-ACT-003, DIS-MGMT-ACT-004, DIS-MGMT-ACT-005, DIS-MGMT-PROT-005
 #[allow(clippy::too_many_arguments)]
 pub(super) fn headline(
     disease: Disease,

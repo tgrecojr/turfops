@@ -84,6 +84,7 @@ impl RiskTier {
     }
 }
 
+// @spec DIS-MODEL-DAY-004
 /// One local calendar day of disease-model weather inputs. Temperatures stay in °C
 /// because the published models are specified in °C.
 #[derive(Debug, Clone, PartialEq)]

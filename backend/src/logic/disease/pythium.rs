@@ -53,6 +53,7 @@ fn scale() -> RiskScale {
     }
 }
 
+// @spec DIS-MODEL-SCORE-003, DIS-MODEL-SCORE-008
 pub(super) fn assess(
     series: &[DailyWeather],
     today: NaiveDate,
@@ -221,6 +222,7 @@ mod tests {
         assert_eq!(daily_score(&d), 5.0);
     }
 
+    // @spec DIS-MODEL-SCORE-003
     #[test]
     fn cool_humid_day_is_capped() {
         // Humid September day: long wet period and high dew point, but no heat.

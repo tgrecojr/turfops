@@ -6,6 +6,7 @@ use crate::models::{
     ProductNeed, Recommendation, RecommendationCategory, RiskTier, Severity,
 };
 
+// @spec DIS-MGMT-REC-001
 /// One recommendation per disease at High or Severe; lower tiers stay on the Disease
 /// Risk page only. `ctx` is the lawn history the risks were assessed with; it decides
 /// whether red thread's nitrogen remedy is still outstanding.
@@ -26,6 +27,7 @@ fn severity_for(risk: &DiseaseRisk) -> Severity {
     }
 }
 
+// @spec DIS-MGMT-REC-002
 fn to_recommendation(risk: &DiseaseRisk, ctx: &DiseaseContext) -> Recommendation {
     let methodology = &risk.methodology;
     let explanation = format!(
@@ -73,6 +75,7 @@ fn to_recommendation(risk: &DiseaseRisk, ctx: &DiseaseContext) -> Recommendation
     }
 }
 
+// @spec DIS-MGMT-REC-003
 /// Red thread's remedy is nitrogen — but only while the lawn is nitrogen-hungry; once
 /// fed, the advice is "stay the course" and nothing needs buying. Every other disease
 /// wants a fungicide in one of the program's eligible classes (unrestricted, not the
@@ -109,6 +112,9 @@ fn need_for(risk: &DiseaseRisk, ctx: &DiseaseContext) -> Option<ProductNeed> {
 }
 
 #[cfg(test)]
+mod feed_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::logic::disease::test_support::{date, day, run_of};
@@ -124,6 +130,7 @@ mod tests {
         })
     }
 
+    // @spec DIS-MGMT-REC-001
     #[test]
     fn only_high_and_severe_diseases_are_surfaced() {
         let today = date(7, 20);

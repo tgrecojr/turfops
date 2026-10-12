@@ -49,6 +49,7 @@ fn scale() -> RiskScale {
     }
 }
 
+// @spec DIS-MODEL-SCORE-004, DIS-MODEL-AMP-002, DIS-MODEL-AMP-004
 pub(super) fn assess(
     series: &[DailyWeather],
     today: NaiveDate,
@@ -223,6 +224,7 @@ mod tests {
         assert_eq!(daily_index(&d), 100.0);
     }
 
+    // @spec DIS-MODEL-AMP-002
     #[test]
     fn overseeding_raises_tier_only_when_weather_is_at_least_moderate() {
         let today = date(9, 10);

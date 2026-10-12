@@ -6,6 +6,7 @@ interface TierBadgeProps {
 	size?: "sm" | "lg";
 }
 
+// @spec DIS-UI-CONV-001
 /** Tier pill: tinted status color behind ink text, always with symbol + label. */
 export default function TierBadge({ tier, size = "sm" }: TierBadgeProps) {
 	const color = RISK_TIER_COLORS[tier];

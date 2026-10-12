@@ -10,6 +10,7 @@ use axum::extract::State;
 use axum::Json;
 use chrono::{Duration, NaiveDate, Utc};
 
+// @spec DIS-MODEL-API-001, DIS-MODEL-API-002
 /// GET /api/v1/disease-risk
 /// Per-disease risk from published/heuristic weather models, each with a management
 /// plan driven by the lawn's application history.
@@ -23,7 +24,7 @@ pub async fn get_disease_risk(
     Ok(Json(response))
 }
 
-// @spec FEED-PIPE-015
+// @spec FEED-PIPE-015, DIS-MGMT-REC-005
 /// Disease recommendations for the feed/dashboard. Disease risk is additive there, so
 /// a lake or forecast outage degrades to "no disease alerts" rather than failing.
 pub(crate) async fn recommendations(
@@ -79,6 +80,7 @@ async fn compute(
     )
     .await?;
     let mut ctx = disease::context_from_history(&history, today);
+    // @spec DIS-MGMT-PICK-005
     ctx.shelf = product_queries::list_products_for_profile(
         &state.pool,
         profile_id,
@@ -126,6 +128,7 @@ async fn compute(
     Ok((response, ctx))
 }
 
+// @spec DIS-MODEL-API-003
 /// Plain-language caveats about the inputs behind this response.
 fn data_notes(
     series: &[DailyWeather],
@@ -182,6 +185,11 @@ fn sentence_case(name: &str) -> String {
     }
 }
 
+#[cfg(all(test, feature = "db-tests"))]
+mod db_tests;
+#[cfg(all(test, feature = "db-tests"))]
+mod shelf_db_tests;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -195,6 +203,7 @@ mod tests {
         assert!(data_notes(&series, today, true, &[]).is_empty());
     }
 
+    // @spec DIS-MODEL-API-003
     #[test]
     fn notes_flag_stale_lake_thin_today_and_missing_forecast() {
         let today = date(9, 20);
@@ -229,5 +238,17 @@ mod tests {
             notes.iter().any(|n| n.contains("Gray leaf spot")),
             "{notes:?}"
         );
+    }
+
+    // @spec DIS-MODEL-API-003
+    #[test]
+    fn no_station_days_at_all_is_its_own_note() {
+        let today = date(9, 20);
+        let mut forecast_only = run_of(date(9, 22), 3, |d| day(d, 20.0, 15.0, 25.0, 80.0));
+        for d in &mut forecast_only {
+            d.is_forecast = true;
+        }
+        let notes = data_notes(&forecast_only, today, true, &[]);
+        assert_eq!(notes, vec!["No recent station observations are available."]);
     }
 }

@@ -8,6 +8,7 @@ import TierBadge from "../components/disease/TierBadge";
 import { sharedStyles } from "../styles/shared";
 import type { DiseaseRiskResponse } from "../types/disease";
 
+// @spec DIS-UI-PAGE-001, DIS-UI-PAGE-002, DIS-UI-PAGE-003, DIS-UI-PAGE-004
 export default function DiseaseRisk() {
 	const { slug } = useParams();
 	const [data, setData] = useState<DiseaseRiskResponse | null>(null);
