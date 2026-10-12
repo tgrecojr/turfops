@@ -12,6 +12,7 @@ pub struct RulesEngine {
 }
 
 impl RulesEngine {
+    // @spec RULE-ENG-002
     pub fn new() -> Self {
         let rules: Vec<Box<dyn Rule>> = vec![
             // Spring rules

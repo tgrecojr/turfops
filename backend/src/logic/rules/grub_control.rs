@@ -25,11 +25,13 @@ impl Rule for GrubControlRule {
         _profile: &LawnProfile,
         history: &[Application],
     ) -> Option<Recommendation> {
+        // @spec RULE-ENG-005
         self.evaluate_on(Local::now().date_naive(), env, history)
     }
 }
 
 impl GrubControlRule {
+    // @spec RULE-GRUB-003, RULE-GRUB-004, RULE-GRUB-005, RULE-GRUB-006, RULE-ENG-004
     fn evaluate_on(
         &self,
         today: NaiveDate,
@@ -188,6 +190,7 @@ impl GrubControlRule {
     }
 }
 
+// @spec RULE-GRUB-001
 /// The grub window: May 15 – Jul 4, or GDD 500–1000 from Apr 1 (the GDD-extended window).
 pub(crate) fn window_open(today: NaiveDate, gdd_ytd: Option<f64>) -> bool {
     let year = today.year();
@@ -204,6 +207,7 @@ pub(crate) fn window_open(today: NaiveDate, gdd_ytd: Option<f64>) -> bool {
     gdd_opens_window || (today >= start && today <= end)
 }
 
+// @spec RULE-GRUB-002
 /// A grub control or insecticide application logged since Apr 1 of this year.
 pub(crate) fn applied_this_season(history: &[Application], today: NaiveDate) -> bool {
     let Some(gdd_early_start) = NaiveDate::from_ymd_opt(today.year(), 4, 1) else {
@@ -351,3 +355,6 @@ mod tests {
         assert!(GrubControlRule.evaluate_on(day(5, 1), &env, &[]).is_none());
     }
 }
+
+#[cfg(test)]
+mod rule_tests;

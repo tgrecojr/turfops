@@ -35,7 +35,7 @@ pub fn rate_text(n_lbs_per_ksqft: f64) -> String {
 /// A feeding's amount as every feeding source states it in its text: "about 3.75 lb of
 /// nitrogen for your 5000 sq ft lawn (0.75 lb N/1000 sq ft)". The guard re-renders this
 /// exact phrase when it caps a feeding.
-// @spec RULE-ENG-009
+// @spec RULE-ENG-009, RULE-ENG-008
 pub fn amount_text(n_lbs_per_ksqft: f64, lawn_sqft: Option<f64>) -> String {
     // With no lawn size recorded, a total would be invented: state the rate alone.
     let Some(lawn_sqft) = lawn_sqft else {
@@ -66,6 +66,7 @@ fn cap_amount(rec: &mut Recommendation, n: f64, capped: f64, lawn_sqft: Option<f
     });
 }
 
+// @spec RULE-BUDGET-001
 /// Lawn nitrogen applied in `today`'s year (lb N / 1000 sq ft).
 fn applied_this_year(history: &[Application], today: NaiveDate) -> f64 {
     history
@@ -75,13 +76,14 @@ fn applied_this_year(history: &[Application], today: NaiveDate) -> f64 {
         .sum()
 }
 
-// @spec RULE-GUARD-001, RULE-GUARD-003, RULE-GUARD-004, RULE-GUARD-006, RULE-GUARD-007, RULE-GUARD-008
+// @spec RULE-GUARD-001, RULE-GUARD-003, RULE-GUARD-004, RULE-GUARD-006, RULE-GUARD-007, RULE-GUARD-008, RULE-GUARD-009
 pub fn apply(
     recommendations: &mut [Recommendation],
     profile: &LawnProfile,
     history: &[Application],
     today: NaiveDate,
 ) {
+    // @spec RULE-GUARD-010
     let blocked = recommendations.iter().any(|r| {
         r.id == FERTILIZER_BLOCK_ID || (r.id == HEAT_STRESS_ID && r.severity >= Severity::Warning)
     });
@@ -362,3 +364,6 @@ mod tests {
         assert!(!text.contains("lawn"), "{text}");
     }
 }
+
+#[cfg(test)]
+mod rule_tests;

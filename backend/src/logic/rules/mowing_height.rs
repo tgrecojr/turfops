@@ -15,6 +15,7 @@ use crate::models::{
 /// Key principle: Never remove more than 1/3 of the green leaf area at once.
 pub struct MowingHeightRule;
 
+// @spec RULE-WX-008
 impl Rule for MowingHeightRule {
     fn evaluate(
         &self,

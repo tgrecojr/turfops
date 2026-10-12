@@ -13,10 +13,20 @@ pub mod rain_delay;
 pub mod spring_nitrogen;
 pub mod thresholds;
 
+#[cfg(test)]
+mod engine_tests;
+#[cfg(test)]
+mod forecast_rule_tests;
+#[cfg(test)]
+pub(crate) mod test_fixtures;
+#[cfg(test)]
+mod weather_rule_tests;
+
 pub use engine::RulesEngine;
 
 use crate::models::{Application, EnvironmentalSummary, LawnProfile, Recommendation};
 
+// @spec RULE-ENG-001, RULE-ENG-003
 /// Trait for agronomic rules
 pub trait Rule: Send + Sync {
     /// Evaluate the rule and return a recommendation if conditions are met

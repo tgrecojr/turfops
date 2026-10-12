@@ -8,6 +8,7 @@ pub const CRABGRASS_GDD_THRESHOLD: f64 = 200.0;
 /// GDD value at which to issue a warning that germination is approaching.
 pub const CRABGRASS_GDD_WARNING: f64 = 150.0;
 
+// @spec RULE-GDD-001, RULE-GDD-003
 /// Accumulate cumulative GDD from the gold layer's daily rows
 /// `(date, high_f, low_f, gdd50)`. The lake precomputes `gdd50` with the identical
 /// base-50°F formula, so we trust it directly and only run the running sum here.
@@ -38,6 +39,7 @@ pub fn accumulate_daily_gdd(daily_data: &[DailyGddRow]) -> Vec<DailyGdd> {
     result
 }
 
+// @spec RULE-GDD-004, RULE-GDD-005
 /// Determine crabgrass model status based on current YTD GDD accumulation.
 pub fn crabgrass_model(current_gdd: f64) -> CrabgrassModel {
     let status = if current_gdd >= CRABGRASS_GDD_THRESHOLD {
@@ -81,6 +83,9 @@ pub fn build_gdd_summary(year: i32, daily_records: &[DailyGdd]) -> GddSummary {
         last_computed_date,
     }
 }
+
+#[cfg(test)]
+pub(crate) mod lake_tests;
 
 #[cfg(test)]
 mod tests {

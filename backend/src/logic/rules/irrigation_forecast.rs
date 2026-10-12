@@ -17,6 +17,7 @@ use crate::models::{
 /// - Critical: No rain 5 days, moisture < 0.10
 pub struct IrrigationForecastRule;
 
+// @spec RULE-WX-002, RULE-WX-003
 impl Rule for IrrigationForecastRule {
     fn evaluate(
         &self,
@@ -35,6 +36,7 @@ impl Rule for IrrigationForecastRule {
 
         // Only the forecast *amount* counts: a 50% chance of a trace won't relieve dry soil.
         // Calculate total precipitation expected in next 5 days
+        // @spec RULE-ENG-005
         let total_precip: f64 = forecast
             .next_days(chrono::Local::now().date_naive(), 5)
             .iter()
@@ -70,6 +72,7 @@ impl Rule for IrrigationForecastRule {
 }
 
 impl IrrigationForecastRule {
+    // @spec RULE-WX-004
     fn build_recommendation(
         &self,
         severity: Severity,

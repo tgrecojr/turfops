@@ -13,6 +13,7 @@ interface GddWidgetProps {
 	data: GddSummary;
 }
 
+// @spec RULE-UI-001
 export default function GddWidget({ data }: GddWidgetProps) {
 	const { current_gdd_total, crabgrass_model, daily_history } = data;
 	const status = crabgrass_model.status;

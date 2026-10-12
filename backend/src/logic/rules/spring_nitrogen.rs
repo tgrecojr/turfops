@@ -22,6 +22,7 @@ use chrono::{Datelike, Local, NaiveDate};
 /// This rule warns against early nitrogen and advises patience.
 pub struct SpringNitrogenRule;
 
+// @spec RULE-SPRING-001, RULE-SPRING-002, RULE-SPRING-003, RULE-SPRING-004, RULE-SPRING-005, RULE-SPRING-006, RULE-SPRING-007, RULE-ENG-004
 impl Rule for SpringNitrogenRule {
     fn evaluate(
         &self,
@@ -34,6 +35,7 @@ impl Rule for SpringNitrogenRule {
             return None;
         }
 
+        // @spec RULE-ENG-005
         let today = Local::now().date_naive();
 
         // Only relevant in late winter/early spring (Feb - May)
@@ -111,6 +113,7 @@ pub(crate) fn spring_feedings(history: &[Application], today: NaiveDate) -> Vec<
         .collect()
 }
 
+// @spec RULE-SPRING-009
 fn build_too_early_warning(soil_temp: f64) -> Recommendation {
     Recommendation::new(
         "spring_n_too_early",
@@ -148,6 +151,7 @@ fn build_too_early_warning(soil_temp: f64) -> Recommendation {
     ))
 }
 
+// @spec RULE-SPRING-009
 fn build_patience_advisory(soil_temp: f64) -> Recommendation {
     Recommendation::new(
         "spring_n_wait",
@@ -186,6 +190,7 @@ fn build_patience_advisory(soil_temp: f64) -> Recommendation {
     )
 }
 
+// @spec RULE-SPRING-009
 fn build_almost_ready(soil_temp: f64, gdd_ytd: Option<f64>) -> Recommendation {
     let mut rec = Recommendation::new(
         "spring_n_almost",
@@ -507,3 +512,6 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod rule_tests;
