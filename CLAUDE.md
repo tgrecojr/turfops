@@ -179,6 +179,10 @@ See `backend/.env.example` for full list:
 - Mode: Full
 - Version: 1.3.0
 
+## LID Tooling
+
+- **Coherence check**: `scripts/coherence-check.mjs` (run `node scripts/coherence-check.mjs` from the repo root; report only, always exits 0)
+
 ## Linked-Intent Development (MANDATORY)
 
 **Consult the `linked-intent-dev` skill for ALL code changes.** All changes flow through the arrow of intent in one direction:
@@ -203,6 +207,7 @@ Stop after each phase for user review. **Docs carry current intent, written to b
 | Design tree (sub-HLDs, LLDs, their specs) | `docs/intent/` — one folder per node |
 | EARS specs | beside each design doc as `{node}-specs.md` in the node's folder under `docs/intent/` |
 | Decision docs | `docs/decisions/` (project-level) and `docs/intent/<segment>/decisions/` |
+| Arrow overlay (segment status, coverage, next action) | `docs/arrows/index.yaml` — load first; per-segment docs at `docs/arrows/<path>.md` mirror `docs/intent/` |
 
 ### Terminology
 
