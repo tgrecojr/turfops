@@ -1,0 +1,253 @@
+schema_version: 2
+last_updated: 2026-10-11
+
+# Organizational clusters (navigation only; nodes, not paths).
+taxonomy:
+  conditions:
+    - weather-data
+    - data-sync
+  agronomy:
+    - agronomic-rules
+    - timing-windows
+    - disease-risk
+    - seasonal-plan
+    - soil-tests
+  records:
+    - applications
+    - product-inventory
+    - landscape-plants
+  surfaces:
+    - recommendation-feed
+    - web-ui
+    - mcp-server
+  platform:
+    - deployment
+
+# Design tree. Leaves own EARS + an arrow doc; weather-data and disease-risk are sub-HLDs.
+arrows:
+  weather-data:
+    status: MAPPED
+    parent: null
+    children: [weather-sources, soil-temp-outlook, environmental-views]
+    sampled: 2026-10-11
+    audited: null
+    audited_sha: null
+    blocks: []
+    blockedBy: []
+    detail: ../intent/weather-data/weather-data-design.md
+    next: null
+    drift: null
+  weather-sources:
+    status: MAPPED
+    parent: weather-data
+    sampled: 2026-10-11
+    audited: null
+    audited_sha: null
+    blocks: []
+    blockedBy: []
+    detail: weather-data/weather-sources.md
+    next: "Audit specs against code; link 21 unannotated + 0 test-less specs with @spec"
+    drift: null
+  soil-temp-outlook:
+    status: MAPPED
+    parent: weather-data
+    sampled: 2026-10-11
+    audited: null
+    audited_sha: null
+    blocks: []
+    blockedBy: []
+    detail: weather-data/soil-temp-outlook.md
+    next: "Audit specs against code; link 14 unannotated + 0 test-less specs with @spec"
+    drift: null
+  environmental-views:
+    status: MAPPED
+    parent: weather-data
+    sampled: 2026-10-11
+    audited: null
+    audited_sha: null
+    blocks: []
+    blockedBy: []
+    detail: weather-data/environmental-views.md
+    next: "Audit specs against code; link 9 unannotated + 1 test-less specs with @spec"
+    drift: null
+  data-sync:
+    status: MAPPED
+    parent: null
+    sampled: 2026-10-11
+    audited: null
+    audited_sha: null
+    blocks: []
+    blockedBy: []
+    detail: data-sync.md
+    next: "Audit specs against code; link 7 unannotated + 6 test-less specs with @spec"
+    drift: null
+  agronomic-rules:
+    status: MAPPED
+    parent: null
+    sampled: 2026-10-11
+    audited: null
+    audited_sha: null
+    blocks: []
+    blockedBy: []
+    detail: agronomic-rules.md
+    next: "Audit specs against code; link 55 unannotated + 5 test-less specs with @spec"
+    drift: null
+  timing-windows:
+    status: MAPPED
+    parent: null
+    sampled: 2026-10-11
+    audited: null
+    audited_sha: null
+    blocks: []
+    blockedBy: []
+    detail: timing-windows.md
+    next: "Audit specs against code; link 66 unannotated + 2 test-less specs with @spec"
+    drift: null
+  disease-risk:
+    status: MAPPED
+    parent: null
+    children: [risk-models, management, disease-ui]
+    sampled: 2026-10-11
+    audited: null
+    audited_sha: null
+    blocks: []
+    blockedBy: []
+    detail: ../intent/disease-risk/disease-risk-design.md
+    next: null
+    drift: null
+  risk-models:
+    status: MAPPED
+    parent: disease-risk
+    sampled: 2026-10-11
+    audited: null
+    audited_sha: null
+    blocks: []
+    blockedBy: []
+    detail: disease-risk/risk-models.md
+    next: "Audit specs against code; link 23 unannotated + 1 test-less specs with @spec"
+    drift: null
+  management:
+    status: MAPPED
+    parent: disease-risk
+    sampled: 2026-10-11
+    audited: null
+    audited_sha: null
+    blocks: []
+    blockedBy: []
+    detail: disease-risk/management.md
+    next: "Audit specs against code; link 29 unannotated + 0 test-less specs with @spec"
+    drift: null
+  disease-ui:
+    status: MAPPED
+    parent: disease-risk
+    sampled: 2026-10-11
+    audited: null
+    audited_sha: null
+    blocks: []
+    blockedBy: []
+    detail: disease-risk/disease-ui.md
+    next: "Audit specs against code; link 17 unannotated + 1 test-less specs with @spec"
+    drift: null
+  seasonal-plan:
+    status: MAPPED
+    parent: null
+    sampled: 2026-10-11
+    audited: null
+    audited_sha: null
+    blocks: []
+    blockedBy: []
+    detail: seasonal-plan.md
+    next: "Audit specs against code; link 31 unannotated + 7 test-less specs with @spec"
+    drift: null
+  soil-tests:
+    status: MAPPED
+    parent: null
+    sampled: 2026-10-11
+    audited: null
+    audited_sha: null
+    blocks: []
+    blockedBy: []
+    detail: soil-tests.md
+    next: "Audit specs against code; link 47 unannotated + 1 test-less specs with @spec"
+    drift: null
+  recommendation-feed:
+    status: MAPPED
+    parent: null
+    sampled: 2026-10-11
+    audited: null
+    audited_sha: null
+    blocks: []
+    blockedBy: []
+    detail: recommendation-feed.md
+    next: "Audit specs against code; link 39 unannotated + 4 test-less specs with @spec"
+    drift: null
+  applications:
+    status: MAPPED
+    parent: null
+    sampled: 2026-10-11
+    audited: null
+    audited_sha: null
+    blocks: []
+    blockedBy: []
+    detail: applications.md
+    next: "Audit specs against code; link 49 unannotated + 6 test-less specs with @spec"
+    drift: null
+  product-inventory:
+    status: MAPPED
+    parent: null
+    sampled: 2026-10-11
+    audited: null
+    audited_sha: null
+    blocks: []
+    blockedBy: []
+    detail: product-inventory.md
+    next: "Audit specs against code; link 59 unannotated + 1 test-less specs with @spec"
+    drift: null
+  landscape-plants:
+    status: MAPPED
+    parent: null
+    sampled: 2026-10-11
+    audited: null
+    audited_sha: null
+    blocks: []
+    blockedBy: []
+    detail: landscape-plants.md
+    next: "Audit specs against code; link 61 unannotated + 2 test-less specs with @spec"
+    drift: null
+  mcp-server:
+    status: MAPPED
+    parent: null
+    sampled: 2026-10-11
+    audited: null
+    audited_sha: null
+    blocks: []
+    blockedBy: []
+    detail: mcp-server.md
+    next: "Audit specs against code; link 67 unannotated + 1 test-less specs with @spec"
+    drift: null
+  web-ui:
+    status: MAPPED
+    parent: null
+    sampled: 2026-10-11
+    audited: null
+    audited_sha: null
+    blocks: []
+    blockedBy: []
+    detail: web-ui.md
+    next: "Audit specs against code; link 40 unannotated + 2 test-less specs with @spec"
+    drift: null
+  deployment:
+    status: MAPPED
+    parent: null
+    sampled: 2026-10-11
+    audited: null
+    audited_sha: null
+    blocks: []
+    blockedBy: []
+    detail: deployment.md
+    next: "Audit specs against code; link 44 unannotated + 1 test-less specs with @spec"
+    drift: null
+
+unmapped:
+  docs:
+    intent: []
