@@ -10,6 +10,7 @@ interface StateBadgeProps {
 	size?: "sm" | "lg";
 }
 
+// @spec TIME-UI-002
 /** Window-state pill: tinted status color behind ink text, always symbol + label. */
 export default function StateBadge({ state, size = "sm" }: StateBadgeProps) {
 	const color = WINDOW_STATE_COLORS[state];

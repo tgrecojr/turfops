@@ -151,6 +151,7 @@ After the layers, two things are added that the layers therefore do **not** cove
 - Migrations live in `backend/src/db/migrations/` as timestamped, forward-only `.sql` files (`YYYYMMDDHHMMSS_name.sql`). `sqlx::migrate!` embeds them at compile time, and `create_pool` runs every pending one at each startup before the server binds. A failure surfaces as `TurfOpsError::Config("Migration failed: …")` and stops startup.
 - Each feature LLD owns its tables' schema. This component owns the mechanism: the ordering, startup application, and the rule that a migration ships in the same binary as the code that needs it.
 - Queries use sqlx's runtime API (no `query!` macros, no `.sqlx` offline data), so the image and CI build without a database.
+- Tests that need PostgreSQL sit behind the `db-tests` Cargo feature. Each is a `#[sqlx::test]` that gets a fresh database, with every migration applied, on the server `DATABASE_URL` names. Plain `cargo test` compiles them out and needs no database.
 
 ## HTTP Error Contract (`backend/src/error.rs`)
 
@@ -188,7 +189,7 @@ The duplicate-application text tells the owner how to fix the entry (edit the ex
 
 | Workflow | Trigger | Gates / output |
 |---|---|---|
-| `ci.yml` | push / PR to `main` | Backend: `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test`. Frontend (Node 26): `npm ci`, `npx tsc --noEmit`, `npm run lint`, `npm test` (Vitest). Calls `supply-chain.yml`. |
+| `ci.yml` | push / PR to `main` | Backend: `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test --features db-tests` against a `postgres:18` service container (trust auth, job-local). Frontend (Node 26): `npm ci`, `npx tsc -b`, `npm run lint`, `npm test` (Vitest). Calls `supply-chain.yml`. |
 | `supply-chain.yml` | reusable | `npm ci --ignore-scripts`; `npm audit signatures`; Socket scan of `./frontend` with `--org grecolabs` (skipped when `SOCKET_SECURITY_API_KEY` is absent, as on bot PRs); OSV scan of all lockfiles; `cargo audit`. |
 | `docker-publish.yml` | push / PR to `main`, `v*` tags | Runs the supply-chain scan, then builds the image (GHA cache). PRs build without pushing, which is what exercises `npm run build`. Otherwise pushes to GHCR (`latest` on main, semver, `sha`), signs keylessly with cosign, attaches an SPDX SBOM and build-provenance attestations. |
 | `ghcr-retention.yml` | Mondays 06:00 UTC / manual | Keeps `latest` plus the 5 newest tagged versions; deletes untagged manifests. |

@@ -64,6 +64,9 @@ subtle = "2"
 [features]
 default = []
 dev-env = ["dep:dotenvy"]
+# Tests that need PostgreSQL: `DATABASE_URL=postgres://… cargo test --features db-tests`.
+# Each `#[sqlx::test]` gets a fresh database with every migration applied.
+db-tests = []
 
 [profile.release]
 strip = true

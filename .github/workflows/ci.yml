@@ -10,6 +10,19 @@ jobs:
   backend:
     name: Backend (Rust)
     runs-on: ubuntu-latest
+    services:
+      # Throwaway database for the `db-tests` suite; trust auth, reachable only from this job.
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v7
 
@@ -29,9 +42,11 @@ jobs:
         working-directory: backend
         run: cargo clippy -- -D warnings
 
-      - name: Run tests
+      - name: Run tests (including PostgreSQL-backed tests)
         working-directory: backend
-        run: cargo test
+        env:
+          DATABASE_URL: postgres://postgres@localhost:5432/postgres
+        run: cargo test --features db-tests
 
   frontend:
     name: Frontend (React/TypeScript)
