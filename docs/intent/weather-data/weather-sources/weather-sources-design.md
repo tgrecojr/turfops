@@ -35,8 +35,9 @@ Configuration (`backend/src/config.rs`): `DATALAKE_ROOT` (default `/data`) deriv
 `HA_TOKEN` (empty means not configured), `HA_TEMPERATURE_ENTITY`, `HA_HUMIDITY_ENTITY`,
 `HA_TEMPERATURE_UNIT` (`celsius` converts, anything else means °F). OpenWeatherMap:
 `OWM_API_KEY` (blank means not configured), `OWM_LATITUDE` / `OWM_LONGITUDE` (both required
-with a key: with either unset or blank the forecast is not enabled and a startup warning names
-the missing one; a value that won't parse warns and uses 0), `OWM_ENABLED` (default true). Data sync always builds the lake client and builds the other two
+with a key: when either is unset, blank, unparseable or out of range — latitude −90 to 90,
+longitude −180 to 180 — the forecast is not enabled and a startup warning names the setting),
+`OWM_ENABLED` (default true). Data sync always builds the lake client and builds the other two
 only when they are configured.
 
 ## Lake Access Mechanics
@@ -214,7 +215,7 @@ is `SoilData`, labelled "NOAA USCRN", and the patio sensor's is "Patio Sensor".
 | Current ambient source | Home Assistant patio sensor for "now". Station air for the 7-day means and history | Station air for everything | The patio sensor is at the yard and current. The station is about 15 mi away and a day behind. HA has no history, so history is the station's. [inferred] |
 | Lake read errors | 503 with the weather-lake sentence, detail logged | 500 with the generic server-error sentence | A missing or unmounted lake is an outage of a named source the owner can fix, not a server bug; the sentence says what is affected and where to look. |
 | Trend with no data | Unknown | Stable (the type's default) | Withhold rather than invent: with no rows there is no evidence the soil is steady. |
-| Forecast without coordinates | Not enabled, with a log line | Default to 0,0 | A forecast for the wrong place is worse than none; every forecast consumer already degrades without one. |
+| Forecast without usable coordinates | Not enabled, with a warning naming the setting, whether a coordinate is missing, unparseable or out of range | Default to 0,0 (the general "warn and use the default" rule) | A forecast for the wrong place is worse than none; every forecast consumer already degrades without one. |
 | Gold station filter | Gold is queried without a `wbanno` filter | Filter gold by station | The lake is single-station per deployment (`docs/weather-data-api-spec.md` §2.2). |
 
 ## Open Questions & Future Decisions

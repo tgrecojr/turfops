@@ -177,11 +177,8 @@ pub const RAIN_DELAY_WARNING_HOURS: u32 = 24;
 pub const RAIN_DELAY_ADVISORY_HOURS: u32 = 48;
 
 // =============================================================================
-// Lawn defaults
+// Agronomic amounts per 1,000 sq ft
 // =============================================================================
-
-/// Default lawn size (sqft) when profile doesn't specify.
-pub const DEFAULT_LAWN_SIZE_SQFT: f64 = 5000.0;
 
 /// Overseeding rate (lbs per 1000 sqft).
 pub const OVERSEED_RATE_LBS_PER_KSQFT: f64 = 4.0;

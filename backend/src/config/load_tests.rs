@@ -47,9 +47,6 @@ fn an_unusable_setting_is_named_with_the_default_used() {
     let vars = with(&[
         ("SERVER_HOST", "my-laptop"),
         ("DB_MAX_CONNECTIONS", "lots"),
-        ("OWM_API_KEY", OWM_SECRET),
-        ("OWM_LATITUDE", "39.8N"),
-        ("OWM_LONGITUDE", "west"),
         ("HA_TEMPERATURE_UNIT", "kelvin"),
     ]);
     let (config, warnings) = load(&vars).unwrap();
@@ -58,8 +55,6 @@ fn an_unusable_setting_is_named_with_the_default_used() {
     for (var, default) in [
         ("SERVER_HOST", "0.0.0.0"),
         ("DB_MAX_CONNECTIONS", "10"),
-        ("OWM_LATITUDE", "0"),
-        ("OWM_LONGITUDE", "0"),
         ("HA_TEMPERATURE_UNIT", "fahrenheit"),
     ] {
         assert!(
@@ -177,4 +172,46 @@ fn a_forecast_key_without_coordinates_turns_the_forecast_off() {
     .unwrap();
     let owm = config.openweathermap.unwrap();
     assert_eq!((owm.latitude, owm.longitude), (39.85, -75.78));
+}
+
+// @spec WX-SRC-CFG-003, DEPLOY-CONFIG-012
+#[test]
+fn an_unusable_coordinate_turns_the_forecast_off_too() {
+    let coords = |lat: &str, lon: &str| {
+        load(&with(&[
+            ("OWM_API_KEY", OWM_SECRET),
+            ("OWM_LATITUDE", lat),
+            ("OWM_LONGITUDE", lon),
+        ]))
+        .unwrap()
+    };
+    for (lat, lon, named) in [
+        ("39.8N", "-75.78", "OWM_LATITUDE"),
+        ("39.85", "west", "OWM_LONGITUDE"),
+        ("91", "-75.78", "OWM_LATITUDE"),
+        ("-90.5", "-75.78", "OWM_LATITUDE"),
+        ("39.85", "180.1", "OWM_LONGITUDE"),
+        ("39.85", "NaN", "OWM_LONGITUDE"),
+    ] {
+        let (config, warnings) = coords(lat, lon);
+        assert!(
+            config.openweathermap.is_none(),
+            "{lat}, {lon}: forecast off"
+        );
+        assert!(
+            warnings
+                .iter()
+                .any(|w| w.contains(named) && w.contains("forecast is off")),
+            "{lat}, {lon}: {warnings:?}"
+        );
+        assert!(
+            !warnings.iter().any(|w| w.contains("using 0")),
+            "no 0 substitute: {warnings:?}"
+        );
+    }
+    let (config, warnings) = coords("0", "0");
+    assert!(config.openweathermap.is_some(), "0, 0 is a real place");
+    assert!(warnings.is_empty(), "{warnings:?}");
+    let (config, _) = coords("-90", "180");
+    assert!(config.openweathermap.is_some(), "the ranges are inclusive");
 }

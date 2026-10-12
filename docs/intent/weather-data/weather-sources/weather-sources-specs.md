@@ -45,4 +45,4 @@ Design: [weather-sources-design.md](weather-sources-design.md). Parent: [weather
 
 - [x] **WX-SRC-CFG-001**: The system shall derive the silver and gold parquet paths from `DATALAKE_ROOT` (default `/data`), overridable by `WEATHER_SILVER_PATH` and `WEATHER_GOLD_PATH`, and filter silver by `NOAA_STATION_WBANNO` (default 3761, falling back to 3761 with a warning when unparsable).
 - [x] **WX-SRC-CFG-002**: The system shall treat Home Assistant as configured only when `HA_TOKEN` is non-empty (`HA_URL` defaults to `http://localhost:8123`), and OpenWeatherMap only when `OWM_API_KEY` is non-blank and `OWM_ENABLED` is `true` (the default).
-- [x] **WX-SRC-CFG-003**: If `OWM_API_KEY` is set but `OWM_LATITUDE` or `OWM_LONGITUDE` is missing, then the system shall not enable the forecast and shall log why, rather than forecast for 0,0.
+- [x] **WX-SRC-CFG-003**: If `OWM_API_KEY` is set but `OWM_LATITUDE` or `OWM_LONGITUDE` is missing, unparseable, or out of range (latitude outside −90 to 90, longitude outside −180 to 180), then the system shall not enable the forecast and shall log a warning naming the setting, never forecasting for a substitute location such as 0,0.

@@ -82,12 +82,32 @@ fn forecast_config(get: Lookup, w: &mut Vec<String>) -> Option<OpenWeatherMapCon
         ));
         return None;
     }
+    // Both are checked so each bad value gets its own warning.
+    let latitude = coordinate(get, "OWM_LATITUDE", "a latitude", 90.0, w);
+    let longitude = coordinate(get, "OWM_LONGITUDE", "a longitude", 180.0, w);
     Some(OpenWeatherMapConfig {
         api_key,
-        latitude: parsed(get, "OWM_LATITUDE", 0.0, "0", w),
-        longitude: parsed(get, "OWM_LONGITUDE", 0.0, "0", w),
+        latitude: latitude?,
+        longitude: longitude?,
         enabled: flag(get, "OWM_ENABLED"),
     })
+}
+
+/// A set coordinate within ±`limit` degrees, or `None` with a warning: a forecast for a
+/// substitute place would be worse than none.
+fn coordinate(get: Lookup, key: &str, what: &str, limit: f64, w: &mut Vec<String>) -> Option<f64> {
+    let raw = get(key).unwrap_or_default();
+    let value = raw
+        .trim()
+        .parse::<f64>()
+        .ok()
+        .filter(|v| (-limit..=limit).contains(v));
+    if value.is_none() {
+        w.push(format!(
+            "{key}={raw:?} isn't {what} (-{limit} to {limit}); the forecast is off until it is."
+        ));
+    }
+    value
 }
 
 /// A feature flag: `true`, `1` or `yes` in any case is on, anything else off, unset on.

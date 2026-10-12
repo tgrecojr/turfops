@@ -73,8 +73,8 @@ services:
 
       # OpenWeatherMap (optional)
       OWM_API_KEY: ${OWM_API_KEY:-}
-      OWM_LATITUDE: ${OWM_LATITUDE:-0}
-      OWM_LONGITUDE: ${OWM_LONGITUDE:-0}
+      OWM_LATITUDE: ${OWM_LATITUDE:-}
+      OWM_LONGITUDE: ${OWM_LONGITUDE:-}
       OWM_ENABLED: ${OWM_ENABLED:-true}
 
       # OpenRouter (optional) — generates landscape-plant care plans. Without a key the
