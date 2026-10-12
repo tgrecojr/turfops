@@ -4,7 +4,7 @@ Product Inventory (the Shelf) — leaf segment `INV` under the root HLD.
 
 ## Status
 
-**MAPPED** — overlay bootstrapped 2026-10-11 from the existing LID docs; not yet audited (`audited_sha: null`). 71 specs `[x]`, 1 `[D]`, 0 `[ ]`; 12 of 71 implemented specs carry a `@spec` annotation.
+**PARTIAL** — audited 2026-10-11 (git SHA `65245e3`): every implemented spec was checked against the code while linking it. 70 of 71 implemented specs are linked to both code and a test; 1 disagree with the code (see Key Findings).
 
 ## References
 
@@ -22,16 +22,39 @@ Product Inventory (the Shelf) — leaf segment `INV` under the root HLD.
 - [docs/plans/product-inventory.md](../../docs/plans/product-inventory.md)
 
 ### Tests
+- [backend/src/api/products/assistant_db_tests.rs](../../backend/src/api/products/assistant_db_tests.rs)
 - [backend/src/api/products/checks_tests.rs](../../backend/src/api/products/checks_tests.rs)
+- [backend/src/api/products/crud_db_tests.rs](../../backend/src/api/products/crud_db_tests.rs)
+- [backend/src/api/products/edit_db_tests.rs](../../backend/src/api/products/edit_db_tests.rs)
+- [backend/src/api/products/link_db_tests.rs](../../backend/src/api/products/link_db_tests.rs)
+- [backend/src/datasources/openrouter/product/schema_tests.rs](../../backend/src/datasources/openrouter/product/schema_tests.rs)
+- [backend/src/db/product_queries/row_tests.rs](../../backend/src/db/product_queries/row_tests.rs)
+- [backend/src/logic/inventory/enrich_tests.rs](../../backend/src/logic/inventory/enrich_tests.rs)
+- [backend/src/logic/inventory/shopping/spec_tests.rs](../../backend/src/logic/inventory/shopping/spec_tests.rs)
+- [backend/src/models/inventory/need_tests.rs](../../backend/src/models/inventory/need_tests.rs)
+- [backend/src/models/product/accepts_tests.rs](../../backend/src/models/product/accepts_tests.rs)
+- [backend/src/models/product/vocab_tests.rs](../../backend/src/models/product/vocab_tests.rs)
+- [frontend/src/api/productTimeouts.test.ts](../../frontend/src/api/productTimeouts.test.ts)
+- [frontend/src/components/InventoryBadge.test.tsx](../../frontend/src/components/InventoryBadge.test.tsx)
+- [frontend/src/components/inventory/AddProductForm.test.tsx](../../frontend/src/components/inventory/AddProductForm.test.tsx)
+- [frontend/src/components/inventory/LogSuggestions.test.tsx](../../frontend/src/components/inventory/LogSuggestions.test.tsx)
+- [frontend/src/components/inventory/ProductDetails.test.tsx](../../frontend/src/components/inventory/ProductDetails.test.tsx)
+- [frontend/src/components/inventory/ProductRow.test.tsx](../../frontend/src/components/inventory/ProductRow.test.tsx)
+- [frontend/src/components/inventory/ShoppingListPanel.test.tsx](../../frontend/src/components/inventory/ShoppingListPanel.test.tsx)
+- [frontend/src/components/inventory/StockBadge.test.tsx](../../frontend/src/components/inventory/StockBadge.test.tsx)
 - [frontend/src/components/severity.test.ts](../../frontend/src/components/severity.test.ts)
+- [frontend/src/pages/Inventory.test.tsx](../../frontend/src/pages/Inventory.test.tsx)
+- [frontend/src/pages/InventoryActions.test.tsx](../../frontend/src/pages/InventoryActions.test.tsx)
+- [frontend/src/types/inventoryCompat.test.ts](../../frontend/src/types/inventoryCompat.test.ts)
 - [frontend/src/types/inventoryTargets.test.ts](../../frontend/src/types/inventoryTargets.test.ts)
-- Inline `#[cfg(test)]` modules citing this prefix: `backend/src/api/recommendation_feed.rs`, `backend/src/datasources/openrouter.rs`, `backend/src/db/product_queries.rs`, `backend/src/error.rs`, `backend/src/models/inventory.rs`, `backend/src/models/product/checks.rs`
+- Inline `#[cfg(test)]` modules citing this prefix: `backend/src/api/recommendation_feed.rs`, `backend/src/datasources/openrouter.rs`, `backend/src/datasources/openrouter/product.rs`, `backend/src/db/product_queries.rs`, `backend/src/error.rs`, `backend/src/logic/inventory.rs`, `backend/src/logic/inventory/shopping.rs`, `backend/src/models/inventory.rs`, `backend/src/models/product.rs`, `backend/src/models/product/checks.rs`, `backend/src/models/product/enums.rs`
 
 ### Code
 - [backend/src/api/applications/product_link.rs](../../backend/src/api/applications/product_link.rs)
 - [backend/src/api/inventory.rs](../../backend/src/api/inventory.rs)
 - [backend/src/api/products.rs](../../backend/src/api/products.rs)
 - [backend/src/api/products/checks.rs](../../backend/src/api/products/checks.rs)
+- [backend/src/api/products/link.rs](../../backend/src/api/products/link.rs)
 - [backend/src/api/products/refresh.rs](../../backend/src/api/products/refresh.rs)
 - [backend/src/api/recommendation_feed.rs](../../backend/src/api/recommendation_feed.rs)
 - [backend/src/datasources/openrouter.rs](../../backend/src/datasources/openrouter.rs)
@@ -46,18 +69,24 @@ Product Inventory (the Shelf) — leaf segment `INV` under the root HLD.
 - [backend/src/models/inventory.rs](../../backend/src/models/inventory.rs)
 - [backend/src/models/product.rs](../../backend/src/models/product.rs)
 - [backend/src/models/product/checks.rs](../../backend/src/models/product/checks.rs)
+- [backend/src/models/product/enums.rs](../../backend/src/models/product/enums.rs)
+- [backend/src/models/product/profile.rs](../../backend/src/models/product/profile.rs)
 - [backend/src/models/shopping.rs](../../backend/src/models/shopping.rs)
+- [frontend/src/api/client.ts](../../frontend/src/api/client.ts)
 - [frontend/src/components/InventoryBadge.tsx](../../frontend/src/components/InventoryBadge.tsx)
 - [frontend/src/components/inventory/AddProductForm.tsx](../../frontend/src/components/inventory/AddProductForm.tsx)
 - [frontend/src/components/inventory/EditProductForm.tsx](../../frontend/src/components/inventory/EditProductForm.tsx)
 - [frontend/src/components/inventory/LogSuggestions.tsx](../../frontend/src/components/inventory/LogSuggestions.tsx)
+- [frontend/src/components/inventory/ProductDetails.tsx](../../frontend/src/components/inventory/ProductDetails.tsx)
 - [frontend/src/components/inventory/ProductRow.tsx](../../frontend/src/components/inventory/ProductRow.tsx)
 - [frontend/src/components/inventory/ShoppingListPanel.tsx](../../frontend/src/components/inventory/ShoppingListPanel.tsx)
 - [frontend/src/components/inventory/StockBadge.tsx](../../frontend/src/components/inventory/StockBadge.tsx)
 - [frontend/src/components/inventory/useProductActions.ts](../../frontend/src/components/inventory/useProductActions.ts)
 - [frontend/src/components/severity.ts](../../frontend/src/components/severity.ts)
+- [frontend/src/pages/Applications.tsx](../../frontend/src/pages/Applications.tsx)
 - [frontend/src/pages/Inventory.tsx](../../frontend/src/pages/Inventory.tsx)
 - [frontend/src/types/inventory.ts](../../frontend/src/types/inventory.ts)
+- [frontend/src/types/inventoryCompat.ts](../../frontend/src/types/inventoryCompat.ts)
 - [frontend/src/types/inventoryTargets.ts](../../frontend/src/types/inventoryTargets.ts)
 
 ## Architecture
@@ -81,33 +110,31 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 
 | Facet | Spec IDs | Implemented | Deferred | Gaps | `@spec` in code | `@spec` in tests |
 |---|---|---|---|---|---|---|
-| SHELF | INV-SHELF-001 – INV-SHELF-011 | 11 | 0 | 0 | 0 | 0 |
-| API | INV-API-001 – INV-API-014 | 14 | 0 | 0 | 4 | 4 |
-| LLM | INV-LLM-001 – INV-LLM-011 | 11 | 0 | 0 | 2 | 2 |
-| RATE | INV-RATE-001 – INV-RATE-002 | 2 | 0 | 0 | 0 | 0 |
-| LOG | INV-LOG-001 – INV-LOG-004 | 4 | 0 | 0 | 0 | 0 |
-| NEED | INV-NEED-001 – INV-NEED-006 | 5 | 1 | 0 | 1 | 1 |
-| ENRICH | INV-ENRICH-001 – INV-ENRICH-005 | 5 | 0 | 0 | 2 | 2 |
-| SHOP | INV-SHOP-001 – INV-SHOP-006 | 6 | 0 | 0 | 0 | 0 |
-| UI | INV-UI-001 – INV-UI-013 | 13 | 0 | 0 | 3 | 2 |
-| **Total** | | **71** | **1** | **0** | **12** | **11** |
+| SHELF | INV-SHELF-001 – INV-SHELF-011 | 11 | 0 | 0 | 11 | 11 |
+| API | INV-API-001 – INV-API-014 | 14 | 0 | 0 | 13 | 13 |
+| LLM | INV-LLM-001 – INV-LLM-011 | 11 | 0 | 0 | 11 | 11 |
+| RATE | INV-RATE-001 – INV-RATE-002 | 2 | 0 | 0 | 2 | 2 |
+| LOG | INV-LOG-001 – INV-LOG-004 | 4 | 0 | 0 | 4 | 4 |
+| NEED | INV-NEED-001 – INV-NEED-006 | 5 | 1 | 0 | 5 | 5 |
+| ENRICH | INV-ENRICH-001 – INV-ENRICH-005 | 5 | 0 | 0 | 5 | 5 |
+| SHOP | INV-SHOP-001 – INV-SHOP-006 | 6 | 0 | 0 | 6 | 6 |
+| UI | INV-UI-001 – INV-UI-013 | 13 | 0 | 0 | 13 | 13 |
+| **Total** | | **71** | **1** | **0** | **70** | **70** |
 
-**Summary:** 71 of 71 active specs implemented; 1 deferred; 11 implemented specs cited by a test, 59 cited nowhere.
+**Summary:** 71 of 71 active specs implemented; 1 deferred; 70 implemented specs cited by a test, 1 cited nowhere.
 
 ## Key Findings
 
-1. **59 implemented specs have no `@spec` annotation** — the specs were written to describe existing code and never linked back: INV-SHELF-001/002/003/004/005/006/007/008/009/010/011; INV-API-001/002/003/004/005/006/007/008/009/010; INV-LLM-001/002/003/004/005/006/007/008/009; INV-RATE-001/002; INV-LOG-001/002/003/004; INV-NEED-001/002/003/004; INV-ENRICH-001/003/004; INV-SHOP-001/002/003/004/005/006; INV-UI-001/002/003/004/005/006/008/009/010/012.
-2. **1 specs are annotated in code but cited by no test** — INV-UI-013.
-3. **Deferred:** INV-NEED-006.
+1. **Spec ≠ code — INV-API-005:** spec: no category + assistant requested + OpenRouter not configured → 400; code and design doc: 503 `not_configured` (`api/products.rs:120-122`) — spec stale.
+2. **Deferred:** INV-NEED-006.
 
 ## Work Required
 
 ### Must Fix
-- None.
+- Decide INV-API-005: fix the code or correct the spec, then link it.
 
 ### Should Fix
-1. Add `@spec` annotations (entry point + exercising test) for the 59 unlinked specs.
-2. Annotate a test for the 1 code-only specs.
+- None.
 
 ### Nice to Have
-- Audit each `[x]` against the code and move the segment to `AUDITED`.
+- None.

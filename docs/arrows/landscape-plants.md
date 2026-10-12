@@ -4,7 +4,7 @@ Landscape Plants — leaf segment `PLANT` under the root HLD.
 
 ## Status
 
-**MAPPED** — overlay bootstrapped 2026-10-11 from the existing LID docs; not yet audited (`audited_sha: null`). 79 specs `[x]`, 0 `[D]`, 0 `[ ]`; 18 of 79 implemented specs carry a `@spec` annotation.
+**PARTIAL** — audited 2026-10-11 (git SHA `65245e3`): every implemented spec was checked against the code while linking it. 76 of 79 implemented specs are linked to both code and a test; 3 disagree with the code (see Key Findings).
 
 ## References
 
@@ -21,11 +21,23 @@ Landscape Plants — leaf segment `PLANT` under the root HLD.
 - [docs/agronomy-methods.md](../../docs/agronomy-methods.md)
 
 ### Tests
+- [backend/src/api/plants/db_crud_tests.rs](../../backend/src/api/plants/db_crud_tests.rs)
+- [backend/src/api/plants/db_tests.rs](../../backend/src/api/plants/db_tests.rs)
 - [backend/src/api/plants/tests.rs](../../backend/src/api/plants/tests.rs)
+- [backend/src/datasources/openrouter/client_tests.rs](../../backend/src/datasources/openrouter/client_tests.rs)
+- [backend/src/datasources/openrouter/prompt_spec_tests.rs](../../backend/src/datasources/openrouter/prompt_spec_tests.rs)
+- [backend/src/db/plant_queries/row_tests.rs](../../backend/src/db/plant_queries/row_tests.rs)
+- [backend/src/logic/plant_maintenance/feed_spec_tests.rs](../../backend/src/logic/plant_maintenance/feed_spec_tests.rs)
+- [backend/src/logic/plant_maintenance/spec_tests.rs](../../backend/src/logic/plant_maintenance/spec_tests.rs)
 - [backend/src/logic/plant_maintenance/tests.rs](../../backend/src/logic/plant_maintenance/tests.rs)
+- [backend/src/logic/plant_maintenance/water_spec_tests.rs](../../backend/src/logic/plant_maintenance/water_spec_tests.rs)
 - [backend/src/logic/plant_maintenance/window_tests.rs](../../backend/src/logic/plant_maintenance/window_tests.rs)
+- [frontend/src/api/plantClient.test.ts](../../frontend/src/api/plantClient.test.ts)
 - [frontend/src/components/landscape/plantEdit.test.ts](../../frontend/src/components/landscape/plantEdit.test.ts)
-- Inline `#[cfg(test)]` modules citing this prefix: `backend/src/config.rs`, `backend/src/datasources/openrouter.rs`, `backend/src/datasources/openrouter/plant.rs`, `backend/src/db/plant_queries.rs`, `backend/src/error.rs`
+- [frontend/src/pages/Landscape.test.tsx](../../frontend/src/pages/Landscape.test.tsx)
+- [frontend/src/pages/LandscapeAdd.test.tsx](../../frontend/src/pages/LandscapeAdd.test.tsx)
+- [frontend/src/pages/LandscapeRoute.test.tsx](../../frontend/src/pages/LandscapeRoute.test.tsx)
+- Inline `#[cfg(test)]` modules citing this prefix: `backend/src/config.rs`, `backend/src/datasources/openrouter.rs`, `backend/src/datasources/openrouter/plant.rs`, `backend/src/db/plant_queries.rs`, `backend/src/error.rs`, `backend/src/logic/plant_maintenance/watering.rs`, `backend/src/models/plant.rs`
 
 ### Code
 - [backend/src/api/plants.rs](../../backend/src/api/plants.rs)
@@ -44,7 +56,9 @@ Landscape Plants — leaf segment `PLANT` under the root HLD.
 - [backend/src/main.rs](../../backend/src/main.rs)
 - [backend/src/mcp/tools/shelf.rs](../../backend/src/mcp/tools/shelf.rs)
 - [backend/src/models/plant.rs](../../backend/src/models/plant.rs)
+- [frontend/src/App.tsx](../../frontend/src/App.tsx)
 - [frontend/src/api/client.ts](../../frontend/src/api/client.ts)
+- [frontend/src/components/Layout.tsx](../../frontend/src/components/Layout.tsx)
 - [frontend/src/components/landscape/EditPlantForm.tsx](../../frontend/src/components/landscape/EditPlantForm.tsx)
 - [frontend/src/components/landscape/plantEdit.ts](../../frontend/src/components/landscape/plantEdit.ts)
 - [frontend/src/pages/Landscape.tsx](../../frontend/src/pages/Landscape.tsx)
@@ -70,32 +84,34 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 
 | Facet | Spec IDs | Implemented | Deferred | Gaps | `@spec` in code | `@spec` in tests |
 |---|---|---|---|---|---|---|
-| DATA | PLANT-DATA-001 – PLANT-DATA-007 | 7 | 0 | 0 | 1 | 1 |
-| API | PLANT-API-001 – PLANT-API-013 | 13 | 0 | 0 | 2 | 2 |
-| AI | PLANT-AI-001 – PLANT-AI-010 | 10 | 0 | 0 | 2 | 3 |
-| PROMPT | PLANT-PROMPT-001 – PLANT-PROMPT-009 | 9 | 0 | 0 | 2 | 2 |
-| WIN | PLANT-WIN-001 – PLANT-WIN-007 | 7 | 0 | 0 | 1 | 1 |
-| REC | PLANT-REC-001 – PLANT-REC-008 | 8 | 0 | 0 | 3 | 3 |
-| WATER | PLANT-WATER-001 – PLANT-WATER-007 | 7 | 0 | 0 | 0 | 0 |
-| PLAN | PLANT-PLAN-001 – PLANT-PLAN-005 | 5 | 0 | 0 | 2 | 2 |
-| UI | PLANT-UI-001 – PLANT-UI-013 | 13 | 0 | 0 | 4 | 2 |
-| **Total** | | **79** | **0** | **0** | **17** | **16** |
+| DATA | PLANT-DATA-001 – PLANT-DATA-007 | 7 | 0 | 0 | 7 | 7 |
+| API | PLANT-API-001 – PLANT-API-013 | 13 | 0 | 0 | 12 | 12 |
+| AI | PLANT-AI-001 – PLANT-AI-010 | 10 | 0 | 0 | 8 | 9 |
+| PROMPT | PLANT-PROMPT-001 – PLANT-PROMPT-009 | 9 | 0 | 0 | 9 | 9 |
+| WIN | PLANT-WIN-001 – PLANT-WIN-007 | 7 | 0 | 0 | 7 | 7 |
+| REC | PLANT-REC-001 – PLANT-REC-008 | 8 | 0 | 0 | 8 | 8 |
+| WATER | PLANT-WATER-001 – PLANT-WATER-007 | 7 | 0 | 0 | 7 | 7 |
+| PLAN | PLANT-PLAN-001 – PLANT-PLAN-005 | 5 | 0 | 0 | 5 | 5 |
+| UI | PLANT-UI-001 – PLANT-UI-013 | 13 | 0 | 0 | 13 | 13 |
+| **Total** | | **79** | **0** | **0** | **76** | **77** |
 
-**Summary:** 79 of 79 active specs implemented; 0 deferred; 16 implemented specs cited by a test, 61 cited nowhere.
+**Summary:** 79 of 79 active specs implemented; 0 deferred; 77 implemented specs cited by a test, 2 cited nowhere.
 
 ## Key Findings
 
-1. **61 implemented specs have no `@spec` annotation** — the specs were written to describe existing code and never linked back: PLANT-DATA-001/002/003/004/005/007; PLANT-API-001/002/003/005/006/007/008/009/010/011/012; PLANT-AI-001/002/003/004/005/006/009; PLANT-PROMPT-001/002/003/004/005/008/009; PLANT-WIN-001/002/003/004/005/007; PLANT-REC-001/003/004/006/007; PLANT-WATER-001/002/003/004/005/006/007; PLANT-PLAN-001/002/004; PLANT-UI-001/002/003/004/005/006/007/008/009.
-2. **2 specs are annotated in code but cited by no test** — PLANT-UI-010/011.
+1. **Spec ≠ code — PLANT-AI-001:** spec: enabled when unset or exactly "true", client built whenever the key is set; code: accepts true/1/yes in any case (`config/load.rs:115-116`, per DEPLOY-CONFIG-013) and `main.rs:84` builds the client only when enabled.
+2. **Spec ≠ code — PLANT-AI-008:** the "assistant is turned off" 503 exists (`error.rs`) but is unreachable: `main.rs:84` never builds a disabled client, so the app says "isn't configured … Set OPENROUTER_API_KEY".
+3. **Spec ≠ code — PLANT-API-009:** bug: JSON `null` in `PUT /plants/:id` should clear scientific name / location / planting date / notes; `Option<Option<String>>` without a double-option deserializer reads null as unchanged (`api/plants.rs:107-111`), so clearing from the edit form never works.
 
 ## Work Required
 
 ### Must Fix
-- None.
+- Decide PLANT-AI-001: fix the code or correct the spec, then link it.
+- Decide PLANT-AI-008: fix the code or correct the spec, then link it.
+- Decide PLANT-API-009: fix the code or correct the spec, then link it.
 
 ### Should Fix
-1. Add `@spec` annotations (entry point + exercising test) for the 61 unlinked specs.
-2. Annotate a test for the 2 code-only specs.
+- None.
 
 ### Nice to Have
-- Audit each `[x]` against the code and move the segment to `AUDITED`.
+- None.

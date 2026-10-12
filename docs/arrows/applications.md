@@ -4,7 +4,7 @@ Lawn Profile & Application Log — leaf segment `APP` under the root HLD.
 
 ## Status
 
-**MAPPED** — overlay bootstrapped 2026-10-11 from the existing LID docs; not yet audited (`audited_sha: null`). 75 specs `[x]`, 0 `[D]`, 0 `[ ]`; 26 of 75 implemented specs carry a `@spec` annotation.
+**PARTIAL** — audited 2026-10-11 (git SHA `65245e3`): every implemented spec was checked against the code while linking it. 74 of 75 implemented specs are linked to both code and a test; 1 disagree with the code (see Key Findings).
 
 ## References
 
@@ -22,9 +22,27 @@ Lawn Profile & Application Log — leaf segment `APP` under the root HLD.
 - [docs/plans/product-inventory.md](../../docs/plans/product-inventory.md)
 
 ### Tests
+- [backend/src/api/applications/duplicate_db_tests.rs](../../backend/src/api/applications/duplicate_db_tests.rs)
+- [backend/src/api/applications/link_db_tests.rs](../../backend/src/api/applications/link_db_tests.rs)
+- [backend/src/api/applications/list_db_tests.rs](../../backend/src/api/applications/list_db_tests.rs)
+- [backend/src/api/applications/request_tests.rs](../../backend/src/api/applications/request_tests.rs)
+- [backend/src/api/applications/write_db_tests.rs](../../backend/src/api/applications/write_db_tests.rs)
+- [backend/src/api/profile/db_tests.rs](../../backend/src/api/profile/db_tests.rs)
+- [backend/src/api/profile/route_tests.rs](../../backend/src/api/profile/route_tests.rs)
+- [backend/src/config/startup_profile_db_tests.rs](../../backend/src/config/startup_profile_db_tests.rs)
+- [backend/src/db/db_tests.rs](../../backend/src/db/db_tests.rs)
+- [backend/src/db/queries/row_tests.rs](../../backend/src/db/queries/row_tests.rs)
+- [backend/src/logic/follow_up/reminder_tests.rs](../../backend/src/logic/follow_up/reminder_tests.rs)
+- [backend/src/models/application/log_tests.rs](../../backend/src/models/application/log_tests.rs)
+- [backend/src/models/lawn_profile/parse_tests.rs](../../backend/src/models/lawn_profile/parse_tests.rs)
 - [frontend/src/api/client.test.ts](../../frontend/src/api/client.test.ts)
+- [frontend/src/components/FracClassPicker.test.tsx](../../frontend/src/components/FracClassPicker.test.tsx)
+- [frontend/src/components/ProductPicker.test.tsx](../../frontend/src/components/ProductPicker.test.tsx)
 - [frontend/src/components/applications/formRules.test.ts](../../frontend/src/components/applications/formRules.test.ts)
-- Inline `#[cfg(test)]` modules citing this prefix: `backend/src/api/applications/product_link.rs`, `backend/src/api/applications/validate.rs`, `backend/src/config.rs`, `backend/src/error.rs`, `backend/src/logic/follow_up.rs`, `backend/src/models/application.rs`
+- [frontend/src/pages/ApplicationForm.test.tsx](../../frontend/src/pages/ApplicationForm.test.tsx)
+- [frontend/src/pages/Applications.test.tsx](../../frontend/src/pages/Applications.test.tsx)
+- [frontend/src/pages/Settings.test.tsx](../../frontend/src/pages/Settings.test.tsx)
+- Inline `#[cfg(test)]` modules citing this prefix: `backend/src/api/applications/product_link.rs`, `backend/src/api/applications/validate.rs`, `backend/src/config.rs`, `backend/src/error.rs`, `backend/src/logic/follow_up.rs`, `backend/src/models/application.rs`, `backend/src/models/lawn_profile.rs`
 
 ### Code
 - [backend/src/api/applications.rs](../../backend/src/api/applications.rs)
@@ -36,6 +54,7 @@ Lawn Profile & Application Log — leaf segment `APP` under the root HLD.
 - [backend/src/db/migrations](../../backend/src/db/migrations)
 - [backend/src/db/migrations/20261011000100_applications_cleanup.sql](../../backend/src/db/migrations/20261011000100_applications_cleanup.sql)
 - [backend/src/db/plant_queries.rs](../../backend/src/db/plant_queries.rs)
+- [backend/src/db/product_queries.rs](../../backend/src/db/product_queries.rs)
 - [backend/src/db/queries.rs](../../backend/src/db/queries.rs)
 - [backend/src/error.rs](../../backend/src/error.rs)
 - [backend/src/logic/follow_up.rs](../../backend/src/logic/follow_up.rs)
@@ -76,33 +95,31 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 
 | Facet | Spec IDs | Implemented | Deferred | Gaps | `@spec` in code | `@spec` in tests |
 |---|---|---|---|---|---|---|
-| PROF | APP-PROF-001 – APP-PROF-012 | 12 | 0 | 0 | 3 | 1 |
-| LOG | APP-LOG-001 – APP-LOG-012 | 12 | 0 | 0 | 6 | 5 |
-| DUP | APP-DUP-001 – APP-DUP-003 | 3 | 0 | 0 | 2 | 1 |
-| API | APP-API-001 – APP-API-012 | 12 | 0 | 0 | 5 | 5 |
-| LINK | APP-LINK-001 – APP-LINK-004 | 4 | 0 | 0 | 1 | 1 |
-| FRAC | APP-FRAC-001 – APP-FRAC-005 | 5 | 0 | 0 | 0 | 0 |
-| FOLLOW | APP-FOLLOW-001 – APP-FOLLOW-008 | 8 | 0 | 0 | 2 | 2 |
-| LIST | APP-LIST-001 – APP-LIST-005 | 5 | 0 | 0 | 2 | 1 |
-| FORM | APP-FORM-001 – APP-FORM-011 | 11 | 0 | 0 | 4 | 4 |
-| SET | APP-SET-001 – APP-SET-003 | 3 | 0 | 0 | 1 | 0 |
-| **Total** | | **75** | **0** | **0** | **26** | **20** |
+| PROF | APP-PROF-001 – APP-PROF-012 | 12 | 0 | 0 | 12 | 12 |
+| LOG | APP-LOG-001 – APP-LOG-012 | 12 | 0 | 0 | 12 | 12 |
+| DUP | APP-DUP-001 – APP-DUP-003 | 3 | 0 | 0 | 3 | 3 |
+| API | APP-API-001 – APP-API-012 | 12 | 0 | 0 | 12 | 12 |
+| LINK | APP-LINK-001 – APP-LINK-004 | 4 | 0 | 0 | 4 | 4 |
+| FRAC | APP-FRAC-001 – APP-FRAC-005 | 5 | 0 | 0 | 4 | 4 |
+| FOLLOW | APP-FOLLOW-001 – APP-FOLLOW-008 | 8 | 0 | 0 | 8 | 8 |
+| LIST | APP-LIST-001 – APP-LIST-005 | 5 | 0 | 0 | 5 | 5 |
+| FORM | APP-FORM-001 – APP-FORM-011 | 11 | 0 | 0 | 11 | 11 |
+| SET | APP-SET-001 – APP-SET-003 | 3 | 0 | 0 | 3 | 3 |
+| **Total** | | **75** | **0** | **0** | **74** | **74** |
 
-**Summary:** 75 of 75 active specs implemented; 0 deferred; 20 implemented specs cited by a test, 49 cited nowhere.
+**Summary:** 75 of 75 active specs implemented; 0 deferred; 74 implemented specs cited by a test, 1 cited nowhere.
 
 ## Key Findings
 
-1. **49 implemented specs have no `@spec` annotation** — the specs were written to describe existing code and never linked back: APP-PROF-001/002/003/004/005/007/008/009/010; APP-LOG-001/003/005/006/007/008; APP-DUP-002; APP-API-001/002/003/004/006/007/008; APP-LINK-002/003/004; APP-FRAC-001/002/003/004/005; APP-FOLLOW-001/002/004/005/006/007; APP-LIST-001/002/004; APP-FORM-001/003/005/006/007/008/009; APP-SET-001/002.
-2. **6 specs are annotated in code but cited by no test** — APP-PROF-011/012; APP-LOG-011; APP-DUP-001; APP-LIST-005; APP-SET-003.
+1. **Spec ≠ code — APP-FRAC-005:** spec: the FRAC picker stays usable by hand when the lookup fails; code: options come only from `GET /frac-classes`, so a failed first lookup renders no checkboxes (`frontend/src/components/FracClassPicker.tsx:26,32-50`).
 
 ## Work Required
 
 ### Must Fix
-- None.
+- Decide APP-FRAC-005: fix the code or correct the spec, then link it.
 
 ### Should Fix
-1. Add `@spec` annotations (entry point + exercising test) for the 49 unlinked specs.
-2. Annotate a test for the 6 code-only specs.
+- None.
 
 ### Nice to Have
-- Audit each `[x]` against the code and move the segment to `AUDITED`.
+- None.

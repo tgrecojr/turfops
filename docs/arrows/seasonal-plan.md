@@ -4,7 +4,7 @@ Seasonal Plan & Calendar — leaf segment `PLAN` under the root HLD.
 
 ## Status
 
-**MAPPED** — overlay bootstrapped 2026-10-11 from the existing LID docs; not yet audited (`audited_sha: null`). 72 specs `[x]`, 0 `[D]`, 0 `[ ]`; 41 of 72 implemented specs carry a `@spec` annotation.
+**PARTIAL** — audited 2026-10-11 (git SHA `65245e3`): every implemented spec was checked against the code while linking it. 71 of 72 implemented specs are linked to both code and a test; 1 disagree with the code (see Key Findings).
 
 ## References
 
@@ -21,11 +21,19 @@ Seasonal Plan & Calendar — leaf segment `PLAN` under the root HLD.
 - [docs/timing-windows.md](../../docs/timing-windows.md)
 
 ### Tests
+- [backend/src/api/calendar/db_tests.rs](../../backend/src/api/calendar/db_tests.rs)
+- [backend/src/api/seasonal_plan/cache_db_tests.rs](../../backend/src/api/seasonal_plan/cache_db_tests.rs)
+- [backend/src/api/seasonal_plan/fill_db_tests.rs](../../backend/src/api/seasonal_plan/fill_db_tests.rs)
+- [backend/src/api/seasonal_plan/merge_db_tests.rs](../../backend/src/api/seasonal_plan/merge_db_tests.rs)
+- [backend/src/logic/seasonal_plan/activity_tests.rs](../../backend/src/logic/seasonal_plan/activity_tests.rs)
 - [backend/src/logic/seasonal_plan/completion_tests.rs](../../backend/src/logic/seasonal_plan/completion_tests.rs)
 - [backend/src/logic/seasonal_plan/crossing_tests.rs](../../backend/src/logic/seasonal_plan/crossing_tests.rs)
+- [backend/src/logic/seasonal_plan/details_tests.rs](../../backend/src/logic/seasonal_plan/details_tests.rs)
 - [backend/src/logic/seasonal_plan/status_tests.rs](../../backend/src/logic/seasonal_plan/status_tests.rs)
 - [backend/src/logic/seasonal_plan/window_tests.rs](../../backend/src/logic/seasonal_plan/window_tests.rs)
 - [frontend/src/components/plan/activityStatus.test.ts](../../frontend/src/components/plan/activityStatus.test.ts)
+- [frontend/src/pages/Calendar.test.tsx](../../frontend/src/pages/Calendar.test.tsx)
+- [frontend/src/pages/SeasonalPlan.test.tsx](../../frontend/src/pages/SeasonalPlan.test.tsx)
 
 ### Code
 - [backend/src/api/calendar.rs](../../backend/src/api/calendar.rs)
@@ -42,6 +50,7 @@ Seasonal Plan & Calendar — leaf segment `PLAN` under the root HLD.
 - [backend/src/logic/seasonal_plan.rs](../../backend/src/logic/seasonal_plan.rs)
 - [backend/src/logic/seasonal_plan/crossings.rs](../../backend/src/logic/seasonal_plan/crossings.rs)
 - [backend/src/logic/seasonal_plan/fall.rs](../../backend/src/logic/seasonal_plan/fall.rs)
+- [backend/src/logic/seasonal_plan/spring.rs](../../backend/src/logic/seasonal_plan/spring.rs)
 - [backend/src/logic/timing/plan.rs](../../backend/src/logic/timing/plan.rs)
 - [backend/src/mcp/tools/season.rs](../../backend/src/mcp/tools/season.rs)
 - [backend/src/models/seasonal_plan.rs](../../backend/src/models/seasonal_plan.rs)
@@ -69,30 +78,28 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 
 | Facet | Spec IDs | Implemented | Deferred | Gaps | `@spec` in code | `@spec` in tests |
 |---|---|---|---|---|---|---|
-| CROSS | PLAN-CROSS-001 – PLAN-CROSS-010 | 10 | 0 | 0 | 9 | 8 |
-| CACHE | PLAN-CACHE-001 – PLAN-CACHE-008 | 8 | 0 | 0 | 6 | 2 |
-| ACT | PLAN-ACT-001 – PLAN-ACT-023 | 23 | 0 | 0 | 7 | 15 |
-| MERGE | PLAN-MERGE-001 – PLAN-MERGE-008 | 8 | 0 | 0 | 0 | 1 |
-| CAL | PLAN-CAL-001 – PLAN-CAL-003 | 3 | 0 | 0 | 0 | 0 |
-| UI | PLAN-UI-001 – PLAN-UI-011 | 11 | 0 | 0 | 5 | 4 |
-| CALUI | PLAN-CALUI-001 – PLAN-CALUI-009 | 9 | 0 | 0 | 5 | 4 |
-| **Total** | | **72** | **0** | **0** | **32** | **34** |
+| CROSS | PLAN-CROSS-001 – PLAN-CROSS-010 | 10 | 0 | 0 | 10 | 10 |
+| CACHE | PLAN-CACHE-001 – PLAN-CACHE-008 | 8 | 0 | 0 | 8 | 8 |
+| ACT | PLAN-ACT-001 – PLAN-ACT-023 | 23 | 0 | 0 | 23 | 23 |
+| MERGE | PLAN-MERGE-001 – PLAN-MERGE-008 | 8 | 0 | 0 | 7 | 7 |
+| CAL | PLAN-CAL-001 – PLAN-CAL-003 | 3 | 0 | 0 | 3 | 3 |
+| UI | PLAN-UI-001 – PLAN-UI-011 | 11 | 0 | 0 | 11 | 11 |
+| CALUI | PLAN-CALUI-001 – PLAN-CALUI-009 | 9 | 0 | 0 | 9 | 9 |
+| **Total** | | **72** | **0** | **0** | **71** | **71** |
 
-**Summary:** 72 of 72 active specs implemented; 0 deferred; 34 implemented specs cited by a test, 31 cited nowhere.
+**Summary:** 72 of 72 active specs implemented; 0 deferred; 71 implemented specs cited by a test, 1 cited nowhere.
 
 ## Key Findings
 
-1. **31 implemented specs have no `@spec` annotation** — the specs were written to describe existing code and never linked back: PLAN-CROSS-007; PLAN-CACHE-001/004; PLAN-ACT-001/002/003/009/013/014/015/016; PLAN-MERGE-001/002/003/004/005/006/007; PLAN-CAL-001/002/003; PLAN-UI-002/003/005/006/008/009; PLAN-CALUI-002/003/004/007.
-2. **7 specs are annotated in code but cited by no test** — PLAN-CROSS-002; PLAN-CACHE-002/003/006/007; PLAN-UI-010; PLAN-CALUI-008.
+1. **Spec ≠ code — PLAN-MERGE-006:** contradicts PLANT-PLAN-005: spec says plant activities get applications Oct 1 (prior year) → end of plan year; code passes the log through the end of the latest plant window, which can cross into next year (`logic/plant_maintenance.rs:293` `plant_log_range`), as PLANT-PLAN-005 requires.
 
 ## Work Required
 
 ### Must Fix
-- None.
+- Decide PLAN-MERGE-006: fix the code or correct the spec, then link it.
 
 ### Should Fix
-1. Add `@spec` annotations (entry point + exercising test) for the 31 unlinked specs.
-2. Annotate a test for the 7 code-only specs.
+- None.
 
 ### Nice to Have
-- Audit each `[x]` against the code and move the segment to `AUDITED`.
+- None.

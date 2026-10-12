@@ -4,7 +4,7 @@ Weather Sources — leaf segment `WX-SRC` under the `weather-data` sub-HLD.
 
 ## Status
 
-**MAPPED** — overlay bootstrapped 2026-10-11 from the existing LID docs; not yet audited (`audited_sha: null`). 28 specs `[x]`, 0 `[D]`, 0 `[ ]`; 7 of 28 implemented specs carry a `@spec` annotation.
+**OK** — audited 2026-10-11 (git SHA `65245e3`): every implemented spec was checked against the code while linking it. 28 of 28 implemented specs are linked to both code and a test.
 
 ## References
 
@@ -25,10 +25,17 @@ Weather Sources — leaf segment `WX-SRC` under the `weather-data` sub-HLD.
 - [docs/weather-data-api-spec.md](../../../docs/weather-data-api-spec.md)
 
 ### Tests
+- [backend/src/config/lake_config_tests.rs](../../../backend/src/config/lake_config_tests.rs)
 - [backend/src/config/load_tests.rs](../../../backend/src/config/load_tests.rs)
+- [backend/src/datasources/homeassistant/tests.rs](../../../backend/src/datasources/homeassistant/tests.rs)
+- [backend/src/datasources/openweathermap/fetch_tests.rs](../../../backend/src/datasources/openweathermap/fetch_tests.rs)
 - [backend/src/datasources/openweathermap/tests.rs](../../../backend/src/datasources/openweathermap/tests.rs)
+- [backend/src/datasources/weather/gold_tests.rs](../../../backend/src/datasources/weather/gold_tests.rs)
+- [backend/src/datasources/weather/silver_tests.rs](../../../backend/src/datasources/weather/silver_tests.rs)
 - [backend/src/datasources/weather/tests.rs](../../../backend/src/datasources/weather/tests.rs)
-- Inline `#[cfg(test)]` modules citing this prefix: `backend/src/error.rs`, `backend/src/models/forecast.rs`
+- [backend/src/logic/data_sync/source_tests.rs](../../../backend/src/logic/data_sync/source_tests.rs)
+- [backend/src/models/forecast/day_tests.rs](../../../backend/src/models/forecast/day_tests.rs)
+- Inline `#[cfg(test)]` modules citing this prefix: `backend/src/datasources/weather/climatology.rs`, `backend/src/datasources/weather/disease.rs`, `backend/src/datasources/weather/latest.rs`, `backend/src/error.rs`, `backend/src/models/environmental.rs`, `backend/src/models/forecast.rs`
 
 ### Code
 - [backend/src/clock.rs](../../../backend/src/clock.rs)
@@ -37,7 +44,11 @@ Weather Sources — leaf segment `WX-SRC` under the `weather-data` sub-HLD.
 - [backend/src/datasources/homeassistant.rs](../../../backend/src/datasources/homeassistant.rs)
 - [backend/src/datasources/openweathermap.rs](../../../backend/src/datasources/openweathermap.rs)
 - [backend/src/datasources/weather.rs](../../../backend/src/datasources/weather.rs)
+- [backend/src/datasources/weather/climatology.rs](../../../backend/src/datasources/weather/climatology.rs)
+- [backend/src/datasources/weather/disease.rs](../../../backend/src/datasources/weather/disease.rs)
+- [backend/src/datasources/weather/latest.rs](../../../backend/src/datasources/weather/latest.rs)
 - [backend/src/error.rs](../../../backend/src/error.rs)
+- [backend/src/logic/data_sync.rs](../../../backend/src/logic/data_sync.rs)
 - [backend/src/models/environmental.rs](../../../backend/src/models/environmental.rs)
 - [backend/src/models/forecast.rs](../../../backend/src/models/forecast.rs)
 
@@ -58,18 +69,18 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 
 | Facet | Spec IDs | Implemented | Deferred | Gaps | `@spec` in code | `@spec` in tests |
 |---|---|---|---|---|---|---|
-| LAKE | WX-SRC-LAKE-001 – WX-SRC-LAKE-014 | 14 | 0 | 0 | 2 | 2 |
-| HA | WX-SRC-HA-001 – WX-SRC-HA-002 | 2 | 0 | 0 | 0 | 0 |
-| OWM | WX-SRC-OWM-001 – WX-SRC-OWM-006 | 6 | 0 | 0 | 3 | 4 |
-| MODEL | WX-SRC-MODEL-001 – WX-SRC-MODEL-003 | 3 | 0 | 0 | 0 | 0 |
-| CFG | WX-SRC-CFG-001 – WX-SRC-CFG-003 | 3 | 0 | 0 | 1 | 1 |
-| **Total** | | **28** | **0** | **0** | **6** | **7** |
+| LAKE | WX-SRC-LAKE-001 – WX-SRC-LAKE-014 | 14 | 0 | 0 | 14 | 14 |
+| HA | WX-SRC-HA-001 – WX-SRC-HA-002 | 2 | 0 | 0 | 2 | 2 |
+| OWM | WX-SRC-OWM-001 – WX-SRC-OWM-006 | 6 | 0 | 0 | 6 | 6 |
+| MODEL | WX-SRC-MODEL-001 – WX-SRC-MODEL-003 | 3 | 0 | 0 | 3 | 3 |
+| CFG | WX-SRC-CFG-001 – WX-SRC-CFG-003 | 3 | 0 | 0 | 3 | 3 |
+| **Total** | | **28** | **0** | **0** | **28** | **28** |
 
-**Summary:** 28 of 28 active specs implemented; 0 deferred; 7 implemented specs cited by a test, 21 cited nowhere.
+**Summary:** 28 of 28 active specs implemented; 0 deferred; 28 implemented specs cited by a test, 0 cited nowhere.
 
 ## Key Findings
 
-1. **21 implemented specs have no `@spec` annotation** — the specs were written to describe existing code and never linked back: WX-SRC-LAKE-001/002/003/004/005/006/007/008/009/010/011/012; WX-SRC-HA-001/002; WX-SRC-OWM-001/003; WX-SRC-MODEL-001/002/003; WX-SRC-CFG-001/002.
+1. No findings.
 
 ## Work Required
 
@@ -77,7 +88,7 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 - None.
 
 ### Should Fix
-1. Add `@spec` annotations (entry point + exercising test) for the 21 unlinked specs.
+- None.
 
 ### Nice to Have
-- Audit each `[x]` against the code and move the segment to `AUDITED`.
+- None.
