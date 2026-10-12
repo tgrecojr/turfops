@@ -11,6 +11,7 @@ struct Doc {
     text: &'static str,
 }
 
+// @spec MCP-RES-004
 const DOCS: &[Doc] = &[
     Doc {
         uri: "turfops://docs/agronomy",
@@ -30,6 +31,7 @@ const DOCS: &[Doc] = &[
     },
 ];
 
+// @spec MCP-RES-001
 pub fn list() -> ListResourcesResult {
     ListResourcesResult::with_all_items(
         DOCS.iter()
@@ -43,6 +45,7 @@ pub fn list() -> ListResourcesResult {
     )
 }
 
+// @spec MCP-RES-002, MCP-RES-003
 pub fn read(uri: &str) -> Result<ReadResourceResult, ErrorData> {
     let doc = DOCS
         .iter()
@@ -58,6 +61,7 @@ pub fn read(uri: &str) -> Result<ReadResourceResult, ErrorData> {
 mod tests {
     use super::*;
 
+    // @spec MCP-RES-001, MCP-RES-002
     #[test]
     fn every_doc_is_listed_and_readable() {
         let listed = list();
@@ -79,6 +83,7 @@ mod tests {
         }
     }
 
+    // @spec MCP-RES-003
     #[test]
     fn unknown_uri_is_not_found() {
         assert!(read("turfops://docs/nope").is_err());

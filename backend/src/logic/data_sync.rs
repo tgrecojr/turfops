@@ -154,6 +154,13 @@ impl DataSyncService {
         self.openweathermap_client = Some(client);
     }
 
+    /// The same service reading its forecast from `client`.
+    #[cfg(all(test, feature = "db-tests"))]
+    pub(crate) fn with_forecast_client(mut self, client: OpenWeatherMapClient) -> Self {
+        self.set_forecast_client(client);
+        self
+    }
+
     /// Provide access to the weather lake client for direct queries (GDD, historical).
     pub fn weather_client(&self) -> Option<&WeatherLakeClient> {
         self.weather_client.as_ref()

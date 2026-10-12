@@ -4,11 +4,24 @@
 
 mod auth;
 mod config;
+#[cfg(all(test, feature = "db-tests"))]
+mod db_support;
+#[cfg(test)]
+mod doctrine_tests;
 #[cfg(test)]
 mod guard_tests;
 mod instructions;
+#[cfg(test)]
+mod mount_tests;
+#[cfg(test)]
+mod resource_tests;
 mod resources;
+#[cfg(test)]
+mod server_tests;
+#[cfg(test)]
+mod test_support;
 mod tools;
+// @spec MCP-TOOL-027
 mod trim;
 #[cfg(test)]
 mod trim_model_tests;
@@ -36,6 +49,7 @@ pub struct TurfOpsMcp {
 
 impl TurfOpsMcp {
     /// Every tool, from the per-area routers in `tools/`.
+    // @spec MCP-TOOL-001, MCP-TOOL-003, MCP-SRV-004
     fn tools() -> ToolRouter<Self> {
         Self::lawn_tools()
             + Self::season_tools()
@@ -52,6 +66,7 @@ impl ServerHandler for TurfOpsMcp {
         server_config()
     }
 
+    // @spec MCP-RES-001
     async fn list_resources(
         &self,
         _request: Option<PaginatedRequestParams>,
@@ -60,6 +75,7 @@ impl ServerHandler for TurfOpsMcp {
         Ok(resources::list())
     }
 
+    // @spec MCP-RES-002, MCP-RES-003
     async fn read_resource(
         &self,
         request: ReadResourceRequestParams,
@@ -69,6 +85,7 @@ impl ServerHandler for TurfOpsMcp {
     }
 }
 
+// @spec MCP-SRV-003
 fn server_config() -> ServerConfig {
     ServerConfig::new(
         ServerCapabilities::builder()
@@ -86,6 +103,7 @@ fn server_config() -> ServerConfig {
 /// there is no session to keep and a restart never strands a client. `Host` validation
 /// (rmcp's loopback-only default, against DNS rebinding) is off because the gateway calls
 /// in by LAN hostname; the bearer token is the guard, and a rebinding page cannot send it.
+// @spec MCP-SRV-001, MCP-SRV-002
 pub fn router(state: AppState, token: &str) -> Router {
     let tools = TurfOpsMcp::tools();
     let config = StreamableHttpServerConfig::default()
@@ -111,7 +129,7 @@ const MAX_BODY_BYTES: usize = 1024 * 1024;
 
 /// The `/mcp` routes behind the bearer guard, then a POST-only gate and the body limit,
 /// so an unauthenticated request learns nothing and no tool runs on an oversized body.
-// @spec MCP-SRV-006, MCP-SRV-007
+// @spec MCP-SRV-006, MCP-SRV-007, MCP-AUTH-001
 pub(crate) fn guarded(inner: Router, token: &str) -> Router {
     inner
         .layer(tower_http::limit::RequestBodyLimitLayer::new(
@@ -183,6 +201,7 @@ mod tests {
         );
     }
 
+    // @spec MCP-SRV-004
     #[test]
     fn every_tool_has_a_description_and_is_read_only() {
         let tools = TurfOpsMcp::tools().list_all();
@@ -204,6 +223,7 @@ mod tests {
         }
     }
 
+    // @spec MCP-TOOL-001
     #[test]
     fn every_planned_tool_is_registered() {
         let names: Vec<String> = TurfOpsMcp::tools()
@@ -238,6 +258,7 @@ mod tests {
         }
     }
 
+    // @spec MCP-SRV-003
     #[test]
     fn server_info_advertises_tools_and_instructions() {
         let info = server_config();
