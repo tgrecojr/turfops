@@ -16,6 +16,7 @@ interface DiseaseDetailProps {
 	today: string;
 }
 
+// @spec DIS-UI-DETAIL-001, DIS-UI-DETAIL-002, DIS-UI-CHART-002, DIS-UI-CONV-002, DIS-UI-CONV-003
 export default function DiseaseDetail({ risk, today }: DiseaseDetailProps) {
 	const { methodology } = risk;
 	const asOf =

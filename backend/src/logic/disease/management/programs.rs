@@ -90,6 +90,7 @@ const BROWN_PATCH: ProgramSpec = ProgramSpec {
     ],
 };
 
+// @spec DIS-MGMT-MATRIX-003
 const DOLLAR_SPOT: ProgramSpec = ProgramSpec {
     cultural: &[
         "Keep nitrogen adequate — dollar spot is a low-fertility disease. If it has been more \
@@ -247,6 +248,7 @@ const RED_THREAD: ProgramSpec = ProgramSpec {
     ],
 };
 
+// @spec DIS-MGMT-MATRIX-001, DIS-MGMT-MATRIX-002, DIS-MGMT-MATRIX-004
 pub(super) fn program_for(disease: Disease) -> &'static ProgramSpec {
     match disease {
         Disease::BrownPatch => &BROWN_PATCH,

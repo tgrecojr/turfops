@@ -43,6 +43,7 @@ pub fn forecast_days(
             .push(point);
     }
 
+    // @spec DIS-MODEL-DAY-005
     let local_hour = |p: &&ForecastPoint| clock.local(p.timestamp).hour();
     by_day
         .into_iter()
@@ -101,6 +102,7 @@ fn merge_day(a: &DailyWeather, b: &DailyWeather) -> DailyWeather {
     }
 }
 
+// @spec DIS-MODEL-DAY-006
 /// Merge observed and forecast days into one ascending series. A fully observed day
 /// wins outright; a partly observed day (the lake lags, so usually today) is topped up
 /// with whatever forecast points remain for it.
@@ -152,7 +154,7 @@ mod tests {
         Clock::Zone(chrono_tz::America::New_York)
     }
 
-    // @spec DIS-MODEL-DAY-003
+    // @spec DIS-MODEL-DAY-003, DIS-MODEL-DAY-004, DIS-MODEL-DAY-005
     #[test]
     fn forecast_points_bucket_by_local_date() {
         // 02:00 UTC on the 21st is 22:00 on the 20th at UTC-4.
@@ -197,6 +199,7 @@ mod tests {
         assert!(days[1].covers_dawn);
     }
 
+    // @spec DIS-MODEL-DAY-006
     #[test]
     fn partial_observed_day_is_topped_up_from_forecast() {
         let mut observed_today = day(date(9, 20), 18.0, 17.0, 19.0, 90.0);
@@ -225,6 +228,51 @@ mod tests {
         forecast.is_forecast = true;
         let series = build_series(vec![observed.clone()], vec![forecast]);
         assert_eq!(series, vec![observed]);
+    }
+
+    // @spec DIS-MODEL-DAY-005
+    #[test]
+    fn each_forecast_point_is_three_hours_of_humidity_and_wetness() {
+        // 15:00, 18:00 and 21:00 local on 9/20 (UTC-4).
+        let points = [
+            point(20, 19, 70.0, 90.0, 0.0),
+            point(20, 22, 72.0, 89.9, 0.2),
+            point(21, 1, 68.0, 70.0, 0.0),
+        ];
+        let days = forecast_days(&points, &eastern(), None);
+        assert_eq!(days.len(), 1);
+        let d = &days[0];
+        assert_eq!(d.hours_covered, 9.0);
+        assert_eq!(d.hours_rh90, 3.0, "RH of exactly 90% counts");
+        assert_eq!(d.leaf_wetness_hours, 6.0, "humid or wet, not dry");
+        assert!((d.precip_mm - 0.2).abs() < 1e-9);
+    }
+
+    // @spec DIS-MODEL-DAY-006
+    #[test]
+    fn observed_and_forecast_days_join_into_one_sorted_series() {
+        let mut partial = day(date(9, 20), 20.0, 15.0, 25.0, 80.0);
+        partial.hours_covered = 18.0;
+        partial.precip_mm = 1.0;
+        let mut rest_of_today = day(date(9, 20), 20.0, 14.0, 26.0, 80.0);
+        rest_of_today.hours_covered = 9.0;
+        rest_of_today.precip_mm = 2.0;
+        rest_of_today.is_forecast = true;
+        let mut tomorrow = day(date(9, 21), 22.0, 17.0, 27.0, 70.0);
+        tomorrow.is_forecast = true;
+        let full = day(date(9, 19), 18.0, 12.0, 24.0, 85.0);
+
+        let series = build_series(
+            vec![partial, full.clone()],
+            vec![tomorrow.clone(), rest_of_today],
+        );
+        let dates: Vec<_> = series.iter().map(|d| d.date).collect();
+        assert_eq!(dates, vec![date(9, 19), date(9, 20), date(9, 21)]);
+        assert_eq!(series[0], full);
+        assert_eq!(series[1].hours_covered, 24.0, "capped at 24");
+        assert_eq!(series[1].precip_mm, 3.0);
+        assert_eq!((series[1].temp_min_c, series[1].temp_max_c), (14.0, 26.0));
+        assert_eq!(series[2], tomorrow);
     }
 
     // @spec DIS-MODEL-DAY-007

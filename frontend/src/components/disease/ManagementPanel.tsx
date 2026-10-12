@@ -74,6 +74,7 @@ function ProgramCard({
 	);
 }
 
+// @spec DIS-UI-DETAIL-003, DIS-UI-DETAIL-004, DIS-UI-DETAIL-005, DIS-UI-CONV-003
 /** "What to do": the action headline, cultural practices, and both spray programs. */
 export default function ManagementPanel({ management }: ManagementPanelProps) {
 	const { protection } = management;

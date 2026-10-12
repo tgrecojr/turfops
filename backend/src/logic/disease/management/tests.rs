@@ -1,13 +1,26 @@
 use super::*;
 use crate::logic::disease::test_support::date;
 
+mod actions;
+mod matrix;
 mod outlook;
+mod pick;
+mod protection;
 
 fn app(m: u32, d: u32, product: &str) -> FungicideRecord {
     FungicideRecord {
         date: date(m, d),
         product: product.into(),
         class: crate::models::frac_class_for_product(product),
+    }
+}
+
+/// A logged fungicide with an explicit class (`None` = unrecognised).
+fn record(m: u32, d: u32, product: &str, class: Option<FracClass>) -> FungicideRecord {
+    FungicideRecord {
+        date: date(m, d),
+        product: product.into(),
+        class,
     }
 }
 
@@ -48,6 +61,7 @@ fn shelf(name: &str, classes: &[FracClass]) -> crate::models::ShelfFungicide {
     }
 }
 
+// @spec DIS-MGMT-PICK-002, DIS-MGMT-ACT-005
 #[test]
 fn the_shelf_breaks_ties_but_never_beats_efficacy_or_rotation() {
     let today = date(7, 20);
@@ -86,6 +100,7 @@ fn the_shelf_breaks_ties_but_never_beats_efficacy_or_rotation() {
     assert_eq!(recommended(&weak.preventative), vec![FracClass::Frac11]);
 }
 
+// @spec DIS-MGMT-ACT-001
 #[test]
 fn tiers_map_to_actions() {
     let today = date(7, 20);
@@ -171,6 +186,7 @@ fn severe_pressure_shortens_the_protection_window() {
     assert!(severe.headline.contains("curative program"));
 }
 
+// @spec DIS-MGMT-MATRIX-003
 #[test]
 fn azoxystrobin_is_not_dollar_spot_protection() {
     // PPA-1 does not list azoxystrobin for dollar spot and notes it can enhance it.
@@ -181,6 +197,7 @@ fn azoxystrobin_is_not_dollar_spot_protection() {
     assert!(dollar.protection.is_none());
 }
 
+// @spec DIS-MGMT-PROT-003
 #[test]
 fn strobilurin_covers_pythium_at_high_but_not_at_severe() {
     // PPA-1 rates azoxystrobin 3 on Pythium blight, but says cyazofamid, mefenoxam and
@@ -237,6 +254,7 @@ fn thiophanate_methyl_counts_as_brown_patch_protection() {
     assert_eq!(m.action, ManagementAction::Protected);
 }
 
+// @spec DIS-MGMT-PROT-004
 #[test]
 fn chlorothalonil_is_frac_m5_and_counts_toward_protection_only() {
     let today = date(7, 20);
@@ -293,6 +311,7 @@ fn moderate_risk_warns_when_the_outlook_escalates() {
     assert!(!later.headline.contains("forecast"));
 }
 
+// @spec DIS-MGMT-ACT-003
 #[test]
 fn red_thread_remedy_is_nitrogen_not_fungicide() {
     let today = date(5, 10);
@@ -384,6 +403,7 @@ fn the_rotation_warning_names_each_diseases_own_pick() {
     assert!(!warning.contains("FRAC 11"), "{warning}");
 }
 
+// @spec DIS-MGMT-ACT-002
 #[test]
 fn rotation_warning_and_label_note_are_surfaced() {
     let ctx = DiseaseContext {

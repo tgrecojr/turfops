@@ -23,6 +23,7 @@ impl WeatherLakeClient {
         self.station_wbanno
     }
 
+    // @spec DIS-MODEL-DAY-002, DIS-MODEL-DAY-004
     /// Aggregate silver hourly observations into one row per local calendar day from
     /// `start` onward. Hours missing air temp or RH are skipped, so `hours_covered`
     /// reflects usable hours only.
@@ -121,6 +122,7 @@ mod tests {
         .unwrap();
     }
 
+    // @spec DIS-MODEL-DAY-002, DIS-MODEL-DAY-004
     #[tokio::test]
     async fn aggregates_silver_hours_into_local_days() {
         let path =
@@ -158,5 +160,59 @@ mod tests {
         assert!((second.dew_point_max_c - 23.1).abs() < 0.2); // 24°C @ 95% RH
 
         assert_eq!(lake.days[2].hours_covered, 1.0);
+    }
+
+    // @spec DIS-MODEL-DAY-002
+    #[tokio::test]
+    async fn days_are_the_lakes_obs_date_local_never_rebucketed() {
+        let path = std::env::temp_dir().join(format!(
+            "turfops_disease_dates_{}.parquet",
+            std::process::id()
+        ));
+        let path_s = path.to_string_lossy().to_string();
+        // Three hours whose UTC timestamps (and local clock times) all fall on 9/19, but
+        // the lake files two of them under 9/18: the lake's civil date is what counts.
+        Connection::open_in_memory()
+            .unwrap()
+            .execute_batch(&format!(
+                "COPY (
+                    SELECT TIMESTAMP '2026-09-19 05:00:00' + h * INTERVAL 1 HOUR AS obs_ts_utc,
+                           TIMESTAMP '2026-09-19 01:00:00' + h * INTERVAL 1 HOUR AS obs_ts_local,
+                           CASE WHEN h < 2 THEN DATE '2026-09-18' ELSE DATE '2026-09-19' END
+                               AS obs_date_local,
+                           '03761' AS wbanno,
+                           20.0 AS air_temp_c,
+                           CAST(NULL AS DOUBLE) AS air_temp_min_c,
+                           CAST(NULL AS DOUBLE) AS air_temp_max_c,
+                           80.0 AS rh_pct,
+                           0.0 AS precip_mm
+                    FROM range(3) t(h)
+                 ) TO '{path_s}' (FORMAT PARQUET)"
+            ))
+            .unwrap();
+        let client = WeatherLakeClient::new(
+            &DataLakeConfig {
+                silver_weather_path: path_s.clone(),
+                gold_weather_path: path_s,
+            },
+            3761,
+        );
+        let lake = client
+            .fetch_daily_disease_inputs(NaiveDate::from_ymd_opt(2026, 9, 1).unwrap())
+            .await
+            .unwrap();
+        std::fs::remove_file(&path).ok();
+        let days: Vec<(NaiveDate, f64)> = lake
+            .days
+            .iter()
+            .map(|d| (d.date, d.hours_covered))
+            .collect();
+        assert_eq!(
+            days,
+            vec![
+                (NaiveDate::from_ymd_opt(2026, 9, 18).unwrap(), 2.0),
+                (NaiveDate::from_ymd_opt(2026, 9, 19).unwrap(), 1.0),
+            ]
+        );
     }
 }

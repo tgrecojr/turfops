@@ -39,6 +39,7 @@ pub struct FracClassLookup {
     pub matched: Vec<FracClass>,
 }
 
+// @spec DIS-MGMT-API-001
 /// GET /api/v1/frac-classes?product=<name>
 pub async fn lookup(Query(params): Query<FracClassQuery>) -> Json<FracClassLookup> {
     Json(FracClassLookup {
@@ -56,4 +57,41 @@ pub async fn lookup(Query(params): Query<FracClassQuery>) -> Json<FracClassLooku
             .map(frac_classes_for_product)
             .unwrap_or_default(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    async fn get(product: Option<&str>) -> FracClassLookup {
+        lookup(Query(FracClassQuery {
+            product: product.map(String::from),
+        }))
+        .await
+        .0
+    }
+
+    // @spec DIS-MGMT-API-001
+    #[tokio::test]
+    async fn lists_every_class_and_what_a_product_name_resolves_to() {
+        let all = get(None).await;
+        assert_eq!(all.options.len(), 12);
+        let m5 = all
+            .options
+            .iter()
+            .find(|o| o.id == FracClass::FracM5)
+            .unwrap();
+        assert_eq!(m5.label, "FRAC M5 (Chlorothalonil)");
+        assert_eq!(m5.examples, &["chlorothalonil", "Daconil"]);
+        assert!(all.matched.is_empty());
+
+        let premix = get(Some("HEADWAY G")).await;
+        assert_eq!(premix.matched, vec![FracClass::Frac11, FracClass::Frac3]);
+        assert_eq!(premix.options.len(), 12);
+        assert!(get(Some("Mystery Juice")).await.matched.is_empty());
+
+        let json = serde_json::to_value(get(Some("Heritage")).await).unwrap();
+        assert_eq!(json["matched"], serde_json::json!(["Frac11"]));
+        assert_eq!(json["options"][0]["id"], "Frac1");
+    }
 }

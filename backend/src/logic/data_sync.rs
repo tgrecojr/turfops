@@ -137,6 +137,13 @@ impl DataSyncService {
         self.weather_client.as_ref()
     }
 
+    /// The same service with no weather lake, as if none were configured.
+    #[cfg(test)]
+    pub(crate) fn without_weather_lake(mut self) -> Self {
+        self.weather_client = None;
+        self
+    }
+
     /// Read the stale parts' sources, then store everything at once: until every read is
     /// in hand nothing changes, so a request dropped mid-read leaves the part stale.
     // @spec SYNC-REFRESH-008, SYNC-FAIL-001

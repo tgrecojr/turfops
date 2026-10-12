@@ -7,6 +7,7 @@ use crate::models::{
 };
 use chrono::NaiveDate;
 
+// @spec DIS-MGMT-FRAC-002
 /// Derive the lawn-history modifiers from logged applications (future-dated entries
 /// are ignored).
 pub fn context_from_history(history: &[Application], today: NaiveDate) -> DiseaseContext {
@@ -95,6 +96,7 @@ mod tests {
         }
     }
 
+    // @spec DIS-MGMT-FRAC-002
     #[test]
     fn a_premix_is_recorded_under_every_class_it_contains() {
         let history = [logged(ApplicationType::Fungicide, "Headway G", 5)];
@@ -139,5 +141,51 @@ mod tests {
         let ctx = context_from_history(&[shrub_spray, shrub_feed], today());
         assert!(ctx.fungicide_apps.is_empty());
         assert!(ctx.days_since_fertilizer.is_none());
+    }
+
+    // @spec DIS-MGMT-FRAC-004
+    #[test]
+    fn this_years_same_class_streak_reaches_the_plan_notes() {
+        use crate::models::{Disease, RiskTier};
+        let notes = |history: &[Application]| {
+            let ctx = context_from_history(history, today());
+            let risks = crate::logic::disease::assess_all(
+                &crate::logic::disease::test_support::run_of(today(), 8, |d| {
+                    crate::logic::disease::test_support::day(d, 26.0, 21.0, 32.0, 90.0)
+                }),
+                today(),
+                &ctx,
+            );
+            let bp = risks
+                .into_iter()
+                .find(|r| r.disease == Disease::BrownPatch)
+                .unwrap();
+            assert!(bp.tier >= RiskTier::High);
+            bp.management.notes
+        };
+        let streak = [
+            logged(ApplicationType::Fungicide, "Heritage G", 40),
+            logged(ApplicationType::Fungicide, "Insignia", 10),
+        ];
+        assert!(notes(&streak)
+            .iter()
+            .any(|n| n.contains("last 2 applications were FRAC 11")));
+
+        // Last December's application is another season.
+        let across_years = [
+            logged(ApplicationType::Fungicide, "Heritage G", 220),
+            logged(ApplicationType::Fungicide, "Insignia", 10),
+        ];
+        assert!(!notes(&across_years).iter().any(|n| n.contains("FRAC 11 —")));
+
+        // Three applications without a streak: a reminder to track classes.
+        let rotated = [
+            logged(ApplicationType::Fungicide, "Heritage G", 50),
+            logged(ApplicationType::Fungicide, "Banner Maxx", 30),
+            logged(ApplicationType::Fungicide, "Xzemplar", 10),
+        ];
+        assert!(notes(&rotated)
+            .iter()
+            .any(|n| n.contains("3 times this season") && n.contains("Track FRAC classes")));
     }
 }
