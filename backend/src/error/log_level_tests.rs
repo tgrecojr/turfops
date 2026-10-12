@@ -21,6 +21,7 @@ fn respond(err: TurfOpsError) -> (StatusCode, String, String) {
         .with_writer(move || writer.clone())
         .with_ansi(false)
         .finish();
+    crate::test_support::keep_tracing_interest_shared();
     let response = tracing::subscriber::with_default(subscriber, || err.into_response());
     let status = response.status();
     let bytes = tokio::runtime::Runtime::new()

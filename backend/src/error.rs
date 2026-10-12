@@ -126,6 +126,19 @@ fn outage_message(source: Source, outage: &Outage) -> String {
             "The product assistant is turned off. Pick a category to save the product by \
              hand, or set OPENROUTER_ENABLED=true."
         }
+        // @spec INV-LLM-012
+        (ProfileRefresh, NotConfigured) => {
+            "The product assistant isn't configured, so the product's profile can't be \
+             refreshed. Set OPENROUTER_API_KEY and restart TurfOps."
+        }
+        (ProfileRefresh, Disabled) => {
+            "The product assistant is turned off, so the product's profile can't be \
+             refreshed. Set OPENROUTER_ENABLED=true to use it."
+        }
+        (ProfileRefresh, _) => {
+            "The product assistant couldn't answer just now, so the product's profile \
+             wasn't refreshed. Try again in a few minutes."
+        }
         (ProductAssistant, _) => {
             "The assistant couldn't identify this product just now. Pick a category to save \
              it by hand, or try again in a few minutes."
@@ -149,8 +162,10 @@ pub enum Source {
     PatioSensor,
     /// OpenRouter, which writes plant care plans and product profiles.
     PlanAssistant,
-    /// OpenRouter answering for a shelf product (product profiles).
+    /// OpenRouter answering for a shelf product being added (product profiles).
     ProductAssistant,
+    /// OpenRouter regenerating a shelf product's profile.
+    ProfileRefresh,
     /// The 10 cm soil-temperature outlook.
     SoilOutlook,
 }
@@ -218,6 +233,21 @@ impl TurfOpsError {
                 outage,
             } => TurfOpsError::Unavailable {
                 origin: Source::ProductAssistant,
+                outage,
+            },
+            other => other,
+        }
+    }
+
+    /// The same outage, worded for refreshing a product's profile.
+    // @spec INV-LLM-012
+    pub fn for_refresh(self) -> Self {
+        match self {
+            TurfOpsError::Unavailable {
+                origin: Source::PlanAssistant | Source::ProductAssistant,
+                outage,
+            } => TurfOpsError::Unavailable {
+                origin: Source::ProfileRefresh,
                 outage,
             },
             other => other,

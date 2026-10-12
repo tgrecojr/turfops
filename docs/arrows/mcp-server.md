@@ -4,7 +4,7 @@ MCP Server — leaf segment `MCP` under the root HLD.
 
 ## Status
 
-**OK** — audited 2026-10-12 (git SHA `d99ce09`): every implemented spec was checked against the code while linking it. 82 of 82 implemented specs are linked to both code and a test.
+**OK** — audited 2026-10-12 (git SHA `0e3be7a`): every implemented spec was checked against the code while linking it. 82 of 82 implemented specs are linked to both code and a test.
 
 ## References
 

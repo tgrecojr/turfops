@@ -4,7 +4,7 @@ Product Inventory (the Shelf) — leaf segment `INV` under the root HLD.
 
 ## Status
 
-**OK** — audited 2026-10-12 (git SHA `d99ce09`): every implemented spec was checked against the code while linking it. 71 of 71 implemented specs are linked to both code and a test.
+**OK** — audited 2026-10-12 (git SHA `0e3be7a`): every implemented spec was checked against the code while linking it. 72 of 72 implemented specs are linked to both code and a test.
 
 ## References
 
@@ -15,7 +15,7 @@ Product Inventory (the Shelf) — leaf segment `INV` under the root HLD.
 - [docs/intent/product-inventory/product-inventory-design.md](../../docs/intent/product-inventory/product-inventory-design.md)
 
 ### EARS
-- [docs/intent/product-inventory/product-inventory-specs.md](../../docs/intent/product-inventory/product-inventory-specs.md) (72 specs, prefix `INV`)
+- [docs/intent/product-inventory/product-inventory-specs.md](../../docs/intent/product-inventory/product-inventory-specs.md) (73 specs, prefix `INV`)
 
 ### Related docs
 - [docs/agronomy-methods.md](../../docs/agronomy-methods.md)
@@ -28,6 +28,7 @@ Product Inventory (the Shelf) — leaf segment `INV` under the root HLD.
 - [backend/src/api/products/edit_db_tests.rs](../../backend/src/api/products/edit_db_tests.rs)
 - [backend/src/api/products/link_db_tests.rs](../../backend/src/api/products/link_db_tests.rs)
 - [backend/src/api/products/missing_category_db_tests.rs](../../backend/src/api/products/missing_category_db_tests.rs)
+- [backend/src/api/products/refresh_outage_db_tests.rs](../../backend/src/api/products/refresh_outage_db_tests.rs)
 - [backend/src/datasources/openrouter/product/schema_tests.rs](../../backend/src/datasources/openrouter/product/schema_tests.rs)
 - [backend/src/db/product_queries/row_tests.rs](../../backend/src/db/product_queries/row_tests.rs)
 - [backend/src/logic/inventory/enrich_tests.rs](../../backend/src/logic/inventory/enrich_tests.rs)
@@ -113,16 +114,16 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 |---|---|---|---|---|---|---|
 | SHELF | INV-SHELF-001 – INV-SHELF-011 | 11 | 0 | 0 | 11 | 11 |
 | API | INV-API-001 – INV-API-014 | 14 | 0 | 0 | 14 | 14 |
-| LLM | INV-LLM-001 – INV-LLM-011 | 11 | 0 | 0 | 11 | 11 |
+| LLM | INV-LLM-001 – INV-LLM-012 | 12 | 0 | 0 | 12 | 12 |
 | RATE | INV-RATE-001 – INV-RATE-002 | 2 | 0 | 0 | 2 | 2 |
 | LOG | INV-LOG-001 – INV-LOG-004 | 4 | 0 | 0 | 4 | 4 |
 | NEED | INV-NEED-001 – INV-NEED-006 | 5 | 1 | 0 | 5 | 5 |
 | ENRICH | INV-ENRICH-001 – INV-ENRICH-005 | 5 | 0 | 0 | 5 | 5 |
 | SHOP | INV-SHOP-001 – INV-SHOP-006 | 6 | 0 | 0 | 6 | 6 |
 | UI | INV-UI-001 – INV-UI-013 | 13 | 0 | 0 | 13 | 13 |
-| **Total** | | **71** | **1** | **0** | **71** | **71** |
+| **Total** | | **72** | **1** | **0** | **72** | **72** |
 
-**Summary:** 71 of 71 active specs implemented; 1 deferred; 71 implemented specs cited by a test, 0 cited nowhere.
+**Summary:** 72 of 72 active specs implemented; 1 deferred; 72 implemented specs cited by a test, 0 cited nowhere.
 
 ## Key Findings
 

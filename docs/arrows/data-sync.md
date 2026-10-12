@@ -4,7 +4,7 @@ Data Sync — leaf segment `SYNC` under the root HLD.
 
 ## Status
 
-**OK** — audited 2026-10-12 (git SHA `d99ce09`): every implemented spec was checked against the code while linking it. 32 of 32 implemented specs are linked to both code and a test.
+**OK** — audited 2026-10-12 (git SHA `0e3be7a`): every implemented spec was checked against the code while linking it. 32 of 32 implemented specs are linked to both code and a test.
 
 ## References
 

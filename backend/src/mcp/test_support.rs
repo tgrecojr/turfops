@@ -241,6 +241,7 @@ impl Logs {
             .with_ansi(false)
             .with_writer(move || Capture(writer.clone()))
             .finish();
+        crate::test_support::keep_tracing_interest_shared();
         Self {
             buffer,
             _guard: tracing::subscriber::set_default(subscriber),

@@ -31,7 +31,7 @@ A product's **facts** are its owner-owned, matchable fields (category, form, lab
 - [x] **INV-API-009**: If `PUT /api/v1/products/:id` names an unknown id, then the system shall return 404.
 - [x] **INV-API-010**: When `DELETE /api/v1/products/:id` is called, the system shall delete the product and return 204.
 - [x] **INV-API-011**: If a `PUT /api/v1/products/:id` request gives a label-rate amount of 0 or less, or an N, P or K percentage outside 0–100, then the system shall return 400 with a plain-language message naming the field and the allowed range, and change nothing.
-- [x] **INV-API-012**: When the product assistant fails while adding or refreshing a product, the system shall log the upstream detail and return to the owner only a plain-language message (in `profile_error` or the 503 body) saying the assistant could not identify the product and what to do next, never the provider's response body, the raw model output or an internal error string.
+- [x] **INV-API-012**: When the product assistant fails while adding or refreshing a product, the system shall log the upstream detail and return to the owner only a plain-language message (in `profile_error` or the 503 body) saying what the assistant could not do and what to do next, never the provider's response body, the raw model output or an internal error string.
 - [x] **INV-API-013**: If `POST /api/v1/products` or `PUT /api/v1/products/:id` gives a name equal, case-insensitively after trimming, to the name of another of the lawn's products (archived included), then the system shall return 409 with a plain-language message saying a product with that name is already on the shelf, and save nothing.
 - [x] **INV-API-014**: If `DELETE /api/v1/products/:id` names an unknown id, then the system shall return 404 and delete nothing.
 
@@ -48,6 +48,7 @@ A product's **facts** are its owner-owned, matchable fields (category, form, lab
 - [x] **INV-LLM-009**: If `POST /api/v1/products/:id/refresh-profile` is called while OpenRouter is not configured, then the system shall return 503 without calling the LLM; if the product id is unknown, it shall return 404.
 - [x] **INV-LLM-010**: If the product assistant's profile on add suggests a label-rate amount of 0 or less or an N, P or K percentage outside 0–100, then the system shall leave that one value out of the new product's facts (the label-rate amount and unit together; only the offending percentage of N-P-K), log a warning, and save the product with its other facts.
 - [x] **INV-LLM-011**: If the product assistant fails while adding a product that has no category, then the system shall log a warning, save the product by hand with category Other, the owner's form (Other when not given) and the curated FRAC classes for its name, and report the failure in `profile_error`.
+- [x] **INV-LLM-012**: If `POST /api/v1/products/:id/refresh-profile` cannot get a profile because the product assistant is not configured, turned off or not answering, then the system shall return 503 with a sentence saying the product's profile can't be refreshed and what to do (set `OPENROUTER_API_KEY`; set `OPENROUTER_ENABLED=true`; try again in a few minutes), and shall never tell the owner to pick a category.
 
 ## Label rate
 
