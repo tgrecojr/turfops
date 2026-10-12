@@ -4,7 +4,7 @@ Disease Risk UI — leaf segment `DIS-UI` under the `disease-risk` sub-HLD.
 
 ## Status
 
-**OK** — audited 2026-10-12 (git SHA `4505fbc`): every implemented spec was checked against the code while linking it. 18 of 18 implemented specs are linked to both code and a test.
+**OK** — audited 2026-10-12 (git SHA `f2112e2`): every implemented spec was checked against the code while linking it. 18 of 18 implemented specs are linked to both code and a test.
 
 ## References
 

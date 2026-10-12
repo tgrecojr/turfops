@@ -64,16 +64,19 @@ export default function DiseaseDetail({ risk, today }: DiseaseDetailProps) {
 								<td style={styles.factorLabel}>{factor.label}</td>
 								<td style={styles.factorValue}>{factor.value}</td>
 								<td style={styles.factorNote}>
+									{/* @spec UI-CONV-001: a badge, the symbol hidden from assistive technology */}
 									<span
-										role="img"
-										aria-label={`${factor.status} for disease`}
+										data-badge
 										style={{
-											...styles.statusDot,
+											...styles.statusBadge,
 											backgroundColor: `${FACTOR_STATUS_COLORS[factor.status]}26`,
 											borderColor: FACTOR_STATUS_COLORS[factor.status],
 										}}
 									>
-										{FACTOR_STATUS_SYMBOLS[factor.status]}
+										<span aria-hidden="true">
+											{FACTOR_STATUS_SYMBOLS[factor.status]}
+										</span>{" "}
+										<span>{factor.status} for disease</span>
 									</span>
 									{factor.note}
 								</td>
@@ -164,18 +167,16 @@ const styles: Record<string, React.CSSProperties> = {
 		color: "#4a5568",
 		borderBottom: "1px solid #edf2f7",
 	},
-	statusDot: {
+	statusBadge: {
 		display: "inline-block",
-		width: 20,
-		height: 20,
-		lineHeight: "18px",
-		textAlign: "center",
+		padding: "1px 8px",
 		borderRadius: 10,
 		border: "1px solid",
 		fontSize: "0.7rem",
+		fontWeight: 600,
 		color: "#2d3748",
 		marginRight: 8,
-		boxSizing: "border-box",
+		whiteSpace: "nowrap",
 	},
 	methodology: { marginBottom: "1rem" },
 	methodologySummary: {

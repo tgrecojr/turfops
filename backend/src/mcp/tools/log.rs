@@ -86,7 +86,8 @@ impl TurfOpsMcp {
     #[tool(
         description = "Soil test results, newest first: date, lab, pH, buffer pH, P, K, Ca, \
                        Mg, S and micronutrients (ppm), organic matter and CEC. The latest \
-                       test drives `soil_test_advice`.",
+                       test drives `soil_test_advice`. \
+                       Use for questions about past soil test numbers.",
         annotations(read_only_hint = true)
     )]
     async fn soil_tests(

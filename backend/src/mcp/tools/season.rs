@@ -59,7 +59,8 @@ impl TurfOpsMcp {
                        crossings and its status (Upcoming / Active / Completed / Skipped = \
                        not needed this season / Missed). This season's feedings, weed \
                        control and grub control take their status from the recommendations; \
-                       `status_estimated` marks a typical-date guess.",
+                       `status_estimated` marks a typical-date guess. \
+                       Use for 'what is coming up this year' and season-planning questions.",
         annotations(read_only_hint = true)
     )]
     async fn seasonal_plan(
@@ -78,7 +79,8 @@ impl TurfOpsMcp {
         description = "Growing degree days (base 50°F) accumulated this year and the \
                        crabgrass germination model (status, estimated germination date). \
                        GDD drives grub control (500–700), spring nitrogen and spring \
-                       broadleaf timing (50–150). Daily values: use `weather_history`.",
+                       broadleaf timing (50–150). Daily values: use `weather_history`. \
+                       Use for grub, crabgrass and spring-feeding timing questions.",
         annotations(read_only_hint = true)
     )]
     async fn gdd(
@@ -100,7 +102,8 @@ impl TurfOpsMcp {
         description = "10 cm soil temperature outlook for the forecast days (air-to-soil \
                        regression, with fit quality) and the predicted crossings of the \
                        45 / 60 / 65 / 75°F thresholds. Timing windows use 5 cm soil; this \
-                       outlook is for the 10 cm thresholds (e.g. grub control 60–75°F).",
+                       outlook is for the 10 cm thresholds (e.g. grub control 60–75°F). \
+                       Use for 'when will the soil reach X°F' questions at 10 cm.",
         annotations(read_only_hint = true)
     )]
     async fn soil_temp_outlook(&self) -> Result<CallToolResult, ErrorData> {

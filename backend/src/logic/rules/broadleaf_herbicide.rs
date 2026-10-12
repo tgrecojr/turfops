@@ -99,6 +99,7 @@ pub(crate) fn applied_fall(history: &[Application], year: i32) -> bool {
     })
 }
 
+// @spec RULE-ENG-007
 fn build_spring_herbicide_rec(soil_temp: f64, gdd_ytd: Option<f64>) -> Recommendation {
     let gdd_note = if let Some(gdd) = gdd_ytd {
         format!(
@@ -149,7 +150,8 @@ fn build_spring_herbicide_rec(soil_temp: f64, gdd_ytd: Option<f64>) -> Recommend
     rec = rec.with_need(broadleaf_need()).with_action(
         "Apply post-emergent broadleaf herbicide (2,4-D + dicamba or triclopyr). \
          Apply when air temp is 50-80°F and no rain expected for 24 hours. \
-         Avoid application if wind >10 mph. Do not mow for 24-48 hours after application.",
+         Avoid application if wind >10 mph. Do not mow for 24-48 hours after application. \
+         Follow the product label for rate and re-application.",
     );
 
     rec
@@ -165,6 +167,7 @@ fn broadleaf_need() -> ProductNeed {
     .with_targets(vec![ProductTarget::Broadleaf])
 }
 
+// @spec RULE-ENG-007
 fn build_fall_herbicide_rec(soil_temp: f64) -> Recommendation {
     Recommendation::new(
         "broadleaf_fall",
@@ -199,7 +202,8 @@ fn build_fall_herbicide_rec(soil_temp: f64) -> Recommendation {
         "Apply post-emergent broadleaf herbicide (2,4-D + dicamba or triclopyr). \
          Fall application is more effective than spring for perennial weeds. \
          Apply when air temp is 50-80°F, no rain for 24 hours, wind <10 mph. \
-         Do not mow for 24-48 hours after application.",
+         Do not mow for 24-48 hours after application. \
+         Follow the product label for rate and re-application.",
     )
 }
 

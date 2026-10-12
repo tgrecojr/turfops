@@ -176,3 +176,34 @@ fn the_explanation_states_levels_budget_nitrogen_ratio_and_example() {
         "{text}"
     );
 }
+
+// @spec SOIL-PH-006
+#[test]
+fn with_no_soil_type_both_branches_say_loam_is_assumed() {
+    let no_soil = make_profile(GrassType::TallFescue, None);
+    let nothing = calculate_npk_recommendation(
+        &make_test(6.5, Some(60.0), Some(200.0)),
+        &no_soil,
+        &applied(4.0),
+        today(),
+    )
+    .unwrap();
+    let advised = calculate_npk_recommendation(
+        &make_test(6.5, Some(5.0), Some(40.0)),
+        &no_soil,
+        &[],
+        today(),
+    )
+    .unwrap();
+    for rec in [&nothing, &advised] {
+        assert!(
+            rec.explanation
+                .contains("Soil type not set — using Loam defaults."),
+            "{}",
+            rec.explanation
+        );
+    }
+    assert_eq!(nothing.recommended_ratio, "N/A");
+    let known = npk(Some(60.0), Some(200.0), &applied(4.0));
+    assert!(!known.explanation.contains("Loam defaults"));
+}

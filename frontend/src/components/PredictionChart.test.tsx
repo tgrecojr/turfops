@@ -76,6 +76,26 @@ describe("PredictionChart", () => {
 		);
 	});
 
+	// @spec UI-CONV-005
+	it("draws history and forecast in one hue, solid then dashed", () => {
+		const { predictions } = soilForecast();
+		const { container } = render(
+			<PredictionChart
+				recentSoilTemps={points([60, 61])}
+				predictions={predictions}
+			/>,
+		);
+		const [area] = parts("Area");
+		const [line] = parts("Line");
+		expect(area.stroke).toBe("#2a78d6");
+		expect(line.stroke).toBe("#2a78d6");
+		expect(line.strokeDasharray).toBeTruthy();
+		const html = container.innerHTML.toLowerCase();
+		for (const old of ["#e67e22", "#3b82f6"]) {
+			expect(html).not.toContain(old);
+		}
+	});
+
 	// @spec WX-OUTLOOK-UI-001
 	it("draws reference lines only at 60°F Grub Control and 75°F Heat Stress", () => {
 		render(

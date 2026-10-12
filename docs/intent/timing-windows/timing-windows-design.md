@@ -253,6 +253,7 @@ A failed fetch shows `describeError(e)` (Web UI's human-readable errors): with n
   - This year `#2a78d6` solid, the forecast the same hue dashed and bridged onto the last observed day, last year `#eb6834`, and the typical year neutral dotted.
   - The blue/orange pair was checked for color-vision-deficiency separation.
   - 10 °F ticks.
+  - A vertical "Today" line, with a matching legend entry.
   - Threshold lines show the fall set from July and the spring set before.
   - Defaults to −75 / +60 days around today, with a full-year toggle.
   - `SoilSeasonTable` provides the table view.

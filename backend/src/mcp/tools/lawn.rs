@@ -137,7 +137,8 @@ impl TurfOpsMcp {
         description = "The recommendation feed exactly as the app shows it: each item's id, \
                        category, severity, title, explanation, suggested action, the data \
                        points behind it, and `inventory` (whether the shelf covers what it \
-                       calls for). When an item already answers the user's question, cite it.",
+                       calls for). When an item already answers the user's question, cite it. \
+                       Use when the user asks what the app recommends or about one recommendation (`lawn_snapshot` already includes the feed).",
         annotations(read_only_hint = true)
     )]
     async fn recommendations(

@@ -1,24 +1,11 @@
-import type { SoilTempPrediction, ThresholdPrediction } from "../types";
+import type { ThresholdPrediction } from "../types";
 import { PREDICTION_CONFIDENCE_COLORS } from "../types";
 import { formatMonthDay } from "../utils/dates";
 
 interface SoilTempForecastWidgetProps {
+	/** The outlook's crossings, already judged and sorted by the backend. */
 	crossings: ThresholdPrediction[];
-	predictions: SoilTempPrediction[];
 	currentSoilTemp: number | null;
-}
-
-// A Falling crossing is only "meaningful" if the forecast stays below the
-// threshold at the end of the window. Otherwise it's a transient dip and
-// shouldn't replace the next agronomic milestone as the headline.
-function isMeaningfulCrossing(
-	crossing: ThresholdPrediction,
-	predictions: SoilTempPrediction[],
-): boolean {
-	if (crossing.direction === "Rising") return true;
-	if (predictions.length === 0) return true;
-	const last = predictions[predictions.length - 1];
-	return last.predicted_soil_temp_f < crossing.threshold_temp_f;
 }
 
 /** "~12d", or "Later" for an approach the forecast does not reach. */
@@ -34,16 +21,11 @@ function describeCrossing(c: ThresholdPrediction): string {
 		: `until soil drops below ${c.threshold_temp_f}°F`;
 }
 
-// @spec WX-OUTLOOK-UI-002
+// @spec WX-OUTLOOK-UI-002, UI-TYPE-004
 export default function SoilTempForecastWidget({
-	crossings,
-	predictions,
+	crossings: upcoming,
 	currentSoilTemp,
 }: SoilTempForecastWidgetProps) {
-	const upcoming = crossings.filter(
-		(c) => c.days_until_crossing > 0 && isMeaningfulCrossing(c, predictions),
-	);
-
 	if (upcoming.length === 0) {
 		return (
 			<div style={styles.card}>

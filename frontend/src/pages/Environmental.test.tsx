@@ -207,7 +207,7 @@ describe("Environmental page content", () => {
 		expect(card).toHaveTextContent("↓ 65°F");
 		expect(card).toHaveTextContent("~3 days (Oct 14)");
 		expect(screen.getByText(/^Model:/)).toHaveTextContent(
-			/=0\.82, lag=2d, quality=Good/,
+			"Model: R²=0.82, lag=2d, quality=Good",
 		);
 	});
 });

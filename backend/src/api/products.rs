@@ -101,7 +101,8 @@ pub async fn create_product(
     ensure_name_free(&state, lawn_profile_id, &name, None).await?;
 
     let (ai, assistant_failure) = match (req.assist.unwrap_or(true), state.openrouter.as_ref()) {
-        (true, Some(openrouter)) => {
+        // A turned-off assistant is never called; it answers like an absent one.
+        (true, Some(openrouter)) if openrouter.enabled() => {
             let lookup = lookup_name(req.brand.as_deref(), &name);
             match openrouter
                 .generate_product_profile(ProductProfileRequest {
@@ -123,6 +124,10 @@ pub async fn create_product(
         // @spec INV-API-005
         (true, None) if req.category.is_none() => {
             return Err(TurfOpsError::not_configured(Source::ProductAssistant));
+        }
+        // @spec INV-API-005
+        (true, Some(_)) if req.category.is_none() => {
+            return Err(TurfOpsError::disabled(Source::ProductAssistant));
         }
         _ => (None, None),
     };

@@ -4,7 +4,7 @@ Agronomic Rules — leaf segment `RULE` under the root HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-10-12 (git SHA `4505fbc`): every implemented spec was checked against the code while linking it. 75 of 76 implemented specs are linked to both code and a test; 1 disagree with the code (see Key Findings).
+**OK** — audited 2026-10-12 (git SHA `f2112e2`): every implemented spec was checked against the code while linking it. 76 of 76 implemented specs are linked to both code and a test.
 
 ## References
 
@@ -101,7 +101,7 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 
 | Facet | Spec IDs | Implemented | Deferred | Gaps | `@spec` in code | `@spec` in tests |
 |---|---|---|---|---|---|---|
-| ENG | RULE-ENG-001 – RULE-ENG-015 | 15 | 0 | 0 | 14 | 14 |
+| ENG | RULE-ENG-001 – RULE-ENG-015 | 15 | 0 | 0 | 15 | 15 |
 | SPRING | RULE-SPRING-001 – RULE-SPRING-010 | 10 | 0 | 0 | 10 | 10 |
 | BROAD | RULE-BROAD-001 – RULE-BROAD-004 | 4 | 0 | 0 | 4 | 4 |
 | GRUB | RULE-GRUB-001 – RULE-GRUB-006 | 6 | 0 | 0 | 6 | 6 |
@@ -112,19 +112,18 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | BUDGET | RULE-BUDGET-001 – RULE-BUDGET-005 | 5 | 0 | 0 | 5 | 5 |
 | GDD | RULE-GDD-001 – RULE-GDD-007 | 7 | 0 | 0 | 7 | 7 |
 | UI | RULE-UI-001 – RULE-UI-002 | 2 | 0 | 0 | 2 | 2 |
-| **Total** | | **76** | **1** | **0** | **75** | **75** |
+| **Total** | | **76** | **1** | **0** | **76** | **76** |
 
-**Summary:** 76 of 76 active specs implemented; 1 deferred; 75 implemented specs cited by a test, 1 cited nowhere.
+**Summary:** 76 of 76 active specs implemented; 1 deferred; 76 implemented specs cited by a test, 0 cited nowhere.
 
 ## Key Findings
 
-1. **Spec ≠ code — RULE-ENG-007:** broadleaf herbicide actions never defer to the label (`logic/rules/broadleaf_herbicide.rs:147-151, 195-200`); grub control does.
-2. **Deferred:** RULE-GUARD-005.
+1. **Deferred:** RULE-GUARD-005.
 
 ## Work Required
 
 ### Must Fix
-- Decide RULE-ENG-007: fix the code or correct the spec, then link it.
+- None.
 
 ### Should Fix
 - None.

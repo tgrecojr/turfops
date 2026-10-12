@@ -66,7 +66,7 @@ function SoilTooltip({
 	);
 }
 
-// @spec TIME-UI-006
+// @spec TIME-UI-006, UI-CONV-004
 /** 5 cm soil temperature (5-day mean): this year vs last year vs the typical year. */
 export default function SoilSeasonChart({
 	series,
@@ -238,6 +238,12 @@ export default function SoilSeasonChart({
 					/>
 					Typical year
 				</span>
+				{todayLabel && (
+					<span style={styles.legendItem}>
+						<span style={styles.todayKey} />
+						Today
+					</span>
+				)}
 			</div>
 
 			<SoilSeasonTable rows={rows} />
@@ -248,6 +254,12 @@ export default function SoilSeasonChart({
 const styles: Record<string, React.CSSProperties> = {
 	empty: { fontSize: "0.85rem", color: "#a0aec0", padding: "1rem 0" },
 	toolbar: { display: "flex", justifyContent: "flex-end", marginBottom: 4 },
+	todayKey: {
+		display: "inline-block",
+		height: 10,
+		borderLeft: "2px solid #2d3748",
+		marginRight: 4,
+	},
 	toggle: {
 		fontSize: "0.75rem",
 		color: "#2d3748",

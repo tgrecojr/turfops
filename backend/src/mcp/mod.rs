@@ -49,7 +49,7 @@ pub struct TurfOpsMcp {
 
 impl TurfOpsMcp {
     /// Every tool, from the per-area routers in `tools/`.
-    // @spec MCP-TOOL-001, MCP-TOOL-003, MCP-SRV-004
+    // @spec MCP-TOOL-001, MCP-TOOL-003, MCP-SRV-004, MCP-SRV-005
     fn tools() -> ToolRouter<Self> {
         Self::lawn_tools()
             + Self::season_tools()
@@ -221,6 +221,29 @@ mod tests {
                 tool.name
             );
         }
+    }
+
+    // @spec MCP-SRV-005
+    #[test]
+    fn every_tool_description_says_when_to_call_it() {
+        const CUES: [&str; 6] = [
+            "CALL FIRST",
+            "Use for ",
+            "Use when ",
+            "Use to ",
+            "Use before ",
+            "Check this before ",
+        ];
+        let silent: Vec<String> = TurfOpsMcp::tools()
+            .list_all()
+            .into_iter()
+            .filter(|t| {
+                let description = t.description.as_deref().unwrap_or_default();
+                !CUES.iter().any(|cue| description.contains(cue))
+            })
+            .map(|t| t.name.to_string())
+            .collect();
+        assert!(silent.is_empty(), "no when-to-call cue: {silent:?}");
     }
 
     // @spec MCP-TOOL-001

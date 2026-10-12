@@ -46,6 +46,7 @@ async fn reading_a_plant_returns_it_or_404(pool: PgPool) {
     assert_eq!(status(err), StatusCode::NOT_FOUND);
 }
 
+// @spec PLANT-API-009
 #[sqlx::test(migrations = "src/db/migrations")]
 async fn an_edit_changes_only_the_given_fields_and_never_the_plan(pool: PgPool) {
     let id = saved_plant(&pool, profile(&pool, "7a").await, "Boxwood").await;
@@ -77,6 +78,38 @@ async fn an_edit_changes_only_the_given_fields_and_never_the_plan(pool: PgPool) 
         after.maintenance_plan.summary,
         before.maintenance_plan.summary
     );
+}
+
+// @spec PLANT-API-009
+#[sqlx::test(migrations = "src/db/migrations")]
+async fn a_null_clears_the_optional_fields(pool: PgPool) {
+    let id = saved_plant(&pool, profile(&pool, "7a").await, "Boxwood").await;
+    let state = state(pool, None).await;
+    let filled = json!({
+        "scientific_name": "Buxus sempervirens",
+        "location": "front walk",
+        "planting_date": "2023-05-01",
+        "notes": "moved in 2023"
+    });
+    let Json(set) = update_plant(State(state.clone()), Path(id), edit(filled))
+        .await
+        .unwrap();
+    assert_eq!(set.location.as_deref(), Some("front walk"));
+
+    let cleared = json!({
+        "scientific_name": null,
+        "location": null,
+        "planting_date": null,
+        "notes": null
+    });
+    let Json(after) = update_plant(State(state), Path(id), edit(cleared))
+        .await
+        .unwrap();
+    assert_eq!(after.scientific_name, None);
+    assert_eq!(after.location, None);
+    assert_eq!(after.planting_date, None);
+    assert_eq!(after.notes, None);
+    assert_eq!(after.common_name, "Boxwood", "absent is still kept");
 }
 
 // @spec PLANT-API-010

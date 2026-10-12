@@ -4,7 +4,7 @@ Landscape Plants — leaf segment `PLANT` under the root HLD.
 
 ## Status
 
-**PARTIAL** — audited 2026-10-12 (git SHA `4505fbc`): every implemented spec was checked against the code while linking it. 76 of 79 implemented specs are linked to both code and a test; 3 disagree with the code (see Key Findings).
+**OK** — audited 2026-10-12 (git SHA `f2112e2`): every implemented spec was checked against the code while linking it. 79 of 79 implemented specs are linked to both code and a test.
 
 ## References
 
@@ -24,6 +24,7 @@ Landscape Plants — leaf segment `PLANT` under the root HLD.
 - [backend/src/api/plants/db_crud_tests.rs](../../backend/src/api/plants/db_crud_tests.rs)
 - [backend/src/api/plants/db_tests.rs](../../backend/src/api/plants/db_tests.rs)
 - [backend/src/api/plants/tests.rs](../../backend/src/api/plants/tests.rs)
+- [backend/src/datasources/openrouter/build_tests.rs](../../backend/src/datasources/openrouter/build_tests.rs)
 - [backend/src/datasources/openrouter/client_tests.rs](../../backend/src/datasources/openrouter/client_tests.rs)
 - [backend/src/datasources/openrouter/prompt_spec_tests.rs](../../backend/src/datasources/openrouter/prompt_spec_tests.rs)
 - [backend/src/db/plant_queries/row_tests.rs](../../backend/src/db/plant_queries/row_tests.rs)
@@ -85,30 +86,26 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | Facet | Spec IDs | Implemented | Deferred | Gaps | `@spec` in code | `@spec` in tests |
 |---|---|---|---|---|---|---|
 | DATA | PLANT-DATA-001 – PLANT-DATA-007 | 7 | 0 | 0 | 7 | 7 |
-| API | PLANT-API-001 – PLANT-API-013 | 13 | 0 | 0 | 12 | 12 |
-| AI | PLANT-AI-001 – PLANT-AI-010 | 10 | 0 | 0 | 8 | 9 |
+| API | PLANT-API-001 – PLANT-API-013 | 13 | 0 | 0 | 13 | 13 |
+| AI | PLANT-AI-001 – PLANT-AI-010 | 10 | 0 | 0 | 10 | 10 |
 | PROMPT | PLANT-PROMPT-001 – PLANT-PROMPT-009 | 9 | 0 | 0 | 9 | 9 |
 | WIN | PLANT-WIN-001 – PLANT-WIN-007 | 7 | 0 | 0 | 7 | 7 |
 | REC | PLANT-REC-001 – PLANT-REC-008 | 8 | 0 | 0 | 8 | 8 |
 | WATER | PLANT-WATER-001 – PLANT-WATER-007 | 7 | 0 | 0 | 7 | 7 |
 | PLAN | PLANT-PLAN-001 – PLANT-PLAN-005 | 5 | 0 | 0 | 5 | 5 |
 | UI | PLANT-UI-001 – PLANT-UI-013 | 13 | 0 | 0 | 13 | 13 |
-| **Total** | | **79** | **0** | **0** | **76** | **77** |
+| **Total** | | **79** | **0** | **0** | **79** | **79** |
 
-**Summary:** 79 of 79 active specs implemented; 0 deferred; 77 implemented specs cited by a test, 2 cited nowhere.
+**Summary:** 79 of 79 active specs implemented; 0 deferred; 79 implemented specs cited by a test, 0 cited nowhere.
 
 ## Key Findings
 
-1. **Spec ≠ code — PLANT-AI-001:** spec: enabled when unset or exactly "true", client built whenever the key is set; code: accepts true/1/yes in any case (`config/load.rs:115-116`, per DEPLOY-CONFIG-013) and `main.rs:84` builds the client only when enabled.
-2. **Spec ≠ code — PLANT-AI-008:** the "assistant is turned off" 503 exists (`error.rs`) but is unreachable: `main.rs:84` never builds a disabled client, so the app says "isn't configured … Set OPENROUTER_API_KEY".
-3. **Spec ≠ code — PLANT-API-009:** bug: JSON `null` in `PUT /plants/:id` should clear scientific name / location / planting date / notes; `Option<Option<String>>` without a double-option deserializer reads null as unchanged (`api/plants.rs:107-111`), so clearing from the edit form never works.
+1. No findings.
 
 ## Work Required
 
 ### Must Fix
-- Decide PLANT-AI-001: fix the code or correct the spec, then link it.
-- Decide PLANT-AI-008: fix the code or correct the spec, then link it.
-- Decide PLANT-API-009: fix the code or correct the spec, then link it.
+- None.
 
 ### Should Fix
 - None.

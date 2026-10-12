@@ -289,7 +289,6 @@ export default function Dashboard() {
 						{(d) => (
 							<SoilTempForecastWidget
 								crossings={d.threshold_crossings}
-								predictions={d.predictions}
 								currentSoilTemp={current?.soil_temp_10_f ?? null}
 							/>
 						)}

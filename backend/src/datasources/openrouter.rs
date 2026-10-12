@@ -12,6 +12,8 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
 
 #[cfg(test)]
+mod build_tests;
+#[cfg(test)]
 mod client_tests;
 mod plant;
 mod product;
@@ -44,6 +46,18 @@ impl OpenRouterClient {
             .build()
             .expect("failed to build OpenRouter HTTP client");
         Self { client, config }
+    }
+
+    /// The shared client, whenever a key is configured. A turned-off client is still built:
+    /// it answers every request with the "turned off" 503 instead of calling out.
+    // @spec PLANT-AI-001
+    pub fn from_config(config: Option<&OpenRouterConfig>) -> Option<Self> {
+        config.map(|c| Self::new(c.clone()))
+    }
+
+    /// Whether `OPENROUTER_ENABLED` lets this client call out.
+    pub fn enabled(&self) -> bool {
+        self.config.enabled
     }
 
     pub fn model(&self) -> &str {
@@ -90,6 +104,7 @@ impl OpenRouterClient {
         schema: serde_json::Value,
         temperature: f64,
     ) -> Result<T> {
+        // @spec PLANT-AI-008
         if !self.config.enabled {
             return Err(TurfOpsError::disabled(Source::PlanAssistant));
         }

@@ -22,6 +22,7 @@ The "10 cm outlook" is this leaf's projection of station 10 cm soil temperature 
 - [x] **WX-OUTLOOK-CROSS-003**: When no crossing is found but the soil is below a threshold that is not falling-only, within 5°F of it, and the last prediction is warmer than now, the 10 cm outlook shall add an approaching rising crossing at Low confidence, dated by linear extrapolation over the forecast span.
 - [x] **WX-OUTLOOK-CROSS-005**: When an approaching crossing's extrapolated date falls beyond the last forecast day, the 10 cm outlook shall give it no date and describe it as beyond the forecast.
 - [x] **WX-OUTLOOK-CROSS-004**: The 10 cm outlook shall sort crossings by days until crossing.
+- [x] **WX-OUTLOOK-CROSS-006**: When the 10 cm outlook finds a falling crossing, it shall announce it only if the last prediction is still below the threshold, so a dip that recovers within the forecast is announced nowhere (Environmental page, dashboard, MCP).
 
 ## Endpoint
 
@@ -32,6 +33,6 @@ The "10 cm outlook" is this leaf's projection of station 10 cm soil temperature 
 ## UI
 
 - [x] **WX-OUTLOOK-UI-001**: The prediction chart on the Environmental page shall plot recent 10 cm history as a solid line and the predictions dashed at local noon, joined by a bridge point, with reference lines at 60°F (Grub Control) and 75°F (Heat Stress), and below it crossing cards (direction arrow, temperature, "~N days (date)", a confidence badge with its label) and the model line (R², lag, quality).
-- [x] **WX-OUTLOOK-UI-002**: The dashboard soil outlook widget shall consider crossings more than 0 days out, count a falling crossing only while the last prediction is still below the threshold, headline the nearest remaining crossing ("~Nd until soil reaches / drops below X°F", threshold name, estimated date, confidence badge) followed by up to two more, and otherwise show "Current: X°F — No threshold crossings predicted".
+- [x] **WX-OUTLOOK-UI-002**: The dashboard soil outlook widget shall headline the nearest crossing the outlook returns ("~Nd until soil reaches / drops below X°F", threshold name, estimated date, confidence badge) followed by up to two more, and otherwise show "Current: X°F — No threshold crossings predicted"; it shall show the crossings as returned, without filtering or re-judging them.
 - [x] **WX-OUTLOOK-UI-003**: If the soil outlook is unavailable, then the Environmental page shall hide the prediction section and the dashboard shall not render the widget.
 - [x] **WX-OUTLOOK-UI-004**: The prediction chart shall plot the last 7 days of 10 cm history as its recent line, whatever range the Environmental page's trend selector shows.

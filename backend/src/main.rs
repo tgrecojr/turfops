@@ -80,14 +80,11 @@ async fn main() -> anyhow::Result<()> {
     let sync_service = DataSyncService::initialize(&config, pool.clone()).await;
 
     // Initialize OpenRouter client (optional, used for plant maintenance plans)
-    let openrouter = config
-        .openrouter
-        .as_ref()
-        .filter(|c| c.enabled && !c.api_key.is_empty())
-        .map(|c| {
-            tracing::info!(model = %c.model, "OpenRouter client configured for plant plans and product profiles");
-            OpenRouterClient::new(c.clone())
-        });
+    // @spec PLANT-AI-001, DEPLOY-CONFIG-004
+    let openrouter = OpenRouterClient::from_config(config.openrouter.as_ref());
+    if let Some(c) = &openrouter {
+        tracing::info!(model = %c.model(), enabled = c.enabled(), "OpenRouter client configured for plant plans and product profiles");
+    }
     if openrouter.is_none() {
         tracing::info!("OpenRouter not configured — plant plans and product profiles unavailable");
     }

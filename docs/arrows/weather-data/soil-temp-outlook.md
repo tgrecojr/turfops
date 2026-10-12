@@ -4,7 +4,7 @@ Soil-Temperature Outlook — leaf segment `WX-OUTLOOK` under the `weather-data` 
 
 ## Status
 
-**OK** — audited 2026-10-12 (git SHA `4505fbc`): every implemented spec was checked against the code while linking it. 20 of 20 implemented specs are linked to both code and a test.
+**OK** — audited 2026-10-12 (git SHA `f2112e2`): every implemented spec was checked against the code while linking it. 21 of 21 implemented specs are linked to both code and a test.
 
 ## References
 
@@ -16,7 +16,7 @@ Soil-Temperature Outlook — leaf segment `WX-OUTLOOK` under the `weather-data` 
 - [docs/intent/weather-data/soil-temp-outlook/soil-temp-outlook-design.md](../../../docs/intent/weather-data/soil-temp-outlook/soil-temp-outlook-design.md)
 
 ### EARS
-- [docs/intent/weather-data/soil-temp-outlook/soil-temp-outlook-specs.md](../../../docs/intent/weather-data/soil-temp-outlook/soil-temp-outlook-specs.md) (20 specs, prefix `WX-OUTLOOK`)
+- [docs/intent/weather-data/soil-temp-outlook/soil-temp-outlook-specs.md](../../../docs/intent/weather-data/soil-temp-outlook/soil-temp-outlook-specs.md) (21 specs, prefix `WX-OUTLOOK`)
 
 ### Related docs
 - [docs/agronomy-methods.md](../../../docs/agronomy-methods.md)
@@ -25,6 +25,7 @@ Soil-Temperature Outlook — leaf segment `WX-OUTLOOK` under the `weather-data` 
 ### Tests
 - [backend/src/api/soil_temp_prediction/tests.rs](../../../backend/src/api/soil_temp_prediction/tests.rs)
 - [backend/src/logic/soil_temp_prediction/crossing_tests.rs](../../../backend/src/logic/soil_temp_prediction/crossing_tests.rs)
+- [backend/src/logic/soil_temp_prediction/dip_tests.rs](../../../backend/src/logic/soil_temp_prediction/dip_tests.rs)
 - [backend/src/logic/soil_temp_prediction/model_tests.rs](../../../backend/src/logic/soil_temp_prediction/model_tests.rs)
 - [backend/src/logic/soil_temp_prediction/outlook_tests.rs](../../../backend/src/logic/soil_temp_prediction/outlook_tests.rs)
 - [backend/src/logic/soil_temp_prediction/tests.rs](../../../backend/src/logic/soil_temp_prediction/tests.rs)
@@ -65,12 +66,12 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | Facet | Spec IDs | Implemented | Deferred | Gaps | `@spec` in code | `@spec` in tests |
 |---|---|---|---|---|---|---|
 | MODEL | WX-OUTLOOK-MODEL-001 – WX-OUTLOOK-MODEL-008 | 8 | 0 | 0 | 8 | 8 |
-| CROSS | WX-OUTLOOK-CROSS-001 – WX-OUTLOOK-CROSS-005 | 5 | 0 | 0 | 5 | 5 |
+| CROSS | WX-OUTLOOK-CROSS-001 – WX-OUTLOOK-CROSS-006 | 6 | 0 | 0 | 6 | 6 |
 | API | WX-OUTLOOK-API-001 – WX-OUTLOOK-API-003 | 3 | 0 | 0 | 3 | 3 |
 | UI | WX-OUTLOOK-UI-001 – WX-OUTLOOK-UI-004 | 4 | 0 | 0 | 4 | 4 |
-| **Total** | | **20** | **0** | **0** | **20** | **20** |
+| **Total** | | **21** | **0** | **0** | **21** | **21** |
 
-**Summary:** 20 of 20 active specs implemented; 0 deferred; 20 implemented specs cited by a test, 0 cited nowhere.
+**Summary:** 21 of 21 active specs implemented; 0 deferred; 21 implemented specs cited by a test, 0 cited nowhere.
 
 ## Key Findings
 

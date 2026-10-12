@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -70,6 +70,19 @@ describe("SoilSeasonChart", () => {
 		expect(line("last_year")).toMatchObject({ stroke: "#eb6834", dash: "" });
 		expect(line("typical").stroke).toBe("#718096");
 		expect(line("typical").dash).not.toBe("");
+	});
+
+	// @spec UI-CONV-004
+	it("explains the Today marker in the legend", () => {
+		render(<SoilSeasonChart series={fallSeries()} today="2026-09-20" />);
+		const legend = screen
+			.getAllByText("Typical year")
+			.map((key) => key.parentElement as HTMLElement)
+			.find((row) => within(row).queryByText("Last year"));
+		expect(legend).toBeDefined();
+		expect(
+			within(legend as HTMLElement).getByText("Today"),
+		).toBeInTheDocument();
 	});
 
 	it("joins the forecast to the last observed day", () => {

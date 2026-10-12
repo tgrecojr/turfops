@@ -36,7 +36,7 @@ fn startup_runs_logging_config_database_profile_clients_router_then_bind() {
         "create_pool(",
         "ensure_default_profile(&pool, &config).await?",
         "DataSyncService::initialize(",
-        "OpenRouterClient::new(",
+        "OpenRouterClient::from_config(",
         "Router::new()",
         "TcpListener::bind(addr).await?",
     ];
@@ -84,10 +84,12 @@ fn only_the_dev_env_build_loads_a_dotenv_file() {
 
 // @spec DEPLOY-CONFIG-004
 #[test]
-fn the_openrouter_client_needs_a_key_and_the_flag() {
-    let filter = position(".filter(|c| c.enabled && !c.api_key.is_empty())");
-    assert!(position("config\n        .openrouter") < filter);
-    assert!(filter < position("OpenRouterClient::new(c.clone())"));
+fn the_openrouter_client_needs_only_a_key() {
+    position("OpenRouterClient::from_config(config.openrouter.as_ref())");
+    assert!(
+        !main_body().contains("c.enabled &&"),
+        "a turned-off client is still built; it answers with the turned-off 503"
+    );
 }
 
 /// Everything logged through the returned guard's subscriber.
