@@ -127,6 +127,7 @@ fn default_openrouter_base_url() -> String {
     "https://openrouter.ai/api/v1".to_string()
 }
 
+// @spec PLANT-AI-009
 impl std::fmt::Debug for OpenRouterConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("OpenRouterConfig")

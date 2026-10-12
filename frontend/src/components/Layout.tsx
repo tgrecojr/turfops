@@ -5,6 +5,7 @@ const NAV_ITEMS = [
 	{ to: "/", label: "Dashboard" },
 	{ to: "/applications", label: "Applications" },
 	{ to: "/inventory", label: "Inventory" },
+	// @spec PLANT-UI-001
 	{ to: "/landscape", label: "Landscape" },
 	{ to: "/calendar", label: "Calendar" },
 	{ to: "/environmental", label: "Environmental" },

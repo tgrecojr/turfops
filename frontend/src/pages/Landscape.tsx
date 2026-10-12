@@ -17,6 +17,7 @@ import {
 } from "../types";
 import { formatMmDd, formatTimestampDate } from "../utils/dates";
 
+// @spec PLANT-UI-002, PLANT-UI-005, PLANT-UI-006, PLANT-UI-008, PLANT-UI-009
 export default function Landscape() {
 	const [plants, setPlants] = useState<Plant[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -166,6 +167,7 @@ export default function Landscape() {
 	);
 }
 
+// @spec PLANT-UI-006, PLANT-UI-007
 function PlantRow({
 	plant,
 	expanded,
@@ -327,6 +329,7 @@ function PlantRow({
 	);
 }
 
+// @spec PLANT-UI-007
 function TaskRow({ task }: { task: MaintenanceTask }) {
 	return (
 		<li style={styles.taskRow}>
@@ -346,6 +349,7 @@ function TaskRow({ task }: { task: MaintenanceTask }) {
 	);
 }
 
+// @spec PLANT-UI-003, PLANT-UI-004
 function AddPlantForm({
 	onCreated,
 	onError,
