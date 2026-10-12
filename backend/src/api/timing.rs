@@ -1,5 +1,5 @@
 #[cfg(all(test, feature = "db-tests"))]
-mod db_harness;
+pub(crate) mod db_harness;
 #[cfg(all(test, feature = "db-tests"))]
 mod handler_tests;
 #[cfg(all(test, feature = "db-tests"))]

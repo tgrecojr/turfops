@@ -77,8 +77,12 @@ fn next_hours_keeps_the_current_slot_and_stops_at_the_horizon() {
         vec![slot(-1, 0.0, 0.0), slot(2, 0.0, 0.0), slot(5, 0.0, 0.0)],
         vec![],
     );
-    assert_eq!(f.next_hours(3).len(), 2, "the slot under way counts");
-    assert_eq!(f.next_hours(6).len(), 3);
+    assert_eq!(
+        f.next_hours(chrono::Utc::now(), 3).len(),
+        2,
+        "the slot under way counts"
+    );
+    assert_eq!(f.next_hours(chrono::Utc::now(), 6).len(), 3);
 }
 
 // @spec WX-SRC-OWM-004
@@ -88,17 +92,27 @@ fn rain_is_expected_on_enough_total_or_a_likely_slot() {
         vec![slot(-1, 2.0, 0.1), slot(2, 1.0, 0.1), slot(30, 9.0, 0.9)],
         vec![],
     );
-    let rain = wet.rain_expected_within(24, 3.0).expect("3 mm in 24 h");
+    let rain = wet
+        .rain_expected_within(chrono::Utc::now(), 24, 3.0)
+        .expect("3 mm in 24 h");
     assert_eq!(rain.expected_mm, 3.0);
     assert!(
-        wet.rain_expected_within(24, 3.5).is_none(),
+        wet.rain_expected_within(chrono::Utc::now(), 24, 3.5)
+            .is_none(),
         "the 30 h slot is out"
     );
 
     let likely = forecast(vec![slot(1, 0.0, 0.5)], vec![]);
-    assert!(likely.rain_expected_within(24, 5.0).is_some(), "pop ≥ 0.5");
+    assert!(
+        likely
+            .rain_expected_within(chrono::Utc::now(), 24, 5.0)
+            .is_some(),
+        "pop ≥ 0.5"
+    );
     let unlikely = forecast(vec![slot(1, 0.0, 0.49)], vec![]);
-    assert!(unlikely.rain_expected_within(24, 5.0).is_none());
+    assert!(unlikely
+        .rain_expected_within(chrono::Utc::now(), 24, 5.0)
+        .is_none());
 }
 
 // @spec WX-SRC-OWM-004

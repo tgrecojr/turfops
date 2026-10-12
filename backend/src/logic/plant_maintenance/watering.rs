@@ -9,6 +9,7 @@ use crate::logic::rules::thresholds::{
     PRECIP_HEAVY_7DAY_MM, PRECIP_TRACE_MM, SOIL_MOISTURE_ADEQUATE,
 };
 use crate::models::{DataSource, EnvironmentalSummary, Recommendation};
+use chrono::{DateTime, Utc};
 
 /// How far ahead forecast rain relieves a watering reminder.
 pub const RAIN_FORECAST_HOURS: u32 = 48;
@@ -26,11 +27,11 @@ pub struct WaterSignals {
 
 impl WaterSignals {
     // @spec PLANT-WATER-001, PLANT-WATER-003
-    pub fn from_env(env: &EnvironmentalSummary) -> Self {
+    pub fn from_env(env: &EnvironmentalSummary, now: DateTime<Utc>) -> Self {
         Self {
             recent_rain_mm: env.precipitation_7day_total_mm,
             forecast_rain_mm: env.forecast.as_ref().map(|f| {
-                f.next_hours(RAIN_FORECAST_HOURS)
+                f.next_hours(now, RAIN_FORECAST_HOURS)
                     .iter()
                     .map(|p| p.precipitation_mm)
                     .sum()
@@ -147,14 +148,17 @@ mod tests {
     #[test]
     fn no_data_is_a_dry_spell() {
         assert_eq!(
-            WaterSignals::from_env(&EnvironmentalSummary::default()).wet_reason(),
+            WaterSignals::from_env(&EnvironmentalSummary::default(), Utc::now()).wet_reason(),
             None
         );
     }
 
     #[test]
     fn a_genuinely_dry_week_keeps_the_reminder() {
-        let s = WaterSignals::from_env(&env(Some(3.0), Some(&[0.0, 0.5, 0.0]), Some(0.12)));
+        let s = WaterSignals::from_env(
+            &env(Some(3.0), Some(&[0.0, 0.5, 0.0]), Some(0.12)),
+            Utc::now(),
+        );
         assert_eq!(s.wet_reason(), None);
     }
 
@@ -162,27 +166,30 @@ mod tests {
     #[test]
     fn rain_falling_now_or_forecast_relieves_it() {
         // 0.46" in the current + next slots, like the rain-delay alert that fired beside it.
-        let s = WaterSignals::from_env(&env(Some(0.0), Some(&[6.0, 5.7, 0.0]), Some(0.12)));
+        let s = WaterSignals::from_env(
+            &env(Some(0.0), Some(&[6.0, 5.7, 0.0]), Some(0.12)),
+            Utc::now(),
+        );
         assert!(s.wet_reason().unwrap().contains("forecast"));
     }
 
     // @spec PLANT-WATER-002
     #[test]
     fn a_wet_week_in_the_lake_relieves_it() {
-        let s = WaterSignals::from_env(&env(Some(30.0), Some(&[0.0]), Some(0.12)));
+        let s = WaterSignals::from_env(&env(Some(30.0), Some(&[0.0]), Some(0.12)), Utc::now());
         assert!(s.wet_reason().unwrap().contains("last 7 days"));
     }
 
     // @spec PLANT-WATER-003
     #[test]
     fn adequate_soil_moisture_relieves_it() {
-        let s = WaterSignals::from_env(&env(Some(0.0), Some(&[0.0]), Some(0.25)));
+        let s = WaterSignals::from_env(&env(Some(0.0), Some(&[0.0]), Some(0.25)), Utc::now());
         assert!(s.wet_reason().unwrap().contains("adequate"));
     }
 
     #[test]
     fn a_trace_does_not_count() {
-        let s = WaterSignals::from_env(&env(Some(10.0), Some(&[1.0, 1.0]), None));
+        let s = WaterSignals::from_env(&env(Some(10.0), Some(&[1.0, 1.0]), None), Utc::now());
         assert_eq!(s.wet_reason(), None);
     }
 }

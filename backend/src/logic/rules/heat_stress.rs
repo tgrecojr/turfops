@@ -1,5 +1,6 @@
 use super::thresholds::*;
 use super::Rule;
+use crate::clock::Moment;
 use crate::models::{
     Application, DataSource, EnvironmentalSummary, LawnProfile, Recommendation,
     RecommendationCategory, Severity,
@@ -25,6 +26,7 @@ impl Rule for HeatStressRule {
         env: &EnvironmentalSummary,
         profile: &LawnProfile,
         _history: &[Application],
+        at: Moment,
     ) -> Option<Recommendation> {
         // Only relevant for cool-season grasses
         if !profile.grass_type.is_cool_season() {
@@ -33,7 +35,7 @@ impl Rule for HeatStressRule {
 
         let forecast = env.forecast.as_ref()?;
         // @spec RULE-ENG-005
-        let today = chrono::Local::now().date_naive();
+        let today = at.today;
 
         // Find max temp in next 3 days
         let max_temp = forecast.max_temp_next_days(today, 3)?;

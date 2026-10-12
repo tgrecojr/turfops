@@ -75,7 +75,7 @@ A "tool error" below is an MCP tool result with `isError: true` and one text blo
 ## weather_history
 
 - [x] **MCP-HIST-001**: The MCP `weather_history` tool shall cover the last `days` days (default 30, clamped to 1–120).
-- [x] **MCP-HIST-002**: The MCP `weather_history` tool shall start its window at the server's local date (`chrono::Local`, governed by `TZ`) minus `days`, and shall report that start date as `start`.
+- [x] **MCP-HIST-002**: The MCP `weather_history` tool shall start its window at the server's local date (the app clock, governed by `TZ`) minus `days`, and shall report that start date as `start`.
 - [x] **MCP-HIST-003**: The MCP `weather_history` tool shall build its rows from the lake's silver hourly data aggregated per local day and the memoized 15-year climate record, never from `GET /api/v1/historical` (whose chart downsampling makes daily rain sums wrong), with one row per date on or after `start` that either source has, in ascending date order.
 - [x] **MCP-HIST-004**: Each MCP `weather_history` row shall carry `date`, `air_mean_f`, `air_min_f` and `air_max_f` (silver, °F, 0.1), `rh_mean_pct` (silver, 0.1), `rain_in` (silver mm ÷ 25.4, 0.01), `hours_observed` (silver hours covered), and `soil_5cm_f` and `gdd50` (climate record, 0.1), each `null` when its source has no value for that day.
 - [x] **MCP-HIST-005**: When silver has no row for a day, the MCP `weather_history` tool shall fill that day's `air_mean_f` and `air_min_f` from the climate record's gold air values.

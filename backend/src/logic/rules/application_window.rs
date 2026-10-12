@@ -1,5 +1,6 @@
 use super::thresholds::*;
 use super::Rule;
+use crate::clock::Moment;
 use crate::models::{
     Application, DataSource, EnvironmentalSummary, LawnProfile, Recommendation,
     RecommendationCategory, Severity,
@@ -24,6 +25,7 @@ impl Rule for ApplicationWindowRule {
         env: &EnvironmentalSummary,
         _profile: &LawnProfile,
         _history: &[Application],
+        _at: Moment,
     ) -> Option<Recommendation> {
         let forecast = env.forecast.as_ref()?;
 

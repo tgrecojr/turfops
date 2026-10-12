@@ -4,7 +4,7 @@ Agronomic Rules — leaf segment `RULE` under the root HLD.
 
 ## Status
 
-**OK** — audited 2026-10-12 (git SHA `f2112e2`): every implemented spec was checked against the code while linking it. 76 of 76 implemented specs are linked to both code and a test.
+**OK** — audited 2026-10-12 (git SHA `d99ce09`): every implemented spec was checked against the code while linking it. 76 of 76 implemented specs are linked to both code and a test.
 
 ## References
 
@@ -30,6 +30,7 @@ Agronomic Rules — leaf segment `RULE` under the root HLD.
 - [backend/src/logic/rules/fall_fertilization/rule_tests.rs](../../backend/src/logic/rules/fall_fertilization/rule_tests.rs)
 - [backend/src/logic/rules/forecast_rule_tests.rs](../../backend/src/logic/rules/forecast_rule_tests.rs)
 - [backend/src/logic/rules/grub_control/rule_tests.rs](../../backend/src/logic/rules/grub_control/rule_tests.rs)
+- [backend/src/logic/rules/moment_tests.rs](../../backend/src/logic/rules/moment_tests.rs)
 - [backend/src/logic/rules/nitrogen_guard/rule_tests.rs](../../backend/src/logic/rules/nitrogen_guard/rule_tests.rs)
 - [backend/src/logic/rules/plan_state/tests.rs](../../backend/src/logic/rules/plan_state/tests.rs)
 - [backend/src/logic/rules/plan_state/window_tests.rs](../../backend/src/logic/rules/plan_state/window_tests.rs)

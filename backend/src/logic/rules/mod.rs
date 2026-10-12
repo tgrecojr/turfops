@@ -18,6 +18,8 @@ mod engine_tests;
 #[cfg(test)]
 mod forecast_rule_tests;
 #[cfg(test)]
+mod moment_tests;
+#[cfg(test)]
 mod rain_delay_tests;
 #[cfg(test)]
 pub(crate) mod test_fixtures;
@@ -26,10 +28,12 @@ mod weather_rule_tests;
 
 pub use engine::RulesEngine;
 
+use crate::clock::Moment;
 use crate::models::{Application, EnvironmentalSummary, LawnProfile, Recommendation};
 
-// @spec RULE-ENG-001, RULE-ENG-003
-/// Trait for agronomic rules
+// @spec RULE-ENG-001, RULE-ENG-003, RULE-ENG-005
+/// Trait for agronomic rules: a pure function of its inputs, judged at `at` (the caller's
+/// one reading of the app clock). A rule reads no clock of its own.
 pub trait Rule: Send + Sync {
     /// Evaluate the rule and return a recommendation if conditions are met
     fn evaluate(
@@ -37,5 +41,6 @@ pub trait Rule: Send + Sync {
         env: &EnvironmentalSummary,
         profile: &LawnProfile,
         history: &[Application],
+        at: Moment,
     ) -> Option<Recommendation>;
 }

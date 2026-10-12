@@ -4,7 +4,7 @@ Data Sync — leaf segment `SYNC` under the root HLD.
 
 ## Status
 
-**OK** — audited 2026-10-12 (git SHA `f2112e2`): every implemented spec was checked against the code while linking it. 31 of 31 implemented specs are linked to both code and a test.
+**OK** — audited 2026-10-12 (git SHA `d99ce09`): every implemented spec was checked against the code while linking it. 32 of 32 implemented specs are linked to both code and a test.
 
 ## References
 
@@ -15,12 +15,13 @@ Data Sync — leaf segment `SYNC` under the root HLD.
 - [docs/intent/data-sync/data-sync-design.md](../../docs/intent/data-sync/data-sync-design.md)
 
 ### EARS
-- [docs/intent/data-sync/data-sync-specs.md](../../docs/intent/data-sync/data-sync-specs.md) (31 specs, prefix `SYNC`)
+- [docs/intent/data-sync/data-sync-specs.md](../../docs/intent/data-sync/data-sync-specs.md) (32 specs, prefix `SYNC`)
 
 ### Tests
 - [backend/src/api/health/db_tests.rs](../../backend/src/api/health/db_tests.rs)
 - [backend/src/api/health/tests.rs](../../backend/src/api/health/tests.rs)
 - [backend/src/api/timing/memo_tests.rs](../../backend/src/api/timing/memo_tests.rs)
+- [backend/src/logic/data_sync/clock_tests.rs](../../backend/src/logic/data_sync/clock_tests.rs)
 - [backend/src/logic/data_sync/db_tests.rs](../../backend/src/logic/data_sync/db_tests.rs)
 - [backend/src/logic/data_sync/memo_slot_tests.rs](../../backend/src/logic/data_sync/memo_slot_tests.rs)
 - [backend/src/logic/data_sync/refresh_callers_tests.rs](../../backend/src/logic/data_sync/refresh_callers_tests.rs)
@@ -67,14 +68,14 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 
 | Facet | Spec IDs | Implemented | Deferred | Gaps | `@spec` in code | `@spec` in tests |
 |---|---|---|---|---|---|---|
-| REFRESH | SYNC-REFRESH-001 – SYNC-REFRESH-008 | 8 | 0 | 0 | 8 | 8 |
+| REFRESH | SYNC-REFRESH-001 – SYNC-REFRESH-009 | 9 | 0 | 0 | 9 | 9 |
 | MERGE | SYNC-MERGE-001 – SYNC-MERGE-006 | 6 | 0 | 0 | 6 | 6 |
 | FAIL | SYNC-FAIL-001 – SYNC-FAIL-009 | 9 | 0 | 0 | 9 | 9 |
 | CONN | SYNC-CONN-001 – SYNC-CONN-006 | 6 | 0 | 0 | 6 | 6 |
 | MEMO | SYNC-MEMO-001 – SYNC-MEMO-002 | 2 | 0 | 0 | 2 | 2 |
-| **Total** | | **31** | **0** | **0** | **31** | **31** |
+| **Total** | | **32** | **0** | **0** | **32** | **32** |
 
-**Summary:** 31 of 31 active specs implemented; 0 deferred; 31 implemented specs cited by a test, 0 cited nowhere.
+**Summary:** 32 of 32 active specs implemented; 0 deferred; 32 implemented specs cited by a test, 0 cited nowhere.
 
 ## Key Findings
 

@@ -3,8 +3,9 @@ mod recs;
 use self::recs::{build_early_fall_rec, build_late_fall_rec, build_mid_fall_rec};
 use super::thresholds::*;
 use super::Rule;
+use crate::clock::Moment;
 use crate::models::{Application, EnvironmentalSummary, LawnProfile, Recommendation};
-use chrono::{Datelike, Local, NaiveDate};
+use chrono::{Datelike, NaiveDate};
 
 /// Fall fertilization program rule
 ///
@@ -27,6 +28,7 @@ impl Rule for FallFertilizationRule {
         env: &EnvironmentalSummary,
         profile: &LawnProfile,
         history: &[Application],
+        at: Moment,
     ) -> Option<Recommendation> {
         // Only relevant for cool-season grasses
         if !profile.grass_type.is_cool_season() {
@@ -34,7 +36,7 @@ impl Rule for FallFertilizationRule {
         }
 
         // @spec RULE-ENG-005
-        let today = Local::now().date_naive();
+        let today = at.today;
         let current_year = today.year();
 
         // Define fall fertilization window (Sept 1 - Nov 30)

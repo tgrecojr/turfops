@@ -182,7 +182,7 @@ async fn the_week_summary_covers_the_168_hours_before_now() {
     let file = fixtures::silver(&rows);
 
     let s = fixtures::client(&file.path, "unused.parquet")
-        .fetch_summary()
+        .fetch_summary(chrono::Utc::now())
         .await
         .unwrap();
     assert_eq!(s.current.unwrap().soil_temp_10_f, Some(68.0));
@@ -206,7 +206,7 @@ async fn precipitation_stays_in_millimetres_through_the_backend() {
         ..hour(now - Duration::hours(1), Some(20.0))
     }]);
     let s = fixtures::client(&file.path, "unused.parquet")
-        .fetch_summary()
+        .fetch_summary(chrono::Utc::now())
         .await
         .unwrap();
     assert_eq!(s.current.as_ref().unwrap().precipitation_mm, Some(25.4));

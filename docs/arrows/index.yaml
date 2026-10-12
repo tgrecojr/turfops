@@ -31,7 +31,7 @@ arrows:
     children: [weather-sources, soil-temp-outlook, environmental-views]
     sampled: 2026-10-11
     audited: 2026-10-12
-    audited_sha: f2112e2
+    audited_sha: d99ce09
     blocks: []
     blockedBy: []
     detail: ../intent/weather-data/weather-data-design.md
@@ -42,7 +42,7 @@ arrows:
     parent: weather-data
     sampled: 2026-10-11
     audited: 2026-10-12
-    audited_sha: f2112e2
+    audited_sha: d99ce09
     blocks: []
     blockedBy: []
     detail: weather-data/weather-sources.md
@@ -53,7 +53,7 @@ arrows:
     parent: weather-data
     sampled: 2026-10-11
     audited: 2026-10-12
-    audited_sha: f2112e2
+    audited_sha: d99ce09
     blocks: []
     blockedBy: []
     detail: weather-data/soil-temp-outlook.md
@@ -64,7 +64,7 @@ arrows:
     parent: weather-data
     sampled: 2026-10-11
     audited: 2026-10-12
-    audited_sha: f2112e2
+    audited_sha: d99ce09
     blocks: []
     blockedBy: []
     detail: weather-data/environmental-views.md
@@ -75,7 +75,7 @@ arrows:
     parent: null
     sampled: 2026-10-11
     audited: 2026-10-12
-    audited_sha: f2112e2
+    audited_sha: d99ce09
     blocks: []
     blockedBy: []
     detail: data-sync.md
@@ -86,7 +86,7 @@ arrows:
     parent: null
     sampled: 2026-10-11
     audited: 2026-10-12
-    audited_sha: f2112e2
+    audited_sha: d99ce09
     blocks: []
     blockedBy: []
     detail: agronomic-rules.md
@@ -97,7 +97,7 @@ arrows:
     parent: null
     sampled: 2026-10-11
     audited: 2026-10-12
-    audited_sha: f2112e2
+    audited_sha: d99ce09
     blocks: []
     blockedBy: []
     detail: timing-windows.md
@@ -109,7 +109,7 @@ arrows:
     children: [risk-models, management, disease-ui]
     sampled: 2026-10-11
     audited: 2026-10-12
-    audited_sha: f2112e2
+    audited_sha: d99ce09
     blocks: []
     blockedBy: []
     detail: ../intent/disease-risk/disease-risk-design.md
@@ -120,7 +120,7 @@ arrows:
     parent: disease-risk
     sampled: 2026-10-11
     audited: 2026-10-12
-    audited_sha: f2112e2
+    audited_sha: d99ce09
     blocks: []
     blockedBy: []
     detail: disease-risk/risk-models.md
@@ -131,7 +131,7 @@ arrows:
     parent: disease-risk
     sampled: 2026-10-11
     audited: 2026-10-12
-    audited_sha: f2112e2
+    audited_sha: d99ce09
     blocks: []
     blockedBy: []
     detail: disease-risk/management.md
@@ -142,7 +142,7 @@ arrows:
     parent: disease-risk
     sampled: 2026-10-11
     audited: 2026-10-12
-    audited_sha: f2112e2
+    audited_sha: d99ce09
     blocks: []
     blockedBy: []
     detail: disease-risk/disease-ui.md
@@ -153,7 +153,7 @@ arrows:
     parent: null
     sampled: 2026-10-11
     audited: 2026-10-12
-    audited_sha: f2112e2
+    audited_sha: d99ce09
     blocks: []
     blockedBy: []
     detail: seasonal-plan.md
@@ -164,7 +164,7 @@ arrows:
     parent: null
     sampled: 2026-10-11
     audited: 2026-10-12
-    audited_sha: f2112e2
+    audited_sha: d99ce09
     blocks: []
     blockedBy: []
     detail: soil-tests.md
@@ -175,7 +175,7 @@ arrows:
     parent: null
     sampled: 2026-10-11
     audited: 2026-10-12
-    audited_sha: f2112e2
+    audited_sha: d99ce09
     blocks: []
     blockedBy: []
     detail: recommendation-feed.md
@@ -186,7 +186,7 @@ arrows:
     parent: null
     sampled: 2026-10-11
     audited: 2026-10-12
-    audited_sha: f2112e2
+    audited_sha: d99ce09
     blocks: []
     blockedBy: []
     detail: applications.md
@@ -197,7 +197,7 @@ arrows:
     parent: null
     sampled: 2026-10-11
     audited: 2026-10-12
-    audited_sha: f2112e2
+    audited_sha: d99ce09
     blocks: []
     blockedBy: []
     detail: product-inventory.md
@@ -208,7 +208,7 @@ arrows:
     parent: null
     sampled: 2026-10-11
     audited: 2026-10-12
-    audited_sha: f2112e2
+    audited_sha: d99ce09
     blocks: []
     blockedBy: []
     detail: landscape-plants.md
@@ -219,7 +219,7 @@ arrows:
     parent: null
     sampled: 2026-10-11
     audited: 2026-10-12
-    audited_sha: f2112e2
+    audited_sha: d99ce09
     blocks: []
     blockedBy: []
     detail: mcp-server.md
@@ -230,7 +230,7 @@ arrows:
     parent: null
     sampled: 2026-10-11
     audited: 2026-10-12
-    audited_sha: f2112e2
+    audited_sha: d99ce09
     blocks: []
     blockedBy: []
     detail: web-ui.md
@@ -241,7 +241,7 @@ arrows:
     parent: null
     sampled: 2026-10-11
     audited: 2026-10-12
-    audited_sha: f2112e2
+    audited_sha: d99ce09
     blocks: []
     blockedBy: []
     detail: deployment.md

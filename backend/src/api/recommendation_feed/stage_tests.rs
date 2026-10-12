@@ -78,7 +78,10 @@ fn a_plant_feeding_is_not_held_or_budgeted_by_the_nitrogen_guard() {
         &[plant],
         &[],
         &EnvironmentalSummary::default(),
-        today(),
+        crate::clock::Moment {
+            now: chrono::Utc::now(),
+            today: today(),
+        },
     );
     assert_eq!(plant_recs.len(), 1, "the fertilizing task is due");
     let id = plant_recs[0].id.clone();

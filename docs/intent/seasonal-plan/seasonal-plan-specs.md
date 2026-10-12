@@ -67,7 +67,7 @@ Design: [seasonal-plan-design.md](seasonal-plan-design.md). Prefix `PLAN`. Facet
 
 ## Calendar endpoint
 
-- [x] **PLAN-CAL-001**: When `GET /api/v1/applications/calendar` is called, the system shall use the `year` and `month` query parameters, each defaulting to the server's local today, and return `{year, month, days}` where `days` maps `YYYY-MM-DD` to applications.
+- [x] **PLAN-CAL-001**: When `GET /api/v1/applications/calendar` is called, the system shall use the `year` and `month` query parameters, each defaulting to the app clock's today, and return `{year, month, days}` where `days` maps `YYYY-MM-DD` to applications.
 - [x] **PLAN-CAL-002**: When `GET /api/v1/applications/calendar` is called, the system shall include every application of the default profile whose application date or follow-up date falls in the month, keyed under its application date.
 - [x] **PLAN-CAL-003**: If no lawn profile exists, then `GET /api/v1/applications/calendar` shall return 404; if the year and month name no valid date, it shall return 400.
 

@@ -16,7 +16,12 @@ fn env(avg: f64, trend: Trend, gdd: Option<f64>) -> EnvironmentalSummary {
 
 fn id(env: &EnvironmentalSummary, history: &[Application]) -> Option<String> {
     BroadleafHerbicideRule
-        .evaluate(env, &fescue(), history)
+        .evaluate(
+            env,
+            &fescue(),
+            history,
+            crate::clock::Clock::System.moment(),
+        )
         .map(|r| r.id)
 }
 

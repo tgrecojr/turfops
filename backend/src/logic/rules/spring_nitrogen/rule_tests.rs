@@ -21,7 +21,12 @@ fn decide(avg: f64, gdd: Option<f64>, fed: bool) -> Option<(String, Severity)> {
         vec![]
     };
     SpringNitrogenRule
-        .evaluate(&env, &fescue(), &history)
+        .evaluate(
+            &env,
+            &fescue(),
+            &history,
+            crate::clock::Clock::System.moment(),
+        )
         .map(|r| (r.id, r.severity))
 }
 
@@ -35,7 +40,12 @@ fn spring_nitrogen_runs_february_through_may_and_needs_the_soil_average() {
     let mut no_soil = soil(None, Some(58.0));
     no_soil.gdd_base50_ytd = Some(120.0);
     assert!(SpringNitrogenRule
-        .evaluate(&no_soil, &fescue(), &[])
+        .evaluate(
+            &no_soil,
+            &fescue(),
+            &[],
+            crate::clock::Clock::System.moment()
+        )
         .is_none());
     let fires = decide(58.0, Some(120.0), false).is_some();
     assert_eq!(fires, (2..=5).contains(&month()), "month {}", month());

@@ -23,7 +23,7 @@ fn dry_spell(moisture: Option<f64>, rain: &[(f64, f64)]) -> EnvironmentalSummary
 
 fn irrigation(env: &EnvironmentalSummary) -> Option<Severity> {
     IrrigationForecastRule
-        .evaluate(env, &fescue(), &[])
+        .evaluate(env, &fescue(), &[], crate::clock::Clock::System.moment())
         .map(|r| {
             assert_eq!(r.id, "irrigation_forecast");
             r.severity
@@ -70,7 +70,12 @@ fn a_high_chance_of_no_rain_does_not_cancel_the_alert() {
 #[test]
 fn the_wetting_agent_is_optional_and_never_shopped_for() {
     let rec = IrrigationForecastRule
-        .evaluate(&dry_spell(Some(0.08), &DRY_WEEK), &fescue(), &[])
+        .evaluate(
+            &dry_spell(Some(0.08), &DRY_WEEK),
+            &fescue(),
+            &[],
+            crate::clock::Clock::System.moment(),
+        )
         .expect("dry soil needs water");
     assert_eq!(rec.needs.len(), 1);
     assert!(rec.needs[0].optional);
@@ -88,7 +93,7 @@ fn window(days: Vec<DailyForecast>, lake_rain_mm: f64) -> Option<(String, Severi
         ..Default::default()
     };
     ApplicationWindowRule
-        .evaluate(&env, &fescue(), &[])
+        .evaluate(&env, &fescue(), &[], crate::clock::Clock::System.moment())
         .map(|r| (r.id, r.severity, r.description))
 }
 

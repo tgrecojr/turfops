@@ -20,14 +20,14 @@ pub fn today_at(clock: &Clock, now: DateTime<Utc>) -> TodayResponse {
     TodayResponse {
         today: clock.local_date(now),
         timezone: match clock {
-            Clock::Zone(tz) => Some(tz.name().to_string()),
+            Clock::Zone(tz) | Clock::Frozen { zone: tz, .. } => Some(tz.name().to_string()),
             Clock::System => None,
         },
     }
 }
 
 pub async fn get_today(State(state): State<AppState>) -> Json<TodayResponse> {
-    Json(today_at(&state.clock, Utc::now()))
+    Json(today_at(&state.clock, state.clock.now()))
 }
 
 #[cfg(test)]

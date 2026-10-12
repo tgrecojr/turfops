@@ -10,7 +10,12 @@ use crate::models::{EnvironmentalSummary, GrassType, Severity};
 
 fn block(air: Option<f64>, moisture: Option<f64>) -> Option<Severity> {
     FertilizerRule
-        .evaluate(&conditions(air, moisture), &fescue(), &[])
+        .evaluate(
+            &conditions(air, moisture),
+            &fescue(),
+            &[],
+            crate::clock::Clock::System.moment(),
+        )
         .map(|r| {
             assert_eq!(r.id, "fertilizer_block");
             r.severity
@@ -53,10 +58,12 @@ fn heat(highs: &[f64]) -> Option<Severity> {
         forecast: Some(forecast(dry_days_from_today(highs), Vec::new())),
         ..Default::default()
     };
-    HeatStressRule.evaluate(&env, &fescue(), &[]).map(|r| {
-        assert_eq!(r.id, "heat_stress_forecast");
-        r.severity
-    })
+    HeatStressRule
+        .evaluate(&env, &fescue(), &[], crate::clock::Clock::System.moment())
+        .map(|r| {
+            assert_eq!(r.id, "heat_stress_forecast");
+            r.severity
+        })
 }
 
 // @spec RULE-WX-005
@@ -75,10 +82,12 @@ fn mowing(avg: f64) -> Option<Severity> {
         ambient_temp_7day_avg_f: Some(avg),
         ..Default::default()
     };
-    MowingHeightRule.evaluate(&env, &fescue(), &[]).map(|r| {
-        assert_eq!(r.id, "mowing_height");
-        r.severity
-    })
+    MowingHeightRule
+        .evaluate(&env, &fescue(), &[], crate::clock::Clock::System.moment())
+        .map(|r| {
+            assert_eq!(r.id, "mowing_height");
+            r.severity
+        })
 }
 
 // @spec RULE-WX-008
@@ -110,8 +119,13 @@ fn a_mixed_lawn_gets_the_cool_season_rules() {
         (&HeatStressRule, &heat_wave),
     ];
     for (rule, env) in rules {
-        let mixed = rule.evaluate(env, &profile(GrassType::Mixed), &[]);
-        let fescue = rule.evaluate(env, &fescue(), &[]);
+        let mixed = rule.evaluate(
+            env,
+            &profile(GrassType::Mixed),
+            &[],
+            crate::clock::Clock::System.moment(),
+        );
+        let fescue = rule.evaluate(env, &fescue(), &[], crate::clock::Clock::System.moment());
         assert!(mixed.is_some(), "a Mixed lawn is a cool-season lawn");
         assert_eq!(
             mixed.map(|r| (r.id, r.severity)),
@@ -119,7 +133,12 @@ fn a_mixed_lawn_gets_the_cool_season_rules() {
         );
         // The cool-season gate is real: a warm-season lawn gets none of these.
         assert!(rule
-            .evaluate(env, &profile(GrassType::Bermuda), &[])
+            .evaluate(
+                env,
+                &profile(GrassType::Bermuda),
+                &[],
+                crate::clock::Clock::System.moment()
+            )
             .is_none());
     }
 }

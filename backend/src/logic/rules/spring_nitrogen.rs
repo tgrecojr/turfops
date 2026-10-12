@@ -1,11 +1,12 @@
 use super::nitrogen_guard::{amount_text, rate_text, RATE_POINT};
 use super::thresholds::*;
 use super::Rule;
+use crate::clock::Moment;
 use crate::models::{
     Application, DataSource, EnvironmentalSummary, LawnProfile, ProductCategory, ProductNeed,
     Recommendation, RecommendationCategory, Severity,
 };
-use chrono::{Datelike, Local, NaiveDate};
+use chrono::{Datelike, NaiveDate};
 
 /// Spring nitrogen delay rule
 ///
@@ -29,6 +30,7 @@ impl Rule for SpringNitrogenRule {
         env: &EnvironmentalSummary,
         profile: &LawnProfile,
         history: &[Application],
+        at: Moment,
     ) -> Option<Recommendation> {
         // Only relevant for cool-season grasses
         if !profile.grass_type.is_cool_season() {
@@ -36,7 +38,7 @@ impl Rule for SpringNitrogenRule {
         }
 
         // @spec RULE-ENG-005
-        let today = Local::now().date_naive();
+        let today = at.today;
 
         // Only relevant in late winter/early spring (Feb - May)
         let month = today.month();
@@ -449,7 +451,12 @@ mod tests {
         assert!(env.gdd_base50_ytd.is_none());
         let rule = SpringNitrogenRule;
         // Month-gated: only produces recommendations Feb-May.
-        let result = rule.evaluate(&env, &base_profile(), &[]);
+        let result = rule.evaluate(
+            &env,
+            &base_profile(),
+            &[],
+            crate::clock::Clock::System.moment(),
+        );
         // Should not panic regardless of date.
         if let Some(rec) = result {
             // In the 50-55 range with no GDD, should be "almost ready" (Info)
@@ -463,10 +470,15 @@ mod tests {
         let mut env = base_env(52.0);
         env.gdd_base50_ytd = Some(30.0);
         let rule = SpringNitrogenRule;
-        let result = rule.evaluate(&env, &base_profile(), &[]);
+        let result = rule.evaluate(
+            &env,
+            &base_profile(),
+            &[],
+            crate::clock::Clock::System.moment(),
+        );
         // The soil-temp/GDD branch only runs Feb-Apr; May returns the cutoff
         // recommendation regardless of GDD, and other months return None.
-        let month = Local::now().date_naive().month();
+        let month = crate::clock::Clock::System.today().month();
         if (2..=4).contains(&month) {
             if let Some(rec) = result {
                 // Should still be "almost ready" (Info), not promoted
@@ -481,8 +493,13 @@ mod tests {
         let mut env = base_env(52.0);
         env.gdd_base50_ytd = Some(50.0);
         let rule = SpringNitrogenRule;
-        let result = rule.evaluate(&env, &base_profile(), &[]);
-        let month = Local::now().date_naive().month();
+        let result = rule.evaluate(
+            &env,
+            &base_profile(),
+            &[],
+            crate::clock::Clock::System.moment(),
+        );
+        let month = crate::clock::Clock::System.today().month();
         if (2..=4).contains(&month) {
             if let Some(rec) = result {
                 // With GDD >= 50, should be promoted to spring_n_ready
@@ -498,8 +515,13 @@ mod tests {
         let mut env = base_env(58.0);
         env.gdd_base50_ytd = Some(150.0);
         let rule = SpringNitrogenRule;
-        let result = rule.evaluate(&env, &base_profile(), &[]);
-        let month = Local::now().date_naive().month();
+        let result = rule.evaluate(
+            &env,
+            &base_profile(),
+            &[],
+            crate::clock::Clock::System.moment(),
+        );
+        let month = crate::clock::Clock::System.today().month();
         if (2..=4).contains(&month) {
             if let Some(rec) = result {
                 assert_eq!(rec.id, "spring_n_ready");

@@ -4,6 +4,7 @@ use super::test_support::{eastern, forecast, forecast_day, lazy_pool};
 use super::*;
 use crate::datasources::weather::fixtures::{self, GoldRow, SilverRow};
 use crate::models::Trend;
+use chrono::Utc;
 use chrono::{Duration, Timelike};
 use std::collections::HashMap;
 

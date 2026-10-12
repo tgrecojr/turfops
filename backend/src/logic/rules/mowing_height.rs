@@ -1,5 +1,6 @@
 use super::thresholds::*;
 use super::Rule;
+use crate::clock::Moment;
 use crate::models::{
     Application, DataSource, EnvironmentalSummary, LawnProfile, Recommendation,
     RecommendationCategory, Severity,
@@ -22,6 +23,7 @@ impl Rule for MowingHeightRule {
         env: &EnvironmentalSummary,
         profile: &LawnProfile,
         _history: &[Application],
+        _at: Moment,
     ) -> Option<Recommendation> {
         if !profile.grass_type.is_cool_season() {
             return None;

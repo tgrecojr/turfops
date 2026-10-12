@@ -1,3 +1,5 @@
+#[cfg(test)]
+mod clock_tests;
 #[cfg(all(test, feature = "db-tests"))]
 mod db_tests;
 #[cfg(test)]
@@ -25,7 +27,6 @@ use crate::clock::Clock;
 use crate::config::Config;
 use crate::datasources::{HomeAssistantClient, OpenWeatherMapClient, WeatherLakeClient};
 use crate::models::EnvironmentalSummary;
-use chrono::Utc;
 use sqlx::PgPool;
 use std::sync::Mutex;
 
@@ -95,25 +96,25 @@ impl DataSyncService {
     /// Return the cached summary, refreshing first whichever part is stale.
     /// Sensor data refreshes after 5 minutes, the forecast after 30 (a failed fetch is
     /// retried after 5).
-    // @spec SYNC-REFRESH-003, SYNC-REFRESH-004, SYNC-REFRESH-005, SYNC-REFRESH-006
+    // @spec SYNC-REFRESH-003, SYNC-REFRESH-004, SYNC-REFRESH-005, SYNC-REFRESH-006, SYNC-REFRESH-009
     pub async fn get_or_refresh(&mut self) -> crate::error::Result<EnvironmentalSummary> {
-        let due = self.state.due(Utc::now());
+        let due = self.state.due(self.clock.now());
         self.refresh(due.sensors, due.forecast).await;
-        Ok(self.state.summary(Utc::now()))
+        Ok(self.state.summary(self.clock.now()))
     }
 
     /// Always fetch fresh data from all datasources, ignoring cache age.
     /// Used by the explicit refresh button in the frontend.
     pub async fn force_refresh(&mut self) -> crate::error::Result<EnvironmentalSummary> {
         self.refresh(true, true).await;
-        Ok(self.state.summary(Utc::now()))
+        Ok(self.state.summary(self.clock.now()))
     }
 
     /// Connection status, probing only the configured sources whose last result is over
     /// 5 minutes old; the summary and its timers are untouched.
     // @spec SYNC-CONN-001, SYNC-CONN-002, SYNC-CONN-006
     pub async fn check_connections(&self) -> ConnectionStatus {
-        let recent = |probe| self.probes.lock().ok()?.recent(probe, Utc::now());
+        let recent = |probe| self.probes.lock().ok()?.recent(probe, self.clock.now());
         let mut status = ConnectionStatus::default();
 
         if let Some(ref client) = self.weather_client {
@@ -145,7 +146,7 @@ impl DataSyncService {
 
     fn record(&self, probe: Probe, up: bool) -> bool {
         if let Ok(mut probes) = self.probes.lock() {
-            probes.record(probe, up, Utc::now());
+            probes.record(probe, up, self.clock.now());
         }
         up
     }
@@ -192,7 +193,7 @@ impl DataSyncService {
         } else {
             None
         };
-        let now = Utc::now();
+        let now = self.clock.now();
         if let Some(reads) = sensor_reads {
             self.state.store_sensors(now, reads);
         }
@@ -203,7 +204,7 @@ impl DataSyncService {
 
     async fn read_sensors(&self) -> SensorReads {
         let lake = match self.weather_client {
-            Some(ref client) => Some(client.fetch_summary().await),
+            Some(ref client) => Some(client.fetch_summary(self.clock.now()).await),
             None => None,
         };
         let home_assistant = match self.homeassistant_client {

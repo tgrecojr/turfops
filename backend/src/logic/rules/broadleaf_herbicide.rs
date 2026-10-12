@@ -1,10 +1,11 @@
 use super::thresholds::*;
 use super::Rule;
+use crate::clock::Moment;
 use crate::models::{
     Application, ApplicationType, DataSource, EnvironmentalSummary, HerbicideTiming, LawnProfile,
     ProductCategory, ProductNeed, ProductTarget, Recommendation, RecommendationCategory, Severity,
 };
-use chrono::{Datelike, Local, NaiveDate};
+use chrono::{Datelike, NaiveDate};
 
 /// Broadleaf herbicide timing rule
 ///
@@ -24,13 +25,14 @@ impl Rule for BroadleafHerbicideRule {
         env: &EnvironmentalSummary,
         profile: &LawnProfile,
         history: &[Application],
+        at: Moment,
     ) -> Option<Recommendation> {
         if !profile.grass_type.is_cool_season() {
             return None;
         }
 
         // @spec RULE-ENG-005
-        let today = Local::now().date_naive();
+        let today = at.today;
         let month = today.month();
 
         // Check if overseeded within 60 days — suppress recommendation
@@ -243,7 +245,12 @@ mod tests {
         assert!(env.gdd_base50_ytd.is_none());
         let rule = BroadleafHerbicideRule;
         // Month-gated (March for spring, Sep-Oct for fall), should not panic.
-        let _ = rule.evaluate(&env, &base_profile(), &[]);
+        let _ = rule.evaluate(
+            &env,
+            &base_profile(),
+            &[],
+            crate::clock::Clock::System.moment(),
+        );
     }
 
     #[test]
@@ -252,10 +259,15 @@ mod tests {
         let mut env = base_env(50.0, Trend::Rising);
         env.gdd_base50_ytd = Some(30.0);
         let rule = BroadleafHerbicideRule;
-        let result = rule.evaluate(&env, &base_profile(), &[]);
+        let result = rule.evaluate(
+            &env,
+            &base_profile(),
+            &[],
+            crate::clock::Clock::System.moment(),
+        );
         // If not March and GDD < 50, spring window should not open.
         // Result may be Some in March or fall, None otherwise.
-        let today = Local::now().date_naive();
+        let today = crate::clock::Clock::System.today();
         let month = today.month();
         if month != 3 && !(9..=10).contains(&month) {
             assert!(
@@ -272,10 +284,15 @@ mod tests {
         let mut env = base_env(50.0, Trend::Rising);
         env.gdd_base50_ytd = Some(100.0);
         let rule = BroadleafHerbicideRule;
-        let result = rule.evaluate(&env, &base_profile(), &[]);
+        let result = rule.evaluate(
+            &env,
+            &base_profile(),
+            &[],
+            crate::clock::Clock::System.moment(),
+        );
         // If soil temp is in range and trend is rising, should produce recommendation.
         // Date-sensitive: only spring months produce spring recommendation.
-        let today = Local::now().date_naive();
+        let today = crate::clock::Clock::System.today();
         let month = today.month();
         if (2..=4).contains(&month) {
             if let Some(rec) = result {
@@ -294,8 +311,13 @@ mod tests {
         let mut env = base_env(50.0, Trend::Rising);
         env.gdd_base50_ytd = Some(200.0);
         let rule = BroadleafHerbicideRule;
-        let result = rule.evaluate(&env, &base_profile(), &[]);
-        let today = Local::now().date_naive();
+        let result = rule.evaluate(
+            &env,
+            &base_profile(),
+            &[],
+            crate::clock::Clock::System.moment(),
+        );
+        let today = crate::clock::Clock::System.today();
         let month = today.month();
         // GDD > 150 means gdd_in_spring_range is false
         // Only month == 3 can open the spring window

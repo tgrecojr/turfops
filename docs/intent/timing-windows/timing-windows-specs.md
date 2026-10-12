@@ -64,7 +64,7 @@ Design: [timing-windows-design.md](timing-windows-design.md). Method: `docs/timi
 ### Inputs, today and the response
 
 - [x] **TIME-ENG-038**: The system shall memoize the 15-year climate record in memory for one hour and store nothing derived from it in Postgres.
-- [x] **TIME-ENG-039**: The timing windows shall use the server's local date (`chrono::Local`, governed by `TZ`) as "today" for every date gate, season year and history window, including the start year of the climate record.
+- [x] **TIME-ENG-039**: The timing windows shall use the server's local date (the app clock, governed by `TZ`) as "today" for every date gate, season year and history window, including the start year of the climate record.
 - [x] **TIME-ENG-040**: When `GET /api/v1/timing-windows` is called, the system shall return generated-at time, today, station, the latest smoothed 5 cm soil with its as-of date, freeze statistics, every window with its state, headline, detail, four boundary views (label, typical statistics, date, source, passed, days held), done date, conflict and guidance, the season context, the soil series, the history years, and data notes.
 - [x] **TIME-ENG-041**: If `GET /api/v1/timing-windows` is called with no lawn profile, then the system shall return 404; with no weather lake configured, 503.
 - [x] **TIME-ENG-042**: The season context shall report 7-day soil and 30-day air anomalies against the same calendar window in the history years (each needing ≥ 70% coverage and ≥ 3 baseline years), one summary sentence preferring soil, and forecast alerts for the first low ≤ 32°F and the count of highs ≥ 90°F; anomalies shall never shift a date.

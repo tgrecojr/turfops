@@ -13,8 +13,8 @@ pub struct WeatherForecast {
 // @spec WX-SRC-OWM-004
 impl WeatherForecast {
     /// Get forecast points for the next N hours
-    pub fn next_hours(&self, hours: u32) -> Vec<&ForecastPoint> {
-        let cutoff = Utc::now() + chrono::Duration::hours(hours as i64);
+    pub fn next_hours(&self, now: DateTime<Utc>, hours: u32) -> Vec<&ForecastPoint> {
+        let cutoff = now + chrono::Duration::hours(hours as i64);
         self.hourly
             .iter()
             .filter(|p| p.timestamp <= cutoff)
@@ -40,8 +40,13 @@ impl WeatherForecast {
     }
 
     /// Check if significant rain is expected within hours
-    pub fn rain_expected_within(&self, hours: u32, threshold_mm: f64) -> Option<RainForecast> {
-        let points = self.next_hours(hours);
+    pub fn rain_expected_within(
+        &self,
+        now: DateTime<Utc>,
+        hours: u32,
+        threshold_mm: f64,
+    ) -> Option<RainForecast> {
+        let points = self.next_hours(now, hours);
         let mut total_precip = 0.0;
         let mut max_prob = 0.0;
 

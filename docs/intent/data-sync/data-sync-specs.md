@@ -14,6 +14,7 @@ Design: [data-sync-design.md](data-sync-design.md). Prefix `SYNC`. Facets: `REFR
 - [x] **SYNC-REFRESH-006**: While a refresh is in progress, data sync shall make every other request that may refresh wait for it and then reuse its result, so simultaneous requests (including the concurrent parts of the MCP `lawn_snapshot` tool) cause at most one read of each source.
 - [x] **SYNC-REFRESH-007**: When the server starts, data sync shall set up its source clients without contacting any source, so a source that is down does not delay startup.
 - [x] **SYNC-REFRESH-008**: Data sync shall mark the summary's sensor or forecast part as refreshed only once the summary built by that refresh has been stored, so a refresh abandoned partway (for example, the request is dropped while a source read is pending) leaves the part stale rather than leaving the previous summary counted as fresh.
+- [x] **SYNC-REFRESH-009**: Data sync shall take "now" from the app clock for every judgment it makes (which part is stale, when a failed fetch may be retried, how old a probe or the station's observation is, and where the lake's 7-day window ends), never from the system time.
 
 ## Assembling the summary
 

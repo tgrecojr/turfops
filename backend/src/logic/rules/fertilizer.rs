@@ -1,5 +1,6 @@
 use super::thresholds::*;
 use super::Rule;
+use crate::clock::Moment;
 use crate::models::{
     Application, DataSource, EnvironmentalSummary, LawnProfile, Recommendation,
     RecommendationCategory, Severity,
@@ -22,6 +23,7 @@ impl Rule for FertilizerRule {
         env: &EnvironmentalSummary,
         profile: &LawnProfile,
         _history: &[Application],
+        _at: Moment,
     ) -> Option<Recommendation> {
         // Only relevant for cool-season grasses
         if !profile.grass_type.is_cool_season() {
@@ -156,7 +158,12 @@ mod tests {
     fn saturated_soil_blocks_without_an_ambient_reading() {
         // Home Assistant down: the soil checks must still fire.
         let rec = FertilizerRule
-            .evaluate(&env(None, 0.45), &profile(), &[])
+            .evaluate(
+                &env(None, 0.45),
+                &profile(),
+                &[],
+                crate::clock::Clock::System.moment(),
+            )
             .expect("saturated soil blocks fertilizer");
         assert_eq!(rec.severity, Severity::Warning);
     }
@@ -164,10 +171,20 @@ mod tests {
     #[test]
     fn nothing_to_report_in_good_conditions() {
         assert!(FertilizerRule
-            .evaluate(&env(Some(72.0), 0.25), &profile(), &[])
+            .evaluate(
+                &env(Some(72.0), 0.25),
+                &profile(),
+                &[],
+                crate::clock::Clock::System.moment()
+            )
             .is_none());
         assert!(FertilizerRule
-            .evaluate(&env(None, 0.25), &profile(), &[])
+            .evaluate(
+                &env(None, 0.25),
+                &profile(),
+                &[],
+                crate::clock::Clock::System.moment()
+            )
             .is_none());
     }
 }

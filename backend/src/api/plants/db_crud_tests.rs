@@ -189,7 +189,10 @@ async fn deleting_a_plant_ends_its_reminders_and_keeps_its_log_unlinked(pool: Pg
             &plants,
             &[],
             &EnvironmentalSummary::default(),
-            today,
+            crate::clock::Moment {
+                now: chrono::Utc::now(),
+                today,
+            },
         )
     };
     let listed = plant_queries::list_plants_for_profile(&pool, lawn)

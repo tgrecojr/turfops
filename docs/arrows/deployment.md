@@ -4,7 +4,7 @@ Deployment, Configuration & Operations — leaf segment `DEPLOY` under the root 
 
 ## Status
 
-**OK** — audited 2026-10-12 (git SHA `f2112e2`): every implemented spec was checked against the code while linking it. 66 of 68 implemented specs are linked to both code and a test.
+**OK** — audited 2026-10-12 (git SHA `d99ce09`): every implemented spec was checked against the code while linking it. 67 of 69 implemented specs are linked to both code and a test.
 
 ## References
 
@@ -15,7 +15,7 @@ Deployment, Configuration & Operations — leaf segment `DEPLOY` under the root 
 - [docs/intent/deployment/deployment-design.md](../../docs/intent/deployment/deployment-design.md)
 
 ### EARS
-- [docs/intent/deployment/deployment-specs.md](../../docs/intent/deployment/deployment-specs.md) (68 specs, prefix `DEPLOY`)
+- [docs/intent/deployment/deployment-specs.md](../../docs/intent/deployment/deployment-specs.md) (69 specs, prefix `DEPLOY`)
 
 ### Related docs
 - [docs/agronomy-methods.md](../../docs/agronomy-methods.md)
@@ -24,6 +24,7 @@ Deployment, Configuration & Operations — leaf segment `DEPLOY` under the root 
 
 ### Tests
 - [backend/src/api/health/probe_tests.rs](../../backend/src/api/health/probe_tests.rs)
+- [backend/src/clock/frozen_tests.rs](../../backend/src/clock/frozen_tests.rs)
 - [backend/src/config/defaults_tests.rs](../../backend/src/config/defaults_tests.rs)
 - [backend/src/config/load_tests.rs](../../backend/src/config/load_tests.rs)
 - [backend/src/db/pool/tests.rs](../../backend/src/db/pool/tests.rs)
@@ -99,15 +100,15 @@ Derived from the spec file and a `@spec` scan; regenerate, don't hand-edit.
 | IMAGE | DEPLOY-IMAGE-001 – DEPLOY-IMAGE-010 | 10 | 0 | 0 | 10 | 10 |
 | COMPOSE | DEPLOY-COMPOSE-001 – DEPLOY-COMPOSE-010 | 9 | 0 | 0 | 9 | 9 |
 | CONFIG | DEPLOY-CONFIG-001 – DEPLOY-CONFIG-013 | 11 | 0 | 0 | 11 | 11 |
-| TZ | DEPLOY-TZ-001 – DEPLOY-TZ-006 | 6 | 0 | 0 | 6 | 6 |
+| TZ | DEPLOY-TZ-001 – DEPLOY-TZ-007 | 7 | 0 | 0 | 7 | 7 |
 | START | DEPLOY-START-001 – DEPLOY-START-007 | 7 | 0 | 0 | 7 | 7 |
 | HTTP | DEPLOY-HTTP-001 – DEPLOY-HTTP-011 | 9 | 0 | 0 | 9 | 9 |
 | HEALTH | DEPLOY-HEALTH-001 – DEPLOY-HEALTH-003 | 3 | 0 | 0 | 3 | 3 |
 | LOG | DEPLOY-LOG-001 – DEPLOY-LOG-003 | 3 | 0 | 0 | 3 | 3 |
 | CI | DEPLOY-CI-001 – DEPLOY-CI-010 | 10 | 0 | 0 | 8 | 9 |
-| **Total** | | **68** | **0** | **0** | **66** | **67** |
+| **Total** | | **69** | **0** | **0** | **67** | **68** |
 
-**Summary:** 68 of 68 active specs implemented; 0 deferred; 67 implemented specs cited by a test, 1 cited nowhere.
+**Summary:** 69 of 69 active specs implemented; 0 deferred; 68 implemented specs cited by a test, 1 cited nowhere.
 
 ## Key Findings
 

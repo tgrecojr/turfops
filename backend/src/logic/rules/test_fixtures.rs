@@ -5,11 +5,11 @@ use crate::models::{
     EnvironmentalSummary, ForecastLocation, ForecastPoint, GrassType, LawnProfile, Recommendation,
     WeatherCondition, WeatherForecast,
 };
-use chrono::{Duration, Local, NaiveDate, Utc};
+use chrono::{Duration, NaiveDate, Utc};
 
-/// The lawn's local today, as the rules read it.
+/// Today on the host's clock, for tests that judge the rules at the real time.
 pub fn today() -> NaiveDate {
-    Local::now().date_naive()
+    crate::clock::Clock::System.today()
 }
 
 pub fn date(y: i32, m: u32, d: u32) -> NaiveDate {

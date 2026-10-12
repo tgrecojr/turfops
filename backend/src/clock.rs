@@ -14,6 +14,18 @@ pub enum Clock {
     /// `TZ` is unset or empty: the host's default zone (UTC in the container image).
     #[default]
     System,
+    /// Stopped at one instant in one zone. Configuration never produces it; tests use it
+    /// to run a whole request on a chosen day.
+    #[cfg_attr(not(test), allow(dead_code))]
+    Frozen { at: DateTime<Utc>, zone: Tz },
+}
+
+/// One reading of the clock: the instant and its local date, so a computation that needs
+/// both judges them on the same reading.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Moment {
+    pub now: DateTime<Utc>,
+    pub today: NaiveDate,
 }
 
 impl Clock {
@@ -40,8 +52,29 @@ impl Clock {
     /// The local wall-clock time of an instant.
     pub fn local(&self, instant: DateTime<Utc>) -> NaiveDateTime {
         match self {
-            Clock::Zone(tz) => instant.with_timezone(tz).naive_local(),
+            Clock::Zone(tz) | Clock::Frozen { zone: tz, .. } => {
+                instant.with_timezone(tz).naive_local()
+            }
             Clock::System => instant.with_timezone(&Local).naive_local(),
+        }
+    }
+
+    /// The current instant: the real time, or the instant a frozen clock stopped at.
+    // @spec DEPLOY-TZ-007
+    pub fn now(&self) -> DateTime<Utc> {
+        match self {
+            Clock::Frozen { at, .. } => *at,
+            Clock::Zone(_) | Clock::System => Utc::now(),
+        }
+    }
+
+    /// "Now" and "today" from one reading.
+    // @spec DEPLOY-TZ-007
+    pub fn moment(&self) -> Moment {
+        let now = self.now();
+        Moment {
+            now,
+            today: self.local_date(now),
         }
     }
 
@@ -52,14 +85,14 @@ impl Clock {
 
     /// Today's local date.
     pub fn today(&self) -> NaiveDate {
-        self.local_date(Utc::now())
+        self.local_date(self.now())
     }
 
     /// One line for the startup log: the zone, its UTC offset at `instant` and the local
     /// date and time, so a wrong clock is visible at a glance.
     pub fn describe(&self, instant: DateTime<Utc>) -> String {
         let (zone, offset) = match self {
-            Clock::Zone(tz) => (
+            Clock::Zone(tz) | Clock::Frozen { zone: tz, .. } => (
                 tz.name().to_string(),
                 instant.with_timezone(tz).format("%:z"),
             ),
@@ -74,6 +107,9 @@ impl Clock {
         )
     }
 }
+
+#[cfg(test)]
+mod frozen_tests;
 
 #[cfg(test)]
 mod tests {

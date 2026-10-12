@@ -16,7 +16,15 @@ fn d(y: i32, m: u32, day: u32) -> NaiveDate {
 }
 
 fn feed(plant: &Plant, env: &EnvironmentalSummary, today: NaiveDate) -> Vec<Recommendation> {
-    generate_plant_maintenance_recommendations(std::slice::from_ref(plant), &[], env, today)
+    generate_plant_maintenance_recommendations(
+        std::slice::from_ref(plant),
+        &[],
+        env,
+        crate::clock::Moment {
+            now: chrono::Utc::now(),
+            today,
+        },
+    )
 }
 
 fn point(label: &str, rec: &Recommendation) -> Option<String> {

@@ -17,6 +17,8 @@ mod latest;
 mod silver_tests;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod window_tests;
 
 pub use climatology::{ClimateDay, ClimateRecord};
 
@@ -107,8 +109,7 @@ impl WeatherLakeClient {
 
     /// Current reading plus 7-day rolling averages and the soil-temp trend.
     // @spec WX-SRC-LAKE-005
-    pub async fn fetch_summary(&self) -> Result<EnvironmentalSummary> {
-        let now = Utc::now();
+    pub async fn fetch_summary(&self, now: DateTime<Utc>) -> Result<EnvironmentalSummary> {
         let seven_days_ago = now - Duration::days(7);
 
         let current = self.fetch_latest().await?;

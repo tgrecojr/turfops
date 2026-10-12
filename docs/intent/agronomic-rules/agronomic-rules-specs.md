@@ -10,7 +10,7 @@ Design: [agronomic-rules-design.md](agronomic-rules-design.md). Prefix `RULE`. F
 - [x] **RULE-ENG-002**: The rules engine shall evaluate the ten rules in this order and return their recommendations in the same order: spring nitrogen, broadleaf herbicide, grub control, fertilizer block, fall fertilization, rain delay, irrigation, heat stress, application window, mowing height.
 - [x] **RULE-ENG-003**: If an input a rule requires is missing, then that rule shall return no recommendation instead of falling back to a calendar date.
 - [x] **RULE-ENG-004**: Where year-to-date GDD is missing, the spring nitrogen, broadleaf herbicide and grub control rules shall still evaluate on soil temperature and the calendar; GDD shall only add timing, urgency or notes.
-- [x] **RULE-ENG-005**: The rules shall use the server's local date (`chrono::Local`, governed by `TZ`) as "today" for every date gate and year boundary.
+- [x] **RULE-ENG-005**: The rules shall judge every date gate and year boundary on the `today`, and every forecast hour window on the `now`, of the one clock reading the caller passes (the feed's `Moment` from the app clock), and shall read no clock themselves.
 - [x] **RULE-ENG-006**: The rules shall treat a `Mixed` grass type as a cool-season lawn and give it every cool-season rule.
 - [x] **RULE-ENG-007**: Rule advice text shall not state a product's label rate or any rate for a pesticide; grub control and broadleaf herbicide advice shall name active ingredients and defer to the label.
 - [x] **RULE-ENG-008**: When a rule gives feeding advice, it shall state the nitrogen amount in lb N per 1,000 sq ft and, when the lawn profile records a lawn size, the matching total for the lawn.

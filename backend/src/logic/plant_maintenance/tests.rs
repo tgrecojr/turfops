@@ -97,7 +97,10 @@ fn recommendation_emitted_in_window() {
         &[plant],
         &[],
         &EnvironmentalSummary::default(),
-        today,
+        crate::clock::Moment {
+            now: chrono::Utc::now(),
+            today,
+        },
     );
     assert_eq!(recs.len(), 1);
     assert_eq!(recs[0].category, RecommendationCategory::PlantMaintenance);
@@ -118,7 +121,10 @@ fn recommendation_suppressed_when_completed() {
         &[plant],
         &apps,
         &EnvironmentalSummary::default(),
-        today,
+        crate::clock::Moment {
+            now: chrono::Utc::now(),
+            today,
+        },
     );
     assert!(recs.is_empty(), "Should suppress after pruning was logged");
 }
@@ -133,7 +139,10 @@ fn recommendation_not_emitted_before_lead_in() {
         &[plant],
         &[],
         &EnvironmentalSummary::default(),
-        today,
+        crate::clock::Moment {
+            now: chrono::Utc::now(),
+            today,
+        },
     );
     assert!(recs.is_empty());
 }
@@ -147,7 +156,10 @@ fn recommendation_not_emitted_after_end() {
         &[plant],
         &[],
         &EnvironmentalSummary::default(),
-        today,
+        crate::clock::Moment {
+            now: chrono::Utc::now(),
+            today,
+        },
     );
     assert!(recs.is_empty());
 }
@@ -197,7 +209,10 @@ fn a_window_that_wraps_the_new_year_stays_open_in_january() {
         std::slice::from_ref(&plant),
         &[],
         &EnvironmentalSummary::default(),
-        jan,
+        crate::clock::Moment {
+            now: chrono::Utc::now(),
+            today: jan,
+        },
     );
     assert_eq!(
         recs.len(),
@@ -219,7 +234,10 @@ fn a_window_that_wraps_the_new_year_stays_open_in_january() {
         &[plant],
         &apps,
         &EnvironmentalSummary::default(),
-        jan
+        crate::clock::Moment {
+            now: chrono::Utc::now(),
+            today: jan
+        }
     )
     .is_empty());
 }
@@ -241,7 +259,10 @@ fn completion_belongs_to_one_window() {
         std::slice::from_ref(&plant),
         &apps,
         &EnvironmentalSummary::default(),
-        sept,
+        crate::clock::Moment {
+            now: chrono::Utc::now(),
+            today: sept,
+        },
     );
     assert_eq!(recs.len(), 1, "the fall window is still to do");
 
@@ -266,8 +287,15 @@ fn watering_waits_out_the_rain_but_other_tasks_do_not() {
         precipitation_7day_total_mm: Some(30.0),
         ..Default::default()
     };
-    let recs =
-        generate_plant_maintenance_recommendations(std::slice::from_ref(&plant), &[], &wet, today);
+    let recs = generate_plant_maintenance_recommendations(
+        std::slice::from_ref(&plant),
+        &[],
+        &wet,
+        crate::clock::Moment {
+            now: chrono::Utc::now(),
+            today,
+        },
+    );
     assert_eq!(recs.len(), 1);
     assert!(recs[0].title.contains("Pruning"));
 
@@ -275,7 +303,15 @@ fn watering_waits_out_the_rain_but_other_tasks_do_not() {
         precipitation_7day_total_mm: Some(1.0),
         ..Default::default()
     };
-    let recs = generate_plant_maintenance_recommendations(&[plant], &[], &dry, today);
+    let recs = generate_plant_maintenance_recommendations(
+        &[plant],
+        &[],
+        &dry,
+        crate::clock::Moment {
+            now: chrono::Utc::now(),
+            today,
+        },
+    );
     assert_eq!(recs.len(), 2);
     let watering = recs.iter().find(|r| r.title.contains("Watering")).unwrap();
     assert!(watering

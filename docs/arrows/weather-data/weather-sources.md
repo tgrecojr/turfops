@@ -4,7 +4,7 @@ Weather Sources — leaf segment `WX-SRC` under the `weather-data` sub-HLD.
 
 ## Status
 
-**OK** — audited 2026-10-12 (git SHA `f2112e2`): every implemented spec was checked against the code while linking it. 28 of 28 implemented specs are linked to both code and a test.
+**OK** — audited 2026-10-12 (git SHA `d99ce09`): every implemented spec was checked against the code while linking it. 28 of 28 implemented specs are linked to both code and a test.
 
 ## References
 
@@ -33,6 +33,7 @@ Weather Sources — leaf segment `WX-SRC` under the `weather-data` sub-HLD.
 - [backend/src/datasources/weather/gold_tests.rs](../../../backend/src/datasources/weather/gold_tests.rs)
 - [backend/src/datasources/weather/silver_tests.rs](../../../backend/src/datasources/weather/silver_tests.rs)
 - [backend/src/datasources/weather/tests.rs](../../../backend/src/datasources/weather/tests.rs)
+- [backend/src/datasources/weather/window_tests.rs](../../../backend/src/datasources/weather/window_tests.rs)
 - [backend/src/logic/data_sync/source_tests.rs](../../../backend/src/logic/data_sync/source_tests.rs)
 - [backend/src/models/forecast/day_tests.rs](../../../backend/src/models/forecast/day_tests.rs)
 - Inline `#[cfg(test)]` modules citing this prefix: `backend/src/datasources/weather/climatology.rs`, `backend/src/datasources/weather/disease.rs`, `backend/src/datasources/weather/latest.rs`, `backend/src/error.rs`, `backend/src/models/environmental.rs`, `backend/src/models/forecast.rs`

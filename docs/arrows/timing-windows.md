@@ -4,7 +4,7 @@ Seeding & Pre-Emergent Timing Windows — leaf segment `TIME` under the root HLD
 
 ## Status
 
-**OK** — audited 2026-10-12 (git SHA `f2112e2`): every implemented spec was checked against the code while linking it. 74 of 74 implemented specs are linked to both code and a test.
+**OK** — audited 2026-10-12 (git SHA `d99ce09`): every implemented spec was checked against the code while linking it. 74 of 74 implemented specs are linked to both code and a test.
 
 ## References
 

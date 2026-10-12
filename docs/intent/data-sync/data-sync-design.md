@@ -61,6 +61,8 @@ The memo is a single slot shared by every caller of `api::timing::climate_record
 
 ## Staleness and Refresh
 
+Every judgment here reads "now" from the app clock (`self.clock.now()`): which part is stale, when a failed forecast fetch may be retried, how old a probe or the station's newest observation is, and where the lake's 7-day window ends (`fetch_summary(now)`). Under a frozen clock (tests) the whole refresh runs at that instant.
+
 | Part | Staleness limit | Timestamp | Set when |
 |---|---|---|---|
 | Sensors (lake soil + rain, Home Assistant ambient, GDD YTD) | 5 min (`SENSOR_STALE`) | the last sensor refresh | When a sensor refresh's summary has been stored, success or failure of any source |

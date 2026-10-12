@@ -82,7 +82,10 @@ async fn sources_contribute_in_order_and_a_lake_outage_costs_only_its_own(pool: 
     let apps = queries::get_applications_for_profile(&pool, pid, 1000, 0)
         .await
         .unwrap();
-    for rule in state.rules_engine.evaluate(&summary, &profile, &apps) {
+    for rule in state
+        .rules_engine
+        .evaluate(&summary, &profile, &apps, state.clock.moment())
+    {
         if rule.severity == Severity::Advisory {
             assert!(position(&feed, &rule.id) < plant_pos, "{}", rule.id);
         }

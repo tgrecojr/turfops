@@ -6,7 +6,7 @@ A "usable day" has at least 12 covered hours, at least one hour from 03–08 loc
 
 ## Today and the daily series
 
-- [x] **DIS-MODEL-DAY-001**: The disease risk computation shall use the server's local date (`chrono::Local`, governed by `TZ`) as "today" for the headline search, the display window, the lookback fetch and every date it hands to management, including when the station has no silver rows.
+- [x] **DIS-MODEL-DAY-001**: The disease risk computation shall use the server's local date (the app clock, governed by `TZ`) as "today" for the headline search, the display window, the lookback fetch and every date it hands to management, including when the station has no silver rows.
 - [x] **DIS-MODEL-DAY-002**: When building the observed daily series, the system shall group the lake's silver hours by the lake's `obs_date_local` (the station's civil date in America/New_York, daylight-saving aware) without re-bucketing them.
 - [x] **DIS-MODEL-DAY-003**: When building forecast days, the system shall bucket each 3-hourly forecast point into the `TZ` local date of that point's own time, so points on either side of a daylight-saving change land on the correct day.
 - [x] **DIS-MODEL-DAY-004**: The system shall express each daily weather record in °C with mean, minimum and maximum temperature, mean RH, hours at RH ≥ 90%, leaf-wetness hours (RH ≥ 90% or any precipitation), precipitation, peak dew point, hours covered, whether it is forecast, and whether it covers dawn and afternoon hours; it shall never store these records.
