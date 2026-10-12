@@ -3,6 +3,8 @@ pub use crate::mcp::McpConfig;
 use serde::Deserialize;
 use sqlx::postgres::PgConnectOptions;
 
+#[cfg(test)]
+mod cors_origin_tests;
 mod load;
 #[cfg(test)]
 mod load_tests;

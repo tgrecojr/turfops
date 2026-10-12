@@ -70,6 +70,7 @@ function Stale<T>({
 	);
 }
 
+// @spec UI-DASH-001, UI-DASH-002
 export default function Dashboard() {
 	const [data, setData] = useState<DashboardResponse | null>(null);
 	const [widgets, setWidgets] = useState<Widgets<DashboardWidgets> | null>(

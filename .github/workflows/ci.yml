@@ -66,12 +66,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # @spec UI-BUILD-007
       - name: Type check
         run: npx tsc -b
 
+      # @spec UI-BUILD-006
       - name: Lint
         run: npm run lint
 
+      # @spec UI-BUILD-009
       - name: Test
         run: npm test
 

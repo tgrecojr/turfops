@@ -8,6 +8,7 @@ import { defineConfig, type Plugin } from "vite";
 // "t is not a function") that crashes any page rendering a chart. The ESM barrel
 // `es-toolkit/compat` (index.mjs) bundles cleanly, so redirect each deep default import
 // to a named re-export of the barrel.
+// @spec UI-BUILD-004
 function esToolkitCompatEsm(): Plugin {
 	const PREFIX = "es-toolkit/compat/";
 	const VIRTUAL = "\0es-toolkit-compat-esm:";
@@ -29,8 +30,10 @@ function esToolkitCompatEsm(): Plugin {
 	};
 }
 
+// @spec UI-BUILD-001
 export default defineConfig({
 	plugins: [esToolkitCompatEsm(), react()],
+	// @spec UI-BUILD-005
 	server: {
 		port: 5173,
 		proxy: {
@@ -40,6 +43,7 @@ export default defineConfig({
 			},
 		},
 	},
+	// @spec UI-BUILD-008, UI-BUILD-010
 	test: {
 		// Component tests opt into a DOM with a `// @vitest-environment jsdom` docblock;
 		// everything else runs in Node.

@@ -122,6 +122,7 @@ export const RISK_TIERS: RiskTier[] = ["Low", "Moderate", "High", "Severe"];
 
 // Status palette (good / warning / serious / critical). Tier is never carried by
 // color alone — always pair with the symbol + label.
+// @spec UI-CONV-002
 export const RISK_TIER_COLORS: Record<RiskTier, string> = {
 	Low: "#0ca30c",
 	Moderate: "#fab219",
@@ -137,6 +138,7 @@ export const RISK_TIER_SYMBOLS: Record<RiskTier, string> = {
 };
 
 // A factor that is *favorable to the disease* is bad news for the lawn.
+// @spec UI-CONV-002
 export const FACTOR_STATUS_COLORS: Record<FactorStatus, string> = {
 	Unfavorable: "#0ca30c",
 	Marginal: "#fab219",
