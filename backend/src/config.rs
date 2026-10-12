@@ -6,6 +6,8 @@ use sqlx::postgres::PgConnectOptions;
 mod load;
 #[cfg(test)]
 mod load_tests;
+#[cfg(all(test, feature = "db-tests"))]
+mod startup_profile_db_tests;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Config {

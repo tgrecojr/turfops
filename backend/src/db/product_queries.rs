@@ -153,7 +153,7 @@ pub async fn update_product_profile(
     Ok(())
 }
 
-// @spec INV-API-014
+// @spec INV-API-014, APP-LINK-004
 pub async fn delete_product(pool: &PgPool, id: i64) -> Result<()> {
     let result = sqlx::query("DELETE FROM products WHERE id = $1")
         .bind(id)

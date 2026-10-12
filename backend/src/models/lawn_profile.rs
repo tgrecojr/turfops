@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
+#[cfg(test)]
+mod parse_tests;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum GrassType {
     KentuckyBluegrass,
@@ -27,6 +30,7 @@ impl GrassType {
         }
     }
 
+    // @spec APP-PROF-003
     pub fn is_cool_season(&self) -> bool {
         matches!(
             self,
@@ -42,6 +46,7 @@ impl GrassType {
     }
 }
 
+// @spec APP-PROF-004
 impl FromStr for GrassType {
     type Err = String;
 
@@ -89,6 +94,7 @@ impl SoilType {
     }
 }
 
+// @spec APP-PROF-004
 impl FromStr for SoilType {
     type Err = String;
 
@@ -128,6 +134,7 @@ impl IrrigationType {
     }
 }
 
+// @spec APP-PROF-004
 impl FromStr for IrrigationType {
     type Err = String;
 
@@ -147,6 +154,7 @@ impl std::fmt::Display for IrrigationType {
     }
 }
 
+// @spec APP-PROF-002
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LawnProfile {
     pub id: Option<i64>,
@@ -237,6 +245,7 @@ mod tests {
         }
     }
 
+    // @spec APP-PROF-003
     #[test]
     fn grass_type_is_cool_season() {
         assert!(GrassType::TallFescue.is_cool_season());

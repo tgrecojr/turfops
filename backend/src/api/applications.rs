@@ -1,6 +1,19 @@
 mod product_link;
 mod validate;
 
+#[cfg(all(test, feature = "db-tests"))]
+pub(crate) mod db_support;
+#[cfg(all(test, feature = "db-tests"))]
+mod duplicate_db_tests;
+#[cfg(all(test, feature = "db-tests"))]
+mod link_db_tests;
+#[cfg(all(test, feature = "db-tests"))]
+mod list_db_tests;
+#[cfg(test)]
+mod request_tests;
+#[cfg(all(test, feature = "db-tests"))]
+mod write_db_tests;
+
 use validate::{
     deleted, follow_up_answer_to_clear, parse_scope, replace_user_fields, validate, Validated,
 };
@@ -29,6 +42,7 @@ pub struct ListApplicationsQuery {
     pub scope: Option<String>,
 }
 
+// @spec APP-API-001, APP-API-008
 pub async fn list_applications(
     State(state): State<AppState>,
     Query(params): Query<ListApplicationsQuery>,
@@ -63,6 +77,7 @@ pub async fn list_applications(
     Ok(Json(apps))
 }
 
+// @spec APP-LOG-006
 #[derive(Debug, Deserialize)]
 pub struct CreateApplicationRequest {
     pub application_type: String,
@@ -83,12 +98,14 @@ pub struct CreateApplicationRequest {
 }
 
 /// The list's `type` filter, leniently parsed (`pre-emergent`, `grub control`, `mow`).
+// @spec APP-API-002
 pub(crate) fn parse_type_filter(raw: &str) -> Result<ApplicationType, TurfOpsError> {
     ApplicationType::from_str(raw)
         .map_err(|_| TurfOpsError::InvalidData(format!("Unknown application type filter: {raw}")))
 }
 
 /// Only a fungicide carries FRAC classes; an empty pick means "not recorded".
+// @spec APP-FRAC-001
 fn fungicide_classes(
     application_type: ApplicationType,
     classes: Option<Vec<FracClass>>,
@@ -96,6 +113,7 @@ fn fungicide_classes(
     classes.filter(|c| application_type == ApplicationType::Fungicide && !c.is_empty())
 }
 
+// @spec APP-API-003, APP-API-008, APP-DUP-002
 pub async fn create_application(
     State(state): State<AppState>,
     Json(req): Json<CreateApplicationRequest>,
@@ -152,6 +170,7 @@ pub async fn create_application(
     Ok((StatusCode::CREATED, Json(created)))
 }
 
+// @spec APP-API-006, APP-DUP-002
 pub async fn update_application(
     State(state): State<AppState>,
     Path(id): Path<i64>,
@@ -210,6 +229,7 @@ pub async fn update_application(
     Ok(Json(updated))
 }
 
+// @spec APP-API-007
 pub async fn delete_application(
     State(state): State<AppState>,
     Path(id): Path<i64>,
