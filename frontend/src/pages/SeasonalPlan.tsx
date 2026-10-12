@@ -20,6 +20,7 @@ const CONFIDENCE_DOTS: Record<string, string> = {
 	Low: "●○○",
 };
 
+// @spec PLAN-UI-006
 function ActivityCard({
 	activity,
 	today,
@@ -79,6 +80,7 @@ function ActivityCard({
 							{expanded ? "Less" : "Details"}
 						</button>
 					</div>
+					{/* @spec PLAN-UI-008 */}
 					{expanded && (
 						<div style={styles.details}>
 							{activity.details.soil_temp_trigger && (
@@ -160,6 +162,7 @@ export default function SeasonalPlan() {
 		fetchPlan(year);
 	}, [year, fetchPlan]);
 
+	// @spec PLAN-UI-002
 	if (loading) {
 		return (
 			<div style={styles.page}>
@@ -185,6 +188,7 @@ export default function SeasonalPlan() {
 	// @spec PLAN-UI-001
 	const yearOptions = yearChoices(Number(plan.today.slice(0, 4)));
 
+	// @spec PLAN-UI-005
 	const filteredActivities = plan.activities.filter((a) => {
 		if (categoryFilter === "All") return true;
 		const isPlant = a.category === "Plant Maintenance";
@@ -208,6 +212,7 @@ export default function SeasonalPlan() {
 			<div style={styles.header}>
 				<div>
 					<h1 style={styles.title}>Seasonal Plan</h1>
+					{/* @spec PLAN-UI-003 */}
 					<p style={styles.subtitle}>
 						Predicted activity windows based on {plan.data_years_used} years of
 						soil temperature data
@@ -269,6 +274,7 @@ export default function SeasonalPlan() {
 				</div>
 			)}
 
+			{/* @spec PLAN-UI-006 */}
 			<div style={styles.timeline}>
 				{filteredActivities.map((activity) => (
 					<ActivityCard
@@ -279,6 +285,7 @@ export default function SeasonalPlan() {
 				))}
 			</div>
 
+			{/* @spec PLAN-UI-009 */}
 			{filteredActivities.length === 0 && (
 				<div style={styles.empty}>
 					{plan.activities.length === 0

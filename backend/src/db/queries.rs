@@ -592,6 +592,7 @@ pub async fn delete_crossings_for_other_stations(pool: &PgPool, station: i32) ->
 
 /// Replace a year's cached crossings, so a threshold that no longer crosses disappears,
 /// and record the year's marker (written even when there are no crossings).
+// @spec PLAN-CACHE-001, PLAN-CACHE-004
 pub async fn replace_threshold_crossings(
     pool: &PgPool,
     year: i32,

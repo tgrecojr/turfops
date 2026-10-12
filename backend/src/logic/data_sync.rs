@@ -1,5 +1,7 @@
 mod probes;
 mod sync_state;
+#[cfg(all(test, feature = "db-tests"))]
+mod test_double;
 #[cfg(test)]
 mod tests;
 

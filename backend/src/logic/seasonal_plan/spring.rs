@@ -8,6 +8,7 @@ use crate::models::seasonal_plan::*;
 use crate::models::{Application, ApplicationType};
 use chrono::NaiveDate;
 
+// @spec PLAN-ACT-001, PLAN-ACT-012, PLAN-ACT-014, PLAN-ACT-015, PLAN-ACT-016
 pub(super) fn spring_activities(
     year: i32,
     crossings: &[ThresholdCrossing],
@@ -16,6 +17,7 @@ pub(super) fn spring_activities(
 ) -> Vec<PlannedActivity> {
     let mut activities = Vec::new();
 
+    // @spec PLAN-ACT-002, PLAN-ACT-019
     // 1. Pre-Emergent (soil rising through 50°F → 60°F)
     if let Some(start) = aggregate_crossings(crossings, "soil_50f_rising", year) {
         let end = aggregate_crossings(crossings, "soil_60f_rising", year);
@@ -50,6 +52,7 @@ pub(super) fn spring_activities(
         });
     }
 
+    // @spec PLAN-ACT-003
     // 2. Spring Nitrogen (soil rising through 55°F → 65°F)
     if let Some(start) = aggregate_crossings(crossings, "soil_55f_rising", year) {
         let end = aggregate_crossings(crossings, "soil_65f_rising", year);
@@ -82,6 +85,7 @@ pub(super) fn spring_activities(
         });
     }
 
+    // @spec PLAN-ACT-005
     // 3. Spring Broadleaf Herbicide (soil 45-55°F rising)
     if let Some(start_agg) = aggregate_crossings(crossings, "soil_50f_rising", year) {
         let start_date = start_agg.median - chrono::Duration::days(7);
@@ -121,6 +125,7 @@ pub(super) fn spring_activities(
         });
     }
 
+    // @spec PLAN-ACT-006
     // 4. Grub Preventative (soil rising through 60-75°F, calendar May 15 - Jul 4)
     if let Some(start) = aggregate_crossings(crossings, "soil_60f_rising", year) {
         let end = aggregate_crossings(crossings, "soil_75f_rising", year);
