@@ -9,6 +9,7 @@ pub struct McpConfig {
     pub token: Option<String>,
 }
 
+// @spec DEPLOY-CONFIG-010, DEPLOY-LOG-003
 impl std::fmt::Debug for McpConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("McpConfig")

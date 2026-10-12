@@ -1,3 +1,4 @@
+# @spec DEPLOY-CI-009
 # osv-scanner configuration
 # Per https://google.github.io/osv-scanner/configuration/, this file applies
 # only to lockfiles in the same directory (backend/Cargo.lock), which is

@@ -1,3 +1,4 @@
+# @spec DEPLOY-CI-004, DEPLOY-CI-005
 name: Build and Publish Docker Image
 
 on:

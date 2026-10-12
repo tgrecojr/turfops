@@ -10,7 +10,7 @@ use tower_http::services::{ServeDir, ServeFile};
 /// `app` serving the SPA from `static_dir`: existing files as they are, every other path
 /// the client router owns with `index.html` and 200, so a reload or a deep link loads the
 /// app. Without a bundled frontend, `/` says so.
-// @spec UI-SRV-001, UI-SRV-010
+// @spec UI-SRV-001, UI-SRV-010, DEPLOY-HTTP-004
 pub fn with_frontend(app: Router, static_dir: &Path) -> Router {
     let index_file = static_dir.join("index.html");
     if index_file.exists() {

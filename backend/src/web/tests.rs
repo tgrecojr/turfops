@@ -37,7 +37,7 @@ fn api() -> Router {
     Router::new().route("/api/v1/health", get(|| async { "ok" }))
 }
 
-// @spec UI-SRV-001
+// @spec UI-SRV-001, DEPLOY-HTTP-004
 #[tokio::test]
 async fn a_client_route_loads_index_html_with_200() {
     let dir = static_dir(
@@ -59,7 +59,7 @@ async fn a_client_route_loads_index_html_with_200() {
     assert_eq!(send(app, Method::GET, "/api/v1/health").await.1, "ok");
 }
 
-// @spec UI-SRV-010
+// @spec UI-SRV-010, DEPLOY-HTTP-004
 #[tokio::test]
 async fn without_a_bundled_frontend_the_root_says_so() {
     let dir = static_dir("empty", &[]);

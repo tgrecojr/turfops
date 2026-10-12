@@ -28,6 +28,7 @@ impl DataSyncService {
     /// Create a new DataSyncService with lazy external connections.
     /// Clients are configured but not tested — connections are validated
     /// on first data fetch, avoiding slow startup when external services are down.
+    // @spec DEPLOY-START-004
     pub async fn initialize(config: &Config, pool: PgPool) -> Self {
         let homeassistant_client = if !config.homeassistant.token.is_empty() {
             tracing::info!(

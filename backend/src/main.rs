@@ -27,6 +27,8 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use tower_http::limit::RequestBodyLimitLayer;
 
+// @spec DEPLOY-START-001, DEPLOY-START-003, DEPLOY-START-004, DEPLOY-HTTP-001, DEPLOY-LOG-002
+// @spec DEPLOY-CONFIG-004, DEPLOY-CONFIG-011
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     #[cfg(feature = "dev-env")]
@@ -284,6 +286,7 @@ async fn shutdown_signal() {
 }
 
 /// Create a default lawn profile from config if no profile exists in the DB.
+// @spec DEPLOY-CONFIG-009
 async fn ensure_default_profile(pool: &sqlx::PgPool, config: &Config) -> anyhow::Result<()> {
     if queries::get_default_lawn_profile(pool).await?.is_some() {
         return Ok(());

@@ -93,7 +93,7 @@ struct OwmCoord {
     lon: f64,
 }
 
-// @spec WX-SRC-OWM-005
+// @spec WX-SRC-OWM-005, DEPLOY-LOG-003
 /// A failed request as a data-source error. The request URL carries the API key in its
 /// query string, and reqwest's error text includes the URL, so it is stripped here: no
 /// caller, log line or response can then leak the key.
