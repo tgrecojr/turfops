@@ -7,14 +7,18 @@ import { describe, expect, it } from "vitest";
 const root = join(import.meta.dirname, "..");
 const src = join(root, "src");
 
-/** Every non-test source file under `dir`, as a path relative to `src`. */
+/**
+ * Every app source file under `dir`, as a path relative to `src`. Test support is not app
+ * code: `*.test.*` suites, everything under `src/test/`, and `*Fixtures.ts` data builders.
+ */
 function sources(dir = src): string[] {
 	return readdirSync(dir).flatMap((name) => {
 		const path = join(dir, name);
-		if (statSync(path).isDirectory()) return sources(path);
+		if (statSync(path).isDirectory())
+			return path === join(src, "test") ? [] : sources(path);
 		return /\.(ts|tsx)$/.test(name) &&
 			!/\.test\./.test(name) &&
-			name !== "setup.ts"
+			!/Fixtures\.ts$/.test(name)
 			? [relative(src, path)]
 			: [];
 	});
