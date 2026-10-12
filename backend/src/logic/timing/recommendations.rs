@@ -3,7 +3,7 @@
 //! 10 cm pre-emergent and fall-overseeding rules.
 
 use super::text::short;
-use crate::logic::rules::thresholds::{DEFAULT_LAWN_SIZE_SQFT, OVERSEED_RATE_LBS_PER_KSQFT};
+use crate::logic::rules::thresholds::OVERSEED_RATE_LBS_PER_KSQFT;
 use crate::models::timing::{
     BoundaryView, SoilNow, TimingWindow, WindowId, WindowPriority, WindowState,
 };
@@ -73,13 +73,21 @@ fn boundary_point(rec: Recommendation, name: &str, boundary: &BoundaryView) -> R
     rec.with_data_point(name, value, DataSource::Calculated.as_str())
 }
 
+/// Seed per 1,000 sq ft, and the total for the lawn only when its size is recorded: a
+/// total for an assumed size would read as the owner's lawn.
+// @spec TIME-FEED-003, TIME-FEED-009
 fn seeding_rate_note(profile: &LawnProfile) -> String {
-    let sqft = profile.lawn_size_sqft.unwrap_or(DEFAULT_LAWN_SIZE_SQFT);
-    format!(
-        "Overseeding at {OVERSEED_RATE_LBS_PER_KSQFT:.0} lbs/1000 sqft needs about {:.0} lbs of \
-         seed for {sqft:.0} sqft.",
-        sqft / 1000.0 * OVERSEED_RATE_LBS_PER_KSQFT
-    )
+    match profile.lawn_size_sqft {
+        Some(sqft) => format!(
+            "Overseeding at {OVERSEED_RATE_LBS_PER_KSQFT:.0} lbs/1000 sqft needs about {:.0} lbs of \
+             seed for {sqft:.0} sqft.",
+            sqft / 1000.0 * OVERSEED_RATE_LBS_PER_KSQFT
+        ),
+        None => format!(
+            "Overseed at {OVERSEED_RATE_LBS_PER_KSQFT:.0} lbs/1000 sqft. Set your lawn size in \
+             Settings to see the total seed to buy."
+        ),
+    }
 }
 
 fn to_recommendation(
@@ -226,6 +234,36 @@ mod tests {
         assert_eq!(recs[0].severity, Severity::Warning);
         assert_eq!(recs[0].category, RecommendationCategory::Overseeding);
         assert!(recs[0].suggested_action.as_ref().unwrap().contains("lbs"));
+    }
+
+    fn seed_note(lawn_size_sqft: Option<f64>) -> String {
+        let profile = LawnProfile {
+            lawn_size_sqft,
+            ..LawnProfile::default()
+        };
+        let open = window(
+            WindowId::FallSeeding,
+            WindowPriority::Primary,
+            WindowState::Open,
+        );
+        let recs = to_recommendations(&[open], &soil(), &profile, date(9, 10));
+        recs[0].suggested_action.clone().unwrap()
+    }
+
+    // @spec TIME-FEED-003, TIME-FEED-009
+    #[test]
+    fn the_seed_total_needs_a_recorded_lawn_size() {
+        let sized = seed_note(Some(8000.0));
+        assert!(sized.contains("4 lbs/1000 sqft"), "{sized}");
+        assert!(
+            sized.contains("about 32 lbs of seed for 8000 sqft"),
+            "{sized}"
+        );
+
+        let no_size = seed_note(None);
+        assert!(no_size.contains("4 lbs/1000 sqft"), "{no_size}");
+        assert!(!no_size.contains("5000"), "no assumed size: {no_size}");
+        assert!(!no_size.contains("lbs of seed for"), "no total: {no_size}");
     }
 
     #[test]

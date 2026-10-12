@@ -200,7 +200,7 @@ As a result, a spring pre-emergent never blocks fall seeding, a fall overseeding
    - Spring pre-emergent Closed with `closes.date` ≤ 21 days ago → Warning.
    - Everything else produces nothing.
    - The id is `timing_<slug>_<season_year>`. The category is PreEmergent or Overseeding.
-   - The title is "name — headline", the description is `detail`, the action is `guidance` (plus, for fall seeding, a seed-amount note: the overseeding amount per 1,000 sq ft and the total seed for `lawn_size_sqft`, from `rules/thresholds.rs::OVERSEED_RATE_LBS_PER_KSQFT`, `recommendations.rs:76-83`), and the data points are the 5 cm mean plus Opens, Ideal until and Closes.
+   - The title is "name — headline", the description is `detail`, the action is `guidance` (plus, for fall seeding, a seed-amount note: the overseeding amount per 1,000 sq ft from `rules/thresholds.rs::OVERSEED_RATE_LBS_PER_KSQFT` and, when the profile records `lawn_size_sqft`, the total seed for it — with no size the note gives the per-1,000 amount only, as feeding advice does (RULE-ENG-009); `recommendations.rs::seeding_rate_note`), and the data points are the 5 cm mean plus Opens, Ideal until and Closes.
    - `ProductNeed`: Herbicide · PreEmergent for the pre-emergent windows. Seed with the lawn's species targets for the seeding windows (Mixed accepts KBG / TTTF / PRG / fine fescue). The missed spring pre-emergent Warning (state Closed) declares no need: its guidance is post-emergent control, so pre-emergent never reaches the shopping list after the window has closed.
 2. `companions::aeration`: the `aeration` recommendation while fall seeding is Open, Ideal or Closing.
    - Silent when the lawn was aerated since Jul 1 of the season year, and silent when seeding is Done or Blocked.
@@ -306,7 +306,8 @@ A failed fetch shows `describeError(e)` (Web UI's human-readable errors): with n
 | Season rollover | Spring windows roll in August; dormant seeding belongs to its opening year through June | Calendar year | Keeps the next actionable season in view after the current one ends. [inferred] |
 | Percentiles and confidence | Nearest-rank; High ≥ 8 years, Medium ≥ 4 | Interpolated percentiles | Simple and reproducible in SQL for independent checks. [inferred] |
 | Today | The lawn's local date (the app's `Clock`, `TZ` set to the lawn's timezone); the history start year from the same date | The UTC date; a station-local date from the lake's UTC offset | Every timing date (a crossing day, a freeze night, a season year) is a lawn-local calendar day. One configured clock gives this component the same day as every other one. |
-| Seed amount in advice | The fall seeding recommendation and plan activity state seed per 1,000 sq ft and the total for the lawn | No amounts | Seed per 1,000 sq ft is an agronomic amount, not a product label rate. A pre-emergent product rate is never stated: the label governs. |
+| Seed amount in advice | The fall seeding recommendation and plan activity state seed per 1,000 sq ft; the recommendation adds the total for the lawn when the profile records its size | No amounts | Seed per 1,000 sq ft is an agronomic amount, not a product label rate. A pre-emergent product rate is never stated: the label governs. |
+| Seed total without a lawn size | Per-1,000 sq ft amount only | Total for a default 5,000 sq ft lawn | A total for an assumed size reads as the owner's lawn and is wrong for most; the feeding advice already withholds it (RULE-ENG-009). |
 
 ## Open Questions & Future Decisions
 

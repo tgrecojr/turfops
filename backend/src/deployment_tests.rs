@@ -45,6 +45,19 @@ fn the_volume_mounts_where_postgres_18_keeps_its_data() {
 
 /// Advisory ids in an ignore list, each with the crate it names in a comment line
 /// `# <ID> (crate <name>): <justification>`.
+// @spec DEPLOY-COMPOSE-010
+#[test]
+fn compose_supplies_no_stand_in_coordinates() {
+    assert!(
+        COMPOSE.contains("OWM_LATITUDE: ${OWM_LATITUDE:-}\n"),
+        "no 0 default"
+    );
+    assert!(
+        COMPOSE.contains("OWM_LONGITUDE: ${OWM_LONGITUDE:-}\n"),
+        "no 0 default"
+    );
+}
+
 fn ignored(list: &str) -> Vec<(String, Option<String>)> {
     list.lines()
         .filter(|l| !l.trim_start().starts_with('#'))

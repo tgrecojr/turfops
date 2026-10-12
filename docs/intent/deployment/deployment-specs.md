@@ -27,6 +27,7 @@ Design: [deployment-design.md](deployment-design.md). Prefix `DEPLOY`. Facets: `
 - [x] **DEPLOY-COMPOSE-006**: The Compose `app` service shall pass every optional setting as `${KEY:-}` or `${KEY:-default}`, so a variable the host leaves unset reaches the backend as an empty string or the stated default; it shall fix `SERVER_HOST=0.0.0.0`, `SERVER_PORT=3000` and `STATIC_DIR=/app/static`, and default `RUST_LOG` to `info`.
 - [x] **DEPLOY-COMPOSE-007**: The Compose stack shall publish the app on host port 3000, and PostgreSQL on host port 5433 bound to the host's loopback interface only (`127.0.0.1:5433:5432`), so a local `cargo run` can use the Compose database but other machines on the network cannot reach it.
 - [x] **DEPLOY-COMPOSE-009**: The Compose `db` service shall mount its named volume `turfops_data` where the PostgreSQL 18 image keeps its data (the volume root `/var/lib/postgresql`, under which the image stores the cluster in `18/docker`), so a fresh `docker compose up` initializes the database and keeps it across container recreation.
+- [x] **DEPLOY-COMPOSE-010**: The Compose `app` service shall pass `OWM_LATITUDE` and `OWM_LONGITUDE` as `${KEY:-}` with no default value, so a host that sets only `OWM_API_KEY` leaves the forecast off (WX-SRC-CFG-003) rather than forecasting for 0,0.
 
 ## Configuration
 
@@ -39,7 +40,7 @@ Design: [deployment-design.md](deployment-design.md). Prefix `DEPLOY`. Facets: `
 - [x] **DEPLOY-CONFIG-009**: When the backend starts with no lawn profile in the database, it shall create one from `LAWN_NAME`, `LAWN_GRASS_TYPE`, `LAWN_USDA_ZONE`, `LAWN_SOIL_TYPE`, `LAWN_SIZE_SQFT` and `LAWN_IRRIGATION_TYPE`; once a profile exists, the backend shall ignore the `LAWN_*` settings.
 - [x] **DEPLOY-CONFIG-010**: Every configuration struct that holds a credential shall print it as `[REDACTED]` in its `Debug` output.
 - [x] **DEPLOY-CONFIG-011**: Where the backend is built with the `dev-env` feature, it shall load a `.env` file before reading configuration; the default build shall read only the process environment.
-- [x] **DEPLOY-CONFIG-012**: If any configuration setting is set to a non-empty value the backend cannot use (for example an unparseable `SERVER_HOST`, `DB_MAX_CONNECTIONS`, `OWM_LATITUDE` / `OWM_LONGITUDE` or `LAWN_SIZE_SQFT`, an unknown `LAWN_SOIL_TYPE`, `LAWN_IRRIGATION_TYPE` or `HA_TEMPERATURE_UNIT`, or an invalid `RUST_LOG` filter), then the backend shall log a warning naming the setting and the default it uses instead, never falling back silently.
+- [x] **DEPLOY-CONFIG-012**: If any configuration setting is set to a non-empty value the backend cannot use (for example an unparseable `SERVER_HOST`, `DB_MAX_CONNECTIONS` or `LAWN_SIZE_SQFT`, an unknown `LAWN_SOIL_TYPE`, `LAWN_IRRIGATION_TYPE` or `HA_TEMPERATURE_UNIT`, or an invalid `RUST_LOG` filter), then the backend shall log a warning naming the setting and the default it uses instead, never falling back silently. An unusable OWM coordinate is the exception: it turns the forecast off instead of using a default (WX-SRC-CFG-003).
 - [x] **DEPLOY-CONFIG-013**: When `OWM_ENABLED` or `OPENROUTER_ENABLED` is set, the backend shall treat `true`, `1` or `yes`, in any letter case, as on and any other value as off; when unset, the flag shall be on.
 
 ## Timezone ("today")

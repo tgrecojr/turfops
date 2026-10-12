@@ -90,7 +90,7 @@ Both services `restart: unless-stopped`. Host port 5433 exposes Postgres for a l
 | `HA_TEMPERATURE_ENTITY` / `HA_HUMIDITY_ENTITY` | `sensor.temp_humidity_sensor_temperature` / `…_humidity` | same | — |
 | `HA_TEMPERATURE_UNIT` | Fahrenheit | `fahrenheit` | `celsius` → Celsius; `fahrenheit` → Fahrenheit; anything else → warn, Fahrenheit |
 | `OWM_API_KEY` | unset | `""` | empty/whitespace = not configured (whole `OpenWeatherMapConfig` is `None`) |
-| `OWM_LATITUDE` / `OWM_LONGITUDE` | 0 / 0 | 0 / 0 | unparseable → warn, 0.0 |
+| `OWM_LATITUDE` / `OWM_LONGITUDE` | unset | `""` / `""` (no `0` default, which would read as a real place) | with `OWM_API_KEY` set, both required: unset, blank, unparseable or out of range → warn, forecast off (WX-SRC-CFG-003) |
 | `OWM_ENABLED`, `OPENROUTER_ENABLED` | on | `true` | `true`, `1` or `yes` in any letter case → on; any other value → off |
 | `OPENROUTER_API_KEY` | unset | `""` | empty/whitespace = not configured |
 | `OPENROUTER_MODEL` | `anthropic/claude-haiku-4.5` | same | not validated |
@@ -238,7 +238,7 @@ The duplicate-application text tells the owner how to fix the entry (edit the ex
 
 ### Deferred
 1. **No panic hook.** There is none beyond the default. `build_cors_layer` (`main.rs`) and the OWM client builder (`datasources/openweathermap.rs`) use `expect`, so a bad CORS origin ends startup in a panic, not in the `Config` error every other refused setting produces.
-2. **Settings outside the loader.** `STATIC_DIR` is read in `main.rs`, not in `config::load`, and an OWM key with unset or unparseable coordinates forecasts for 0°, 0° (the bad value is warned about, the 0° default is not).
+2. **Settings outside the loader.** `STATIC_DIR` is read in `main.rs`, not in `config::load`.
 3. **`OPENROUTER_MODEL` is not validated.** An id OpenRouter does not know surfaces only when the assistant is first called (the default, `anthropic/claude-haiku-4.5`, is valid).
 4. **CI does not build the frontend.** `ci.yml` type-checks, lints and runs the Vitest suite; only the PR image build in `docker-publish.yml` runs `npm run build`.
 5. **`.dockerignore` patterns are root-anchored.** `target/`, `src/` and `*.md` match only top-level paths, so `backend/target` (tens of GB locally) is not excluded. BuildKit transfers only paths the Dockerfile copies, which keeps this harmless today. Widening `*.md` to `**/*.md` would break the MCP docs copy.
