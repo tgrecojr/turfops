@@ -117,6 +117,7 @@ fn reminder_window(task: &MaintenanceTask, today: NaiveDate) -> Option<(NaiveDat
         })
 }
 
+// @spec FEED-PIPE-005
 /// Emit one Recommendation per plant task when today is inside the window
 /// (with a lead-in) and the task hasn't been logged recently. A Watering task is a
 /// "during dry spells" reminder, so it is also held back while rain (falling, forecast,

@@ -23,6 +23,7 @@ pub async fn get_disease_risk(
     Ok(Json(response))
 }
 
+// @spec FEED-PIPE-015
 /// Disease recommendations for the feed/dashboard. Disease risk is additive there, so
 /// a lake or forecast outage degrades to "no disease alerts" rather than failing.
 pub(crate) async fn recommendations(

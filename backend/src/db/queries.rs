@@ -360,6 +360,7 @@ pub async fn get_recommendation_states(
         .collect())
 }
 
+// @spec FEED-STATE-001
 /// Record an answer. `severity` is what the recommendation showed when the user clicked.
 pub async fn upsert_recommendation_state(
     pool: &PgPool,

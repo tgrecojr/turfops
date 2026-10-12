@@ -16,6 +16,7 @@ pub struct DashboardResponse {
     pub connections: ConnectionStatus,
 }
 
+// @spec FEED-PIPE-017, FEED-UI-009
 /// GET /api/v1/dashboard
 /// Composite endpoint returning profile, environmental summary, top recommendations,
 /// recent applications, and datasource connection status.

@@ -234,6 +234,7 @@ fn build_almost_ready(soil_temp: f64, gdd_ytd: Option<f64>) -> Recommendation {
     rec
 }
 
+// @spec FEED-PIPE-005
 fn build_may_cutoff_warning(soil_temp: f64) -> Recommendation {
     Recommendation::new(
         "spring_n_may_cutoff",
@@ -422,7 +423,7 @@ mod tests {
         assert_eq!(spring_feedings(&fed, today).len(), 1);
     }
 
-    // @spec RULE-GUARD-002, RULE-SPRING-008
+    // @spec RULE-GUARD-002, RULE-SPRING-008, FEED-PIPE-005
     #[test]
     fn ready_to_feed_is_a_marked_feeding_that_needs_nitrogen() {
         let rec = build_ready_to_fertilize(55.0, &base_profile(), Some(100.0));

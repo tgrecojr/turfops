@@ -160,6 +160,7 @@ async fn compute(state: &AppState, profile: &LawnProfile) -> Result<TimingRespon
     })
 }
 
+// @spec FEED-PIPE-016
 /// What the timing windows contribute to the feed/dashboard: one recommendation per
 /// actionable window, core aeration (same window as seeding), and the fall herbicide
 /// reconciled with the seeding decision. Like disease risk this is additive: a lake

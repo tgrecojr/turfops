@@ -3,7 +3,7 @@ pub use crate::mcp::McpConfig;
 use serde::Deserialize;
 use sqlx::postgres::PgConnectOptions;
 
-mod load;
+pub(crate) mod load;
 #[cfg(test)]
 mod load_tests;
 

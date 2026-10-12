@@ -7,6 +7,7 @@ interface AlertCardProps {
 	rec: Recommendation;
 }
 
+// @spec FEED-UI-008
 export default function AlertCard({ rec }: AlertCardProps) {
 	// @spec FEED-REC-004
 	const chip = severityChip(rec.severity);

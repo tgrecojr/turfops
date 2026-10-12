@@ -9,6 +9,7 @@ import type { Recommendation } from "../types";
 import { categoryLabel, SEVERITY_SYMBOLS } from "../types";
 import { STOCK_STATUS_LABELS } from "../types/inventory";
 
+// @spec FEED-UI-001, FEED-UI-002, FEED-UI-004, FEED-UI-005, FEED-UI-007, FEED-UI-012
 export default function Recommendations() {
 	const [allRecs, setAllRecs] = useState<Recommendation[]>([]);
 	const [showAnswered, setShowAnswered] = useState(false);
@@ -36,6 +37,7 @@ export default function Recommendations() {
 	const recs = allRecs.filter((r) => !r.dismissed && !r.addressed);
 	const answered = allRecs.filter((r) => r.dismissed || r.addressed);
 
+	// @spec FEED-UI-003
 	const handleAction = async (
 		rec: Recommendation,
 		action: "addressed" | "dismissed",
@@ -57,6 +59,7 @@ export default function Recommendations() {
 		}
 	};
 
+	// @spec FEED-UI-006
 	const handleRestore = async (id: string) => {
 		setActionInFlight(id);
 		try {
