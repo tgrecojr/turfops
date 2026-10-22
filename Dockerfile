@@ -44,7 +44,7 @@ RUN cargo build --release
 # Stage 3: Runtime
 # @spec DEPLOY-IMAGE-002, DEPLOY-IMAGE-005, DEPLOY-IMAGE-006
 # @spec DEPLOY-TZ-002 (the image sets no TZ; the deployment supplies the lawn's zone)
-FROM cgr.dev/chainguard/glibc-dynamic:latest@sha256:2a3f1ec8a825dfbb1211b5835a9b8b3fb8d76c7bd22a189b1f84157ed2028293
+FROM cgr.dev/chainguard/glibc-dynamic:latest@sha256:00696e56634cf72d966ee0e0f26224c83a192569035caf1e31297f77b0e85212
 
 WORKDIR /app
 
