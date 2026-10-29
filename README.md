@@ -433,8 +433,8 @@ docker compose logs -f app  # Follow app logs
 
 The Dockerfile uses a multi-stage build:
 1. **Node (Alpine)** — builds the React frontend
-2. **Rust (slim)** — compiles the backend binary, statically linking the C++ runtime that embedded DuckDB needs
-3. **Chainguard `glibc-dynamic`** — minimal distroless runtime image, runs as non-root
+2. **Rust (slim)** — compiles the backend binary with embedded DuckDB and its parquet reader linked in
+3. **Chainguard `glibc-dynamic`** — minimal distroless runtime image (glibc plus the C++ runtime the binary loads), runs as non-root
 
 ## Agronomic Rules
 

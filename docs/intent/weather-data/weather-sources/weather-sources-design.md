@@ -50,6 +50,9 @@ only when they are configured.
   `TurfOpsError::DataLake`. Both are HTTP 503 with the owner sentence that the weather lake
   can't be read (try again; if it persists, check the mount at `DATALAKE_ROOT`); the DuckDB
   detail, which carries file paths, goes to the log only.
+- **The parquet reader is compiled in.** The `duckdb` crate's `parquet` feature (a deployment
+  decision, `backend/Cargo.toml`) links DuckDB's parquet extension into the binary, so
+  `read_parquet` never installs or downloads an extension: a query needs only the mount.
 - **Paths** are trusted config, interpolated with single quotes escaped (`parquet()`). All
   user-influenced values (station, dates, timestamps) are bound parameters.
 - **Units.** Silver °C is converted to °F at ingestion (`celsius_to_fahrenheit`,

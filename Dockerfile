@@ -19,12 +19,6 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends g++ tzdata \
     && rm -rf /var/lib/apt/lists/*
 
-# @spec DEPLOY-IMAGE-003
-# Statically link the C++ runtime (libstdc++) and libgcc into the binary so it only
-# depends on glibc at runtime — the cgr.dev/chainguard/glibc-dynamic image provides
-# glibc but NOT libstdc++.so.6, which the bundled DuckDB would otherwise need.
-ENV RUSTFLAGS="-C link-arg=-static-libstdc++ -C link-arg=-static-libgcc"
-
 # Copy manifests first for dependency caching
 COPY backend/Cargo.toml backend/Cargo.lock* ./
 RUN mkdir src && echo 'fn main() { println!("placeholder"); }' > src/main.rs
@@ -42,7 +36,9 @@ RUN touch src/main.rs
 RUN cargo build --release
 
 # Stage 3: Runtime
-# @spec DEPLOY-IMAGE-002, DEPLOY-IMAGE-005, DEPLOY-IMAGE-006
+# @spec DEPLOY-IMAGE-002, DEPLOY-IMAGE-003, DEPLOY-IMAGE-005, DEPLOY-IMAGE-006
+# glibc-dynamic ships glibc, libstdc++.so.6 and libgcc_s.so.1, which the binary loads
+# (the bundled DuckDB C++ build links the C++ runtime dynamically); nothing else is copied.
 # @spec DEPLOY-TZ-002 (the image sets no TZ; the deployment supplies the lawn's zone)
 FROM cgr.dev/chainguard/glibc-dynamic:latest@sha256:2827063c9efb4ba971d8621eb75f4e61b8d19850a6293a797df37358cc6f687b
 
