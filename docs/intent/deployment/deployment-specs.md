@@ -7,8 +7,8 @@ Design: [deployment-design.md](deployment-design.md). Prefix `DEPLOY`. Facets: `
 ## Container image
 
 - [x] **DEPLOY-IMAGE-001**: The Docker image shall be built in three stages (frontend build on Node, backend build on Rust, distroless runtime), with every base image pinned by digest.
-- [x] **DEPLOY-IMAGE-002**: The runtime image shall contain only the release backend binary, the built SPA at `/app/static` and the timezone database at `/usr/share/zoneinfo`, with no shell, package manager or C++ runtime library.
-- [x] **DEPLOY-IMAGE-003**: The image's backend build shall link libstdc++ and libgcc statically, so the binary's only dynamic dependency is glibc (the distroless runtime ships no `libstdc++.so.6`, which bundled DuckDB needs).
+- [x] **DEPLOY-IMAGE-002**: The runtime image shall add to its base only the release backend binary, the built SPA at `/app/static` and the timezone database at `/usr/share/zoneinfo`, with no shell or package manager.
+- [x] **DEPLOY-IMAGE-003**: The runtime stage shall use the Chainguard `glibc-dynamic` base, which supplies the shared libraries the backend binary loads (glibc, `libstdc++.so.6` and `libgcc_s.so.1`, the last two for bundled DuckDB), and shall copy no shared library of its own.
 - [x] **DEPLOY-IMAGE-004**: The image's backend build stage shall copy `docs/timing-windows.md` and `docs/agronomy-methods.md` to `/docs/` before compiling, so the MCP server's embedded methodology resources resolve, and `.dockerignore` shall leave `docs/*.md` in the build context.
 - [x] **DEPLOY-IMAGE-005**: The runtime image shall run the backend as the non-root uid 65532, with the binary and static files owned by 65532:65532.
 - [x] **DEPLOY-IMAGE-006**: The runtime image shall set `STATIC_DIR=/app/static`, expose port 3000 and use the backend binary as its entrypoint.
@@ -16,6 +16,7 @@ Design: [deployment-design.md](deployment-design.md). Prefix `DEPLOY`. Facets: `
 - [x] **DEPLOY-IMAGE-008**: The app container (image or Compose `app` service) shall declare a health check that probes `GET /api/v1/health` and marks the container unhealthy when it does not answer, using a probe that works without a shell or curl in the distroless runtime.
 - [x] **DEPLOY-IMAGE-009**: The runtime image shall declare `USER 65532:65532` explicitly, so the backend runs as that non-root uid even if the base image's default user changes.
 - [x] **DEPLOY-IMAGE-010**: The image's frontend build stage shall install dependencies with `npm ci --ignore-scripts` (no package lifecycle scripts, matching the supply-chain scan), unless a dependency genuinely needs an install script, in which case the Dockerfile shall say which one and why.
+- [x] **DEPLOY-IMAGE-011**: The backend shall be built with the `duckdb` crate's `parquet` feature, so DuckDB's parquet extension is linked into the binary and a lake read installs or downloads no extension at run time.
 
 ## Compose stack
 

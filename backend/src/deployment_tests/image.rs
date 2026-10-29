@@ -65,7 +65,6 @@ fn the_runtime_holds_only_the_binary_the_spa_and_the_zone_database() {
         !lines.iter().any(|l| l.starts_with("RUN")),
         "no shell or package manager to run anything with"
     );
-    assert!(!runtime().contains("libstdc++"), "no C++ runtime library");
     assert!(
         stages()[1].contains("--no-install-recommends g++ tzdata"),
         "the zone database comes from the build stage's tzdata"
@@ -74,13 +73,20 @@ fn the_runtime_holds_only_the_binary_the_spa_and_the_zone_database() {
 
 // @spec DEPLOY-IMAGE-003
 #[test]
-fn the_backend_links_the_cpp_runtime_statically() {
-    let backend = stages()[1];
-    let flags = backend
-        .find(r#"ENV RUSTFLAGS="-C link-arg=-static-libstdc++ -C link-arg=-static-libgcc""#)
-        .expect("static libstdc++ and libgcc");
-    let build = backend.rfind("RUN cargo build --release").unwrap();
-    assert!(flags < build, "set before the release build");
+fn the_runtime_base_supplies_the_shared_libraries() {
+    let from = runtime().lines().next().unwrap();
+    assert!(
+        from.starts_with("FROM cgr.dev/chainguard/glibc-dynamic:"),
+        "glibc-dynamic ships glibc, libstdc++.so.6 and libgcc_s.so.1: {from}"
+    );
+    let copied_libraries: Vec<&str> = instructions(runtime())
+        .into_iter()
+        .filter(|l| l.starts_with("COPY") && (l.contains(".so") || l.contains("/lib/")))
+        .collect();
+    assert!(
+        copied_libraries.is_empty(),
+        "no shared library of its own: {copied_libraries:?}"
+    );
 }
 
 // @spec DEPLOY-IMAGE-004

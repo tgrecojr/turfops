@@ -6,6 +6,7 @@ const AUDIT: &str = include_str!("../.cargo/audit.toml");
 const OSV: &str = include_str!("../osv-scanner.toml");
 const LOCK: &str = include_str!("../Cargo.lock");
 
+mod binary;
 mod ci;
 mod compose;
 mod image;

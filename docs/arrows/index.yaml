@@ -240,8 +240,8 @@ arrows:
     status: OK
     parent: null
     sampled: 2026-10-11
-    audited: 2026-10-12
-    audited_sha: 2bf061e
+    audited: 2026-10-29
+    audited_sha: d35c15d
     blocks: []
     blockedBy: []
     detail: deployment.md

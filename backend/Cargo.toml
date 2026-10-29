@@ -34,8 +34,13 @@ reqwest = { version = "0.13", default-features = false, features = ["json", "rus
 
 # Embedded analytics engine for reading the weather data lake (parquet on mounted FS).
 # `bundled` statically compiles libduckdb into the binary (no runtime lib needed);
-# `chrono` enables TIMESTAMP/DATE <-> chrono mapping.
-duckdb = { version = "1", features = ["bundled", "chrono"] }
+# `parquet` links DuckDB's parquet extension in too, so a lake read never installs or
+# downloads an extension (the distroless runtime has no home directory or egress for
+# that); `chrono` enables TIMESTAMP/DATE <-> chrono mapping.
+# Floor 1.20000.1 (DuckDB 2.0.0): 1.20000.0's bundled build cannot link the static
+# extension on Linux/GNU ld (duckdb-rs issue 920, fixed in 1.20000.1).
+# @spec DEPLOY-IMAGE-011
+duckdb = { version = "1.20000.1", features = ["bundled", "chrono", "parquet"] }
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }

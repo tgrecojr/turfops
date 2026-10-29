@@ -4,6 +4,16 @@
 # only to lockfiles in the same directory (backend/Cargo.lock), which is
 # exactly the scope we want.
 #
-# No active ignores. The previous RUSTSEC-2023-0071 (rsa Marvin Attack) ignore
-# was removed once `rsa` dropped out of Cargo.lock entirely — `sqlx-mysql` no
-# longer pulls it in, so there is nothing left to suppress.
+# An advisory may be ignored only while its crate is in Cargo.lock, with a comment line
+#   # <ID> (crate <name>): <why it does not apply>
+# directly above its entry. `deployment_tests::an_advisory_is_ignored_only_while_its_crate_is_locked`
+# enforces this. Mirror every entry in /backend/.cargo/audit.toml.
+
+# GHSA-qwgh-2vcv-g2f7 (crate block-buffer): a caught panic inside a hash update can leave
+# block-buffer 0.10's cursor out of bounds. It reaches us only through sqlx 0.9 -> sha2 0.10,
+# where sha2 hashes PostgreSQL SCRAM credentials and migration checksums and nothing catches
+# a panic mid-hash; the app has no such catch either. The fix is block-buffer 0.12.1 on the
+# sha2 0.11 line, which no sqlx release uses yet. Drop this once sqlx moves to sha2 0.11.
+[[IgnoredVulns]]
+id = "GHSA-qwgh-2vcv-g2f7"
+reason = "Only reachable by catching a panic mid-hash, which neither sqlx nor the app does; waiting on sqlx to adopt sha2 0.11"
