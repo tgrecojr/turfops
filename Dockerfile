@@ -10,7 +10,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # Stage 2: Build backend
-FROM rust:1.99-slim-trixie@sha256:1a939748a7cbab172de91a014e3804a97af1394a8c844faa67fce9401c4e40fb AS backend-build
+FROM rust:1.99-slim-trixie@sha256:b8e062b1c3a80183df83d9ba187cadd2b5ab84bc78d453dbfeb2fccd5f982247 AS backend-build
 WORKDIR /app
 
 # g++ is required to compile DuckDB's bundled C++ amalgamation (duckdb crate, `bundled`).
