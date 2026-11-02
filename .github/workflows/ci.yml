@@ -35,6 +35,14 @@ jobs:
         with:
           workspaces: backend
 
+      # rust-cache's save-time cleanup strips the files out of libduckdb-sys's
+      # shared source tree (target/duckdb-sources/<hash>/) but leaves the empty
+      # directories, so the next rebuild of libduckdb-sys fails its rename with
+      # "Directory not empty". Unpacking again takes seconds. Remove once
+      # https://github.com/duckdb/duckdb-rs/issues/935 is fixed upstream.
+      - name: Remove DuckDB sources emptied by rust-cache
+        run: rm -rf backend/target/duckdb-sources
+
       - name: Check formatting
         working-directory: backend
         run: cargo fmt --check
