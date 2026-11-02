@@ -142,7 +142,8 @@ describe("Calendar page", () => {
 		render(<Calendar />);
 		await screen.findByText("June 2026");
 		expect(fetchCalendar).toHaveBeenCalledWith(undefined, undefined);
-		expect(fetchPlan).toHaveBeenCalledWith(2026);
+		// The plan loads in a second effect that runs after the month renders.
+		await vi.waitFor(() => expect(fetchPlan).toHaveBeenCalledWith(2026));
 		expect(await screen.findAllByRole("img")).not.toHaveLength(0);
 	});
 
