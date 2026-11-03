@@ -20,9 +20,9 @@ Weather Sources — leaf segment `WX-SRC` under the `weather-data` sub-HLD.
 
 ### Related docs
 - [docs/agronomy-methods.md](../../../docs/agronomy-methods.md)
-- [docs/plans/open-meteo-forecast.md](../../../docs/plans/open-meteo-forecast.md)
-- [docs/plans/uscrn-soil-dropout-investigation.md](../../../docs/plans/uscrn-soil-dropout-investigation.md)
-- [docs/weather-data-api-spec.md](../../../docs/weather-data-api-spec.md)
+- [docs/plans/open-meteo-forecast.md](https://github.com/tgrecojr/greco-specs/blob/main/turfops/2026-10-11-open-meteo-forecast.md)
+- [docs/plans/uscrn-soil-dropout-investigation.md](https://github.com/tgrecojr/greco-specs/blob/main/turfops/2026-10-11-uscrn-soil-dropout-investigation.md)
+- [docs/weather-data-api-spec.md](https://github.com/tgrecojr/greco-specs/blob/main/misc/2026-10-11-weather-data-api.md)
 
 ### Tests
 - [backend/src/config/lake_config_tests.rs](../../../backend/src/config/lake_config_tests.rs)

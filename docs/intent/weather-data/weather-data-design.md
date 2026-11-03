@@ -95,9 +95,9 @@ Decisions specific to one child live in that child's Decisions table.
   and "today" decisions.
 - `docs/agronomy-methods.md`: data and staleness rules, thresholds (served over MCP).
 - `docs/timing-windows.md`: the 5 cm outlook built on this node's regression.
-- `docs/plans/open-meteo-forecast.md`, `docs/plans/uscrn-soil-dropout-investigation.md`
+- [greco-specs: open-meteo-forecast](https://github.com/tgrecojr/greco-specs/blob/main/turfops/2026-10-11-open-meteo-forecast.md), [greco-specs: uscrn-soil-dropout-investigation](https://github.com/tgrecojr/greco-specs/blob/main/turfops/2026-10-11-uscrn-soil-dropout-investigation.md)
   (both parked).
-- `docs/weather-data-api-spec.md`: draft HTTP API over the lake (not adopted).
+- [greco-specs: weather-data-api](https://github.com/tgrecojr/greco-specs/blob/main/misc/2026-10-11-weather-data-api.md): draft HTTP API over the lake (not adopted).
 - Sibling designs: `docs/intent/data-sync/`, `timing-windows/`, `disease-risk/`,
   `agronomic-rules/`, `seasonal-plan/`, `landscape-plants/`, `mcp-server/`, `web-ui/`.
 - NOAA USCRN hourly02 product, station PA Avondale 2 N (WBANNO 3761).

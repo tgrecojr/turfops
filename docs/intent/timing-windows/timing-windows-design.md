@@ -313,7 +313,7 @@ A failed fetch shows `describeError(e)` (Web UI's human-readable errors): with n
 ## Open Questions & Future Decisions
 
 ### Resolved
-1. ✅ The windows use measured station data, not a modeled grid. Open-Meteo stays out of the window dating; a forecast-only swap is parked (`docs/plans/open-meteo-forecast.md`).
+1. ✅ The windows use measured station data, not a modeled grid. Open-Meteo stays out of the window dating; a forecast-only swap is parked ([greco-specs: open-meteo-forecast](https://github.com/tgrecojr/greco-specs/blob/main/turfops/2026-10-11-open-meteo-forecast.md)).
 2. ✅ Seed vs. pre-emergent has no toggle or setting; the application log decides (owner decision).
 3. ✅ The seed-amount note is intended: seed per 1,000 sq ft is an agronomic amount. Any pre-emergent product rate in advice would be a divergence.
 
@@ -334,7 +334,7 @@ A failed fetch shows `describeError(e)` (Web UI's human-readable errors): with n
     - It says "warm-season and mixed lawns get the two pre-emergent windows only" (line 93). Mixed is cool-season and gets the seeding windows; the Mixed wording needs fixing.
     - Its log table lists PreEmergent Jul 1 – Dec 31 as blocking dormant seeding. The code extends that span to Feb 28 of the following year (`log.rs:25`).
 9. Fall fertilizer, herbicide and winterizer plan activities still time off 10 cm crossings in the seasonal-plan component. Whether they should hang off windows is undecided.
-11. **Promotion trigger.** This stays one leaf while the consumers (feed, plan, companions) are fixed mappings from window state and change together with the engine. Promote it to a sub-HLD when more consumers hang off the windows (item 10) or a second forecast source (`docs/plans/open-meteo-forecast.md`) is adopted. The split is `window-engine` (TIME-ENG + TIME-LOG) and `window-consumers` (TIME-FEED + TIME-PLAN), both under "one answer everywhere"; the UI stays with whichever owns the response it renders.
+11. **Promotion trigger.** This stays one leaf while the consumers (feed, plan, companions) are fixed mappings from window state and change together with the engine. Promote it to a sub-HLD when more consumers hang off the windows (item 10) or a second forecast source ([greco-specs: open-meteo-forecast](https://github.com/tgrecojr/greco-specs/blob/main/turfops/2026-10-11-open-meteo-forecast.md)) is adopted. The split is `window-engine` (TIME-ENG + TIME-LOG) and `window-consumers` (TIME-FEED + TIME-PLAN), both under "one answer everywhere"; the UI stays with whichever owns the response it renders.
 
 ## References
 

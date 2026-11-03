@@ -19,7 +19,7 @@ Seeding & Pre-Emergent Timing Windows — leaf segment `TIME` under the root HLD
 
 ### Related docs
 - [docs/agronomy-methods.md](../../docs/agronomy-methods.md)
-- [docs/plans/open-meteo-forecast.md](../../docs/plans/open-meteo-forecast.md)
+- [docs/plans/open-meteo-forecast.md](https://github.com/tgrecojr/greco-specs/blob/main/turfops/2026-10-11-open-meteo-forecast.md)
 - [docs/timing-windows.md](../../docs/timing-windows.md)
 
 ### Tests
