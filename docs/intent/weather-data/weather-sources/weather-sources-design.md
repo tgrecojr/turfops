@@ -209,17 +209,17 @@ is `SoilData`, labelled "NOAA USCRN", and the patio sensor's is "Patio Sensor".
 | Connection lifetime | A fresh in-memory DuckDB connection per query inside `spawn_blocking` | A pooled or shared connection | DuckDB connections are not `Sync`. Queries are local and cheap, so per-query setup costs little. [inferred] |
 | Which layer backs what | Silver for the live reading, 7-day summary, trend, `/historical` and disease inputs. Gold for the 10 cm regression, seasonal plan, GDD and freeze minima | All from silver, aggregated in-app | Gold already has daily °F means and `gdd50`, and silver keeps the hourly detail the live views need. Owner's lake-migration decision. |
 | GDD source | Sum gold `gdd50` in Rust. No `gdd_daily` cache | Recompute from max/min and cache it | Gold's `gdd50` was verified identical to the app's own base-50 formula. A cache would only duplicate it (owner decision). |
-| Live reading | Each sensor's newest non-null value within 24 h of the newest row | The newest row as-is | The station's probes drop (mostly daytime) hours. The newest row often has empty soil columns, which blanks the gauges and silences every soil rule each afternoon (owner, `docs/plans/uscrn-soil-dropout-investigation.md`; code comment in `weather/latest.rs`). |
+| Live reading | Each sensor's newest non-null value within 24 h of the newest row | The newest row as-is | The station's probes drop (mostly daytime) hours. The newest row often has empty soil columns, which blanks the gauges and silences every soil rule each afternoon (owner, [greco-specs: uscrn-soil-dropout-investigation](https://github.com/tgrecojr/greco-specs/blob/main/turfops/2026-10-11-uscrn-soil-dropout-investigation.md); code comment in `weather/latest.rs`). |
 | Sentinel handling | Drop temperatures ≤ −50 °C and negative moisture, RH and precipitation in the app as well | Trust the lake's cleaning | One surviving −9999 hour would move a 7-day mean by about 100 °F (comment in `weather.rs`). [inferred] |
 | Forecast day buckets | Lawn-local dates from the app's `Clock` (`TZ`), with `hours_covered` and `full_days()` for whole-day judgments | UTC dates; OWM's `city.timezone` offset; treat every bucket as a full day | UTC dates split an afternoon high from the next dawn low, and the feed starts and ends mid-day (`docs/agronomy-methods.md`). One clock for every date (parent decision): OWM's offset is a fixed number for the fetch, so it misplaces points across a daylight-saving change, and it is a second clock beside `TZ`. |
 | API key in errors | Strip the URL from every reqwest error (`without_url()`) inside the client | Rely on callers not to log or return the error; redact the text after formatting | The key must travel in the query string, so the client is the one place that can guarantee no caller leaks it. |
 | Full-day cut-off | ≥ 18 of 24 h (6 slots) | 24 h only; any coverage | Allows a one-slot shortfall while still excluding evening-only buckets. [inferred] |
-| Forecast provider | OpenWeatherMap 5-day / 3-hourly | Open-Meteo hourly, no key, 7–16 days | Parked by the owner: live with the current implementation and adopt only when a trigger in `docs/plans/open-meteo-forecast.md` is observed. |
+| Forecast provider | OpenWeatherMap 5-day / 3-hourly | Open-Meteo hourly, no key, 7–16 days | Parked by the owner: live with the current implementation and adopt only when a trigger in [greco-specs: open-meteo-forecast](https://github.com/tgrecojr/greco-specs/blob/main/turfops/2026-10-11-open-meteo-forecast.md) is observed. |
 | Current ambient source | Home Assistant patio sensor for "now". Station air for the 7-day means and history | Station air for everything | The patio sensor is at the yard and current. The station is about 15 mi away and a day behind. HA has no history, so history is the station's. [inferred] |
 | Lake read errors | 503 with the weather-lake sentence, detail logged | 500 with the generic server-error sentence | A missing or unmounted lake is an outage of a named source the owner can fix, not a server bug; the sentence says what is affected and where to look. |
 | Trend with no data | Unknown | Stable (the type's default) | Withhold rather than invent: with no rows there is no evidence the soil is steady. |
 | Forecast without usable coordinates | Not enabled, with a warning naming the setting, whether a coordinate is missing, unparseable or out of range | Default to 0,0 (the general "warn and use the default" rule) | A forecast for the wrong place is worse than none; every forecast consumer already degrades without one. |
-| Gold station filter | Gold is queried without a `wbanno` filter | Filter gold by station | The lake is single-station per deployment (`docs/weather-data-api-spec.md` §2.2). |
+| Gold station filter | Gold is queried without a `wbanno` filter | Filter gold by station | The lake is single-station per deployment ([greco-specs: weather-data-api](https://github.com/tgrecojr/greco-specs/blob/main/misc/2026-10-11-weather-data-api.md) §2.2). |
 
 ## Open Questions & Future Decisions
 
@@ -231,7 +231,7 @@ is `SoilData`, labelled "NOAA USCRN", and the patio sensor's is "Patio Sensor".
 ### Deferred
 
 1. **Open-Meteo forecast swap (parked).** Adopt only when a trigger in
-   `docs/plans/open-meteo-forecast.md` appears: a recurring "most recent complete day" banner on
+   [greco-specs: open-meteo-forecast](https://github.com/tgrecojr/greco-specs/blob/main/turfops/2026-10-11-open-meteo-forecast.md) appears: a recurring "most recent complete day" banner on
    Disease Risk, 3-hourly quantization visibly biting, a 5-day horizon too short for the Timing
    outlook, or OWM unreliability. Two decisions stay open: remove OWM or keep it as a fallback,
    and whether to use `past_days` to fill the same-day gap. If it lands, `hours_covered =
@@ -239,11 +239,11 @@ is `SoilData`, labelled "NOAA USCRN", and the patio sensor's is "Patio Sensor".
    must not be requested. A failure cool-down for the forecast is wanted independently of the
    swap; it belongs to data sync (its Deferred 3).
 2. **USCRN soil dropout (lake-side).** Investigation in
-   `docs/plans/uscrn-soil-dropout-investigation.md`. Preferred gap-fill order: USCRN 5-minute
+   [greco-specs: uscrn-soil-dropout-investigation](https://github.com/tgrecojr/greco-specs/blob/main/turfops/2026-10-11-uscrn-soil-dropout-investigation.md). Preferred gap-fill order: USCRN 5-minute
    `subhourly01` (measured 5 cm), then the app's air → soil regression, then Open-Meteo with a
    per-month bias correction. If gold gains per-sensor hour counts, the gold-backed contracts
    should gate on them instead of `hours_observed`.
-3. **Weather HTTP API draft** (`docs/weather-data-api-spec.md`): not adopted, because the HLD
+3. **Weather HTTP API draft** ([greco-specs: weather-data-api](https://github.com/tgrecojr/greco-specs/blob/main/misc/2026-10-11-weather-data-api.md)): not adopted, because the HLD
    chose in-place reads. Its operation #1 still describes the live reading as "newest row
    LIMIT 1", which is out of date.
 4. **Per-sensor values older than the stamp.** `fetch_latest` stamps the reading with
@@ -265,8 +265,8 @@ is `SoilData`, labelled "NOAA USCRN", and the patio sensor's is "Patio Sensor".
 
 - Parent: `docs/intent/weather-data/weather-data-design.md` (shared intent, consumer boundaries).
 - `docs/agronomy-methods.md`: data and staleness rules.
-- `docs/plans/open-meteo-forecast.md`, `docs/plans/uscrn-soil-dropout-investigation.md`.
-- `docs/weather-data-api-spec.md`: lake schema notes and the unadopted HTTP API draft.
+- [greco-specs: open-meteo-forecast](https://github.com/tgrecojr/greco-specs/blob/main/turfops/2026-10-11-open-meteo-forecast.md), [greco-specs: uscrn-soil-dropout-investigation](https://github.com/tgrecojr/greco-specs/blob/main/turfops/2026-10-11-uscrn-soil-dropout-investigation.md).
+- [greco-specs: weather-data-api](https://github.com/tgrecojr/greco-specs/blob/main/misc/2026-10-11-weather-data-api.md): lake schema notes and the unadopted HTTP API draft.
 - `docs/intent/data-sync/`: refresh timing, merging, failure policy.
 - Code: `backend/src/datasources/{weather.rs, weather/latest.rs, weather/disease.rs,
   weather/climatology.rs, homeassistant.rs, openweathermap.rs, openweathermap/tests.rs}`,
