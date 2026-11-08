@@ -40,7 +40,7 @@ RUN cargo build --release
 # glibc-dynamic ships glibc, libstdc++.so.6 and libgcc_s.so.1, which the binary loads
 # (the bundled DuckDB C++ build links the C++ runtime dynamically); nothing else is copied.
 # @spec DEPLOY-TZ-002 (the image sets no TZ; the deployment supplies the lawn's zone)
-FROM cgr.dev/chainguard/glibc-dynamic:latest@sha256:671a621016fb33812136dea6182b1db957996d3c8c618187aaf86abd9b14af53
+FROM cgr.dev/chainguard/glibc-dynamic:latest@sha256:aab5cd0b4cc5edd9c87b6e7aa9ddaa3fb6ffcec559b9e5473c55bbc937b65399
 
 WORKDIR /app
 
