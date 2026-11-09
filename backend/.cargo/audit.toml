@@ -12,4 +12,11 @@
 # block-buffer 0.10's cursor out of bounds; reached only through sqlx 0.9 -> sha2 0.10, and
 # nothing catches a panic mid-hash. Fixed in block-buffer 0.12.1 (sha2 0.11), which no sqlx
 # release uses yet. RustSec carries no entry for it today; this mirrors osv-scanner.toml.
-ignore = ["GHSA-qwgh-2vcv-g2f7"]
+#
+# RUSTSEC-2026-0459 (crate libsqlite3-sys): the bundled SQLite before 3.54.0 can return
+# uninitialized page-cache memory from a database opened with a crafted sibling `-wal` file.
+# Reaches Cargo.lock only through sqlx 0.9's optional `sqlx-sqlite` driver, which this build
+# never enables (`cargo tree -e all -i libsqlite3-sys` prints nothing): no SQLite is compiled
+# in and the app opens no SQLite files (PostgreSQL only). sqlx-sqlite 0.9.0 pins
+# libsqlite3-sys < 0.38 and no later sqlx release exists. Drop this once sqlx accepts 0.39+.
+ignore = ["GHSA-qwgh-2vcv-g2f7", "RUSTSEC-2026-0459"]
