@@ -50,12 +50,15 @@ describe("RiskMeter", () => {
 		expect((marker as HTMLElement).style.left).toBe("50%");
 		const ticks = Array.from(
 			container.querySelectorAll('[role="img"] > div:nth-child(3) > span'),
-		).map((t) => [t.textContent, (t as HTMLElement).style.left]);
-		expect(ticks).toEqual([
-			["0", `${(5 / 15) * 100}%`],
-			["5", `${(10 / 15) * 100}%`],
-			["6", `${(11 / 15) * 100}%`],
-		]);
+		);
+		expect(ticks.map((t) => t.textContent)).toEqual(["0", "5", "6"]);
+		// Compare the offsets as numbers: the DOM may round a percentage's digits.
+		const offsets = ticks.map((t) =>
+			Number.parseFloat((t as HTMLElement).style.left),
+		);
+		[5 / 15, 10 / 15, 11 / 15].forEach((fraction, i) => {
+			expect(offsets[i]).toBeCloseTo(fraction * 100, 3);
+		});
 	});
 
 	it("clamps an out-of-range score to the ends and hides ticks when compact", () => {
