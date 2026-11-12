@@ -664,6 +664,10 @@ TurfOps tracks fungicide application history and provides rotation-aware recomme
 | Brown patch E-index | ≥5 | Brown patch warning (High) |
 | Dollar spot probability | ≥20% | Smith-Kerns action threshold (High) |
 
+## Contributing
+
+Issues and pull requests are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) first.
+
 ## License
 
-Private project.
+Released under the [MIT License](LICENSE).
