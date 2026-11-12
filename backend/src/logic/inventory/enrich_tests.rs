@@ -107,10 +107,13 @@ fn a_products_label_rate_never_reaches_advice_or_the_shopping_list() {
         ProductCategory::Fungicide,
         StockStatus::Low,
     );
-    fungicide.facts.label_rate_per_1000sqft = Some(7.77);
+    // The sentinel rates are searched for in serialized output that also carries
+    // RFC 3339 timestamps. Two digits before the point that exceed 60 cannot be a
+    // seconds field, so a timestamp can never contain them.
+    fungicide.facts.label_rate_per_1000sqft = Some(77.25);
     fungicide.facts.label_rate_unit = Some(RateUnit::FlOz);
     let mut seed = product(2, "TTTF blend", ProductCategory::Seed, StockStatus::Out);
-    seed.facts.label_rate_per_1000sqft = Some(6.66);
+    seed.facts.label_rate_per_1000sqft = Some(88.75);
     seed.facts.label_rate_unit = Some(RateUnit::Lb);
     let shelf = [fungicide.clone(), seed];
     let mut recs = vec![
@@ -139,7 +142,7 @@ fn a_products_label_rate_never_reaches_advice_or_the_shopping_list() {
         serde_json::to_string(&disease_view).unwrap(),
     );
     assert!(!list.items.is_empty() && recs[0].inventory.is_some());
-    for rate in ["7.77", "6.66", "label_rate", "fl oz", "FlOz"] {
+    for rate in ["77.25", "88.75", "label_rate", "fl oz", "FlOz"] {
         assert!(!text.contains(rate), "{rate} leaked: {text}");
     }
 }
