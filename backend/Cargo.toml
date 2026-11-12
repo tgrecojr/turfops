@@ -2,6 +2,7 @@
 name = "turfops-backend"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
 description = "TurfOps lawn care management web application"
 authors = ["tgrecojr"]
 
