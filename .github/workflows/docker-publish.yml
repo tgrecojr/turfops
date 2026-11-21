@@ -15,7 +15,12 @@ jobs:
     name: Supply chain
     permissions:
       contents: read
-    uses: ./.github/workflows/supply-chain.yml
+    uses: chainringlabs/ci/.github/workflows/supply-chain.yml@f8888baa2af7a041fe6a5a11f8fe0be182357cc3 # v1.2.1
+    with:
+      npm-dir: frontend
+      cargo-dir: backend
+      socket-dir: frontend
+      node-version: "26"
     secrets: inherit
 
   # The organization's shared publish workflow: builds on pull requests

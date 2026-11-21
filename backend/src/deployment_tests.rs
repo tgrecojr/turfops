@@ -7,7 +7,6 @@ const OSV: &str = include_str!("../osv-scanner.toml");
 const LOCK: &str = include_str!("../Cargo.lock");
 
 mod binary;
-mod ci;
 mod compose;
 mod image;
 #[cfg(unix)]
